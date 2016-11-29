@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "深度学习环境配置: Ubuntu16.04 & CUDA8.0"
-date:       2016-10-01
+date:       2016-11-28
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true

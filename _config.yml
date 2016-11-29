@@ -17,7 +17,7 @@ github_username:    phantomvk
 #weibo_username:     
 #twitter_username:   
 #facebook_username:  
-#linkedin_username:  firstname-lastname-idxxxx
+#linkedin_username: firstname-lastname-idxxxx
 
 
 
@@ -46,7 +46,6 @@ kramdown:
   input: GFM                            # use Github Flavored Markdown !important
 
 
-
 # Disqus settings
 #disqus_username: _your_disqus_short_name_
 
@@ -54,8 +53,6 @@ kramdown:
 duoshuo_username: pha
 # Share component is depend on Comment so we can NOT use share only.
 duoshuo_share: true                     # set to false if you want to use Comment without Sharing
-
-
 
 
 # Analytics settings
@@ -67,11 +64,10 @@ duoshuo_share: true                     # set to false if you want to use Commen
 #ga_domain: huangxuan.me
 
 
-
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
 sidebar-about-description: "世界再无聊，总有可探索的境地"
-sidebar-avatar: /img/avatar.jpg      # use absolute URL, seeing it's used in both `/` and `/about/`
+sidebar-avatar: /img/avatar.jpg         # use absolute URL, seeing it's used in both `/` and `/about/`
 sidebar-wechat-pay: /img/wechat.jpg
 sidebar-alipay-pay: /img/alipay.jpg
 
@@ -87,11 +83,9 @@ featured-tags: true                     # whether or not using Feature-Tags
 featured-condition-size: 1              # A tag will be featured if the size of it is more than this condition value
 
 
-
 # Progressive Web Apps
 chrome-tab-theme-color: "#000000"
 service-worker: true
-
 
 
 # Friends
