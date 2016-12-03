@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android Looper源码剖析"
-date:       2016-11-30
+date:       2016-12-03
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
