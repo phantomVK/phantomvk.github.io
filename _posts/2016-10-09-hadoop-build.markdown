@@ -10,26 +10,22 @@ tags:
     - Java
 ---
 
-## 注意
+## 系统环境
 
-__运行环境：`Ubuntu 16.04 LTS AMD64(64Bit)` 、`Oracle JDK8`、`Hadoop-1.2.1`、`SSH`__
+__运行环境：`Ubuntu 16.04 LTS x86_64` 、`Oracle JDK8`、`Hadoop-1.2.1`、`openSSH`__
 
 
-## 一、JAVA安装及配置
+## 一、JDK安装及配置
 
-#### 1.1 安装Java
+#### 安装JDK
 
-如果已经安装自行跳过本节。安装JDK的时候可能会报错误，解决方法参考最后一章
-
-本站 __[Ubuntu安装Oracle JDK8教程](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
+本站传送门 __[Ubuntu安装Oracle JDK8教程 -- phantomVK](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
 
 ## 二、 Hadoop安装及配置
 
 ### 2.1 下载Hadoop 1.2.1
 
-先用`wget`下载Hadoop包，并把安装包解压到`/opt`。
-
-下面用了清华大学镜像源：https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common
+用的是[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)，`wget`下载Hadoop包，解压到`/opt`。
 
 ```bash
 $ cd /opt
@@ -40,22 +36,22 @@ $ tar -zxvf hadoop-1.2.1.tar.gz
 
 ### 2.2 配置Hadoop参数
 
-#### 2.2.0配置文件所在路径
+#### 2.2.1 配置文件路径
 
 ```bash
 $ cd /opt/hadoop-1.2.1/conf
 ```
 
-#### 2.2.1配置hadoop-env.sh
+#### 2.2.2 配置hadoop-env.sh
 
-在Hadoop中添加`JDK`路径配置信息，用你自己`JDK`的路径。
+在Hadoop中添加`JDK`保存路径配置信息，用你自己`JDK`的路径。
 
 ```bash
 $ vim hadoop-env.sh  
  export JAVA_HOME=/usr/lib/jvm/java-9-openjdk-amd64 
 ```
 
-#### 2.2.2 配置core-site.xml
+#### 2.2.3 配置core-site.xml
 
 ```bash
 $ vim core-site.xml
@@ -80,7 +76,7 @@ $ vim core-site.xml
 </configuration>
 ```
 
-#### 2.2.3 配置hdfs-site.xml
+#### 2.2.4 配置hdfs-site.xml
 
 ```bash
 $ vim hdfs-site.xml
@@ -97,7 +93,7 @@ $ vim hdfs-site.xml
 </configuration>
 ```
 
-#### 2.2.4 配置mapred-site.xml
+#### 2.2.5 配置mapred-site.xml
 
 ```bash
 $ vim mapred-site.xml
@@ -114,7 +110,7 @@ $ vim mapred-site.xml
 </configuration>
 ```
 
-#### 2.2.5 配置/etc/profile
+#### 2.2.6 配置/etc/profile
 
 ```bash
 $ vim /etc/profile
@@ -125,7 +121,7 @@ $ source /etc/profile
 
 ### 2.3 初始化namenode
 
-运行命令后会自动开始格式化，看见NameNode被自动关闭就成功了。
+运行命令后会自动开始格式化，看见NameNode被自动关闭就成功了
 
 ```bash
 $ hadoop namenode -format 
@@ -161,9 +157,9 @@ SHUTDOWN_MSG: Shutting down NameNode at mike-virtual-machine/127.0.1.1
 
 ## 三、 启动Hadoop服务
 
-#### 3.1 启动并检查
+#### 3.1 启动
 
-进入Hadoop目录下，使用脚本启动Hadoop
+进入Hadoop目录下，脚本启动Hadoop
 
 ```bash
 $ cd /opt/hadoop-1.2.1/bin
@@ -200,11 +196,10 @@ $ jps
 
 #### 4.1 解决/etc/profile失效
 
-在`.bashrc`添加环境变量
+在`~/.bashrc`添加环境变量
 
 ```bash
 $ cd ~
-$ ls -la
 $ vim .bashrc
   export HADOOP_HOME_WARN_SUPPRESS=1
   export HADOOP_HOME=/opt/hadoop-1.2.1
@@ -236,7 +231,9 @@ $ ls -la conf
 
 #### 4.3 HADOOP_HOME报deprecated
 
-`Warning: $HADOOP_HOME is deprecated` 
+```bash
+Warning: $HADOOP_HOME is deprecated
+``` 
 
 在`~/.bash_profile`里增加一个环境变量抑制错误提示:
 
@@ -246,9 +243,11 @@ export HADOOP_HOME_WARN_SUPPRESS=1
 
 #### 4.4 SSH无法连接
 
-主要是没有安装`SSH`服务
+没有安装`SSH`服务导致的：
 
-`localhost: ssh: connect to host localhost port 22: Connection refused`
+```
+localhost: ssh: connect to host localhost port 22: Connection refused
+```
 
 下载`openssh-server`
 
@@ -268,29 +267,32 @@ $ cd /etc/ssh/ssh_config
 
 配置`ssh - sshd_config`
 
-```
+```bash
 $ cd /etc/ssh/sshd_config
     PermitRootLogin prohibit-password        # 改为 yes
     PasswordAuthentication prohibit-password # 取消注释
 ```
 
-重启系统后开启`ssh`服务
+重启系统，开启`ssh`服务
 
-```
-$ reboot        # 重启系统
+```bash
 $ service sshd restart
 $ ssh localhost # 检查ssh服务
 ```
 
 #### 4.5 安装dpkg报错
 
-多个窗口同时使用`apt-get`也会出现这个错误，要排除一下。如果Ubuntu安装`dpkg`出现问题:
+多个窗口同时使用`apt-get`会出现这个错误，这种情况不用处理。
 
 ```bash
 .....
 .....
 E:Sub-process /usr/bin/dpkg returned an error code(1)
+```
 
+如果安装`dpkg`出现问题是其他原因，可以尝试:
+
+```bash
 $ cd /var/lib/dpkg
 $ mv info infobak
 $ mkdir info

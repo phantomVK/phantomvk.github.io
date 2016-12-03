@@ -13,19 +13,18 @@ tags:
 
 # 介绍
 
-ButterKnife是为Android View而设的绑定注解，把我们从findViewById()和setOnclicktListener()中全面解放。
+ButterKnife是为Android View而设的绑定注解，把我们从`findViewById()`和`setOnclicktListener()`中全面解放。
 
 但是使用ButterKnife的有一些东西需要注意：
 
-* 属性布局不能用private或static修饰，否则会报错
-* 不能通过注解实现setContentView()
-* 调用ButterKnife.bind(this)之前必须先调用setContentView(R.layout.id)
-* 父类已经调用ButterKnife.bind(this)，则子类无需再次调用。
+* 属性布局不能用`private`或`static`修饰，否则会报错
+* 不能通过注解实现`setContentView()`
+* 调用`ButterKnife.bind(this)`之前必须先调用`setContentView(R.layout.id)`
+* 父类已经调用`ButterKnife.bind(this)`，则子类无需再次调用。
 
 ____
 
 作者Github: [https://github.com/JakeWharton/butterknife](https://github.com/JakeWharton/butterknife)
-
 作者博客: [http://jakewharton.github.io/butterknife/](http://jakewharton.github.io/butterknife/)
 
 # 一、导入
@@ -72,13 +71,9 @@ dependencies {
 
 # 2.使用
 
-因为每次都要在Activity中的onCreate通过setContentView绑定Activity，所以写一个BaseActivity来完成绑定，子类继承并实现抽象方法。
+因为每次都要在Activity中的`onCreate`通过`setContentView()`绑定`Activity`，所以写一个`BaseActivity`来完成绑定，子类继承并实现抽象方法。
 
 ```java
-import android.app.Activity;
-import android.os.Bundle;
-import butterknife.ButterKnife;
-
 public abstract class BaseActivity extends Activity {
 
     @Override
@@ -98,12 +93,6 @@ public abstract class BaseActivity extends Activity {
 MainActivity继承BaseActivity，实现两个抽象方法。
 
 ```java
-import android.os.Bundle;
-import android.widget.Button;
-
-import butterknife.BindView;
-import butterknife.OnClick;
-
 public class MainActivity extends BaseActivity {
 
     @BindView(R.id.button_click) Button button_click;
@@ -112,17 +101,13 @@ public class MainActivity extends BaseActivity {
     public int getContentViewId() {
         return R.layout.activity_main;
     }
-
-    /*
-     * 以前初始化的工作在onCreate()中完成，现在放在afterCreate().
-     */
+    // 以前初始化的工作在onCreate()中完成，现在放在afterCreate().
     @Override
     protected void afterCreate(Bundle bundle) {}
-   
 }
 ```
 
-在对应的xml布局中加入一个按钮，按钮资源名为R.id.button_click，运行然后点击按钮就可以看见按钮字的变化。
+在对应的xml布局中加入一个按钮，按钮资源名为`R.id.button_click`，运行然后点击按钮就可以看见按钮字的变化。
 
 # 三、更多用法
 
@@ -153,7 +138,7 @@ public void setTextView(){
 }
 ```
 
-多个控件绑定到同一个方法，注意多了一个花括号
+多个控件绑定到同一个方法，注意多了个花括号
 
 ```java
 @OnClick({R.id.button_click, R.id.text_1})
@@ -162,7 +147,7 @@ public void setTextView(){
 }
 ```
 
-相当于给EditText加addTextChangedListener，实现了文本改变监听器。
+相当于给`EditTex`t加`addTextChangedListener()`，实现了文本改变监听器。
 
 ```java
 @OnTextChanged(value = R.id.editText,callback = OnTextChanged.Callback.BEFORE_TEXT_CHANGED)

@@ -15,7 +15,7 @@ tags:
 # 前言
 最近在看View的事件分发阅读源码做了些笔记。文章内容都是作者自己的理解，或有错漏之处，请见谅。
 
-如果子View是一个ViewGroup，那么事件会调用ViewGroup的dispatchTouchEvent分发。如果子View只是一个普通View，那View的dispatchTouchEvent负责分发。
+如果子`View`是一个`ViewGroup`，该事件会调用`ViewGroup`的`dispatchTouchEvent()`分发。普通`View`由自己的`dispatchTouchEvent()`负责分发。
 
 内容主要以注释的形式插入在代码中，请仔细阅读文章中给出的源码。
 
@@ -23,15 +23,9 @@ tags:
 
 # 1.1 自定义Button
 
-为了能看见事件调用什么方法，我们继承Button类重载了dispatchTouchEvent和onTouchEvent。而所有发送给View的事件，首先是由dispatchTouchEvent接收。
+为了能看见事件调用什么方法，我们继承`Button`类重载了`dispatchTouchEvent()`和`onTouchEvent()`。而所有发送给View的事件，首先是由`dispatchTouchEvent()`接收。
 
 ```java
-import android.content.Context;
-import android.util.AttributeSet;
-import android.util.Log;
-import android.view.MotionEvent;
-import android.widget.Button;
-
 public class MyButton extends Button {
 
     private static final String TAG = "MyButton";
@@ -81,41 +75,29 @@ public class MyButton extends Button {
 ```
 
 # 1.2 xml布局
-在main_activity.xml中使用自定义的Button
+在`main_activity.xml`中使用自定义的`Button`
 
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
 <RelativeLayout 
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/backgroundGray"
-    android:padding="4dp"
-    tools:context=".MainActivity">
+    android:background="@color/backgroundGray">
 
     <com.corevk.demoproject.MyButton
         android:id="@+id/MyButton"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="button"/>
+        android:layout_height="wrap_content"/>
         
 </RelativeLayout>
 ```
 
 # 1.3 MainActivity
 
-绑定按钮，并且给按钮设置一个监听器OnTouchListener。后面我们会说明这个监听器的用途。
+绑定按钮，并且给按钮设置一个监听器`OnTouchListener`。后面我们会说明这个监听器的用途。
 
 ```java
-import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
-import android.util.Log;
-import android.view.MotionEvent;
-import android.view.View;
-import android.view.Window;
-import android.widget.Button;
-
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
@@ -124,7 +106,6 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_main);
 
         mButton = (Button) findViewById(R.id.MyButton);
@@ -154,18 +135,17 @@ public class MainActivity extends AppCompatActivity {
 
 # 1.4 梳理
 
-通过上面的源码，我们一共设置了三个东西，一个dispatchTouchEvent，一个onTouchEvent和一个OnTouchListener监听器。
+通过上面的源码，我们一共设置了三个东西，一个`dispatchTouchEvent()`，一个`onTouchEvent()`和一个`OnTouchListener()`。
 
-这三个被重写的方法都对ACTION_DOWN、ACTION_MOVE、ACTION_UP的动作显示信息。
+这三个被重写的方法都对`ACTION_DOWN`、`ACTION_MOVE`、`ACTION_UP`的动作显示信息。
 
 # 二、运行结果
 
-# 2.1 OnTouchListener false;
-在View.OnTouchListener的返回值中返回false，点击按钮马上放开。
+# 2.1 OnTouchListener false
 
-另外，如果手指不离开在屏幕上滑动，Log的ACTION_DOWN和ACTION_UP之间会报告很多ACTION_MOVE的信息。
+如果手指不离开在屏幕上滑动，Log的`ACTION_DOWN`和`ACTION_UP`之间会报告很多`ACTION_MOVE`的信息。
 
-结果按照`dispatchTouchEvent` -> `onTouch` -> `onTouchEvent`出现
+`View.OnTouchListener`中返回`false`，点击按钮马上放开。结果按照`dispatchTouchEvent` -> `onTouch` -> `onTouchEvent`出现
 
 ```
 10-13 23:53:29.382 17840-17840/? E/MyButton: dispatchTouchEvent ACTION_DOWN
@@ -177,8 +157,8 @@ public class MainActivity extends AppCompatActivity {
 10-13 23:53:29.414 17840-17840/? E/MyButton: onTouchEvent ACTION_UP
 ```
 
-# 2.2 OnTouchListener true;
-在View.OnTouchListener的返回值中返回true，点击按钮马上放开就只有`dispatchTouchEvent` -> `onTouch`
+# 2.2 OnTouchListener true
+在`View.OnTouchListener`的返回值中返回`true`，点击按钮马上放开就只有`dispatchTouchEvent（）` -> `onTouch`
 
 ```
 10-13 23:55:32.523 18106-18106/? E/MyButton: dispatchTouchEvent ACTION_DOWN
@@ -188,14 +168,14 @@ public class MainActivity extends AppCompatActivity {
 10-13 23:55:32.554 18106-18106/? E/MainActivity: onTouch ACTION_UP
 ```
 
-当View.OnTouchListener的返回值中返回true，onTouchEvent不会触发，说明事件没有分发到onTouchEvent。
+当`View.OnTouchListener`的返回值中返回`true`，`onTouchEvent()`不会触发，说明事件没有分发到`onTouchEvent()`。
 
 
 # 三、源码分析
 
 # 3.1 dispatchTouchEvent
 
-先来看看dispatchTouchEvent的源码
+先来看看`dispatchTouchEvent()`的源码
 
 ```java
 public boolean dispatchTouchEvent(MotionEvent event) {
@@ -205,7 +185,6 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         }
         event.setTargetAccessibilityFocus(false);
     }
-    
     // 默认为false
     boolean result = false;
 
@@ -215,15 +194,13 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 
     final int actionMasked = event.getActionMasked();
     if (actionMasked == MotionEvent.ACTION_DOWN) {
-        stopNestedScroll();
+        stopNestedScroll(); // 把正在滚动的页面停下来
     }
-
     // 用安全机制来过滤触摸事件：true为继续分发，false终止分发
     // 具体实现是去判断是否被其它窗口遮挡住了，如果遮挡住就要过滤该事件
     if (onFilterTouchEventForSecurity(event)) {
         // 这里获取mListenerInfo
         ListenerInfo li = mListenerInfo;
-        
         // 以下所有条件成立执行这个语句块并返回True:
         //   1. 若ListenerInfo存在，即mListenerInfo不为空
         //   2. mOnTouchListener不为空，这说明设置了OnTouchListener监听器
@@ -232,12 +209,10 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         if (li != null 
         		&& li.mOnTouchListener != null
         		&& (mViewFlags & ENABLED_MASK) == ENABLED
-        		&& li.mOnTouchListener.onTouch(this, event)){
-        		// 已经消费事件返回True 
-            result = true;
+        		&& li.mOnTouchListener.onTouch(this, event)){ 
+            result = true; // 已经消费事件返回True
         }
-        
-        // 如果OnTouchListener返回true，事件就会被OnTouchListener消费终止分发
+        // 若OnTouchListener返回true，事件会被OnTouchListener消费
         // 否则交给onTouchEven处理，然后返回True
         if (!result && onTouchEvent(event)) {
             result = true;
@@ -247,9 +222,7 @@ public boolean dispatchTouchEvent(MotionEvent event) {
     if (!result && mInputEventConsistencyVerifier != null) {
         mInputEventConsistencyVerifier.onUnhandledEvent(event, 0);
     }
-    
-    // 在嵌入滚动后，如果是动作的结束，就清除
-    // 同样，可以取消一个ACTION_DOWN中剩余不要的动作
+
     if (actionMasked == MotionEvent.ACTION_UP ||
             actionMasked == MotionEvent.ACTION_CANCEL ||
             (actionMasked == MotionEvent.ACTION_DOWN && !result)) {
@@ -301,28 +274,23 @@ ListenerInfo getListenerInfo() {
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
-
     // 获取动作时间中点击屏幕的位置
     final float x = event.getX();
     final float y = event.getY();
     final int viewFlags = mViewFlags;
-   
     // 获取操作
     final int action = event.getAction();
-
     // View是Disable就执行这个代码块
     if ((viewFlags & ENABLED_MASK) == DISABLED) {
         if (action == MotionEvent.ACTION_UP
         && (mPrivateFlags & PFLAG_PRESSED) != 0) {
             setPressed(false);
-        }
-        
+        } 
         // 无效但可以点击或长按的View是可以消费点击事件的，只是没有响应
        	return (((viewFlags & CLICKABLE) == CLICKABLE
                 || (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE)
                 || (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE);
     }
-    
     // 有mTouchDelegate就会把事件交给代理处理，返回true
     if (mTouchDelegate != null) {
         if (mTouchDelegate.onTouchEvent(event)) {
@@ -333,8 +301,7 @@ public boolean onTouchEvent(MotionEvent event) {
     // 如果view是可点击的，就处理不同的点击操作，完成后返回true。
     if (((viewFlags & CLICKABLE) == CLICKABLE ||
             (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE) ||
-            (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE) {
-            
+            (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE) {  
         // 分支的代码分析在后面，对不同操作代码做了分割剖析
         switch (action) {
             case MotionEvent.ACTION_UP:
@@ -348,15 +315,10 @@ public boolean onTouchEvent(MotionEvent event) {
                     }
 
                     if (prepressed) {
-                        // The button is being released before we actually
-                        // showed it as pressed.  Make it show the pressed
-                        // state now (before scheduling the click) to ensure
-                        // the user sees it.
                         setPressed(true, x, y);
-                   }
+                    }
 
                     if (!mHasPerformedLongPress && !mIgnoreNextUpEvent) {
-                        // This is a tap, so remove the longpress check
                         removeLongPressCallback();
 
                         // Only perform take click actions if we were in the pressed state
@@ -505,7 +467,7 @@ if (isInScrollingContainer) {
     // 增加PREPRESSED标志
     mPrivateFlags |= PFLAG_PREPRESSED;
 
-    // 创建CheckForTap()实例mPendingCheckForTap
+    // 创建CheckForTap()实例 mPendingCheckForTap
     if (mPendingCheckForTap == null) {
         mPendingCheckForTap = new CheckForTap();
     }
