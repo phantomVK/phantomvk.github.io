@@ -9,16 +9,19 @@ tags:
     - Android
 ---
 
-ToolBar上添加Menu，除了搜索图标，其他都收起来。修改完ToolBar背景色才发现MenuItem里面的背景色没有改变，还是原来白色。
+ToolBar上添加Menu，除了搜索图标外其他都收起来。修改ToolBar背景色为深灰色，然后才发现MenuItem里面的背景色还是原来白色。
 
-![img](/img/android/menuitem/toolbar.jpg)
+修改颜色后，ToolBar为深灰，有搜索和菜单图标
+
+![img](/img/android/menuitem/toolbar.png)
 
 打开菜单后
 
-![img](/img/android/menuitem/overflow.jpg)
+![img](/img/android/menuitem/overflow.png)
 
+____
 
-原来`res/values/styles/xml`的配置
+原来`res/values/styles.xml`的配置
 
 ```xml
 <resources>
@@ -51,13 +54,15 @@ ToolBar上添加Menu，除了搜索图标，其他都收起来。修改完ToolBa
 </resources>
 ```
 
-这样MenuItem的背景颜色就能修改了
+这样MenuItem的背景颜色就修改了
 
-![img](/img/android/menuitem/bg_overflow.jpg)
+![img](/img/android/menuitem/bg_overflow.png)
 
-但这看起来明显不对：
+____
 
-* 菜单不能ToolBar的图标遮住
+但这看起来明显不对劲：
+
+* 菜单把ToolBar的两个图标遮住
 * 背景色改变后和文字颜色不协调
 
 ____
@@ -83,9 +88,13 @@ ____
 </resources>
 ```
 
-![img](/img/android/menuitem/bg_text_overflow.jpg)
+![img](/img/android/menuitem/bg_text_overflow.png)
 
-剩下遮蔽图标的问题比较好解决，把`<style name="optionMenu" parent="Widget.AppCompat.ActionBar.Overflow">`的`.Overflow`去掉
+
+____
+
+遮蔽图标的问题比较好解决，
+把`parent="Widget.AppCompat.ActionBar.Overflow">`的`.Overflow`去掉就可以
 
 ![img](/img/android/menuitem/bg_text_good.png)
 
