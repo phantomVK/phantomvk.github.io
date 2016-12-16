@@ -185,17 +185,17 @@ void afterTextChanged(Editable s) {}
 使用Zelezny能自动生成ButterKnife Injections。
 
 AndroidStudio->File->Settings->Plugins->搜索Zelezny下载添加
-![img](/img/android/Zelezny.png)
+![img](/img/android/Zelezny/Zelezny.png)
 
 鼠标先要选中布局文件，如图中选中`R.layout.activity_main`，然后点击右键，选中`Generate`
-![img](/img/android/zelezny_1.jpg)
+![img](/img/android/Zelezny/zelezny_1.jpg)
 
 点击`Generate Butterknife Injections`
-![img](/img/android/zelezny_2.jpg)
+![img](/img/android/Zelezny/zelezny_2.jpg)
 
 默认选中所有课识别的空间，如果需要`OnClick`就手动勾选。如果控件已经被绑定，该选项会变为灰色
-![img](/img/android/zelezny_3.jpg)
+![img](/img/android/Zelezny/zelezny_3.jpg)
 
 代码自动生成后
-![img](/img/android/zelezny_4.jpg)
+![img](/img/android/Zelezny/zelezny_4.jpg)
 

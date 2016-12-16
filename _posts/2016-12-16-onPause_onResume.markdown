@@ -181,6 +181,10 @@ __AndroidManifest.xml__
 
 上面的代码已经成功重现`MainActivity`里`onPause` -> `onResume`。
 
+运行截图如下
+
+![img](/img/android/onPause_onResume.png)
+
 提醒一点，直接使用Dialog组件，MainActivity生命周期是不会变化的，这样应用更加高效且性能更好。这篇文章只是用来重现题目所说的目标，不是用于实践。
 
 
