@@ -24,8 +24,9 @@ ButterKnife是为Android View而设的绑定注解，把我们从`findViewById()
 
 ____
 
-作者Github: [https://github.com/JakeWharton/butterknife](https://github.com/JakeWharton/butterknife)
-作者博客: [http://jakewharton.github.io/butterknife/](http://jakewharton.github.io/butterknife/)
+ButterKnife Github: [https://github.com/JakeWharton/butterknife](https://github.com/JakeWharton/butterknife)
+
+ButterKnife 博客: [http://jakewharton.github.io/butterknife/](http://jakewharton.github.io/butterknife/)
 
 # 一、导入
 
@@ -48,7 +49,6 @@ dependencies {
         exclude group: 'com.android.support', module: 'support-annotations'
     })
     compile 'com.android.support:appcompat-v7:23.4.0'
-    testCompile 'junit:junit:4.12'
 
     compile 'com.jakewharton:butterknife:8.4.0'
     annotationProcessor 'com.jakewharton:butterknife-compiler:8.4.0'

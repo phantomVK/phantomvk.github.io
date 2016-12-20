@@ -36,7 +36,6 @@ public class MainActivity extends AppCompatActivity {
                 startActivity(i);
             }
         });
-        
         System.out.println("onCreate");
     }
     // 实现所有生命周期方法Log
@@ -164,15 +163,18 @@ __AndroidManifest.xml__
 
 下面是结果
 
-```
+```java
 // MainActivity到可见可操作的三个周期变化
 12-16 23:59:35.806 7477-7477/com.phantomvk.exampleapp I/System.out: onCreate
 12-16 23:59:35.811 7477-7477/com.phantomvk.exampleapp I/System.out: onStart
 12-16 23:59:35.811 7477-7477/com.phantomvk.exampleapp I/System.out: onResume
+
 // 点击Button后，MainActivity仅仅是暂停(onPause)，没有去停止(onStop)
 12-16 23:59:50.731 7477-7477/com.phantomvk.exampleapp I/System.out: onPause
+
 // 在DialogActivity里面退出，MainActivity状态变为onResume
 12-17 00:00:00.161 7477-7477/com.phantomvk.exampleapp I/System.out: onResume
+
 // 退出应用: onPause -> onStop -> onDestroy
 12-17 00:00:30.576 7477-7477/com.phantomvk.exampleapp I/System.out: onPause
 12-17 00:00:31.151 7477-7477/com.phantomvk.exampleapp I/System.out: onStop
@@ -185,6 +187,6 @@ __AndroidManifest.xml__
 
 ![img](/img/android/onPause_onResume.png)
 
-提醒一点，直接使用Dialog组件，MainActivity生命周期是不会变化的，这样应用更加高效且性能更好。这篇文章只是用来重现题目所说的目标，不是用于实践。
+提醒一点，直接使用Dialog组件的MainActivity生命周期是不会变化的，这样应用更加高效且性能更好。这篇文章只是用来重现题目所说的目标，不是用于实践。
 
 

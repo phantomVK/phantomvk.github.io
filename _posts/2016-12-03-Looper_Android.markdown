@@ -135,7 +135,7 @@ public static Looper getMainLooper() {
 }
 ```
 
-返回Looper所属的线程。如果子线程没有调用Looper.prepare()，sThreadLocal.get()为空。
+返回所属线程的Looper。如果子线程没有调用Looper.prepare()，sThreadLocal.get()为空。
 
 ```java
 public static @Nullable Looper myLooper() {
@@ -143,7 +143,7 @@ public static @Nullable Looper myLooper() {
 }
 ```
 
-获取线程的消息队列
+获取线程Looper的消息队列
 
 ```java
 public static @NonNull MessageQueue myQueue() {

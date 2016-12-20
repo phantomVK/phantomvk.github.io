@@ -285,10 +285,16 @@ public void handleMessage(Message msg) {
 @Override
 public void handleMessage(Message msg) {
     super.handleMessage(msg);
-
-    Intent intent = new Intent(Activity.this, MainActivity.class);
-    Activity.this.startActivity(intent);
-    Activity.this.finish();
+    switch(msg.what){
+        case START_ACTIVITY:
+            Intent intent = new Intent(Activity.this, MainActivity.class);
+            Activity.this.startActivity(intent);
+            Activity.this.finish();
+            break;
+        case TOAST_SHOW:
+            Toast.makeText(Activity.this, "Toast", Toast.LENGTH_SHORT).show();
+            break;
+    }
 }
 ```
 
@@ -456,7 +462,7 @@ public final Message obtainMessage(int what, int arg1, int arg2, Object obj) {
 
 # 十一、其他
 
-剩下这个方法因为这里涉及其他很多只是，以后再展开。
+剩下这个方法关于跨进程通讯的Messager。
 
 ```java
 private final class MessengerImpl extends IMessenger.Stub {

@@ -11,14 +11,13 @@ tags:
 
 apkbuilder在 Android SDK build tools r22里面被移除了。如果我们还需要使用这个工具的话，可以通过以下方式重新取得apkbuilder。
 
-* 1.切换工作目录
-把工作目录切换到tools下面。例子中是在linux平台的tools.
+切换工作目录，把工作目录切换到tools下面。例子中是在linux平台的tools.
 
 ```
 android-sdk-linux/tools
 ```
 
-* 2.对于Windows：
+对于Windows：
 
 ```bash
 $ copy android.bat apkbuilder.bat 
@@ -29,8 +28,7 @@ $ copy android.bat apkbuilder.bat
 $ modify apkbuilder.bat: change com.android.sdkmanager.Main to com.android.sdklib.build.ApkBuilderMain
 ```
 
-* 3.对于Linux/Mac
-在tools下面执行以下命令，创建apkbuilder文件：
+对于Linux/Mac，在tools下面执行以下命令，创建apkbuilder文件：
 
 ```bash
 $ cat android | sed -e 's/com.android.sdkmanager.Main/com.android.sdklib.build.ApkBuilderMain/g' > apkbuilder 
