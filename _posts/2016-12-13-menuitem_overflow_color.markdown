@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Android MenuItem 各种坑"
+title:      "Android Menuitem 各种坑"
 date:       2016-12-13
 author:     "phantomVK"
 header-img: "img/main_img.jpg"

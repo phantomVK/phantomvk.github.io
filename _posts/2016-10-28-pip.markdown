@@ -5,7 +5,6 @@ date:       2016-10-28
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 tags:
-    - pip
     - Python
 ---
 

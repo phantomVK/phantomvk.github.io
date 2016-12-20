@@ -1,13 +1,13 @@
 ---
 layout:     post
-title:      "Android ViewGroup事件分发源码剖析"
-subtitle:   "Android 6.0 API 源码"
+title:      "Android源码系列 -- ViewGroup事件分发"
+subtitle:   "Android 6.0"
 date:       2016-11-07
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
 

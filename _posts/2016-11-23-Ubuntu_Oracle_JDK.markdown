@@ -7,8 +7,6 @@ header-img: "img/main_img.jpg"
 catalog:    true
 tags:
     - Java
-    - JDK
-    - Linux
 ---
 
 ## 简述

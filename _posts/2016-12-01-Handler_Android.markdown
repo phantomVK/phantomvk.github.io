@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "Android Handler源码剖析"
+title:      "Android源码系列 -- Handler"
 date:       2016-12-01
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
 # 一、Handler用处

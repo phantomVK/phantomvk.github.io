@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "重现Android生命周期onPause到onResume"
+title:      "重现onPause到onResume生命周期"
 date:       2016-12-16
 author:     "phantomVK"
 header-img: "img/main_img.jpg"

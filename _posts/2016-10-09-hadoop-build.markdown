@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Hadoop
+    - Skills
 ---
 
 ## 系统环境
