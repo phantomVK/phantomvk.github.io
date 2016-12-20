@@ -7,7 +7,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Android源码系列
+    - Android
 ---
 
 

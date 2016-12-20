@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
 tags:
-    - Android源码系列
+    - Android
 ---
 
 Handler是Android中一种处理线程消息循环的机制，而 [Message](https://developer.android.com/reference/android/os/Message.html) 是Handler用来放消息的包装。总得来说，Message作为一个用于封装消息的对象，逻辑并不复杂。
