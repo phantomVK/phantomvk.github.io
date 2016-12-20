@@ -39,7 +39,7 @@ public int arg2;
 
 ```java
 public Object obj; // 用来保存对象
-public Messenger replyTo;
+public Messenger replyTo; // 回复跨进程的Messager
 public int sendingUid = -1; // Messager发送时使用
 
 static final int FLAG_IN_USE = 1 << 0; // 正在使用标志值

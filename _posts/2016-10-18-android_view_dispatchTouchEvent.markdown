@@ -13,11 +13,7 @@ tags:
 
 
 # 前言
-最近在看View的事件分发阅读源码做了些笔记。文章内容都是作者自己的理解，或有错漏之处，请见谅。
-
-如果子`View`是一个`ViewGroup`，该事件会调用`ViewGroup`的`dispatchTouchEvent()`分发。普通`View`由自己的`dispatchTouchEvent()`负责分发。
-
-内容主要以注释的形式插入在代码中，请仔细阅读文章中给出的源码。
+最近在看View的事件分发阅读源码，并做笔记。文章内容都是作者自己的理解，或有错漏之处，请见谅。内容主要以注释的形式插入在代码中，请仔细阅读文章中给出的源码。
 
 # 一、代码构建
 
@@ -95,7 +91,7 @@ public class MyButton extends Button {
 
 # 1.3 MainActivity
 
-绑定按钮，并且给按钮设置一个监听器`OnTouchListener`。后面我们会说明这个监听器的用途。
+绑定按钮并给按钮设置一个监听器`OnTouchListener`。后面我会说明这个监听器的用途。
 
 ```java
 public class MainActivity extends AppCompatActivity {
@@ -158,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
 ```
 
 # 2.2 OnTouchListener true
-在`View.OnTouchListener`的返回值中返回`true`，点击按钮马上放开就只有`dispatchTouchEvent（）` -> `onTouch`
+在`View.OnTouchListener`的返回值中返回`true`，点击按钮马上放开:`dispatchTouchEvent（）` -> `onTouch`
 
 ```
 10-13 23:55:32.523 18106-18106/? E/MyButton: dispatchTouchEvent ACTION_DOWN
@@ -175,7 +171,7 @@ public class MainActivity extends AppCompatActivity {
 
 # 3.1 dispatchTouchEvent
 
-先来看看`dispatchTouchEvent()`的源码
+先来看`dispatchTouchEvent()`源码
 
 ```java
 public boolean dispatchTouchEvent(MotionEvent event) {
@@ -194,7 +190,7 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 
     final int actionMasked = event.getActionMasked();
     if (actionMasked == MotionEvent.ACTION_DOWN) {
-        stopNestedScroll(); // 把正在滚动的页面停下来
+        stopNestedScroll(); // 停止嵌套滚动
     }
     // 用安全机制来过滤触摸事件：true为继续分发，false终止分发
     // 具体实现是去判断是否被其它窗口遮挡住了，如果遮挡住就要过滤该事件
@@ -202,9 +198,9 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         // 这里获取mListenerInfo
         ListenerInfo li = mListenerInfo;
         // 以下所有条件成立执行这个语句块并返回True:
-        //   1. 若ListenerInfo存在，即mListenerInfo不为空
-        //   2. mOnTouchListener不为空，这说明设置了OnTouchListener监听器
-        //   3. view是enable的
+        //   1. 若ListenerInfo存在，mListenerInfo不为空
+        //   2. mOnTouchListener不为空，设置了OnTouchListener监听器
+        //   3. view为enable
         //   4. mOnTouchListener.onTouch(this, event)返回true
         if (li != null 
         		&& li.mOnTouchListener != null
@@ -248,7 +244,7 @@ if (li != null
 
 `li.mOnTouchListener`是依赖`mButton.setOnTouchListener`的。所以，不调用`mButton.setOnTouchListener`，`li.mOnTouchListener`为null。
 
-当我们在MainActivity - onCreate中给mButton.setOnTouchListener创建一个View.OnTouchListener()实例的同时，这个实例会被保存在`getListenerInfo().mOnTouchListener`中。
+当我们在MainActivity - onCreate中给mButton.setOnTouchListener创建一个View.OnTouchListener()实例的同时，这个实例会被保存在`getListenerInfo().mOnTouchListener`。
 
 ```java
 public void setOnTouchListener(OnTouchListener l) {
@@ -296,8 +292,7 @@ public boolean onTouchEvent(MotionEvent event) {
         if (mTouchDelegate.onTouchEvent(event)) {
             return true;
         }
-    }
-    
+    } 
     // 如果view是可点击的，就处理不同的点击操作，完成后返回true。
     if (((viewFlags & CLICKABLE) == CLICKABLE ||
             (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE) ||
@@ -425,7 +420,7 @@ public boolean onTouchEvent(MotionEvent event) {
 
 ____
 
-**不同版本的Android API时间值可能不同，现在API 23(Android 6.0)TAP_TIMEOUT是100ms，我们按照最新值解说。以前有的旧版本是115ms。**
+**不同版本的Android API时间值可能不同，现在API 23(Android 6.0)TAP_TIMEOUT是100ms，旧版本是115ms，我们按照最新值解说。**
 
 ```java
     /**

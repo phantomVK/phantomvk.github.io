@@ -7,7 +7,6 @@ header-img: "img/main_img.jpg"
 catalog:    true
 tags:
     - Hadoop
-    - Java
 ---
 
 ## 系统环境
@@ -19,7 +18,7 @@ __运行环境：`Ubuntu 16.04 LTS x86_64` 、`Oracle JDK8`、`Hadoop-1.2.1`、`
 
 #### 安装JDK
 
-本站传送门 __[Ubuntu安装Oracle JDK8教程 -- phantomVK](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
+本站传送门 __[Ubuntu安装Oracle JDK8教程](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
 
 ## 二、 Hadoop安装及配置
 
@@ -44,7 +43,7 @@ $ cd /opt/hadoop-1.2.1/conf
 
 #### 2.2.2 配置hadoop-env.sh
 
-在Hadoop中添加`JDK`保存路径配置信息，用你自己`JDK`的路径。
+在文件中添加你自己安装`Java`的路径，这里用的是`opanJDK`
 
 ```bash
 $ vim hadoop-env.sh  
@@ -57,7 +56,6 @@ $ vim hadoop-env.sh
 $ vim core-site.xml
 ```
 
-填写以下配置信息
 
 ```xml
 <configuration>
@@ -82,8 +80,6 @@ $ vim core-site.xml
 $ vim hdfs-site.xml
 ```
 
-填写以下配置信息
-
 ```xml
 <configuration>
     <property>
@@ -99,8 +95,6 @@ $ vim hdfs-site.xml
 $ vim mapred-site.xml
 ```
 
-填写以下配置信息
-
 ```xml
 <configuration>
     <property>
@@ -114,12 +108,16 @@ $ vim mapred-site.xml
 
 ```bash
 $ vim /etc/profile
- export HADOOP_HOME=/opt/hadoop-1.2.1   
- #还要在PATH变量中添加 $HADOOP_HOME/bin:
+ export HADOOP_HOME=/opt/hadoop-1.2.1 
+```
+
+然后在相同文件的`PATH`变量中追加`$HADOOP_HOME/bin:`参数
+
+```
 $ source /etc/profile
 ```
 
-### 2.3 初始化namenode
+### 2.3 初始化NameNode
 
 运行命令后会自动开始格式化，看见NameNode被自动关闭就成功了
 
@@ -212,7 +210,7 @@ $ source .bashrc
 
 #### 4.2 找不到配置文件
 
-报错信息 
+报错信息（这个错误可能只在使用openJDK的时候才有）
 
 ```
 Error: Config file not found: /usr/lib/jvm/java-9-openjdk-amd64/conf/management/management.properties
@@ -243,7 +241,7 @@ export HADOOP_HOME_WARN_SUPPRESS=1
 
 #### 4.4 SSH无法连接
 
-没有安装`SSH`服务导致的：
+没有安装`openSSH`服务导致的：
 
 ```
 localhost: ssh: connect to host localhost port 22: Connection refused
