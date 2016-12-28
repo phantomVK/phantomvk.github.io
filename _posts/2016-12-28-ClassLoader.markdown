@@ -9,7 +9,7 @@ tags:
     - Java
 ---
 
-# 类加载~~~~
+# 类加载
 
 在JVM运行的时候，Java类通过编译生成.class文件，根据实际情况把当前需要的类从.class动态加载到内存创建实例，而ClassLoader就负责完成这个加载任务。有了ClassLoader，Java运行时系统不需要知道文件与文件系统的设置。
 
