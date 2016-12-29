@@ -102,7 +102,7 @@ From Survivor和To Survivor名字是相对的。对象移出的区就称为From 
 
 # 2.6 方法区中的常量池
 
-又称运行时常量池，是方法区的一部分。用于存放编译器生成的各种字面量和符号引用。除外，运行期间新的常量也会放入常量池中。常见运行时常量池添加是通过String类的intern()方法。
+又称运行时常量池，是方法区的一部分，用于存放编译器生成的各种字面量和符号引用。此外，运行期间新的常量也会放入常量池中，常见运行时常量池添加是通过String类的intern()方法。
 
 1. 字面量：如文本字符串、final的常量值
 2. 符号引用：编译语言层面的概念，包括以下3类： 
@@ -116,7 +116,7 @@ From Survivor和To Survivor名字是相对的。对象移出的区就称为From 
 
 直接内存不是虚拟机运行时内存的一部分，该空间划分在虚拟机外。不过由于直接内存的性能比较好，所以有的工作需要使用直接内存来提高性能。
 
-直接内存会受到物理机剩余可用内存、处理器寻址空间的限制。可以通过NIO和NIO.2来申请直接内存。如果虚拟机堆内存分配太大，可能会导致直接内存空间不足而出现运行时异常。
+直接内存会受到物理机剩余可用内存、处理器寻址空间的限制。如果虚拟机堆内存分配太大，可能会导致直接内存空间不足而出现运行时异常。
 
 # 三、最新变化
 
@@ -128,7 +128,7 @@ From Survivor和To Survivor名字是相对的。对象移出的区就称为From 
 
 在JDK8下，旧的参数-XX:PermSize和-XX:MaxPermSize会被忽略并显示警告。新的Metaspace通过参数-XX:MetaspaceSize 和-XX:MaxMetaspaceSize设定。
 
-下图是在JDK8u102中开启Android Studio后，在jvisualvm中只看见Metaspace而没有PermGen，这表明JDK8中没有PermGen，已经被彻底移除。取而代之的是Metaspace。
+下图是在JDK8u102中开启Android Studio后，在jvisualvm中只看见Metaspace而没有PermGen，这表明JDK8中没有PermGen。
 
 ![img](/img/jvm_memory/metaspace.jpg)
 
@@ -136,7 +136,7 @@ From Survivor和To Survivor名字是相对的。对象移出的区就称为From 
 
 # 3.2 G1内存模型
 
-从JDK7开始引入的G1回收机制，到JDK8时G1已经基本稳定。
+从JDK7开始引入的G1回收机制，到JDK8时G1已经基本稳定，将来的JDK9可能会把G1设置为默认回收机制。
 
 G1应该是唯一一个能完成新生代到老年代所有管理的GC技术。之前的技术如上一节图中CMS和PerNew需要互相配合才能完成完整回收工作。
 

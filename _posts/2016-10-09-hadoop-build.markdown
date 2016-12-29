@@ -1,9 +1,8 @@
 ---
 layout:     post
-title:      "Hadoop伪分布式搭建教程"
+title:      "Hadoop伪分布式搭建"
 date:       2016-10-09
 author:     "phantomVK"
-header-img: "img/main_img.jpg"
 catalog:    true
 tags:
     - Skills
@@ -18,13 +17,13 @@ __运行环境：`Ubuntu 16.04 LTS x86_64` 、`Oracle JDK8`、`Hadoop-1.2.1`、`
 
 #### 安装JDK
 
-本站传送门 __[Ubuntu安装Oracle JDK8教程](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
+Hadoop依赖于Java，所以要确认系统是不是已经安装Java。没有安装的话可以参考 __[Ubuntu安装Oracle JDK8](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
 
 ## 二、 Hadoop安装及配置
 
 ### 2.1 下载Hadoop 1.2.1
 
-用的是[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)，`wget`下载Hadoop包，解压到`/opt`。
+用`wget`下载[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)Hadoop包，解压到`/opt`
 
 ```bash
 $ cd /opt
@@ -43,7 +42,7 @@ $ cd /opt/hadoop-1.2.1/conf
 
 #### 2.2.2 配置hadoop-env.sh
 
-在文件中添加你自己安装`Java`的路径，这里用的是`opanJDK`
+在文件中添加安装`JDK`的路径，这里用的是`opanJDK`
 
 ```bash
 $ vim hadoop-env.sh  
@@ -216,7 +215,7 @@ $ source .bashrc
 Error: Config file not found: /usr/lib/jvm/java-9-openjdk-amd64/conf/management/management.properties
 ```
 
-这是软链接文件不存在，手动创建正确软链接文件。
+这是软链接不存在，手动创建正确软链接。
 
 ```bash
 $ cd /usr/lib/jvm/java-9-openjdk-amd64
@@ -259,7 +258,7 @@ $ apt-get install openssh-server
 ```bash
 $ cd /etc/ssh/ssh_config
     StrictHostKeyChecking no     # 修改为no
-    UserKnownHostsFile /dev/null # 添加一行
+    UserKnownHostsFile /dev/null # 添加这行
 ```
 
 
@@ -280,7 +279,7 @@ $ ssh localhost # 检查ssh服务
 
 #### 4.5 安装dpkg报错
 
-多个窗口同时使用`apt-get`会出现这个错误，这种情况不用处理。
+多个窗口同时使用`apt-get`会出现这个错误，这种情况不用处理
 
 ```bash
 .....
@@ -288,7 +287,7 @@ $ ssh localhost # 检查ssh服务
 E:Sub-process /usr/bin/dpkg returned an error code(1)
 ```
 
-如果安装`dpkg`出现问题是其他原因，可以尝试:
+如果出现问题是其他原因可以尝试:
 
 ```bash
 $ cd /var/lib/dpkg

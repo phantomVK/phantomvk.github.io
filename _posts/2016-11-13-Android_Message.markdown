@@ -39,20 +39,20 @@ public int arg2;
 
 ```java
 public Object obj; // 用来保存对象
-public Messenger replyTo; // 回复跨进程的Messager
-public int sendingUid = -1; // Messager发送时使用
+public Messenger replyTo; // 回复跨进程的Messenger
+public int sendingUid = -1; // Messenger发送时使用
 
 static final int FLAG_IN_USE = 1 << 0; // 正在使用标志值
 static final int FLAG_ASYNCHRONOUS = 1 << 1; // 异步标志值
 static final int FLAGS_TO_CLEAR_ON_COPY_FROM = FLAG_IN_USE;
 
 int flags; // 消息标志，上面三个常量 FLAG_* 用在这里
-long when;
+long when; // 估计和arg1、arg2性质一样，存时间戳
 
-Bundle data; // 存放Bundle
+Bundle data;    // 存放Bundle
 Handler target; // 存放Handler实例
 Runnable callback; // 消息的回调操作
-Message next; // 消息池用链表的方式存储
+Message next;   // 消息池用链表的方式存储
 
 private static final Object sPoolSync = new Object(); // 消息池同步公用标志
 private static Message sPool; // 消息池
@@ -65,7 +65,7 @@ private static boolean gCheckRecycle = true; // 该版本系统是否支持回�
 
 从消息池里取可以复用的消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取到同一个消息体导致消息紊乱。如果没有可复用的对象，就新建一个消息体返回。
 
-虽然我们可以手动创建一个消息对象，但是最好从`obtain()`中获取缓存好的消息体，避免造成多余对象创建。
+我们可以手动创建一个消息对象，但是最好从`obtain()`中获取缓存好的消息体，避免造成多余对象创建。
 
 ```java
 public static Message obtain() {
@@ -364,6 +364,6 @@ private void readFromParcel(Parcel source) {
     data = source.readBundle();
     replyTo = Messenger.readMessengerOrNullFromParcel(source);
     sendingUid = source.readInt();
-    }
+}
 ```
 

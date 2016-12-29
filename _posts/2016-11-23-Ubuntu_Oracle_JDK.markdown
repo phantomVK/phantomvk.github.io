@@ -39,16 +39,6 @@ Java HotSpot(TM) 64-Bit Server VM (build 25.111-b14, mixed mode)
 ```
 
 
-## 补充
-
-如果想尝鲜JDK9，把对应命令改变即可
-
-```bash
-$ sudo apt-get install oracle-java9-installer
-$ sudo apt-get install oracle-java9-set-default
-```
-
-
 
 
 

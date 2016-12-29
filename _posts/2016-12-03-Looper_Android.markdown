@@ -77,9 +77,9 @@ public static void loop() {
     final long ident = Binder.clearCallingIdentity();
     // 循环遍历，从消息队列去消息
     for (;;) {
-        Message msg = queue.next(); // 这里可能会阻塞
+        Message msg = queue.next(); // MessageQueue可能会阻塞
         if (msg == null) {
-            // 没有消息的话消息队列会退出
+            // 消息队列关闭，Looper退出
             return;
         }
         // msg.handler.dispatchMessage(msg)，消息发送到Handler回调

@@ -46,7 +46,7 @@ public Handler(boolean async) {
 }
 
 public Handler(Callback callback, boolean async) {
-    // 判断是否匿名类、本地类、成员类，并判断修饰符是否是static，不是打出就警告信息
+    // 判断是否匿名类、本地类、成员类，并判断修饰符是否是static，不是打出就警告信息，避免内存泄漏
     if (FIND_POTENTIAL_LEAKS) {
         final Class<? extends Handler> klass = getClass();
         if ((klass.isAnonymousClass() || klass.isMemberClass() || klass.isLocalClass()) &&
@@ -265,7 +265,11 @@ private static void handleCallback(Message message) {
 public interface Callback {
     public boolean handleMessage(Message msg);
 }
-// 例子: 创建Handler时可以实现这个回调，支持操作主线程UI
+```
+
+例子: 创建Handler时可以实现这个回调，支持操作主线程UI
+
+```java
 Handler handler = new Handler(new Handler.Callback() {
     @Override
     public boolean handleMessage(Message msg) {
@@ -275,13 +279,9 @@ Handler handler = new Handler(new Handler.Callback() {
 });
 ```
 
-(3) 如果上两个回调都不存在，就只能寄托于我们自己重写的方法。
+(3) 如果上两个回调都不存在，就只能寄托于我们自己重写的方法。举个例子：
 
 ```java
-public void handleMessage(Message msg) {
-}
-
-// 例子
 @Override
 public void handleMessage(Message msg) {
     super.handleMessage(msg);
@@ -291,7 +291,7 @@ public void handleMessage(Message msg) {
             Activity.this.startActivity(intent);
             Activity.this.finish();
             break;
-        case TOAST_SHOW:
+        case TOAST_SHORT_SHOW:
             Toast.makeText(Activity.this, "Toast", Toast.LENGTH_SHORT).show();
             break;
     }
@@ -300,7 +300,7 @@ public void handleMessage(Message msg) {
 
 # 七、移除队列消息
 
-根据消息身份`what`、消息`Runnable`或`msg.obj`移除队列中对应的消息
+根据消息身份`what`、消息`Runnable`或`msg.obj`移除队列中对应的消息。调用那个要根据你选用什么而定。例如发送`msg`，就用同一个`msg.what`作为参数。都调用`MessageQueue.removeMessages`，具体在`MessageQueue`的源码阅读里面说。
 
 ```java
 public final void removeCallbacks(Runnable r) {
@@ -369,7 +369,7 @@ public final boolean runWithScissors(final Runnable r, long timeout) {
 ```
 
 ```java
-IMessenger mMessenger;
+IMessenger mMessenger;  // IPC
 
 private static final class BlockingRunnable implements Runnable {
     private final Runnable mTask;
@@ -436,7 +436,7 @@ public String getMessageName(Message message) {
 }
 ```
 
-获取消息体的重载方法
+获取空消息体的重载方法
 
 ```java
 public final Message obtainMessage() {
@@ -462,7 +462,7 @@ public final Message obtainMessage(int what, int arg1, int arg2, Object obj) {
 
 # 十一、其他
 
-剩下这个方法关于跨进程通讯的Messager。
+剩下这个方法关于跨进程通讯的Messager，在AIDL中使用。
 
 ```java
 private final class MessengerImpl extends IMessenger.Stub {

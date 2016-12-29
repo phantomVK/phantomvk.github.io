@@ -13,8 +13,7 @@ tags:
 
 
 # 前言
-最近在看View的事件分发阅读源码，并做笔记。文章内容都是作者自己的理解，或有错漏之处，请见谅。内容主要以注释的形式插入在代码中，请仔细阅读文章中给出的源码。
-
+最近在看View的事件分发阅读源码，并做笔记。内容以注释的形式插入在代码中，请仔细阅读文章中给出的源码。文章内容都是作者自己的理解，或有错漏之处，请见谅。
 # 一、代码构建
 
 # 1.1 自定义Button
@@ -78,8 +77,7 @@ public class MyButton extends Button {
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/backgroundGray">
+    android:layout_height="match_parent">
 
     <com.corevk.demoproject.MyButton
         android:id="@+id/MyButton"
@@ -139,7 +137,7 @@ public class MainActivity extends AppCompatActivity {
 
 # 2.1 OnTouchListener false
 
-如果手指不离开在屏幕上滑动，Log的`ACTION_DOWN`和`ACTION_UP`之间会报告很多`ACTION_MOVE`的信息。
+如果手指一直在屏幕上滑动，Log的`ACTION_DOWN`和`ACTION_UP`之间会报告很多`ACTION_MOVE`的信息。
 
 `View.OnTouchListener`中返回`false`，点击按钮马上放开。结果按照`dispatchTouchEvent` -> `onTouch` -> `onTouchEvent`出现
 
@@ -242,7 +240,7 @@ if (li != null
    }       
 ```
 
-`li.mOnTouchListener`是依赖`mButton.setOnTouchListener`的。所以，不调用`mButton.setOnTouchListener`，`li.mOnTouchListener`为null。
+`li.mOnTouchListener`是依赖`mButton.setOnTouchListener`的。如果不调用`mButton.setOnTouchListener`，`li.mOnTouchListener`为null。
 
 当我们在MainActivity - onCreate中给mButton.setOnTouchListener创建一个View.OnTouchListener()实例的同时，这个实例会被保存在`getListenerInfo().mOnTouchListener`。
 
@@ -412,7 +410,7 @@ public boolean onTouchEvent(MotionEvent event) {
 在Android的触摸消息中有三种监测：
 
 1. **prepressed**：用户轻触(tap)屏幕，触摸时间小于TAP_TIMEOUT
-2. **pressed**：用户点击(press)屏幕，触摸时间大于TAP_TIMEOUT，介于DEFAULT_LONG_PRESS_TIMEOUT和LONG_PRESS_TIMEOUT之间
+2. **pressed**：用户点击(press)屏幕，触摸时间大于TAP_TIMEOUT，介于TAP_TIMEOUT和LONG_PRESS_TIMEOUT之间
 3. **long pressed**：用户长按(long press)屏幕，时间大于DEFAULT_LONG_PRESS_TIMEOUT或LONG_PRESS_TIMEOUT
 
 
@@ -423,25 +421,25 @@ ____
 **不同版本的Android API时间值可能不同，现在API 23(Android 6.0)TAP_TIMEOUT是100ms，旧版本是115ms，我们按照最新值解说。**
 
 ```java
-    /**
-     * Defines the duration in milliseconds of the pressed state in child
-     * components.
-     */
-    private static final int PRESSED_STATE_DURATION = 64;
-    
-    /**
-     * Defines the duration in milliseconds we will wait to see if a touch event
-     * is a tap or a scroll. If the user does not move within this interval, it is
-     * considered to be a tap.
-     */
-    private static final int TAP_TIMEOUT = 100;
+/**
+ * Defines the duration in milliseconds of the pressed state in child
+ * components.
+ */
+private static final int PRESSED_STATE_DURATION = 64;
+
+/**
+ * Defines the duration in milliseconds we will wait to see if a touch event
+ * is a tap or a scroll. If the user does not move within this interval, it is
+ * considered to be a tap.
+ */
+private static final int TAP_TIMEOUT = 100;
 
 
-    /**
-     * Defines the default duration in milliseconds before a press turns into
-     * a long press
-     */
-    private static final int DEFAULT_LONG_PRESS_TIMEOUT = 500;
+/**
+ * Defines the default duration in milliseconds before a press turns into
+ * a long press
+ */
+private static final int DEFAULT_LONG_PRESS_TIMEOUT = 500;
 ```
 
 # 4.1 MotionEvent.ACTION_DOWN
