@@ -98,7 +98,7 @@ null
 * AppClassLoader的类加载器是ExtClassLoader
 * ExtClassLoader的类加载器是BootstrapLoader。
 
-BootstrapLoader代码位于`hotspot\src\share\tools\launcher`的`java.c`中，由C语言实现而不是Java，不运行在JVM管理的内存区中。所以ExtClassLoader的类加载器没法显示BootstrapLoader的引用地址，只能显示null。
+BootstrapLoader由C语言实现而不是Java，不运行在JVM管理的内存区中。所以ExtClassLoader的类加载器没法显示BootstrapLoader的引用地址，只能显示null。
 
 
 # 自定义ClassLoader
