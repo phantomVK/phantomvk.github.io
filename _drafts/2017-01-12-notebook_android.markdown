@@ -190,6 +190,26 @@ mToggle = new SmoothDrawerToggle(this, drawerLayout, toolBar);
 drawerLayout.addDrawerListener(mToggle);
 mToggle.syncState();
 ```
+### 3.箭头颜色
+
+```xml
+<resources>
+    <!-- DrawerArrowStyle -->
+    <style name="DrawerArrowStyle" parent="Widget.AppCompat.DrawerArrowToggle">
+        <item name="spinBars">true</item>
+        <item name="color">#FFFFFF</item>
+    </style>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorAccent</item>
+        <item name="drawerArrowStyle">@style/DrawerArrowStyle</item>
+    </style>
+</resources>
+```
 
 
 ## 三、SplashActivity
@@ -260,7 +280,7 @@ public class SplashActivity extends Activity {
 
 ### 1.ToastUtil
 
-避免多次连续使用Toast时一直显示Toast
+避免多次连续使用Toast时一直显示Toast，为了避免内存泄漏，使用的Context请调用ApplicationContext.
 
 ```java
 public final class ToastUtil {
@@ -453,5 +473,120 @@ public class GlideCacheUtil {
         }
     }
 }
+```
+
+# 五、获取图片库图片路径
+
+```java
+//调用的Intent
+Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+intent.setType("image/*");
+intent.addCategory(Intent.CATEGORY_OPENABLE);
+startActivityForResult(intent, FOR_RESULT_SUCCESS);
+              
+@Override
+public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    if (requestCode == FOR_RESULT_SUCCESS && data != null) {
+        Uri uri = data.getData();
+        String[] project = {MediaStore.Images.Media.DATA};
+        CursorLoader loader = new CursorLoader(this, uri, project, null, null, null);
+        Cursor cursor = loader.loadInBackground();
+        int index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+        cursor.moveToFirst();
+        String path = cursor.getString(index);
+    }
+}
+```
+
+# 六、进度条
+
+进度条布局代码
+
+```xml
+<ProgressBar
+    android:id="@+id/pb_progressbar"
+    style="@style/StyleProgressBarMini"
+    android:layout_width="fill_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="30dp"
+    android:background="@drawable/shape_progressbar_bg"
+    android:max="1000"
+    android:progress="768" />
+```
+
+@style/StyleProgressBarMini
+
+```xml
+<style name="StyleProgressBarMini" parent="@android:style/Widget.ProgressBar.Horizontal"> 
+    <item name="android:maxHeight">50dp</item> 
+    <item name="android:minHeight">10dp</item> 
+    <item name="android:indeterminateOnly">false</item> 
+    <item name="android:indeterminateDrawable">@android:drawable/progress_indeterminate_horizontal</item> 
+    <item name="android:progressDrawable">@drawable/shape_progressbar_mini</item> 
+</style>
+```
+
+@drawable/shape_progressbar_mini
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android" >
+    <!-- 背景 -->
+    <item android:id="@android:id/background">
+        <shape>
+            <corners android:radius="5dip" />
+            <gradient
+                android:angle="270"
+                android:centerY="0.75"
+                android:endColor="#FFFFFF"
+                android:startColor="#FFFFFF" />
+        </shape>
+    </item>
+    <item android:id="@android:id/secondaryProgress">
+        <clip>
+            <shape>
+                <corners android:radius="0dip" />
+ 
+                <gradient
+                    android:angle="270"
+                    android:centerY="0.75"
+                    android:endColor="#df0024"
+                    android:startColor="#df0024" />
+            </shape>
+        </clip>
+    </item>
+    <item android:id="@android:id/progress">
+        <clip>
+            <shape>
+                <corners android:radius="5dip" />
+                <gradient
+                    android:angle="270"
+                    android:centerY="0.75"
+                    android:endColor="#de42ec"
+                    android:startColor="#de42ec" />
+            </shape>
+        </clip>
+    </item>
+</layer-list>
+```
+
+@drawable/shape_progressbar_bg
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle" >
+    <!-- 边框填充的颜色 -->
+    <solid android:color="#cecece" />
+    <!-- 设置进度条的四个角为弧形 -->
+    <!-- android:radius 弧形的半径 -->
+    <corners android:radius="90dp" />
+    <!-- padding：边界的间隔-->
+    <padding
+        android:bottom="1dp"
+        android:left="1dp"
+        android:right="1dp"
+        android:top="1dp" />
+</shape>
 ```
 
