@@ -122,7 +122,7 @@ RSS: false
 
 ### 文章归档
 
-我增加了文章归档功能，自动按照月份归档文章。具体展示请参考[phantomVK - Archive](https://phantomvk.github.io/archive/)
+我增加了文章归档功能，自动按照月份归档文章。具体展示请参考[phantomVK - Archive](https://phantomvk.github.io/archives/)
 
 ![](./img/archive_img.jpg)
 
