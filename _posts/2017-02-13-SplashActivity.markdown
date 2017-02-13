@@ -4,12 +4,12 @@ title:      "简单Android闪屏页控制逻辑"
 date:       2017-02-13
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
-catalog:    false 
+catalog:    false
 tags:
     - Android
 ---
 
-简单闪屏页控制逻辑，包含一些简单功能：点击闪屏页提早结束、软件启动不看闪频页
+非常简单的闪屏页控制逻辑，包含一些简单功能：点击闪屏页提早结束、软件启动不看闪频页
 
 ```java
 public final class SplashActivity extends Activity {
