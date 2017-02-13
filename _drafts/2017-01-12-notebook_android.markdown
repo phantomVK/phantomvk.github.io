@@ -1,4 +1,4 @@
-# Android笔记
+# Android学习笔记，持续更新
 
 
 ## 一、TabLayout
