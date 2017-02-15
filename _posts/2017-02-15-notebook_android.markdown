@@ -1,5 +1,13 @@
-# Android学习笔记，持续更新
-
+---
+layout:     post
+title:      "Android学习笔记，持续更新"
+date:       2017-02-15
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    true
+tags:
+    - Android
+---
 
 ## 一、TabLayout
 
@@ -15,7 +23,6 @@ app:tabTextColor | tab子项默认的文本颜色
 
 ```java
 TabLayout mTabLayout = (TabLayout) findViewById(R.id.tabLayout);
-
 TabLayout.Tab mContactsTab = mTabLayout.newTab().setText("Contacts");
 mTabLayout.addTab(mContactsTab, true); // 添加Tab且默认选中
 ```
@@ -80,8 +87,8 @@ mTabLayout.setupWithViewPager(viewPager, false);
 ```java
 public class ViewPagerAdapter extends FragmentPagerAdapter {
 
-    private final List<Fragment> fragments = new ArrayList<>(3);
-    private final List<String> titles = new ArrayList<>(3);
+    private final List<Fragment> fragments = new ArrayList<>();
+    private final List<String> titles = new ArrayList<>();
 
     public ViewPagerAdapter(FragmentManager fm) {
         super(fm);
@@ -120,20 +127,20 @@ public class ViewPagerAdapter extends FragmentPagerAdapter {
 获取抽屉状态和控制抽屉开闭
 
 ```java
-drawerLayout.isDrawerOpen(GravityCompat.START); // boolean, 抽屉是否展开
+mDrawerLayout.isDrawerOpen(GravityCompat.START); // boolean, 抽屉是否展开
 
-drawerLayout.closeDrawer(GravityCompat.START);  // void, 收起抽屉
-drawerLayout.openDrawer(GravityCompat.START);   // void, 打开抽屉
+mDrawerLayout.closeDrawer(GravityCompat.START);  // void, 收起抽屉
+mDrawerLayout.openDrawer(GravityCompat.START);   // void, 打开抽屉
 ```
 
 用法示例
 
 ```java
-private DrawerLayout drawerLayout;
-drawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout);
+private DrawerLayout mDrawerLayout; // 声明控件
+mDrawerLayout = (DrawerLayout) findViewById(R.id.drawer_layout); // 初始化控件
 
-if (drawerLayout.isDrawerOpen(GravityCompat.START)) {
-    drawerLayout.closeDrawer(GravityCompat.START);
+if (mDrawerLayout.isDrawerOpen(GravityCompat.START)) {
+    mDrawerLayout.closeDrawer(GravityCompat.START);
 }
 ```
 
@@ -182,12 +189,10 @@ private DrawerLayout drawerLayout;
 private NavigationView navView;
 private Toolbar toolBar;
 
-// NavigationView.OnNavigationItemSelectedListener 
-navView.setNavigationItemSelectedListener(this);      
-// Activity.Context, 设置该抽屉xml的ID, toolBar用于抽屉开闭图标   
-mToggle = new SmoothDrawerToggle(this, drawerLayout, toolBar);
-// 给抽屉加入自定义的Listener
-drawerLayout.addDrawerListener(mToggle);
+// 在onCreate()中初始化
+navView.setNavigationItemSelectedListener(this); // NavigationView.OnNavigationItemSelectedListener 
+mToggle = new SmoothDrawerToggle(this, drawerLayout, toolBar); // Activity.Context, 设置该抽屉xml的ID, toolBar用于抽屉开闭图标 
+drawerLayout.addDrawerListener(mToggle); // 给抽屉加入自定义的Listener
 mToggle.syncState();
 ```
 ### 3.箭头颜色
@@ -220,7 +225,6 @@ mToggle.syncState();
 public class SplashActivity extends Activity {
 
     public static final String SHOW_SPLASH = "SHOW_SPLASH";
-
     private static final int START_ACTIVITY = 0x01;
     private static final int SPLASH_DURATION = 3000;
     private static final int NO_SPLASH_DURATION = 0;
@@ -475,7 +479,7 @@ public class GlideCacheUtil {
 }
 ```
 
-# 五、获取图片库图片路径
+## 五、获取图片库图片路径
 
 ```java
 //调用的Intent
@@ -498,7 +502,7 @@ public void onActivityResult(int requestCode, int resultCode, Intent data) {
 }
 ```
 
-# 六、进度条
+## 六、进度条
 
 进度条布局代码
 
@@ -578,8 +582,7 @@ public void onActivityResult(int requestCode, int resultCode, Intent data) {
     android:shape="rectangle" >
     <!-- 边框填充的颜色 -->
     <solid android:color="#cecece" />
-    <!-- 设置进度条的四个角为弧形 -->
-    <!-- android:radius 弧形的半径 -->
+    <!-- 设置进度条的四个角为弧形的半径 -->
     <corners android:radius="90dp" />
     <!-- padding：边界的间隔-->
     <padding
