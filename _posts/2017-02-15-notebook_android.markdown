@@ -11,7 +11,7 @@ tags:
 
 ## 一、TabLayout
 
-### 1.TabLayout常见XML属性
+### 1.1 TabLayout常见XML属性
 
 属性 	|说明
 ---- | ----
@@ -19,7 +19,7 @@ app:tabIndicatorColor 	|   tab滚动指示横线颜色
 app:tabSelectedTextColor | 被选中tab子项的文本颜色
 app:tabTextColor | tab子项默认的文本颜色
 
-### 2.Java调用
+### 1.2 Java调用
 
 ```java
 TabLayout mTabLayout = (TabLayout) findViewById(R.id.tabLayout);
@@ -27,19 +27,19 @@ TabLayout.Tab mContactsTab = mTabLayout.newTab().setText("Contacts");
 mTabLayout.addTab(mContactsTab, true); // 添加Tab且默认选中
 ```
 
-### 3.滚动模式
+### 1.3 滚动模式
 
 ```java
 mTabLayout.setTabMode(TabLayout.MODE_FIXED);
 ```
 
-一共两种模式
+一共两种模式:
 
 * TabLayout.MODE_FIXED (默认)
 * TabLayout.MODE_SCROLLABLE
 
 
-### 4.添加监听
+### 1.4 添加监听
 
 ```java
 mTabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
@@ -54,7 +54,7 @@ mTabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
 });
 ```
 
-### 5.TabGravity设置
+### 1.5 TabGravity设置
 
 只在TabMode为`TabLayout.MODE_FIXED`时才会生效。
 `GRAVITY_FILL`占满`TabLayout`空间，`GRAVITY_CENTER`居中`Wrap_Content`。
@@ -64,7 +64,7 @@ mTabLayout.setTabGravity(TabLayout.GRAVITY_FILL);
 mTabLayout.setTabGravity(TabLayout.GRAVITY_CENTER);
 ```
 
-### 6.ViewPager和TabLayout
+### 1.6 ViewPager和TabLayout
 
 在`mPagerAdapter`添加页面，绑定到`mViewPager`上。
 
@@ -122,7 +122,7 @@ public class ViewPagerAdapter extends FragmentPagerAdapter {
 
 ## 二、DrawerLayout
 
-### 1.DrawerLayout常用功能
+### 2.1 DrawerLayout常用功能
 
 获取抽屉状态和控制抽屉开闭
 
@@ -144,7 +144,7 @@ if (mDrawerLayout.isDrawerOpen(GravityCompat.START)) {
 }
 ```
 
-### 2.DrawerLayout与startActivity冲突
+### 2.2 DrawerLayout与startActivity冲突
 
 参考自 [Optimizing drawer and activity launching speed](http://stackoverflow.com/questions/18343018/optimizing-drawer-and-activity-launching-speed)
 
@@ -195,7 +195,7 @@ mToggle = new SmoothDrawerToggle(this, drawerLayout, toolBar); // Activity.Conte
 drawerLayout.addDrawerListener(mToggle); // 给抽屉加入自定义的Listener
 mToggle.syncState();
 ```
-### 3.箭头颜色
+### 2.3 箭头颜色
 
 ```xml
 <resources>
@@ -282,7 +282,7 @@ public class SplashActivity extends Activity {
 
 ## 四、Utils
 
-### 1.ToastUtil
+### 4.1 ToastUtil
 
 避免多次连续使用Toast时一直显示Toast，为了避免内存泄漏，使用的Context请调用ApplicationContext.
 
@@ -326,7 +326,7 @@ public final class ToastUtil {
 }
 ```
 
-### 2.DoubleClickUtil
+### 4.2 DoubleClickUtil
 
 双击返回键退出应用
 
@@ -345,7 +345,7 @@ public class ClickHelper {
 }
 ```
 
-### 3.GlideCacheUtil
+### 4.3 GlideCacheUtil
 
 提供Glide磁盘缓存占用大小和清理功能
 
@@ -479,7 +479,7 @@ public class GlideCacheUtil {
 }
 ```
 
-## 五、获取图片库图片路径
+## 五、获取库图片路径
 
 ```java
 //调用的Intent
@@ -502,7 +502,7 @@ public void onActivityResult(int requestCode, int resultCode, Intent data) {
 }
 ```
 
-## 六、进度条
+## 六、ProgressBar 进度条
 
 进度条布局代码
 
