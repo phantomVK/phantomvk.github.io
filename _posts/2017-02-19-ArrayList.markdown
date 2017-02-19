@@ -21,7 +21,7 @@ public class ArrayList<E> extends AbstractList<E>
 
 数据成员
 
-```
+```java
 private static final long serialVersionUID = 8683452581122892189L;
 
 private static final int DEFAULT_CAPACITY = 10; // 缺省初始化大小
@@ -40,7 +40,7 @@ private int size;
 
 构造方法
 
-```
+```java
 // 合法指定值创建集合，非法值抛出IllegalArgumentExceptio异常
 public ArrayList(int initialCapacity) {
     if (initialCapacity > 0) {
@@ -839,7 +839,7 @@ private class SubList extends AbstractList<E> implements RandomAccess {
 
 下面这些应该是JDK8 Lambda的实现方法
 
-```
+```java
 @Override
 public void forEach(Consumer<? super E> action) {
     Objects.requireNonNull(action);
