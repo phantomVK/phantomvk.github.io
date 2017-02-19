@@ -1,0 +1,118 @@
+---
+layout:     post
+title:      "Java Lambda学习笔记"
+date:       2017-01-01
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    true
+tags:
+    - Java
+---
+
+#### 列表排序
+
+```java
+// 普通方式
+List<Integer> mList = Arrays.asList(11, 2, 365, 334, 25, 76, 128, 45);
+mList.sort(new Comparator<Integer>() {
+    @Override
+    public int compare(Integer o1, Integer o2) {
+        return o1.compareTo(o2);
+    }
+});
+
+// Lambda
+List<Integer> mList = Arrays.asList(11, 2, 365, 334, 25, 76, 128, 45);
+mList.sort(Comparator.comparing(x -> x)); // [2, 11, 25, 45, 76, 128, 334, 365]
+```
+
+#### 列表算总数
+
+```java
+List<Integer> mList = Arrays.asList(11, 2, 365, 334, 25, 76, 128, 45);
+long sum = mList.stream().mapToInt(x -> x).summaryStatistics().getSum(); // 986
+```
+
+#### 列表打印
+
+```java
+List<Integer> mList = Arrays.asList(11, 2, 365, 334, 25, 76, 128, 45);
+mList.forEach(x->{System.out.print(x+" ");}); // 11 2 365 334 25 76 128 45
+mList.forEach(System.out::print); // 112365334257612845
+```
+
+#### 每个数字平方
+
+```java
+List<Integer> mList = Arrays.asList(1, 2, 3, 4, 5);
+List<Integer> newList = mList.stream().map((x) -> x * x).collect(Collectors.toList()); // [1, 4, 9, 16, 25]
+```
+
+#### 条件过滤
+
+```java
+List<Integer> mList = Arrays.asList(11, 2, 365, 334, 25, 76, 128, 45);
+mList.stream().filter((x) -> (x <100)).forEach(x -> {System.out.print(x + " ");}); // 365 334 76 128 
+```
+
+#### 条件过滤后排序
+
+```java
+List<Integer> mList = Arrays.asList(11, 2, 365, 334, 25, 76, 128, 45);
+
+// 打印结果列表
+mList.stream().filter((x) -> (x < 100)).sorted(Comparator.comparing(x -> x))
+        .forEach(x -> {
+            System.out.print(x + " ");
+        }); // 2 11 25 45 76 
+        
+// 生成结果列表       
+List<Integer> newList = mList.stream().filter((x) -> (x < 100))
+        .sorted(Comparator.comparing(x -> x))
+        .collect(Collectors.toList()); // [2, 11, 25, 45, 76]
+```
+
+#### 匿名内部类
+
+```java
+// 原始类型
+new Thread(new Runnable() {
+    @Override
+    public void run() {
+        System.out.print("Hello");
+    }
+}).start();
+
+//Lambda类型
+new Thread(() -> {
+    System.out.print("Hello");
+}).start();
+```
+
+
+```java
+
+```
+
+
+```java
+
+```
+
+
+```java
+
+```
+
+
+```java
+
+```
+
+
+```java
+
+```
+
+
+
