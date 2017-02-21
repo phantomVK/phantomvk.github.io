@@ -1,7 +1,6 @@
 ---
 layout:     post
-title:      "HashMap源码剖析"
-subtitle:   ""
+title:      "Java源码系列 -- HashMap源码剖析"
 date:       2017-01-01
 author:     "phantomVK"
 header-img: "img/main_img.jpg"

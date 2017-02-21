@@ -1,13 +1,13 @@
 ---
 layout:     post
-title:      "Android源码系列 -- View事件分发"
+title:      "Android源码系列(1) -- View事件分发"
 subtitle:   "Android 6.0"
 date:       2016-10-18
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
 

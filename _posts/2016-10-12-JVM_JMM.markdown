@@ -1,13 +1,11 @@
 ---
 layout:     post
 title:      "JVM内存模型"
-subtitle:   "虚拟机内存数据区"
 date:       2016-10-12
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - JVM
     - Java
 ---
 

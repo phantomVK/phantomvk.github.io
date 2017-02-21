@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "Android源码系列 -- Looper"
+title:      "Android源码系列(5) -- Looper"
 date:       2016-12-03
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
 # 一、数据成员 

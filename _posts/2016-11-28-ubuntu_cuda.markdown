@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - DeepLearning
+    - Skills
 ---
 
 深度学习系统用Ubuntu 16.04，显卡是一张nVidia GTS450，主要用来做简单实验。用比较新的nVidia显卡驱动和CUDA8。
