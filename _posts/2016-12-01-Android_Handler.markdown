@@ -9,7 +9,7 @@ tags:
     - Android源码系列
 ---
 
-# 一、Handler用处
+# 一、作用
 
 Handler有两个主要用法：
 
@@ -40,6 +40,7 @@ public Handler() {
 public Handler(Callback callback) {
     this(callback, false);
 }
+
 // 不知道这个异步是不是和指令重排序有关
 public Handler(boolean async) {
     this(null, async);
@@ -55,6 +56,7 @@ public Handler(Callback callback, boolean async) {
                 klass.getCanonicalName());
         }
     }
+    
     // 主动获取Handler所在线程的Looper
     mLooper = Looper.myLooper();
     if (mLooper == null) {
@@ -86,7 +88,7 @@ public Handler(Looper looper, Callback callback, boolean async) {
 }
 ```
 
-# 四、把Runnable封装成Message
+# 四、封装
 
 这主要作用是把`r`赋值给`msg.callback`，把`token`赋值给`m.obj`。因为下一个代码块就使用到这个方法，所以拿到前面先说。
 
@@ -121,6 +123,7 @@ private static Message getPostMessage(Runnable r, Object token) {
 public final boolean post(Runnable r) {
    return sendMessageDelayed(getPostMessage(r), 0); //delayMillis = 0 
 }
+
 // 时间单位毫秒，如:delayMillis = 1000
 public final boolean postDelayed(Runnable r, long delayMillis) {
     return sendMessageDelayed(getPostMessage(r), delayMillis);
@@ -129,6 +132,7 @@ public final boolean postDelayed(Runnable r, long delayMillis) {
 public final boolean sendMessage(Message msg) {
     return sendMessageDelayed(msg, 0);
 }
+
 // msg.what用16进制，如:0x01
 public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
     Message msg = Message.obtain();
@@ -137,11 +141,7 @@ public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
 }
 ```
 
-____
-
-`SystemClock.uptimeMillis()`是从开机到现在的毫秒数，不包括手机睡眠的时间。
-
-`postAtTime()`重载方法调用了`sendMessageAtTime()`。
+`SystemClock.uptimeMillis()`是从开机到现在的毫秒数，不包括手机睡眠的时间。`postAtTime()`重载方法调用了`sendMessageAtTime()`。
 
 ```java
 public final boolean postAtTime(Runnable r, long uptimeMillis){
@@ -153,11 +153,9 @@ public final boolean postAtTime(Runnable r, Object token, long uptimeMillis){
 }
 ```
 
-____
-
 `sendEmptyMessage()`调`sendEmptyMessageDelayed()`
 
-`sendEmptyMessageDelayed()`又和`sendEmptyMessageAtTime`最终调用`sendMessageAtTime()`。
+`sendEmptyMessageDelayed()`和`sendEmptyMessageAtTime`最终调用`sendMessageAtTime()`。
 
 ```java
 public final boolean sendEmptyMessage(int what) {
@@ -178,7 +176,7 @@ public final boolean sendEmptyMessageAtTime(int what, long uptimeMillis) {
 }
 ```
 
-总而言之，上面所有post和send都终结在`sendMessageAtTime()`，而`sendMessageAtTime()`仅负责把消息送进消息队列中，然后给一个具体执行时间点。
+总而言之，上面所有post和send都终结在`sendMessageAtTime()`，而`sendMessageAtTime()`仅负责把消息确定一个具体执行时间点，然后送进消息队列中。
 
 ```java
 public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
@@ -193,9 +191,9 @@ public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
 }
 ```
 
-消息默认是放在消息队列的队尾处。返回成功代表成功进入队列，不代表消息会被调度。
+消息默认是放在消息队列的队尾处，返回`true`代表成功进入队列，不代表消息会被调度。
 
-一般情况下，消息队列都会等待所有消息完成才退出。但如果手动关闭消息队列，那滞留在消息队列的消息不会得到处理，然后消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
+一般情况下，消息队列都会等待所有消息完成才退出。但如果手动关闭消息队列，那滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
 
 ```java
 private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
@@ -207,9 +205,7 @@ private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMilli
 }
 ```
 
-____
-
-消息也可以放在消息队列的对头优先执行，不过这两个方法只能在非常特殊的情况下采取用，因为顺序问题和未知副作用很容易导致队列后方消息的饥饿。
+消息也可以放在消息队列头优先执行，不过这两个方法只能在非常特殊的情况下采取用，因为顺序问题和未知副作用很容易导致队列后方消息发生饥饿。
 
 ```java
 public final boolean postAtFrontOfQueue(Runnable r){
@@ -228,9 +224,9 @@ public final boolean sendMessageAtFrontOfQueue(Message msg) {
 }
 ```
 
-# 六、调度和三种消息回调
+# 六、调度和回调
 
-## 6.1 消息调度
+### 6.1 消息调度
 
 当消息到达预定执行时间，消息所在的Looper就会调用`msg.target.dispatchMessage(msg)`
 
@@ -249,7 +245,7 @@ public void dispatchMessage(Message msg) {
 }
 ```
 
-## 6.2 三种消息回调方式
+### 6.2 消息回调
 
 (1) 首先`dispatchMessage(msg)`尝试执行消息体的`msg.callback`。不过由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空而不执行。
 
@@ -289,7 +285,6 @@ public void handleMessage(Message msg) {
         case START_ACTIVITY:
             Intent intent = new Intent(Activity.this, MainActivity.class);
             Activity.this.startActivity(intent);
-            Activity.this.finish();
             break;
         case TOAST_SHORT_SHOW:
             Toast.makeText(Activity.this, "Toast", Toast.LENGTH_SHORT).show();
@@ -298,9 +293,9 @@ public void handleMessage(Message msg) {
 }
 ```
 
-# 七、移除队列消息
+# 七、移除消息
 
-根据消息身份`what`、消息`Runnable`或`msg.obj`移除队列中对应的消息。调用那个要根据你选用什么而定。例如发送`msg`，就用同一个`msg.what`作为参数。都调用`MessageQueue.removeMessages`，具体在`MessageQueue`的源码阅读里面说。
+根据消息身份`what`、消息`Runnable`或`msg.obj`移除队列中对应的消息。例如发送`msg`，用同一个`msg.what`作为参数。所有方法最终调用`MessageQueue.removeMessages`，具体在`MessageQueue`的源码阅读里面说。
 
 ```java
 public final void removeCallbacks(Runnable r) {
@@ -325,9 +320,9 @@ public final void removeCallbacksAndMessages(Object token) {
 ```
 
 
-# 八、查找对应消息
+# 八、查找消息
 
-上面是移除，这里是查看有没有对应的消息
+查看对应消息是否存在
 
 ```java
 public final boolean hasMessages(int what) {
@@ -425,7 +420,7 @@ private static final class BlockingRunnable implements Runnable {
 
 # 十、获取消息名
 
-获取消息里Handler的类名，或消息msg.what的16进制值
+获取消息里Handler的类名，或消息msg.what的16进制值。如果我们开始就使用16进制设置，这里不用换算就能对应起来。
 
 ```java
 public String getMessageName(Message message) {

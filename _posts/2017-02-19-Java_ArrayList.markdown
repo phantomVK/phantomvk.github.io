@@ -1,7 +1,6 @@
 ---
 layout:     post
 title:      "Java源码系列(1) -- ArrayList"
-subtitle:   "Java JDK8"
 date:       2017-02-19
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -10,7 +9,9 @@ tags:
     - Java源码系列
 ---
 
+__源码版本为JDK8__
 
+## 类签名
 
 支持克隆、序列化
 
@@ -19,7 +20,7 @@ public class ArrayList<E> extends AbstractList<E>
         implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 
-数据成员
+## 数据成员
 
 ```java
 private static final long serialVersionUID = 8683452581122892189L;
@@ -28,20 +29,23 @@ private static final int DEFAULT_CAPACITY = 10; // 缺省初始化大小
 
 private static final Object[] EMPTY_ELEMENTDATA = {}; // 空实例共享的空数组对象
 
-// 默认大小的空ArrayList共享这个空数组，和EMPTY_ELEMENTDATA做区分，为了标示第一个元素加入时需要填充多大空间
+// 默认大小的空ArrayList共享这个数组，和EMPTY_ELEMENTDATA做区分为了标示第一个元素加入
+// 时需要填充多大空间
 private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
 
-// 用于保存ArrayList的数组缓存。ArrayList的总长度就是这个的总长度，如果elementData构建时是DEFAULTCAPACITY_EMPTY_ELEMENTDATA，那么第一个元素加入时自动构建总长度就是10
+// 用于保存ArrayList的数组缓存。ArrayList的总长度就是这个总长度，如果elementData构
+// 建时是DEFAULTCAPACITY_EMPTY_ELEMENTDATA，那么第一个元素加入时自动构建总长度为10
 transient Object[] elementData; // 非私有，方便内部类访问
 
 // ArrayList的大小，指已加入元素的数量
 private int size;
 ```
 
-构造方法
+## 构造方法
 
-```java
-// 合法指定值创建集合，非法值抛出IllegalArgumentExceptio异常
+提前确定最大值创建ArrayList有助于节省堆内存
+
+```java 
 public ArrayList(int initialCapacity) {
     if (initialCapacity > 0) {
         this.elementData = new Object[initialCapacity];
@@ -52,13 +56,19 @@ public ArrayList(int initialCapacity) {
                                            initialCapacity);
     }
 }
+```
 
-// 无参构造方法，默认构造大小是10，延迟到加入第一个元素时才初始化空间
+无参构造方法，默认构造大小是10。延迟到加入第一个元素时才初始化数组
+
+```java
 public ArrayList() {
     this.elementData = DEFAULTCAPACITY_EMPTY_ELEMENTDATA;
 }
+```
 
-// 通过一个集合构建ArrayList，排列顺序由集合的迭代器依次指定顺序为准
+通过一个集合构建ArrayList，顺序由集合迭代器依次指定顺序为准
+
+```java
 public ArrayList(Collection<? extends E> c) {
     elementData = c.toArray();
     if ((size = elementData.length) != 0) {
@@ -68,8 +78,13 @@ public ArrayList(Collection<? extends E> c) {
         this.elementData = EMPTY_ELEMENTDATA; // 空集合构建为空数组列表
     }
 }
+```
 
-// 把列表长度裁剪到实际占用长度，用于最小化占用内存空间
+## 方法
+
+ 把列表长度裁剪到实际占用长度，用于释放未占用的数组空间
+
+```java
 public void trimToSize() {
     modCount++;
     if (size < elementData.length) {
@@ -78,8 +93,11 @@ public void trimToSize() {
           : Arrays.copyOf(elementData, size);
     }
 }
+```
 
-// 扩充大小
+改变数组大小
+
+```java
 public void ensureCapacity(int minCapacity) {
     int minExpand = (elementData != DEFAULTCAPACITY_EMPTY_ELEMENTDATA)
         // 非默认构造可以使用任何值
@@ -92,7 +110,6 @@ public void ensureCapacity(int minCapacity) {
     }
 }
 
-// 从下列方法可以知道每次扩充至少10个长度
 private void ensureCapacityInternal(int minCapacity) {
     if (elementData == DEFAULTCAPACITY_EMPTY_ELEMENTDATA) {
         minCapacity = Math.max(DEFAULT_CAPACITY, minCapacity);
@@ -109,7 +126,8 @@ private void ensureExplicitCapacity(int minCapacity) {
         grow(minCapacity);
 }
 
-// 数组最大申请空间。有的虚拟机实现会把对象头信息保存在数组中，尝试分配更大的内存空间在这种情况下回造成OOM：请求数字大小超过VM的限制
+// 数组最大申请空间，有的虚拟机实现会把对象头信息保存在数组中
+// 尝试分配更大内存空间在这种情况下会造成OOM：请求数字大小超过VM的限制
 private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
 // 实际扩充方法
@@ -125,15 +143,17 @@ private void grow(int minCapacity) {
     elementData = Arrays.copyOf(elementData, newCapacity);
 }
 
-// 扩充容量大小检查、总大小上溢检查
+// 先下溢检查，然后进行上溢检查
 private static int hugeCapacity(int minCapacity) {
-    if (minCapacity < 0) // overflow
+    if (minCapacity < 0)
         throw new OutOfMemoryError();
     return (minCapacity > MAX_ARRAY_SIZE) ?
         Integer.MAX_VALUE :
         MAX_ARRAY_SIZE;
 }
+```
 
+```java
 // 返回元素的数量 elementData.size
 public int size() {
     return size;
@@ -1060,81 +1080,4 @@ public void sort(Comparator<? super E> c) {
     modCount++;
 }
 ```
-
-
-```
-/**
- * Resizable-array implementation of the <tt>List</tt> interface.  Implements
- * all optional list operations, and permits all elements, including
- * <tt>null</tt>.  In addition to implementing the <tt>List</tt> interface,
- * this class provides methods to manipulate the size of the array that is
- * used internally to store the list.  (This class is roughly equivalent to
- * <tt>Vector</tt>, except that it is unsynchronized.)
- *
- * <p>The <tt>size</tt>, <tt>isEmpty</tt>, <tt>get</tt>, <tt>set</tt>,
- * <tt>iterator</tt>, and <tt>listIterator</tt> operations run in constant
- * time.  The <tt>add</tt> operation runs in <i>amortized constant time</i>,
- * that is, adding n elements requires O(n) time.  All of the other operations
- * run in linear time (roughly speaking).  The constant factor is low compared
- * to that for the <tt>LinkedList</tt> implementation.
- *
- * <p>Each <tt>ArrayList</tt> instance has a <i>capacity</i>.  The capacity is
- * the size of the array used to store the elements in the list.  It is always
- * at least as large as the list size.  As elements are added to an ArrayList,
- * its capacity grows automatically.  The details of the growth policy are not
- * specified beyond the fact that adding an element has constant amortized
- * time cost.
- *
- * <p>An application can increase the capacity of an <tt>ArrayList</tt> instance
- * before adding a large number of elements using the <tt>ensureCapacity</tt>
- * operation.  This may reduce the amount of incremental reallocation.
- *
- * <p><strong>Note that this implementation is not synchronized.</strong>
- * If multiple threads access an <tt>ArrayList</tt> instance concurrently,
- * and at least one of the threads modifies the list structurally, it
- * <i>must</i> be synchronized externally.  (A structural modification is
- * any operation that adds or deletes one or more elements, or explicitly
- * resizes the backing array; merely setting the value of an element is not
- * a structural modification.)  This is typically accomplished by
- * synchronizing on some object that naturally encapsulates the list.
- *
- * If no such object exists, the list should be "wrapped" using the
- * {@link Collections#synchronizedList Collections.synchronizedList}
- * method.  This is best done at creation time, to prevent accidental
- * unsynchronized access to the list:<pre>
- *   List list = Collections.synchronizedList(new ArrayList(...));</pre>
- *
- * <p><a name="fail-fast">
- * The iterators returned by this class's {@link #iterator() iterator} and
- * {@link #listIterator(int) listIterator} methods are <em>fail-fast</em>:</a>
- * if the list is structurally modified at any time after the iterator is
- * created, in any way except through the iterator's own
- * {@link ListIterator#remove() remove} or
- * {@link ListIterator#add(Object) add} methods, the iterator will throw a
- * {@link ConcurrentModificationException}.  Thus, in the face of
- * concurrent modification, the iterator fails quickly and cleanly, rather
- * than risking arbitrary, non-deterministic behavior at an undetermined
- * time in the future.
- *
- * <p>Note that the fail-fast behavior of an iterator cannot be guaranteed
- * as it is, generally speaking, impossible to make any hard guarantees in the
- * presence of unsynchronized concurrent modification.  Fail-fast iterators
- * throw {@code ConcurrentModificationException} on a best-effort basis.
- * Therefore, it would be wrong to write a program that depended on this
- * exception for its correctness:  <i>the fail-fast behavior of iterators
- * should be used only to detect bugs.</i>
- *
- * <p>This class is a member of the
- * <a href="{@docRoot}/../technotes/guides/collections/index.html">
- * Java Collections Framework</a>.
- *
- * @author  Josh Bloch
- * @author  Neal Gafter
- * @see     Collection
- * @see     List
- * @see     LinkedList
- * @see     Vector
- * @since   1.2
- */
- ```
 

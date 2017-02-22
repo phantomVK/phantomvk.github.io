@@ -67,7 +67,9 @@ tags:
 public class LinkedList<E>
     extends AbstractSequentialList<E>
     implements List<E>, Deque<E>, Cloneable, java.io.Serializable
-{
+```
+
+```java
     transient int size = 0;
 
     /**
@@ -83,7 +85,9 @@ public class LinkedList<E>
      *            (last.next == null && last.item != null)
      */
     transient Node<E> last;
+```
 
+```java
     /**
      * Constructs an empty list.
      */
@@ -102,7 +106,9 @@ public class LinkedList<E>
         this();
         addAll(c);
     }
+```
 
+```java
     /**
      * Links e as first element.
      */
@@ -215,7 +221,9 @@ public class LinkedList<E>
         modCount++;
         return element;
     }
+```
 
+```java
     /**
      * Returns the first element in this list.
      *
@@ -241,7 +249,9 @@ public class LinkedList<E>
             throw new NoSuchElementException();
         return l.item;
     }
+```
 
+```java
     /**
      * Removes and returns the first element from this list.
      *
@@ -267,7 +277,9 @@ public class LinkedList<E>
             throw new NoSuchElementException();
         return unlinkLast(l);
     }
+```
 
+```java
     /**
      * Inserts the specified element at the beginning of this list.
      *
@@ -287,7 +299,9 @@ public class LinkedList<E>
     public void addLast(E e) {
         linkLast(e);
     }
+```
 
+```java
     /**
      * Returns {@code true} if this list contains the specified element.
      * More formally, returns {@code true} if and only if this list contains
@@ -446,7 +460,9 @@ public class LinkedList<E>
         modCount++;
     }
 
+```
 
+```java
     // Positional Access Operations
 
     /**
@@ -509,7 +525,9 @@ public class LinkedList<E>
         checkElementIndex(index);
         return unlink(node(index));
     }
+```
 
+```java
     /**
      * Tells if the argument is the index of an existing element.
      */
@@ -543,7 +561,9 @@ public class LinkedList<E>
         if (!isPositionIndex(index))
             throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
     }
+```
 
+```java
     /**
      * Returns the (non-null) Node at the specified element index.
      */
@@ -1242,8 +1262,6 @@ public class LinkedList<E>
             return Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED;
         }
     }
-
-}
 ```
 
 

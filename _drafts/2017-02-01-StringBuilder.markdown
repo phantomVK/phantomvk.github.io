@@ -62,7 +62,9 @@ tags:
 public final class StringBuilder
     extends AbstractStringBuilder
     implements java.io.Serializable, CharSequence
-{
+```
+
+```java
 
     /** use serialVersionUID for interoperability */
     static final long serialVersionUID = 4383685877147921099L;
@@ -421,7 +423,5 @@ public final class StringBuilder
         count = s.readInt();
         value = (char[]) s.readObject();
     }
-
-}
 ```
 

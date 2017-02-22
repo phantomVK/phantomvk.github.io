@@ -1,7 +1,6 @@
 ---
 layout:     post
-title:      "Android源码系列(2) -- ViewGroup事件分发"
-subtitle:   "Android 6.0"
+title:      "Android源码系列(2) -- ViewGroup"
 date:       2016-11-07
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -13,21 +12,13 @@ tags:
 
 # 前言
 
-上一篇文章 [Android View 事件分发源码剖析](https://phantomvk.github.io/2016/10/18/android_view_dispatchTouchEvent/) 我们详细介绍了View事件分发的细节。接下来我们继续学习ViewGroup事件分发的内容。
-
-此次源码同样基于Android SDK 23。如果你看的是以前版本的源码，可能会有明显的不一样，请自行斟酌。
+上一篇文章 [Android View 事件分发源码剖析](https://phantomvk.github.io/2016/10/18/android_view_dispatchTouchEvent/) 我们详细介绍了View事件分发的细节。接下来我们继续学习ViewGroup事件分发的内容。此次源码同样基于Android SDK 23，即Android 6.0。如果你看的是以前版本的源码，可能会有明显的不一样，请自行斟酌。
 
 # 一、 代码构建
 
 继承LinearLayout类，重写**dispatchTouchEvent**、**onInterceptTouchEvent**、**onTouchEvent**三个方法。
 
 ```java
-import android.content.Context;
-import android.util.AttributeSet;
-import android.util.Log;
-import android.view.MotionEvent;
-import android.widget.LinearLayout;
-
 public class MyLinearLayout extends LinearLayout {
 
     private static final String TAG = "MyLinearLayout";
@@ -39,7 +30,6 @@ public class MyLinearLayout extends LinearLayout {
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         int action = ev.getAction();
-
         switch (action) {
             case MotionEvent.ACTION_DOWN:
                 Log.e(TAG, "dispatchTouchEvent ACTION_DOWN");
@@ -59,7 +49,6 @@ public class MyLinearLayout extends LinearLayout {
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         int action = ev.getAction();
-
         switch (action) {
             case MotionEvent.ACTION_DOWN:
                 Log.e(TAG, "onInterceptTouchEvent ACTION_DOWN");
@@ -78,8 +67,8 @@ public class MyLinearLayout extends LinearLayout {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+    
         int action = event.getAction();
-
         switch (action) {
             case MotionEvent.ACTION_DOWN:
                 Log.e(TAG, "onTouchEvent ACTION_DOWN");
@@ -98,37 +87,32 @@ public class MyLinearLayout extends LinearLayout {
 }
 ```
 
-然后直接修改上次的xml布局文件，把RelativeLayout改为自定义的**com.corevk.demoproject.MyLinearLayout**，其他的代码不需要修改。(corevk.com也是本作者的域名，不过没有解释到服务器上)
+然后直接修改上次的xml布局文件，把`RelativeLayout`改为自定义的**com.corevk.demoproject.MyLinearLayout**。
 
 ```xml
-<?xml version="1.0" encoding="utf-8"?>
 <com.corevk.demoproject.MyLinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="@color/backgroundGray"
-    android:padding="8dp"
-    tools:context=".MainActivity">
+    android:layout_height="match_parent">
 
     <com.corevk.demoproject.MyButton
         android:id="@+id/MyButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="CLICK ME"/>
-
 </com.corevk.demoproject.MyLinearLayout>
 ```
 
 # 二、运行结果
 
-时间按照一定的规律传递：
-**MyLinearLayout: dispatchTouchEvent**
-**MyLinearLayout: onInterceptTouchEvent**
-**MyButton: dispatchTouchEvent**
-**MyButton: onTouchEvent**
+时间按照一定规律传递:
 
-事件首先分发到ViewGroup中，然后从ViewGroup中分发到View中
+* MyLinearLayout: dispatchTouchEvent
+* MyLinearLayout: onInterceptTouchEvent
+* MyButton: dispatchTouchEvent
+* MyButton: onTouchEvent
+
+事件首先分发到`ViewGroup`中，然后`ViewGroup`分发到`View`。由于`View`是一个设置了`OnClickListener`的`Button`，所以`Button.onTouchEvent()`在父类中返回`true`终止分发。
 
 ```
 10-27 13:34:04.599 2106-2106/com.corevk.demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_DOWN
@@ -167,6 +151,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
     }
 
     boolean handled = false;
+    
     // 根据隐私策略而来决定是否过滤本次触摸事件
     if (onFilterTouchEventForSecurity(ev)) {
         final int action = ev.getAction();
@@ -174,23 +159,18 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 
         // 有MotionEvent.ACTION_DOWN事件
         if (actionMasked == MotionEvent.ACTION_DOWN) {
-            // 开始一个新的触摸动作时，先丢弃之前所有的状态
-            // 框架可能由于APP切换、ANR或其他状态切换，已经终止之前的抬起或取消事件
-            
-            // 取消并清除触摸的Targets
-            cancelAndClearTouchTargets(ev);
-            
-            // 重置触摸状态
-            resetTouchState();
+            // 开始一个新的触摸动作时先丢弃之前所有的状态
+            // 框架可能由于APP切换、ANR或其他状态改变已经终止先前抬起或取消事件
+            cancelAndClearTouchTargets(ev); // 取消并清除触摸的Targets
+            resetTouchState(); // 重置触摸状态
         }
-
 
         // 检查拦截器
         final boolean intercepted;
+        
         // 发生ACTION_DOWN事件或者已经发生ACTION_DOWN，进入此方法
         if (actionMasked == MotionEvent.ACTION_DOWN
                 || mFirstTouchTarget != null) {
-            // 通过调用requestDisallowInterceptTouchEvent来设置不允许父View拦截事件
             final boolean disallowIntercept = (mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0;
             // 检查是否允许调用拦截器
             if (!disallowIntercept) {
@@ -255,7 +235,6 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                         final View child = (preorderedList == null)
                                 ? children[childIndex] : preorderedList.get(childIndex);
 
-                        
                         // 若当前视图无法获取用户焦点跳过本次循环
                         if (childWithAccessibilityFocus != null) {
                             if (childWithAccessibilityFocus != child) {
@@ -325,11 +304,11 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
             }
         }
         
-            // 只有处理ACTION_DOWN事件才会进入addTouchTarget方法。
-            if (mFirstTouchTarget == null) {
-            // 没有触摸target，交给当前ViewGroup来处理
-            handled = dispatchTransformedTouchEvent(ev, canceled, null,
-                    TouchTarget.ALL_POINTER_IDS);
+        // 只有处理ACTION_DOWN事件才会进入addTouchTarget方法。
+        if (mFirstTouchTarget == null) {
+        // 没有触摸target，交给当前ViewGroup来处理
+        handled = dispatchTransformedTouchEvent(ev, canceled, null,
+                TouchTarget.ALL_POINTER_IDS);
         } else {
             TouchTarget predecessor = null;
             TouchTarget target = mFirstTouchTarget;

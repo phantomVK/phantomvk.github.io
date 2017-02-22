@@ -75,17 +75,15 @@ public static void loop() {
     // 确保线程就是本地线程，并实时跟踪线程身份
     Binder.clearCallingIdentity();
     final long ident = Binder.clearCallingIdentity();
+    
     // 循环遍历，从消息队列去消息
     for (;;) {
-        Message msg = queue.next(); // MessageQueue可能会阻塞
+        Message msg = queue.next();
         if (msg == null) {
-            // 消息队列关闭，Looper退出
-            return;
+            return; // 消息队列关闭，Looper退出
         }
-        // msg.handler.dispatchMessage(msg)，消息发送到Handler回调
-        msg.target.dispatchMessage(msg);
-        // 确保消息在分发的时候线程没有改变
-        final long newIdent = Binder.clearCallingIdentity();
+        msg.target.dispatchMessage(msg); // 消息发送到Handler回调
+        final long newIdent = Binder.clearCallingIdentity(); // 确保消息在分发的时候线程没有改变
         if (ident != newIdent) {
             Log.wtf(TAG, "Thread identity changed from 0x"
                     + Long.toHexString(ident) + " to 0x"
@@ -93,8 +91,7 @@ public static void loop() {
                     + msg.target.getClass().getName() + " "
                     + msg.callback + " what=" + msg.what);
         }
-        // 消息体回收
-        msg.recycleUnchecked();
+        msg.recycleUnchecked(); // 消息体回收
     }
 }
 ```

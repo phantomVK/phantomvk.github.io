@@ -4,17 +4,15 @@ title:      "Android源码系列(3) -- Message"
 date:       2016-11-13
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
-catalog:    false
+catalog:    true
 tags:
     - Android源码系列
 ---
 
-Handler是Android中一种处理线程消息循环的机制，而 [Message](https://developer.android.com/reference/android/os/Message.html) 是Handler用来放消息的包装。总得来说，Message作为一个用于封装消息的对象，逻辑并不复杂。
+Handler是Android中一种处理线程消息循环的机制，而 [Message](https://developer.android.com/reference/android/os/Message.html) 是Handler用来放消息的包装。
 
 ```java
-public final class Message implements Parcelable {
-    // Source Code here
-}
+public final class Message implements Parcelable
 ```
 
 Android常用序列化有 Serializable 和 [Parcelable](https://developer.android.com/reference/android/os/Parcelable.html) 两种，该类继承Parcelable接口表明支持序列化。简单说，前者用的时间比较长且范围更广，但是序列化过程中产生大量小对象；后者性能好，但是需要手动实现4个必须方法，范围也没有前者广。
@@ -54,7 +52,7 @@ Handler target; // 存放Handler实例
 Runnable callback; // 消息的回调操作
 Message next;   // 消息池用链表的方式存储
 
-private static final Object sPoolSync = new Object(); // 消息池同步公用标志
+private static final Object sPoolSync = new Object(); // 消息池同步锁对象
 private static Message sPool; // 消息池
 private static int sPoolSize = 0; // 消息池已缓存数量
 private static final int MAX_POOL_SIZE = 50; // 消息池最大容量
@@ -63,9 +61,7 @@ private static boolean gCheckRecycle = true; // 该版本系统是否支持回�
 
 # 二、消息体获取
 
-从消息池里取可以复用的消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取到同一个消息体导致消息紊乱。如果没有可复用的对象，就新建一个消息体返回。
-
-我们可以手动创建一个消息对象，但是最好从`obtain()`中获取缓存好的消息体，避免造成多余对象创建。
+从消息池里取可以复用的消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取到同一个空消息体导致后续使用紊乱。如果没有可复用的对象，就新建一个消息体返回。我们当然可以手动创建一个消息对象，但是最好从`obtain()`中获取缓存好的消息体，避免造成多余对象创建。
 
 ```java
 public static Message obtain() {
@@ -115,7 +111,7 @@ public static Message obtain(Handler h) {
 }
 ```
 
-下面都是获取消息体然后设置消息体参数的方法，就是`public static Message obtain()`的重载。
+下面都是获取消息体然后设置消息体参数的方法，就是`obtain()`的重载。
 
 ```java
 public static Message obtain(Handler h, Runnable callback) {
@@ -167,9 +163,9 @@ public static Message obtain(Handler h, int what, int arg1, int arg2, Object obj
 
 # 三、消息回收
 
-检查系统是否支持消息对象循环回收
+检查当前系统版本是否支持消息对象循环回收
 
-```
+```java
 public static void updateCheckRecycle(int targetSdkVersion) {
     if (targetSdkVersion < Build.VERSION_CODES.LOLLIPOP) {
         gCheckRecycle = false;
@@ -196,8 +192,7 @@ public void recycle() {
 
 ```java
 void recycleUnchecked() {
-    // 当消息还在回收池中，添加正在使用标志位，其他情况就清除掉
-    flags = FLAG_IN_USE;
+    flags = FLAG_IN_USE; // 添加正在使用标志位，其他情况就清除掉
     what = 0;
     arg1 = 0;
     arg2 = 0;
@@ -208,7 +203,8 @@ void recycleUnchecked() {
     target = null;
     callback = null;
     data = null;
-    // 最多缓存50个消息体，多余的GC
+    
+    // 最多缓存50个消息体
     synchronized (sPoolSync) {
         if (sPoolSize < MAX_POOL_SIZE) {
             next = sPool;
@@ -267,6 +263,7 @@ public Bundle getData() {
     
     return data;
 }
+
 // peekData()对比getData()
 public Bundle peekData() {
     return data;
@@ -275,6 +272,7 @@ public Bundle peekData() {
 public void setData(Bundle data) {
     this.data = data;
 }
+
 // 把消息发送到Handler，配合obtain()使用，这样target不为空。
 public void sendToTarget() {
     target.sendMessage(this);
@@ -309,7 +307,7 @@ void markInUse() {
  
 实现Parcelable接口的四个固定方法 `CREATOR`、`describeContents()`、`writeToParcel()`、`readFromParcel()`
 
-```
+```java
 public static final Parcelable.Creator<Message> CREATOR
         = new Parcelable.Creator<Message>() {
     public Message createFromParcel(Parcel source) {

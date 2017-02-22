@@ -302,7 +302,7 @@ public final class ToastUtil {
         } else {
             mSecondTime = System.currentTimeMillis();
             if (msg.equals(mLastMsg)) {
-                if (mSecondTime - mFirstTime > duration) {
+                if (mSecondTime - mFirstTime > 2500) {
                     mToast.show();
                 }
             } else {

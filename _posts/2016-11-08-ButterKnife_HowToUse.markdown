@@ -45,9 +45,6 @@ apply plugin: 'com.jakewharton.butterknife'
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
-    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
-        exclude group: 'com.android.support', module: 'support-annotations'
-    })
     compile 'com.android.support:appcompat-v7:23.4.0'
 
     compile 'com.jakewharton:butterknife:8.4.0'
@@ -147,7 +144,7 @@ public void setTextView(){
 }
 ```
 
-相当于给`EditTex`t加`addTextChangedListener()`，实现了文本改变监听器。
+相当于给`EditText`加`addTextChangedListener()`，实现了文本改变监听器。
 
 ```java
 @OnTextChanged(value = R.id.editText,callback = OnTextChanged.Callback.BEFORE_TEXT_CHANGED)

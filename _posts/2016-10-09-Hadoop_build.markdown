@@ -17,13 +17,13 @@ __运行环境：`Ubuntu 16.04 LTS x86_64` 、`Oracle JDK8`、`Hadoop-1.2.1`、`
 
 #### 安装JDK
 
-Hadoop依赖于Java，所以要确认系统是不是已经安装Java。没有安装的话可以参考 __[Ubuntu安装Oracle JDK8](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
+Hadoop依赖JDK，所以要确认系统是不是已经安装JDK。没有安装的话请看 __[Ubuntu安装Oracle JDK8](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
 
 ## 二、 Hadoop安装及配置
 
-### 2.1 下载Hadoop 1.2.1
+### 2.1 下载Hadoop
 
-用`wget`下载[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)Hadoop包，解压到`/opt`
+这次我们用一个版本不太高的Hadoop，通过`wget`下载[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)，然后解压到`/opt`
 
 ```bash
 $ cd /opt
@@ -107,10 +107,15 @@ $ vim mapred-site.xml
 
 ```bash
 $ vim /etc/profile
+```
+
+增加下面配置
+
+```
  export HADOOP_HOME=/opt/hadoop-1.2.1 
 ```
 
-然后在相同文件的`PATH`变量中追加`$HADOOP_HOME/bin:`参数
+然后在相同文件的`PATH`变量中追加参数`$HADOOP_HOME/bin:`，保存退出后调用下列命令刷新`profile`
 
 ```
 $ source /etc/profile
@@ -118,7 +123,7 @@ $ source /etc/profile
 
 ### 2.3 初始化NameNode
 
-运行命令后会自动开始格式化，看见NameNode被自动关闭就成功了
+运行命令后会自动开始格式化，看见NameNode自动关闭即可
 
 ```bash
 $ hadoop namenode -format 
@@ -156,7 +161,7 @@ SHUTDOWN_MSG: Shutting down NameNode at mike-virtual-machine/127.0.1.1
 
 #### 3.1 启动
 
-进入Hadoop目录下，脚本启动Hadoop
+进入Hadoop目录下，通过脚本启动Hadoop
 
 ```bash
 $ cd /opt/hadoop-1.2.1/bin
@@ -191,7 +196,7 @@ $ jps
 
 ## 四、 疑难解答
 
-#### 4.1 解决/etc/profile失效
+#### 4.1 解决 /etc/profile 失效
 
 在`~/.bashrc`添加环境变量
 
@@ -209,13 +214,13 @@ $ source .bashrc
 
 #### 4.2 找不到配置文件
 
-报错信息（这个错误可能只在使用openJDK的时候才有）
+报错信息，这个错误可能只在使用openJDK的时候才有
 
 ```
 Error: Config file not found: /usr/lib/jvm/java-9-openjdk-amd64/conf/management/management.properties
 ```
 
-这是软链接不存在，手动创建正确软链接。
+原因是软链接不存在，手动创建正确软链接即可
 
 ```bash
 $ cd /usr/lib/jvm/java-9-openjdk-amd64
@@ -232,7 +237,7 @@ $ ls -la conf
 Warning: $HADOOP_HOME is deprecated
 ``` 
 
-在`~/.bash_profile`里增加一个环境变量抑制错误提示:
+在`~/.bash_profile`里增加一个环境变量抑制错误提示
 
 ```
 export HADOOP_HOME_WARN_SUPPRESS=1
@@ -240,7 +245,7 @@ export HADOOP_HOME_WARN_SUPPRESS=1
 
 #### 4.4 SSH无法连接
 
-没有安装`openSSH`服务导致的：
+没有安装`openSSH`服务导致
 
 ```
 localhost: ssh: connect to host localhost port 22: Connection refused
@@ -287,7 +292,7 @@ $ ssh localhost # 检查ssh服务
 E:Sub-process /usr/bin/dpkg returned an error code(1)
 ```
 
-如果出现问题是其他原因可以尝试:
+如果问题一直无法解决，可以尝试:
 
 ```bash
 $ cd /var/lib/dpkg

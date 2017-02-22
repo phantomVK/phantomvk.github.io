@@ -23,7 +23,7 @@ $ sudo vi sources.list
 
 把源添加到文件前面，保存
 
-```
+```bash
 deb http://mirrors.ustc.edu.cn/ubuntu/ xenial main restricted universe multiverse
 deb http://mirrors.ustc.edu.cn/ubuntu/ xenial-security main restricted universe multiverse
 deb http://mirrors.ustc.edu.cn/ubuntu/ xenial-updates main restricted universe multiverse
@@ -51,7 +51,7 @@ $ sudo add-apt-repository ppa:graphics-drivers/ppa
 
 然后显示下列信息
 
-```bash
+```shell
 Fresh drivers from upstream, currently shipping Nvidia.
 
 ## Current Status
@@ -106,7 +106,7 @@ Press [ENTER] to continue or ctrl-c to cancel adding it
 
 在这里回车确认
 
-```bash
+```shell
 gpg: keyring `/tmp/tmp_4l44wuj/secring.gpg' created
 gpg: keyring `/tmp/tmp_4l44wuj/pubring.gpg' created
 gpg: requesting key 1118213C from hkp server keyserver.ubuntu.com

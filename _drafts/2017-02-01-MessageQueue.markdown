@@ -10,37 +10,7 @@ tags:
     - Android
 ---
 
-
 ```java
-/*
- * Copyright (C) 2006 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package android.os;
-
-import android.annotation.IntDef;
-import android.annotation.NonNull;
-import android.util.Log;
-import android.util.Printer;
-import android.util.SparseArray;
-
-import java.io.FileDescriptor;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.util.ArrayList;
-
 /**
  * Low-level class holding the list of messages to be dispatched by a
  * {@link Looper}.  Messages are not added directly to a MessageQueue,
@@ -49,7 +19,11 @@ import java.util.ArrayList;
  * <p>You can retrieve the MessageQueue for the current thread with
  * {@link Looper#myQueue() Looper.myQueue()}.
  */
-public final class MessageQueue {
+public final class MessageQueue 
+
+```
+
+```java
     private static final String TAG = "MessageQueue";
     private static final boolean DEBUG = false;
 
@@ -543,7 +517,9 @@ public final class MessageQueue {
             }
         }
     }
+```
 
+```java
     boolean enqueueMessage(Message msg, long when) {
         if (msg.target == null) {
             throw new IllegalArgumentException("Message must have a target.");
@@ -597,7 +573,9 @@ public final class MessageQueue {
         }
         return true;
     }
+```
 
+```java
     boolean hasMessages(Handler h, int what, Object object) {
         if (h == null) {
             return false;
@@ -631,7 +609,9 @@ public final class MessageQueue {
             return false;
         }
     }
+```
 
+```java
     void removeMessages(Handler h, int what, Object object) {
         if (h == null) {
             return;
@@ -770,7 +750,9 @@ public final class MessageQueue {
             }
         }
     }
+```
 
+```java
     void dump(Printer pw, String prefix) {
         synchronized (this) {
             long now = SystemClock.uptimeMillis();
@@ -783,7 +765,9 @@ public final class MessageQueue {
                     + ", quitting=" + mQuitting + ")");
         }
     }
+```
 
+```java
     /**
      * Callback interface for discovering when a thread is going to block
      * waiting for more messages.
@@ -883,6 +867,6 @@ public final class MessageQueue {
             mListener = listener;
         }
     }
-}
+
 ```
 
