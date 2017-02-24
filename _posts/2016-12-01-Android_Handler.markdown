@@ -30,7 +30,7 @@ final boolean mAsynchronous;
 
 # 三、构造方法
 
-如果线程已经有Looper，那么Handler可以使用下面的构造方法。
+如果线程已经开启Looper，Handler可以使用下面的构造方法。
 
 ```java
 public Handler() {
@@ -41,13 +41,12 @@ public Handler(Callback callback) {
     this(callback, false);
 }
 
-// 不知道这个异步是不是和指令重排序有关
 public Handler(boolean async) {
     this(null, async);
 }
 
 public Handler(Callback callback, boolean async) {
-    // 判断是否匿名类、本地类、成员类，并判断修饰符是否是static，不是打出就警告信息，避免内存泄漏
+    // 判断是否匿名类、本地类、成员类，判断修饰符是否static，避免内存泄漏
     if (FIND_POTENTIAL_LEAKS) {
         final Class<? extends Handler> klass = getClass();
         if ((klass.isAnonymousClass() || klass.isMemberClass() || klass.isLocalClass()) &&
@@ -69,7 +68,7 @@ public Handler(Callback callback, boolean async) {
 }
 ```
 
-带Looper形参的构造方法，传入的Looper不能为空。通常和`Looper.getMainLooper()`合用。
+带Looper形参的构造方法。通常和`Looper.getMainLooper()`合用。
 
 ``` java
 public Handler(Looper looper) {
@@ -90,7 +89,7 @@ public Handler(Looper looper, Callback callback, boolean async) {
 
 # 四、封装
 
-这主要作用是把`r`赋值给`msg.callback`，把`token`赋值给`m.obj`。因为下一个代码块就使用到这个方法，所以拿到前面先说。
+作用是把`r`赋值给`msg.callback`，把`token`赋值给`m.obj`。因为下一个代码块就使用到这个方法，所以拿到前面先说。
 
 ```java
 private static Message getPostMessage(Runnable r) {
@@ -108,16 +107,9 @@ private static Message getPostMessage(Runnable r, Object token) {
 ```
 
 
-# 五、Post和Send
+# 五、消息发送
 
-
-注意下面4个方法：
-
-* 前两个方法封装形参`Runnable`，方法名组成是 `post()`
-* 后两个方法形参是`msg`或`msg.what`，方法名组成是 `sendMessage()`
-* 没有方法形参既有`Runnable`，又有`msg`
-* 方法名带`Delayed`可设置延迟时间，带`EmptyMessage`为创建空消息
-* 这4个方法的共同点是都调用了`sendMessageDelayed()`，返回这个调用的结果
+方法封装形参`Runnable`，方法名组成是 `post()`
 
 ```java
 public final boolean post(Runnable r) {
@@ -128,7 +120,11 @@ public final boolean post(Runnable r) {
 public final boolean postDelayed(Runnable r, long delayMillis) {
     return sendMessageDelayed(getPostMessage(r), delayMillis);
 }
+```
 
+方法形参是`msg`或`msg.what`，方法名组成是 `sendMessage()`。没有方法形参既有`Runnable`，又有`msg`
+
+```java
 public final boolean sendMessage(Message msg) {
     return sendMessageDelayed(msg, 0);
 }
@@ -141,7 +137,11 @@ public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
 }
 ```
 
-`SystemClock.uptimeMillis()`是从开机到现在的毫秒数，不包括手机睡眠的时间。`postAtTime()`重载方法调用了`sendMessageAtTime()`。
+以上方法带`Delayed`可设置延迟时间，带`EmptyMessage`为创建空消息。共同点是都调用了`sendMessageDelayed()`，并返回这个调用的结果。
+
+`SystemClock.uptimeMillis()`是从开机到现在的毫秒数，不包括手机睡眠的时间。
+
+`postAtTime()`重载方法调用了`sendMessageAtTime()`。
 
 ```java
 public final boolean postAtTime(Runnable r, long uptimeMillis){
@@ -153,9 +153,7 @@ public final boolean postAtTime(Runnable r, Object token, long uptimeMillis){
 }
 ```
 
-`sendEmptyMessage()`调`sendEmptyMessageDelayed()`
-
-`sendEmptyMessageDelayed()`和`sendEmptyMessageAtTime`最终调用`sendMessageAtTime()`。
+`sendEmptyMessage()`调`sendEmptyMessageDelayed()`，`sendEmptyMessageDelayed()`和`sendEmptyMessageAtTime`最终调用`sendMessageAtTime()`。
 
 ```java
 public final boolean sendEmptyMessage(int what) {
@@ -191,7 +189,7 @@ public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
 }
 ```
 
-消息默认是放在消息队列的队尾处，返回`true`代表成功进入队列，不代表消息会被调度。
+消息默认放在消息队列的队尾处，返回`true`代表成功进入队列，不代表消息会被调度。
 
 一般情况下，消息队列都会等待所有消息完成才退出。但如果手动关闭消息队列，那滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
 
@@ -228,7 +226,7 @@ public final boolean sendMessageAtFrontOfQueue(Message msg) {
 
 ### 6.1 消息调度
 
-当消息到达预定执行时间，消息所在的Looper就会调用`msg.target.dispatchMessage(msg)`
+当消息到达预定执行时间，消息所在的Looper就会调用`msg.target.dispatchMessage(msg)`，也就是下面方法
 
 ```java
 public void dispatchMessage(Message msg) {
@@ -247,7 +245,7 @@ public void dispatchMessage(Message msg) {
 
 ### 6.2 消息回调
 
-(1) 首先`dispatchMessage(msg)`尝试执行消息体的`msg.callback`。不过由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空而不执行。
+* (1) 首先`dispatchMessage(msg)`尝试执行消息体的`msg.callback`。不过由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空而跳过。
 
 ```java
 private static void handleCallback(Message message) {
@@ -255,7 +253,7 @@ private static void handleCallback(Message message) {
 }
 ```
 
-(2) `msg.callback`不行就看看Handler自己有没有`mCallback`。
+* (2) `msg.callback`不行就看看Handler自己有没有`mCallback`。
 
 ```java
 public interface Callback {
@@ -275,7 +273,7 @@ Handler handler = new Handler(new Handler.Callback() {
 });
 ```
 
-(3) 如果上两个回调都不存在，就只能寄托于我们自己重写的方法。举个例子：
+* (3) 如果上两个回调都不存在，就只能寄托于我们自己重载的方法
 
 ```java
 @Override

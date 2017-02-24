@@ -4,46 +4,68 @@ title:      "Java源码系列(1) -- ArrayList"
 date:       2017-02-19
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
-catalog:    false
+catalog:    true
 tags:
     - Java源码系列
 ---
 
-__源码版本为JDK8__
 
-## 类签名
 
-支持克隆、序列化
+## 一、类签名
+
+源码版本为JDK8，支持`随机存储`、`克隆`、`序列化`
 
 ```java
 public class ArrayList<E> extends AbstractList<E>
         implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 
-## 数据成员
+## 二、数据成员
 
 ```java
 private static final long serialVersionUID = 8683452581122892189L;
+private static final int DEFAULT_CAPACITY = 10; // 缺省值
+```
 
-private static final int DEFAULT_CAPACITY = 10; // 缺省初始化大小
+构造函数方法参数为0的数组用这个空数组标识
 
-private static final Object[] EMPTY_ELEMENTDATA = {}; // 空实例共享的空数组对象
+```java
+private static final Object[] EMPTY_ELEMENTDATA = {};
+```
 
-// 默认大小的空ArrayList共享这个数组，和EMPTY_ELEMENTDATA做区分为了标示第一个元素加入
-// 时需要填充多大空间
+无参构造方法使用下面的空数组作为标识，以便第一次初始化数组的时候系统知道需要用缺省值作为数组长度
+
+```java
 private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
+```
 
-// 用于保存ArrayList的数组缓存。ArrayList的总长度就是这个总长度，如果elementData构
-// 建时是DEFAULTCAPACITY_EMPTY_ELEMENTDATA，那么第一个元素加入时自动构建总长度为10
-transient Object[] elementData; // 非私有，方便内部类访问
+ArrayList的总长度就是这个总长度，如果构建前等于`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，那么第一个元素加入时构建序列长度为10
 
-// ArrayList的大小，指已加入元素的数量
+```java
+transient Object[] elementData;
+```
+
+ArrayList的大小，指已加入元素的数量
+
+```java
 private int size;
 ```
 
-## 构造方法
+## 三、构造方法
 
-提前确定最大值创建ArrayList有助于节省堆内存
+### 3.1 默认构造
+
+无参构造方法默认构造大小是10，初始化数组延迟到加入第一个元素时才进行
+
+```java
+public ArrayList() {
+    this.elementData = DEFAULTCAPACITY_EMPTY_ELEMENTDATA;
+}
+```
+
+### 3.2 指定构造
+
+提前确定最大值创建值有助于节省堆内存
 
 ```java 
 public ArrayList(int initialCapacity) {
@@ -58,13 +80,7 @@ public ArrayList(int initialCapacity) {
 }
 ```
 
-无参构造方法，默认构造大小是10。延迟到加入第一个元素时才初始化数组
-
-```java
-public ArrayList() {
-    this.elementData = DEFAULTCAPACITY_EMPTY_ELEMENTDATA;
-}
-```
+### 3.3 集合构造
 
 通过一个集合构建ArrayList，顺序由集合迭代器依次指定顺序为准
 
@@ -80,9 +96,9 @@ public ArrayList(Collection<? extends E> c) {
 }
 ```
 
-## 方法
+## 四、方法
 
- 把列表长度裁剪到实际占用长度，用于释放未占用的数组空间
+ 把列表长度裁剪到实际占用长度，用于释放未占用的数组空间。如果数组保存元素为0就设为空数组，否则缩短数组长度到已占用长度。
 
 ```java
 public void trimToSize() {
@@ -95,21 +111,26 @@ public void trimToSize() {
 }
 ```
 
-改变数组大小
+增加大小有两种类别：
+
+* 使用默认构造方法构造指向`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，长度是0。调用下列方法时`minCapacity`只有大于10才会执行数组扩增，把数组从0增到`minCapacity`。
+
+* 如果数组长度不为0而假设为A，则`minCapacity > A`才有效。`minCapacity`的意思就是数组的最短长度，而不是增加长度的数值。总不能`minCapacity`比原数组还小吧。
 
 ```java
 public void ensureCapacity(int minCapacity) {
-    int minExpand = (elementData != DEFAULTCAPACITY_EMPTY_ELEMENTDATA)
-        // 非默认构造可以使用任何值
-        ? 0
-        // 比默认值10大的数才能扩充数组
-        : DEFAULT_CAPACITY;
+    int minExpand = (elementData != DEFAULTCAPACITY_EMPTY_ELEMENTDATA) ? 
+            0 : DEFAULT_CAPACITY;
 
     if (minCapacity > minExpand) {
         ensureExplicitCapacity(minCapacity);
     }
 }
+```
 
+这里控制默认构造空数组扩展最小值为10
+
+```java
 private void ensureCapacityInternal(int minCapacity) {
     if (elementData == DEFAULTCAPACITY_EMPTY_ELEMENTDATA) {
         minCapacity = Math.max(DEFAULT_CAPACITY, minCapacity);
@@ -121,16 +142,23 @@ private void ensureCapacityInternal(int minCapacity) {
 private void ensureExplicitCapacity(int minCapacity) {
     modCount++;
 
-    // overflow-conscious code
+    // 溢出检查，minCapacity必须必数组长度大
     if (minCapacity - elementData.length > 0)
         grow(minCapacity);
 }
+```
 
-// 数组最大申请空间，有的虚拟机实现会把对象头信息保存在数组中
-// 尝试分配更大内存空间在这种情况下会造成OOM：请求数字大小超过VM的限制
+数组最大申请空间，有的虚拟机实现会把对象头信息保存在数组中，尝试分配更大内存空间在这种情况下会造成OOM：请求数字大小超过VM的限制
+
+```java
 private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
+```
 
-// 实际扩充方法
+就算`minCapacity`比数组长度大，也不一定会采用`minCapacity`的值。因为每次数组扩增不是在原数组上扩展，而是创建新的数组，然后转移旧数组的内容到新数组上，若每次扩增只增加1个长度，那么累计造成的性能损耗相当庞大。
+
+假设旧数组长度是16，根据`newCapacity = oldCapacity + (oldCapacity >> 1)`，`newCapacity`为16+8=24。如果自定义`minCapacity`小于24，则方法按照24的长度扩增。
+
+```java
 private void grow(int minCapacity) {
     // overflow-conscious code
     int oldCapacity = elementData.length;
@@ -142,8 +170,11 @@ private void grow(int minCapacity) {
     // minCapacity is usually close to size, so this is a win:
     elementData = Arrays.copyOf(elementData, newCapacity);
 }
+```
 
-// 先下溢检查，然后进行上溢检查
+先下溢检查，然后进行上溢检查
+
+```java
 private static int hugeCapacity(int minCapacity) {
     if (minCapacity < 0)
         throw new OutOfMemoryError();
@@ -153,22 +184,33 @@ private static int hugeCapacity(int minCapacity) {
 }
 ```
 
+返回保存元素数量
+
 ```java
-// 返回元素的数量 elementData.size
 public int size() {
     return size;
 }
+```
 
+元素数量是否为0
+
+```java
 public boolean isEmpty() {
     return size == 0;
 }
+```
 
-// 查看下一个方法的注释
+找指定对象是否保存在列表中
+
+```java
 public boolean contains(Object o) {
     return indexOf(o) >= 0;
 }
+```
 
-// 查找指定元素的序号，包含第一个空对象的序号  
+查找指定元素的序号。若元素是空对象，则找数组遇到第一个null的下标。其他情况，找到元素返回下标，找不到返回`-1`  
+
+```
 public int indexOf(Object o) {
     if (o == null) {
         for (int i = 0; i < size; i++)
@@ -181,8 +223,11 @@ public int indexOf(Object o) {
     }
     return -1;
 }
+```
 
-// 查指定元素在列表中最后一次出现的索引值
+查指定元素在列表中最后一次出现的索引值
+
+```java
 public int lastIndexOf(Object o) {
     if (o == null) {
         for (int i = size-1; i >= 0; i--)
@@ -195,8 +240,11 @@ public int lastIndexOf(Object o) {
     }
     return -1;
 }
+```
 
-// 浅拷贝
+浅拷贝，正常来说不会出现`CloneNotSupportedException`，因为本身实现了`Cloneable`接口
+
+```java
 public Object clone() {
     try {
         ArrayList<?> v = (ArrayList<?>) super.clone();
@@ -204,10 +252,12 @@ public Object clone() {
         v.modCount = 0;
         return v;
     } catch (CloneNotSupportedException e) {
-        throw new InternalError(e); // 正常来说不会出现，因为本身确实是可以拷贝的
+        throw new InternalError(e); 
     }
 }
+```
 
+```java
 // 按照开始到结束的原顺序返回一个新数组，新数组和原ArrayList互相独立
 public Object[] toArray() {
     return Arrays.copyOf(elementData, size);
@@ -224,7 +274,9 @@ public <T> T[] toArray(T[] a) {
         a[size] = null;
     return a;
 }
+```
 
+```java
 // 返回指定位置的元素，无下标检查
 @SuppressWarnings("unchecked")
 E elementData(int index) {
@@ -246,7 +298,9 @@ public E set(int index, E element) {
     elementData[index] = element;
     return oldValue;
 }
+```
 
+```java
 // 增加元素
 public boolean add(E e) {
     ensureCapacityInternal(size + 1);  // 增加的修改操作
@@ -264,7 +318,9 @@ public void add(int index, E element) {
     elementData[index] = element;
     size++;
 }
+```
 
+```java
 // 移除指定位置的元素，随后元素组成的子序列依次向前移动一个位置
 public E remove(int index) {
     rangeCheck(index);
@@ -308,7 +364,9 @@ private void fastRemove(int index) {
                          numMoved);
     elementData[--size] = null; // clear to let GC do its work
 }
+```
 
+```java
 // 移除列表中所有元素，成为一个空列表，size大小置0。 
 // 注：移出对象被GC，而ArrayList本身占用数组空间不会释放
 public void clear() {
@@ -320,7 +378,9 @@ public void clear() {
 
     size = 0;
 }
+```
 
+```java
 // 把集合的保存的元素追加在ArrayList的尾部
 public boolean addAll(Collection<? extends E> c) {
     Object[] a = c.toArray();
@@ -347,7 +407,9 @@ public boolean addAll(int index, Collection<? extends E> c) {
     size += numNew;
     return numNew != 0;
 }
+```
 
+```java
 // 移除指定范围包含的元素，并修改size
 protected void removeRange(int fromIndex, int toIndex) {
     modCount++;
@@ -373,7 +435,6 @@ private void rangeCheckForAdd(int index) {
     if (index > size || index < 0)
         throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
 }
-
 
 // 移除交集部分元素
 public boolean removeAll(Collection<?> c) {
@@ -848,7 +909,9 @@ private class SubList extends AbstractList<E> implements RandomAccess {
         if (ArrayList.this.modCount != this.modCount)
             throw new ConcurrentModificationException();
     }
+```
 
+```javap
     public Spliterator<E> spliterator() {
         checkForComodification();
         return new ArrayListSpliterator<E>(ArrayList.this, offset,
@@ -856,8 +919,6 @@ private class SubList extends AbstractList<E> implements RandomAccess {
     }
 }
 ```
-
-下面这些应该是JDK8 Lambda的实现方法
 
 ```java
 @Override
@@ -874,7 +935,9 @@ public void forEach(Consumer<? super E> action) {
         throw new ConcurrentModificationException();
     }
 }
+```
 
+```java
 /**
  * Creates a <em><a href="Spliterator.html#binding">late-binding</a></em>
  * and <em>fail-fast</em> {@link Spliterator} over the elements in this
@@ -1010,7 +1073,9 @@ static final class ArrayListSpliterator<E> implements Spliterator<E> {
         return Spliterator.ORDERED | Spliterator.SIZED | Spliterator.SUBSIZED;
     }
 }
+```
 
+```java
 @Override
 public boolean removeIf(Predicate<? super E> filter) {
     Objects.requireNonNull(filter);

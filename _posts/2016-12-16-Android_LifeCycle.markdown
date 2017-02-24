@@ -28,7 +28,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        // 图方便直接给findViewById加监听
+
         findViewById(R.id.btn_dialog).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -38,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
         });
         System.out.println("onCreate");
     }
+    
     // 实现所有生命周期方法Log
     @Override
     protected void onStart() {

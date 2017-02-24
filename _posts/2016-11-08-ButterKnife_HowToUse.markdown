@@ -13,19 +13,16 @@ tags:
 
 # 介绍
 
-ButterKnife是为Android View而设的绑定注解，把我们从`findViewById()`和`setOnclicktListener()`中全面解放。
+ButterKnife为Android View而设的绑定注解，把我们从`findViewById()`和`setOnclicktListener()`中全面解放。
 
-但是使用ButterKnife的有一些东西需要注意：
+使用ButterKnife注意要点：
 
-* 属性布局不能用`private`或`static`修饰，否则会报错
+* 属性不能用`private`或`static`修饰，否则会报错
 * 不能通过注解实现`setContentView()`
 * 调用`ButterKnife.bind(this)`之前必须先调用`setContentView(R.layout.id)`
 * 父类已经调用`ButterKnife.bind(this)`，则子类无需再次调用。
 
-____
-
 ButterKnife Github: [https://github.com/JakeWharton/butterknife](https://github.com/JakeWharton/butterknife)
-
 ButterKnife 博客: [http://jakewharton.github.io/butterknife/](http://jakewharton.github.io/butterknife/)
 
 # 一、导入
@@ -39,9 +36,6 @@ ButterKnife 博客: [http://jakewharton.github.io/butterknife/](http://jakewhart
 ```
 apply plugin: 'com.android.application'
 apply plugin: 'com.jakewharton.butterknife'
-
-....
-....
 
 dependencies {
     compile fileTree(dir: 'libs', include: ['*.jar'])
@@ -98,6 +92,7 @@ public class MainActivity extends BaseActivity {
     public int getContentViewId() {
         return R.layout.activity_main;
     }
+    
     // 以前初始化的工作在onCreate()中完成，现在放在afterCreate().
     @Override
     protected void afterCreate(Bundle bundle) {}

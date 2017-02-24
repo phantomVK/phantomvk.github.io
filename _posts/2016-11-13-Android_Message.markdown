@@ -9,24 +9,24 @@ tags:
     - Android源码系列
 ---
 
-Handler是Android中一种处理线程消息循环的机制，而 [Message](https://developer.android.com/reference/android/os/Message.html) 是Handler用来放消息的包装。
+Handler是Android中一种处理线程消息循环的机制，而 [Message](https://developer.android.com/reference/android/os/Message.html) 是Handler放消息的包装。
 
 ```java
 public final class Message implements Parcelable
 ```
 
-Android常用序列化有 Serializable 和 [Parcelable](https://developer.android.com/reference/android/os/Parcelable.html) 两种，该类继承Parcelable接口表明支持序列化。简单说，前者用的时间比较长且范围更广，但是序列化过程中产生大量小对象；后者性能好，但是需要手动实现4个必须方法，范围也没有前者广。
+Android常用序列化有 Serializable 和 [Parcelable](https://developer.android.com/reference/android/os/Parcelable.html) 两种，该类继承Parcelable接口表明支持序列化。前者用的时间比较长且范围更广，但是序列化过程中产生大量小对象；后者性能好，但是需要手动实现4个必须方法，只有Android中可以使用。
 
 
 # 一、成员变量
 
-用一个标志来区分不同的消息的身份。不同的Handler里使用相同`what`值的不同消息不会弄混。一般用十六进制形式表示，阅读起来比较容易。
+用一个标志来区分不同的消息的身份，不同的Handler使用相同值的不同消息不会弄混。一般用十六进制形式表示，阅读起来比较容易。
 
 ```java
 public int what; // 0x01
 ```
 
-`arg1`和`arg2`都是类中可选的变量存储位置，可以方便地用来存放两个数值，这样就不用访问`obj`对象就能读取变量。
+`arg1`和`arg2`都是类中可选变量用来存放两个数值，不用访问`obj`对象就能读取变量。
 
 ```java
 public int arg1; 
@@ -39,14 +39,18 @@ public int arg2;
 public Object obj; // 用来保存对象
 public Messenger replyTo; // 回复跨进程的Messenger
 public int sendingUid = -1; // Messenger发送时使用
+```
 
+```java
 static final int FLAG_IN_USE = 1 << 0; // 正在使用标志值
 static final int FLAG_ASYNCHRONOUS = 1 << 1; // 异步标志值
 static final int FLAGS_TO_CLEAR_ON_COPY_FROM = FLAG_IN_USE;
 
 int flags; // 消息标志，上面三个常量 FLAG_* 用在这里
 long when; // 估计和arg1、arg2性质一样，存时间戳
+```
 
+```java
 Bundle data;    // 存放Bundle
 Handler target; // 存放Handler实例
 Runnable callback; // 消息的回调操作
@@ -61,7 +65,9 @@ private static boolean gCheckRecycle = true; // 该版本系统是否支持回�
 
 # 二、消息体获取
 
-从消息池里取可以复用的消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取到同一个空消息体导致后续使用紊乱。如果没有可复用的对象，就新建一个消息体返回。我们当然可以手动创建一个消息对象，但是最好从`obtain()`中获取缓存好的消息体，避免造成多余对象创建。
+从消息池里取可复用消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取同一个空消息体导致使用紊乱。如果没有可复用的对象，新消息体会被创建。
+
+当然我们可以手动创建一个消息对象，但是最好从`obtain()`中获取缓存好的消息体，避免造成多余对象创建。
 
 ```java
 public static Message obtain() {
@@ -79,7 +85,7 @@ public static Message obtain() {
 }
 ```
 
-从消息池中取可用的消息体，然后把形参全部复制进去。
+从消息池中取可用的消息体，然后把实参全部复制进去
 
 ```java
 public static Message obtain(Message orig) {
@@ -173,7 +179,7 @@ public static void updateCheckRecycle(int targetSdkVersion) {
 }
 ```
 
-对象使用完毕就会调用`recycleUnchecked()`
+对象使用完毕最终调用`recycleUnchecked()`
 
 ```java
 public void recycle() {
@@ -287,7 +293,7 @@ public void setAsynchronous(boolean async) {
 }
 ```
 
-# 六、标志位
+# 六、标志操作
 
 ```java
 public boolean isAsynchronous() {
@@ -305,7 +311,7 @@ void markInUse() {
 
 # 七、Parcelable实现
  
-实现Parcelable接口的四个固定方法 `CREATOR`、`describeContents()`、`writeToParcel()`、`readFromParcel()`
+实现Parcelable接口的方法`describeContents()`、`writeToParcel()`、`readFromParcel()`
 
 ```java
 public static final Parcelable.Creator<Message> CREATOR

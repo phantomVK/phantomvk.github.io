@@ -13,15 +13,13 @@ tags:
 
 # 前言
 
-最近在看View的事件分发源码，并做了一些笔记。笔记以注释的形式插入到代码中，请仔细阅读文章中给出的源码。
-
-文章内容是作者自己对源码的理解，或有错漏之处，欢迎指正。-- 源码来自Android 6.0
+最近看View的事件分发源码，并做了一些笔记。笔记以注释的形式插入到代码中，请仔细阅读文章中给出的源码，或有错漏之处，欢迎指正。-- 源码来自Android 6.0
 
 # 一、代码构建
 
 ### 1.1 自定义Button
 
-为了能看见事件调用什么方法，我们继承`Button`类重载了`dispatchTouchEvent()`和`onTouchEvent()`。而所有发送给View的事件，首先是由`dispatchTouchEvent()`接收。
+为了能看见事件调用什么方法，先继承`Button`类并重载`dispatchTouchEvent()`和`onTouchEvent()`。而所有发送给View的事件，首先是由`dispatchTouchEvent()`接收。
 
 ```java
 public class MyButton extends Button {
@@ -137,9 +135,9 @@ public class MainActivity extends AppCompatActivity {
 
 ### 2.1 OnTouchListener false
 
-如果手指一直在屏幕上滑动，Log的`ACTION_DOWN`和`ACTION_UP`之间会报告很多`ACTION_MOVE`的信息。
+`View.OnTouchListener`中返回`false`，点击按钮马上放开。如果手指一直在屏幕上滑动，Log的`ACTION_DOWN`和`ACTION_UP`之间会报告`ACTION_MOVE`的信息。
 
-`View.OnTouchListener`中返回`false`，点击按钮马上放开。结果按照`dispatchTouchEvent` -> `onTouch` -> `onTouchEvent`出现
+结果按照`dispatchTouchEvent` -> `onTouch` -> `onTouchEvent`出现
 
 ```
 10-13 23:53:29.382 17840-17840/? E/MyButton: dispatchTouchEvent ACTION_DOWN
@@ -165,12 +163,11 @@ public class MainActivity extends AppCompatActivity {
 
 当`View.OnTouchListener`的返回值中返回`true`，`onTouchEvent()`不会触发，说明事件没有分发到`onTouchEvent()`。
 
-
 # 三、源码分析
 
 ### 3.1 dispatchTouchEvent
 
-先来看`dispatchTouchEvent()`源码
+先看`dispatchTouchEvent`源码
 
 ```java
 public boolean dispatchTouchEvent(MotionEvent event) {
@@ -191,7 +188,7 @@ public boolean dispatchTouchEvent(MotionEvent event) {
     if (actionMasked == MotionEvent.ACTION_DOWN) {
         stopNestedScroll(); // 停止嵌套滚动
     }
-    
+
     // 安全机制过滤触摸事件，被遮挡要过滤该事件
     if (onFilterTouchEventForSecurity(event)) {
         ListenerInfo li = mListenerInfo; // 这里获取mListenerInfo
@@ -204,11 +201,13 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         		&& li.mOnTouchListener != null
         		&& (mViewFlags & ENABLED_MASK) == ENABLED
         		&& li.mOnTouchListener.onTouch(this, event)){ 
-            result = true; // 事件被OnTouchListener.onTouch消费
+            // 若Button.OnClickListener返回false，则result为false
+            result = true;
         }
- 
+        
+        // result为false，交给onTouchEven处理
         if (!result && onTouchEvent(event)) {
-            result = true; // 否则交给onTouchEven处理
+            result = true;
         }
     }
 
@@ -239,9 +238,9 @@ if (li != null
    }  
 ```
 
-`li.mOnTouchListener`是依赖`mButton.setOnTouchListener`的。如果不调用`mButton.setOnTouchListener`，`li.mOnTouchListener`为null。
+`li.mOnTouchListener`是依赖`mButton.setOnTouchListener`的。如果不调用`mButton.setOnTouchListener`，`li.mOnTouchListener`为空。
 
-当我们在MainActivity - onCreate中给mButton.setOnTouchListener创建一个View.OnTouchListener()实例的同时，这个实例会被保存在`getListenerInfo().mOnTouchListener`。
+在`MainActivity.onCreate`中给`mButton.setOnTouchListener`创建一个`OnTouchListener()`实例的同时，这个实例会保存在`getListenerInfo().mOnTouchListener`。
 
 ```java
 public void setOnTouchListener(OnTouchListener l) {
@@ -263,161 +262,75 @@ ListenerInfo getListenerInfo() {
 
 ### 3.2 onTouchEvent
 
-如果设置了`View.OnTouchListener()`，其返回值决定了事件是否继续分发给`onTouchEvent`实例。假如`onTouchEvent`可以接收事件，那后面又会做什么？
+如果设置了`View.OnTouchListener()`，其返回值决定了事件是否继续分发给`onTouchEvent`实例。假如`OnTouchListener()`返回`false`，`onTouchEvent`可以接收事件，那后面又会做什么？
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
-    // 获取动作时间中点击屏幕的位置
+    // 获取动作点击屏幕的位置
     final float x = event.getX();
     final float y = event.getY();
     final int viewFlags = mViewFlags;
     final int action = event.getAction();
     
-    // View为Disable执行
+    // View为Disable进入，否则跳过
     if ((viewFlags & ENABLED_MASK) == DISABLED) {
         if (action == MotionEvent.ACTION_UP
-        && (mPrivateFlags & PFLAG_PRESSED) != 0) {
+                && (mPrivateFlags & PFLAG_PRESSED) != 0) {
             setPressed(false);
-        } 
-        // 可以点击或长按的View是可以消费点击事件，不执行动作
+        }   
+        // 可点击或长按的View可以消费事件，但没有实际动作
        	return (((viewFlags & CLICKABLE) == CLICKABLE
                 || (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE)
                 || (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE);
-    }
-    
-    // 把事件交给代理处理，返回true
+    }  
+ 
+    // 代理可以处理事件就返回true
     if (mTouchDelegate != null) {
         if (mTouchDelegate.onTouchEvent(event)) {
             return true;
         }
     }
     
-    // 如果view是可点击的，处理不同的点击操作后返回true。
+    // 如果view是可点击的，处理不同的点击操作后返回true
     if (((viewFlags & CLICKABLE) == CLICKABLE ||
             (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE) ||
             (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE) {
-        // 分支的代码分析在后面，对不同操作代码做了分割剖析
-        switch (action) {
+        switch (action) { 
+            // 分支代码剖析在下一节
             case MotionEvent.ACTION_UP:
-                boolean prepressed = (mPrivateFlags & PFLAG_PREPRESSED) != 0;
-                if ((mPrivateFlags & PFLAG_PRESSED) != 0 || prepressed) {
-                    // take focus if we don't have it already and we should in
-                    // touch mode.
-                    boolean focusTaken = false;
-                    if (isFocusable() && isFocusableInTouchMode() && !isFocused()) {
-                        focusTaken = requestFocus();
-                    }
-
-                    if (prepressed) {
-                        setPressed(true, x, y);
-                    }
-
-                    if (!mHasPerformedLongPress && !mIgnoreNextUpEvent) {
-                        removeLongPressCallback();
-
-                        // Only perform take click actions if we were in the pressed state
-                        if (!focusTaken) {
-                            // Use a Runnable and post this rather than calling
-                            // performClick directly. This lets other visual state
-                            // of the view update before click actions start.
-                            if (mPerformClick == null) {
-                                mPerformClick = new PerformClick();
-                            }
-                            if (!post(mPerformClick)) {
-                                performClick();
-                            }
-                        }
-                    }
-
-                    if (mUnsetPressedState == null) {
-                        mUnsetPressedState = new UnsetPressedState();
-                    }
-
-                    if (prepressed) {
-                        postDelayed(mUnsetPressedState,
-                                ViewConfiguration.getPressedStateDuration());
-                    } else if (!post(mUnsetPressedState)) {
-                        // If the post failed, unpress right now
-                        mUnsetPressedState.run();
-                    }
-
-                    removeTapCallback();
-                }
-                mIgnoreNextUpEvent = false;
+                .....
                 break;
-
+                
             case MotionEvent.ACTION_DOWN:
-                mHasPerformedLongPress = false;
-
-                if (performButtonActionOnTouchDown(event)) {
-                    break;
-                }
-
-                // Walk up the hierarchy to determine if we're inside a scrolling container.
-                boolean isInScrollingContainer = isInScrollingContainer();
-
-                // For views inside a scrolling container, delay the pressed feedback for
-                // a short period in case this is a scroll.
-                if (isInScrollingContainer) {
-                    mPrivateFlags |= PFLAG_PREPRESSED;
-                    if (mPendingCheckForTap == null) {
-                        mPendingCheckForTap = new CheckForTap();
-                    }
-                    mPendingCheckForTap.x = event.getX();
-                    mPendingCheckForTap.y = event.getY();
-                    postDelayed(mPendingCheckForTap, ViewConfiguration.getTapTimeout());
-                } else {
-                    // Not inside a scrolling container, so show the feedback right away
-                    setPressed(true, x, y);
-                    checkForLongClick(0);
-                }
+                ....
                 break;
-
+                
             case MotionEvent.ACTION_CANCEL:
-                setPressed(false);
-                removeTapCallback();
-                removeLongPressCallback();
-                mInContextButtonPress = false;
-                mHasPerformedLongPress = false;
-                mIgnoreNextUpEvent = false;
+                ....
                 break;
 
             case MotionEvent.ACTION_MOVE:
-                drawableHotspotChanged(x, y);
-                
-                // Be lenient about moving outside of buttons
-                if (!pointInView(x, y, mTouchSlop)) {
-                    // Outside button
-                    removeTapCallback();
-                    if ((mPrivateFlags & PFLAG_PRESSED) != 0) {
-                        // Remove any future long press/tap checks
-                        removeLongPressCallback();
-
-                        setPressed(false);
-                    }
-                }
+                ....
                 break;
         } 
-        return true; // 只要是可点击的，处理完后返回true
+        return true; // 处理完后返回true
     }
-    return false; // 什么都没处理就返回false，事件继续下发
+    return false; // 事件继续下发
 }
 ```
 
 # 四、MotionEvent详解
 
-在Android的触摸消息中有三种监测：
+Android触摸消息中有三种监测类别：
 
-1. **prepressed**：轻触(tap)屏幕，时间小于TAP_TIMEOUT
-2. **pressed**：点击(press)屏幕，时间介于TAP_TIMEOUT和LONG_PRESS_TIMEOUT之间
-3. **long pressed**：长按(long press)屏幕，时间大于DEFAULT_LONG_PRESS_TIMEOUT或LONG_PRESS_TIMEOUT
+1. **Prepressed**：轻触(tap)屏幕，时间小于TAP_TIMEOUT
+2. **Pressed**：点击(press)屏幕，时间介于TAP_TIMEOUT和LONG_PRESS_TIMEOUT之间
+3. **Long pressed**：长按(long press)屏幕，时间大于DEFAULT_LONG_PRESS_TIMEOUT或LONG_PRESS_TIMEOUT
 
 
 ![img](/img/android/pressed.png)
 
-____
-
-**不同版本的Android API时间值可能不同，现在API 23(Android 6.0)TAP_TIMEOUT是100ms，旧版本是115ms，我们按照最新值解说。**
+不同版本的Android API时间值可能不同，Android 6.0(23) `TAP_TIMEOUT`是100ms，部分旧版本是115ms，这里按照最新值解说。
 
 ```java
 /**
@@ -449,7 +362,8 @@ if (performButtonActionOnTouchDown(event)) {
     break;
 }
 
-boolean isInScrollingContainer = isInScrollingContainer(); // 检查是否在滚动容器中
+//检查是否在滚动容器内
+boolean isInScrollingContainer = isInScrollingContainer();
 
 // 在可滚动的视图中会增加点击的检查
 if (isInScrollingContainer) {
@@ -465,9 +379,8 @@ if (isInScrollingContainer) {
     // 100ms后执行检查能否达到PRESSED状态
     postDelayed(mPendingCheckForTap, ViewConfiguration.getTapTimeout());
 } else {
-    setPressed(true, x, y); // 不在滚动容器就马上设置PRESSED
-    
-    checkForLongClick(0); // 马上开始检测长按动作
+    setPressed(true, x, y); // 不在滚动容器就设置PRESSED状态
+    checkForLongClick(0);   // 开始检测长按动作
 }
 ```
 
@@ -475,8 +388,8 @@ if (isInScrollingContainer) {
 
 ```java
 private final class CheckForTap implements Runnable {
-    public float x; // 记录点击的坐标
-    public float y;
+    public float x; // mPendingCheckForTap.x
+    public float y; // mPendingCheckForTap.y
 
     @Override
     public void run() {
@@ -580,7 +493,8 @@ if (!pointInView(x, y, mTouchSlop)) {
 ```java
 public void setPressed(boolean pressed) {
 	// 如果状态不是PRESSED，更新标志位并刷新背景
-	final boolean needsRefresh = pressed != ((mPrivateFlags & PFLAG_PRESSED) == PFLAG_PRESSED);
+	final boolean needsRefresh =
+	    pressed != ((mPrivateFlags & PFLAG_PRESSED) == PFLAG_PRESSED);
 
     if (pressed) {
         mPrivateFlags |= PFLAG_PRESSED;
@@ -606,7 +520,7 @@ private void removeTapCallback() {
 }
 ```
 
-时间大于100ms就会开始长按检测。如果已经出发长按检测，就需要把长按检测移除。
+如果已经出发长按检测，就需要把长按检测移除。
 
 ```java
 private void removeLongPressCallback() {

@@ -5,25 +5,25 @@ date:       2016-10-09
 author:     "phantomVK"
 catalog:    true
 tags:
-    - Skills
+    - Tools
 ---
 
 ## 系统环境
 
-__运行环境：`Ubuntu 16.04 LTS x86_64` 、`Oracle JDK8`、`Hadoop-1.2.1`、`openSSH`__
+__运行环境：`Ubuntu 16.04 LTS x86_64` 、`openJDK8`、`Hadoop-1.2.1`、`openSSH`__
 
 
 ## 一、JDK安装及配置
 
 #### 安装JDK
 
-Hadoop依赖JDK，所以要确认系统是不是已经安装JDK。没有安装的话请看 __[Ubuntu安装Oracle JDK8](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
+Hadoop依赖JDK，所以要确认系统是不是已经安装JDK，安装请看 __[Ubuntu安装Oracle JDK8](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
 
 ## 二、 Hadoop安装及配置
 
 ### 2.1 下载Hadoop
 
-这次我们用一个版本不太高的Hadoop，通过`wget`下载[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)，然后解压到`/opt`
+一个版本不太高的Hadoop，通过`wget`下载[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)，然后解压到`/opt`
 
 ```bash
 $ cd /opt
@@ -46,7 +46,7 @@ $ cd /opt/hadoop-1.2.1/conf
 
 ```bash
 $ vim hadoop-env.sh  
- export JAVA_HOME=/usr/lib/jvm/java-9-openjdk-amd64 
+ export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 
 ```
 
 #### 2.2.3 配置core-site.xml
@@ -54,7 +54,6 @@ $ vim hadoop-env.sh
 ```bash
 $ vim core-site.xml
 ```
-
 
 ```xml
 <configuration>
@@ -117,7 +116,7 @@ $ vim /etc/profile
 
 然后在相同文件的`PATH`变量中追加参数`$HADOOP_HOME/bin:`，保存退出后调用下列命令刷新`profile`
 
-```
+```bash
 $ source /etc/profile
 ```
 
@@ -214,22 +213,21 @@ $ source .bashrc
 
 #### 4.2 找不到配置文件
 
-报错信息，这个错误可能只在使用openJDK的时候才有
+这个错误可能只在使用openJDK的时候才出现
 
 ```
-Error: Config file not found: /usr/lib/jvm/java-9-openjdk-amd64/conf/management/management.properties
+Error: Config file not found: /usr/lib/jvm/java-8-openjdk-amd64/conf/management/management.properties
 ```
 
 原因是软链接不存在，手动创建正确软链接即可
 
 ```bash
-$ cd /usr/lib/jvm/java-9-openjdk-amd64
+$ cd /usr/lib/jvm/java-8-openjdk-amd64
 $ touch conf
 $ ln -s lib conf
 $ ls -la conf
  lrwxrwxrwx 1 root root 3 6月  16 17:24 conf -$ lib
 ```
-
 
 #### 4.3 HADOOP_HOME报deprecated
 
