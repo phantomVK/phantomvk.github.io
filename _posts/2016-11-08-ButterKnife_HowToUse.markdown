@@ -1,7 +1,6 @@
 ---
 layout:     post
 title:      "ButterKnife使用方法"
-subtitle:   "通过注解框架合理偷懒"
 date:       2016-11-08
 author:     "phantomVK"
 header-img: "img/main_img.jpg"

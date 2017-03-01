@@ -17,7 +17,7 @@ tags:
 
 # 二、类签名
 
-`StringBuilder`继承`AbstractStringBuilder`，实现了`Serializable`和`CharSequence`接口。在`AbstractStringBuilder`父类中，构造方法、字符串增删查改等方法都已经完成实现，`StringBuilder`只是在自己的方法中调用父类方法。
+`StringBuilder`继承`AbstractStringBuilder`，实现了`Serializable`和`CharSequence`接口。构造方法、字符串增删查改等都已经在`AbstractStringBuilder`父类中完成实现，`StringBuilder`只是在自己的方法中调用父类方法。
 
 ```java
 public final class StringBuilder
@@ -25,10 +25,9 @@ public final class StringBuilder
     implements java.io.Serializable, CharSequence
 ```
 
-而`StringBuffer`同样继承自`AbstractStringBuilder`，在调用父类的过程中增加了`synchronized`代码块同步锁，仅此而已。这也是为什么`StringBuilder`和`StringBuffer`在API互相兼容、同步支持存在差异的原因。
+`StringBuffer`同样继承自`AbstractStringBuilder`，在调用父类的过程中增加了`synchronized`代码块同步锁，仅此而已。这也是为什么`StringBuilder`和`StringBuffer`在API互相兼容、同步支持存在差异的原因。
 
 只有阅读`AbstractStringBuilder`才能了解可变字符串是如何实现，仅看`StringBuffer`和`StringBuilder`没有太大帮助。`AbstractStringBuilder`源码将在`Java源码系列`后续篇章出现。
-
 
 # 三、数据成员
 
@@ -39,7 +38,7 @@ static final long serialVersionUID = 4383685877147921099L;
 
 # 四、构造方法
 
-可通过数值来初始化一个StringBuilder，或使用默认构造方法，或使用一个字符创来创建StringBuilder。使用默认构造方法的字符串长度是16，使用自定义字符串则会在原字符串尾加16个字符的缓冲长度。
+可通过数值来初始化一个StringBuilder，或默认构造方法，或一个字符创来创建StringBuilder。默认构造方法的字符串长度是16，自定义字符串则会在原字符串尾加16个字符的缓冲长度。
 
 ```java
 public StringBuilder() {
@@ -65,7 +64,7 @@ public StringBuilder(CharSequence seq) {
 
 ### 5.1 添加
 
-尾添加对象，准确来说应该是obj.toString()
+尾添加对象，准确来说应该是obj.toString()或“null”
 
 ```java
 @Override
@@ -115,6 +114,8 @@ public StringBuilder append(char[] str, int offset, int len) {
 }
 ```
 
+尾添加布尔值，"true"或"false"的字符串
+
 ```java
 @Override
 public StringBuilder append(boolean b) {
@@ -123,7 +124,7 @@ public StringBuilder append(boolean b) {
 }
 ```
 
-尾添加布尔值，"true"或"false"的字符串
+加入一个字符
 
 ```java
 @Override
@@ -133,7 +134,7 @@ public StringBuilder append(char c) {
 }
 ```
 
-尾添加数值
+尾添加数值，byte和short类型提升到int
 
 ```java
 @Override
@@ -209,9 +210,7 @@ public StringBuilder replace(int start, int end, String str) {
 ```java
 // StringIndexOutOfBoundsException
 @Override
-public StringBuilder insert(int index, char[] str, int offset,
-                            int len)
-{
+public StringBuilder insert(int index, char[] str, int offset, int len) {
     super.insert(index, str, offset, len);
     return this;
 }
@@ -297,7 +296,7 @@ public StringBuilder insert(int offset, double d) {
 
 ### 5.5 查找
 
-查找字符在字符串中的序号
+查找字符在字符串中的序号，可以指定字符串开始的下标
 
 ```java
 @Override
@@ -309,7 +308,11 @@ public int indexOf(String str) {
 public int indexOf(String str, int fromIndex) {
     return super.indexOf(str, fromIndex);
 }
+```
 
+最后一次出现的下标
+
+```java
 @Override
 public int lastIndexOf(String str) {
     return super.lastIndexOf(str);
@@ -323,7 +326,7 @@ public int lastIndexOf(String str, int fromIndex) {
 
 ### 5.6 翻转
 
-反转字符串
+翻转字符串
 
 ```java
 @Override

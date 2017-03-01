@@ -245,7 +245,7 @@ public void dispatchMessage(Message msg) {
 
 ### 6.2 消息回调
 
-* (1) 首先`dispatchMessage(msg)`尝试执行消息体的`msg.callback`。不过由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空而跳过。
+(1) 首先`dispatchMessage(msg)`尝试执行消息体的`msg.callback`。不过由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空而跳过。
 
 ```java
 private static void handleCallback(Message message) {
@@ -253,7 +253,7 @@ private static void handleCallback(Message message) {
 }
 ```
 
-* (2) `msg.callback`不行就看看Handler自己有没有`mCallback`。
+(2) `msg.callback`不行就看看Handler自己有没有`mCallback`。
 
 ```java
 public interface Callback {
@@ -273,7 +273,7 @@ Handler handler = new Handler(new Handler.Callback() {
 });
 ```
 
-* (3) 如果上两个回调都不存在，就只能寄托于我们自己重载的方法
+(3) 如果上两个回调都不存在，就只能寄托于我们自己重载的方法
 
 ```java
 @Override

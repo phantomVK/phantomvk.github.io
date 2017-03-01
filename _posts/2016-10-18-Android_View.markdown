@@ -135,7 +135,7 @@ public class MainActivity extends AppCompatActivity {
 
 ### 2.1 OnTouchListener false
 
-`View.OnTouchListener`中返回`false`，点击按钮马上放开。如果手指一直在屏幕上滑动，Log的`ACTION_DOWN`和`ACTION_UP`之间会报告`ACTION_MOVE`的信息。
+`View.OnTouchListener`中返回`false`，点击按钮马上放开。如果手指一直在屏幕上滑动，Log的`ACTION_DOWN`和`ACTION_UP`之间会报告`ACTION_MOVE`的信息。我们并不关心`ACTION_MOVE`的状态，所以忽略它的消息。
 
 结果按照`dispatchTouchEvent` -> `onTouch` -> `onTouchEvent`出现
 
@@ -179,7 +179,8 @@ public boolean dispatchTouchEvent(MotionEvent event) {
     }
 
     boolean result = false; // 默认为false
-
+    
+    // 输入事件验证器
     if (mInputEventConsistencyVerifier != null) {
         mInputEventConsistencyVerifier.onTouchEvent(event, 0);
     }
@@ -194,18 +195,16 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         ListenerInfo li = mListenerInfo; // 这里获取mListenerInfo
         
         // 以下所有条件成立执行这个语句块并返回True:
-        //    1. mListenerInfo不为空，且设置OnTouchListener监听器
-        //    2. view为Enable，表明控件可用
-        //    3. mOnTouchListener.onTouch(this, event)尝试消费事件
-        if (li != null 
-        		&& li.mOnTouchListener != null
-        		&& (mViewFlags & ENABLED_MASK) == ENABLED
-        		&& li.mOnTouchListener.onTouch(this, event)){ 
-            // 若Button.OnClickListener返回false，则result为false
-            result = true;
+        //    1. mListenerInfo不为空，已设置OnTouchListener
+        //    2. view模式是Enable，表明控件是可用的
+        //    3. 调用mOnTouchListener.onTouch()消费事件
+        if (li != null && li.mOnTouchListener != null
+                && (mViewFlags & ENABLED_MASK) == ENABLED
+                && li.mOnTouchListener.onTouch(this, event)) {
+            result = true; //若li.mOnClickListener返回false，则result为false
         }
         
-        // result为false，交给onTouchEven处理
+        // result为false，交给onTouchEvent处理
         if (!result && onTouchEvent(event)) {
             result = true;
         }
@@ -214,7 +213,9 @@ public boolean dispatchTouchEvent(MotionEvent event) {
     if (!result && mInputEventConsistencyVerifier != null) {
         mInputEventConsistencyVerifier.onUnhandledEvent(event, 0);
     }
-
+    
+    // 嵌套滚动之后，如果这是动作的结束就清除动作
+    // 同样可取消ACTION_DOWN后其他不需要的动作
     if (actionMasked == MotionEvent.ACTION_UP ||
             actionMasked == MotionEvent.ACTION_CANCEL ||
             (actionMasked == MotionEvent.ACTION_DOWN && !result)) {
@@ -230,15 +231,14 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 ```java
 ListenerInfo li = mListenerInfo;
 
-if (li != null
-    && li.mOnTouchListener != null
-    && (mViewFlags & ENABLED_MASK) == ENABLED
-    && li.mOnTouchListener.onTouch(this, event)) {
-        result = true;
-   }  
+if (li != null && li.mOnTouchListener != null
+        && (mViewFlags & ENABLED_MASK) == ENABLED
+        && li.mOnTouchListener.onTouch(this, event)) {
+    result = true;
+}  
 ```
 
-`li.mOnTouchListener`是依赖`mButton.setOnTouchListener`的。如果不调用`mButton.setOnTouchListener`，`li.mOnTouchListener`为空。
+`li.mOnTouchListener`依赖`mButton.setOnTouchListener`。如果不设置`mButton.setOnTouchListener`，那`li.mOnTouchListener`为空。
 
 在`MainActivity.onCreate`中给`mButton.setOnTouchListener`创建一个`OnTouchListener()`实例的同时，这个实例会保存在`getListenerInfo().mOnTouchListener`。
 
@@ -262,13 +262,16 @@ ListenerInfo getListenerInfo() {
 
 ### 3.2 onTouchEvent
 
-如果设置了`View.OnTouchListener()`，其返回值决定了事件是否继续分发给`onTouchEvent`实例。假如`OnTouchListener()`返回`false`，`onTouchEvent`可以接收事件，那后面又会做什么？
+如果设置了`View.OnTouchListener()`，其返回值决定了事件是否继续分发给`onTouchEvent`实例。
+
+假如`OnTouchListener()`返回`false`，`onTouchEvent`可以接收事件，那后面又会做什么？
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
     // 获取动作点击屏幕的位置
     final float x = event.getX();
     final float y = event.getY();
+
     final int viewFlags = mViewFlags;
     final int action = event.getAction();
     
@@ -277,14 +280,15 @@ public boolean onTouchEvent(MotionEvent event) {
         if (action == MotionEvent.ACTION_UP
                 && (mPrivateFlags & PFLAG_PRESSED) != 0) {
             setPressed(false);
-        }   
+        }  
+         
         // 可点击或长按的View可以消费事件，但没有实际动作
        	return (((viewFlags & CLICKABLE) == CLICKABLE
                 || (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE)
                 || (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE);
     }  
  
-    // 代理可以处理事件就返回true
+    // 触摸代理处理事件true
     if (mTouchDelegate != null) {
         if (mTouchDelegate.onTouchEvent(event)) {
             return true;
@@ -296,26 +300,12 @@ public boolean onTouchEvent(MotionEvent event) {
             (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE) ||
             (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE) {
         switch (action) { 
-            // 分支代码剖析在下一节
-            case MotionEvent.ACTION_UP:
-                .....
-                break;
-                
-            case MotionEvent.ACTION_DOWN:
-                ....
-                break;
-                
-            case MotionEvent.ACTION_CANCEL:
-                ....
-                break;
-
-            case MotionEvent.ACTION_MOVE:
-                ....
-                break;
+            .....  // 分支代码剖析在下一节               
+            .....
         } 
         return true; // 处理完后返回true
     }
-    return false; // 事件继续下发
+    return false; // OnTouchEvent也没有处理，事件继续下发
 }
 ```
 
@@ -323,9 +313,9 @@ public boolean onTouchEvent(MotionEvent event) {
 
 Android触摸消息中有三种监测类别：
 
-1. **Prepressed**：轻触(tap)屏幕，时间小于TAP_TIMEOUT
-2. **Pressed**：点击(press)屏幕，时间介于TAP_TIMEOUT和LONG_PRESS_TIMEOUT之间
-3. **Long pressed**：长按(long press)屏幕，时间大于DEFAULT_LONG_PRESS_TIMEOUT或LONG_PRESS_TIMEOUT
+1. **Prepress**：轻触(tap)屏幕，时间小于TAP_TIMEOUT
+2. **Press**：点击(press)屏幕，时间介于TAP_TIMEOUT和LONG_PRESS_TIMEOUT之间
+3. **Long press**：长按(long press)屏幕，时间大于DEFAULT_LONG_PRESS_TIMEOUT或LONG_PRESS_TIMEOUT
 
 
 ![img](/img/android/pressed.png)
@@ -379,7 +369,7 @@ if (isInScrollingContainer) {
     // 100ms后执行检查能否达到PRESSED状态
     postDelayed(mPendingCheckForTap, ViewConfiguration.getTapTimeout());
 } else {
-    setPressed(true, x, y); // 不在滚动容器就设置PRESSED状态
+    setPressed(true, x, y); // 不在滚动容器就改变PRESSED状态
     checkForLongClick(0);   // 开始检测长按动作
 }
 ```
@@ -407,9 +397,10 @@ private final class CheckForTap implements Runnable {
 
 **checkForLongClick**
 
+仅在view支持长按时执行有效，否则直接退出方法
+
 ```java
 private void checkForLongClick(int delayOffset) {
-    // 仅在view支持长按时执行，否则退出方法
     if ((mViewFlags & LONG_CLICKABLE) == LONG_CLICKABLE) {
         mHasPerformedLongPress = false;
 
@@ -418,7 +409,7 @@ private void checkForLongClick(int delayOffset) {
         }
         mPendingCheckForLongPress.rememberWindowAttachCount(); // 可能是多点触控数值
         
-        // 调用方法前已经延迟100ms，需要减去这段时间
+        // Prepress检查已经延迟100ms，需要减去这段时间
         postDelayed(mPendingCheckForLongPress,
             ViewConfiguration.getLongPressTimeout() - delayOffset);
     }
@@ -490,6 +481,8 @@ if (!pointInView(x, y, mTouchSlop)) {
 }
 ```
 
+setPressed
+
 ```java
 public void setPressed(boolean pressed) {
 	// 如果状态不是PRESSED，更新标志位并刷新背景
@@ -530,7 +523,6 @@ private void removeLongPressCallback() {
 }
 ```
 
-
 ### 4.3 MotionEvent.ACTION_UP
 
 ```java
@@ -539,24 +531,20 @@ boolean prepressed = (mPrivateFlags & PFLAG_PREPRESSED) != 0;
 
 // PRESSED或PREPRESSED有一个就执行
 if ((mPrivateFlags & PFLAG_PRESSED) != 0 || prepressed) {
-    // take focus if we don't have it already and we should in
-    // touch mode.
+    // 在触摸模式下，应该聚焦但还没有
     boolean focusTaken = false;
     if (isFocusable() && isFocusableInTouchMode() && !isFocused()) {
         focusTaken = requestFocus();
     }
 
     if (prepressed) {
-        // The button is being released before we actually
-        // showed it as pressed.  Make it show the pressed
-        // state now (before scheduling the click) to ensure
-        // the user sees it.
+        // 若按钮在显示被按下之前就释放，为了保证用户看见这变化
+        // 要把按钮按下的状态在Up动作里呈现出来
         setPressed(true, x, y);
     }
     
     // 没有长按且不忽略下一个抬起事件，就移除长按     
     if (!mHasPerformedLongPress && !mIgnoreNextUpEvent) {
-
         removeLongPressCallback();
 
         // 只有在按下的状态才执行点击操作
@@ -616,4 +604,9 @@ private final class UnsetPressedState implements Runnable {
     }
 }
 ```
+
+# 五、参考资料
+
+[InputEventConsistencyVerifier](http://developer.oesf.biz/em/developer/reference/eggplant/android/view/InputEventConsistencyVerifier.html)
+
 

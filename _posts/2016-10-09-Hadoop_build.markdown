@@ -17,7 +17,7 @@ __运行环境：`Ubuntu 16.04 LTS x86_64` 、`openJDK8`、`Hadoop-1.2.1`、`ope
 
 #### 安装JDK
 
-Hadoop依赖JDK，所以要确认系统是不是已经安装JDK，安装请看 __[Ubuntu安装Oracle JDK8](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
+Hadoop依赖JDK，请确认系统已经安装JDK。安装参考 __[Ubuntu安装Oracle JDK8](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
 
 ## 二、 Hadoop安装及配置
 
@@ -46,7 +46,7 @@ $ cd /opt/hadoop-1.2.1/conf
 
 ```bash
 $ vim hadoop-env.sh  
- export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64 
+ export JAVA_HOME=/usr/lib/jvm/java-9-openjdk-amd64 
 ```
 
 #### 2.2.3 配置core-site.xml
@@ -216,13 +216,13 @@ $ source .bashrc
 这个错误可能只在使用openJDK的时候才出现
 
 ```
-Error: Config file not found: /usr/lib/jvm/java-8-openjdk-amd64/conf/management/management.properties
+Error: Config file not found: /usr/lib/jvm/java-9-openjdk-amd64/conf/management/management.properties
 ```
 
 原因是软链接不存在，手动创建正确软链接即可
 
 ```bash
-$ cd /usr/lib/jvm/java-8-openjdk-amd64
+$ cd /usr/lib/jvm/java-9-openjdk-amd64
 $ touch conf
 $ ln -s lib conf
 $ ls -la conf

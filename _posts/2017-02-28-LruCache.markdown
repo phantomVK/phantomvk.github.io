@@ -1,0 +1,412 @@
+---
+layout:     post
+title:      "Android源码系列(6) -- LruCache"
+date:       2017-02-28
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    true
+tags:
+    - Android源码系列
+---
+
+
+## 一、类签名
+
+LruCache是Android提供的一个缓存工具类，利用强引用缓存图片，最近最少使用算法缓存item，避免因item太多导致内存占用过多，或内存释放不及时引起的内存溢出。
+
+```java
+public class LruCache<K, V>
+```
+
+资源缓存除了Lru思想外，还有一种是利用Java里4种引用类型完成内存回收，这4种类型分别是强、软、弱、虚。详情请自行阅读《深入理解Java虚拟机》。
+
+主要实现思想是每次被操作的item都会被移动到队列的首位。一段时间后，本来处于队列前方的item因为其他item的操作一次一次后退到队尾。如果队列空间足够，所有的item都不会被移除。否则，处于队尾的item会被优先移除，腾出空间容纳新的item。
+
+使用热度高的资源得到有效缓存，长时间没有使用的资源会被新的资源取代，占用的资源也会被释放。
+
+为了使该类适合实际应用，开发中多定义子类继承`LruCache`，并按照需要重写父类的`create()`、`entryRemoved()`和`sizeOf()`等方法。
+
+## 二、数据成员
+
+
+`LruCache`通过`LinkedHashMap`数据结构来完成item的保存，无论是查找、节点修改，都能提供不错的性能
+
+```java
+private final LinkedHashMap<K, V> map;
+```
+
+两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可以输元素保存数量的个数(针对Key)，也可能是值总大小(针对Value)。
+
+例如：所有在队列里面引用图片的总字节数。也就是我们既可以通过限制图片数量，也可以限制已缓存图片总容量大小来实现内存管理。
+
+
+```java
+private int size;
+private int maxSize;
+```
+
+用来保存各种情况统计次数，注释标示的操作会修改对应统计的次数。如：添加一个元素就会给`putCount`增加一次计数。
+
+```java
+private int putCount;     // 加入
+private int createCount;  // 创建
+private int evictionCount;// 舍弃
+private int hitCount;     // 查找命中
+private int missCount;    // 命中失败
+```
+
+## 三、构造函数
+
+`maxSize`记录的是整个列表最多能保存多少个item。为避免严重的哈希冲突，`LinkedHashMap`哈希因子设定为0.75，且构造函数无法自定义改值。
+
+```java
+public LruCache(int maxSize) {
+    if (maxSize <= 0) {
+        throw new IllegalArgumentException("maxSize <= 0");
+    }
+    this.maxSize = maxSize;
+    this.map = new LinkedHashMap<K, V>(0, 0.75f, true);
+}
+```
+
+## 四、成员方法
+
+`LruCache`作为一个二次封装`LinkedHashMap`类，在增删查改上提供非常有限但是实用的方法。
+
+由于关键操作都是线程安全的，可放心在多线程中操作同一个`LruCache`实例。
+
+### 4.1 修改容量
+
+可以修改列表最大保存数量，具体请看`trimToSize()`方法的解析
+
+```java
+public void resize(int maxSize) {
+    if (maxSize <= 0) {
+        throw new IllegalArgumentException("maxSize <= 0");
+    }
+
+    synchronized (this) {
+        this.maxSize = maxSize;
+    }
+    trimToSize(maxSize);
+}
+```
+
+### 4.2 添加获取
+
+通过非空键取值，如果对应键命中就会把键返回，且把这个item移动带队列首位。若没有命中会根据`create()`方法做后续决定。
+
+
+
+```java
+public final V get(K key) {
+    if (key == null) {
+        throw new NullPointerException("key == null"); // 禁止使用空键取值
+    }
+
+    V mapValue;
+    synchronized (this) {
+        mapValue = map.get(key);
+        if (mapValue != null) {
+            hitCount++; // 成功查找对应值，命中
+            return mapValue; // 返回命中值
+        }
+        missCount++; // 命中失败
+    }
+
+    // 命中失败后会尝试构建一个Value。构建过程可能会比较长，因此当
+    // create()返回创建值的时候，原队列item的顺序可能早已发生改变
+    // 如果发现一个Hash值相同的值抢先进入队列，该新值得到保留下来
+    // create()创建的对象放弃加入队列
+    V createdValue = create(key);
+    if (createdValue == null) {
+        return null;
+    }
+
+    synchronized (this) {
+        createCount++;
+        mapValue = map.put(key, createdValue);
+
+        if (mapValue != null) {
+            // 由于值冲突，createdValue的添加操作用这种方式撤销
+            map.put(key, mapValue);
+        } else {
+            size += safeSizeOf(key, createdValue);
+        }
+    }
+    
+    if (mapValue != null) {
+        entryRemoved(false, key, createdValue, mapValue);
+        return mapValue;
+    } else {
+        trimToSize(maxSize);
+        return createdValue;
+    }
+}
+```
+
+添加键值逻辑比较简单，新添加item放在队列头首位。已存在的值会被新值取代，旧值作为方法返回值。废弃资源被回收之后再作为结果方法，正常值应该是null。
+
+```java
+public final V put(K key, V value) {
+    if (key == null || value == null) {
+        throw new NullPointerException("key == null || value == null");
+    }
+
+    V previous;
+    synchronized (this) {
+        putCount++;
+        size += safeSizeOf(key, value);
+        previous = map.put(key, value);
+        if (previous != null) {
+            size -= safeSizeOf(key, previous);
+        }
+    }
+
+    if (previous != null) {
+        entryRemoved(false, key, previous, value);
+    }
+
+    trimToSize(maxSize);
+    return previous;
+}
+```
+
+### 4.3 调整队列容量
+
+若保存元素数量大于新队列容量值，调整过程中选择近期最少使用的item移出队列。方法实参为`-1`，所有元素依次移除直到队列为空。
+
+```java
+public void trimToSize(int maxSize) {
+    while (true) {
+        K key;
+        V value;
+        synchronized (this) {
+            if (size < 0 || (map.isEmpty() && size != 0)) {
+                throw new IllegalStateException(getClass().getName()
+                        + ".sizeOf() is reporting inconsistent results!");
+            }
+
+            if (size <= maxSize) {
+                break;
+            }
+
+            Map.Entry<K, V> toEvict = map.eldest();
+            if (toEvict == null) {
+                break;
+            }
+
+            key = toEvict.getKey();
+            value = toEvict.getValue();
+            map.remove(key);
+            size -= safeSizeOf(key, value);
+            evictionCount++;
+        }
+
+        entryRemoved(true, key, value, null);
+    }
+}
+```
+
+### 4.4 移除键值
+
+```java
+public final V remove(K key) {
+    if (key == null) {
+        throw new NullPointerException("key == null");
+    }
+
+    V previous;
+    synchronized (this) {
+        previous = map.remove(key);
+        if (previous != null) {
+            size -= safeSizeOf(key, previous);
+        }
+    }
+
+    if (previous != null) {
+        entryRemoved(false, key, previous, null);
+    }
+
+    return previous;
+}
+```
+
+### 4.5 值创建和释放
+
+entryRemoved用于被重写。因为有的实例用例自己的释放销毁逻辑，当这个实例被移除队列的时候，就应该在这里调用对应的方法。否则这个被移除的对象就会按照虚拟机垃圾回收策略进行回收。
+
+一定要确定item的值是否有特殊释放需要，若遗漏释放操作会造成严重内存泄漏问题。
+
+```java
+/**
+ * Called for entries that have been evicted or removed. This method is
+ * invoked when a value is evicted to make space, removed by a call to
+ * {@link #remove}, or replaced by a call to {@link #put}. The default
+ * implementation does nothing.
+ *
+ * <p>The method is called without synchronization: other threads may
+ * access the cache while this method is executing.
+ *
+ * @param evicted true if the entry is being removed to make space, false
+ *     if the removal was caused by a {@link #put} or {@link #remove}.
+ * @param newValue the new value for {@code key}, if it exists. If non-null,
+ *     this removal was caused by a {@link #put}. Otherwise it was caused by
+ *     an eviction or a {@link #remove}.
+ */
+protected void entryRemoved(boolean evicted, K key, V oldValue, V newValue) {}
+```
+
+这个方法可以选择性在子类中重写。重写的结果是在命中失败的时候提供自定义的item创建操作，重新把有效item加入到队列中
+
+```java
+/**
+ * Called after a cache miss to compute a value for the corresponding key.
+ * Returns the computed value or null if no value can be computed. The
+ * default implementation returns null.
+ *
+ * <p>The method is called without synchronization: other threads may
+ * access the cache while this method is executing.
+ *
+ * <p>If a value for {@code key} exists in the cache when this method
+ * returns, the created value will be released with {@link #entryRemoved}
+ * and discarded. This can occur when multiple threads request the same key
+ * at the same time (causing multiple values to be created), or when one
+ * thread calls {@link #put} while another is creating a value for the same
+ * key.
+ */
+protected V create(K key) {
+    return null;
+}
+```
+
+### 4.6 值大小
+
+私有方法，对`sizeOf()`方法返回结果安全检查
+
+```java
+private int safeSizeOf(K key, V value) {
+    int result = sizeOf(key, value);
+    if (result < 0) {
+        throw new IllegalStateException("Negative size: " + key + "=" + value);
+    }
+    return result;
+}
+```
+
+假设item中存放的是Bitmap对象，重写sizeof对象实现获取该对象的内存大小。为什么在预设队列长度的同时还要重写此方法？
+
+那图片缓存为例，虽然我们可以控制图片在队列中缓存的数量，但是却无法控制所有图片在内存中的占用。有可能出现的情况是队列仅保存若干张图，买张图片却占用16M堆内存。在这种情况下，为数不多的图片也会导致极大的内存使用量。
+
+一个折中的解决方案是在统计已缓存图片张数的同时，根据图片内存占用情况，即使item依然保存在队列中，强制释放队列最近未使用某些图片的资源。被释放的图片在使用的时候再重新加载，用时间换取空间。
+
+```java
+/**
+ * Returns the size of the entry for {@code key} and {@code value} in
+ * user-defined units.  The default implementation returns 1 so that size
+ * is the number of entries and max size is the maximum number of entries.
+ *
+ * <p>An entry's size must not change while it is in the cache.
+ */
+protected int sizeOf(K key, V value) {
+    return 1;
+}
+```
+
+### 4.7 清空
+
+调用方法会移除队列保存所有的item。
+
+```java
+public final void evictAll() {
+    trimToSize(-1); // -1 will evict 0-sized elements
+}
+```
+
+### 4.8 Getter
+获取队列统计和容量大小的数据
+
+```java
+/**
+ * For caches that do not override {@link #sizeOf}, this returns the number
+ * of entries in the cache. For all other caches, this returns the sum of
+ * the sizes of the entries in this cache.
+ */
+public synchronized final int size() {
+    return size;
+}
+
+/**
+ * For caches that do not override {@link #sizeOf}, this returns the maximum
+ * number of entries in the cache. For all other caches, this returns the
+ * maximum sum of the sizes of the entries in this cache.
+ */
+public synchronized final int maxSize() {
+    return maxSize;
+}
+
+/**
+ * Returns the number of times {@link #get} returned a value that was
+ * already present in the cache.
+ */
+public synchronized final int hitCount() {
+    return hitCount;
+}
+
+/**
+ * Returns the number of times {@link #get} returned null or required a new
+ * value to be created.
+ */
+public synchronized final int missCount() {
+    return missCount;
+}
+
+/**
+ * Returns the number of times {@link #create(Object)} returned a value.
+ */
+public synchronized final int createCount() {
+    return createCount;
+}
+
+/**
+ * Returns the number of times {@link #put} was called.
+ */
+public synchronized final int putCount() {
+    return putCount;
+}
+
+/**
+ * Returns the number of values that have been evicted.
+ */
+public synchronized final int evictionCount() {
+    return evictionCount;
+}
+```
+
+### 4.9 队列快照
+
+返回当前队列item保存的快照。值得注意的是，虽然这个快照是新的`LinkedHashMap`实例，但是键实例对象的修改的影响是全局的。
+
+```java
+/**
+ * Returns a copy of the current contents of the cache, ordered from least
+ * recently accessed to most recently accessed.
+ */
+public synchronized final Map<K, V> snapshot() {
+    return new LinkedHashMap<K, V>(map);
+}
+```
+
+### 4.10 toString()
+
+显示队列最大容量、item命中次数、命中失败次数和命中比率统计等信息
+
+```java
+@Override public synchronized final String toString() {
+    int accesses = hitCount + missCount;
+    int hitPercent = accesses != 0 ? (100 * hitCount / accesses) : 0;
+    return String.format("LruCache[maxSize=%d,hits=%d,misses=%d,hitRate=%d%%]",
+            maxSize, hitCount, missCount, hitPercent);
+}
+```
+

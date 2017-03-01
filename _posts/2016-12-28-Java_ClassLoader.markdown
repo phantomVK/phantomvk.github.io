@@ -19,7 +19,7 @@ Java类通过编译生成对应.class文件，JVM根据实际情况把当前需�
 
 除了Bootstrap ClassLoader，每个类装载器都有一个父装载器（parent class loader），且ExtClassLoader和AppClassLoader均继承ClassLoader类。
 
-* 引导（Bootstrap）类加载器。由原生代码（如C语言）编写，不继承自`java.lang.ClassLoader`。负责加载存储在`<JAVA_HOME>/jre/lib`目录中的核心Java库。
+* 引导（Bootstrap）类加载器。由原生代码（C++）编写，不继承自`java.lang.ClassLoader`。负责加载存储在`<JAVA_HOME>/jre/lib`目录中的核心Java库。
 
 * 扩展（Extensions）类加载器。用来在`<JAVA_HOME>/jre/lib/ext`或`java.ext.dirs`指明的目录中加载 Java扩展库，Java 虚拟机的实现会提供一个扩展库目录。该类加载器在此目录里面查找并加载 Java 类。该类由`sun.misc.Launcher$ExtClassLoader`实现。
 
@@ -53,9 +53,11 @@ file:/Library/Java/JavaVirtualMachines/jdk1.8.0_101.jdk/Contents/Home/jre/classe
 
 # ClassLoader类加载
 
-ClassLoader通过双亲委托的方式来搜索类，而双亲委托是一种委派思想。
+ClassLoader通过双亲委托的方式来搜索类，而双亲委托是一种委派思想。当ClassLoader加载类的时候，ClassLoader会委托其父加载器去完成：
 
-当一个ClassLoader需要加载类的时候，这个ClassLoader会委托其父加载器去完成：首先Bootstrap ClassLoader加载器尝试加载该类。失败则把工作交给ExtClassLoader。ExtClassLoader失败就把工作交给AppClassLoader。
+* Bootstrap ClassLoader尝试加载该类；
+* 失败则把工作交给ExtClassLoader；
+* ExtClassLoader失败把工作交给AppClassLoader；
 
 如果三个默认类加载器都加载失败，工作只能还给发起工作的ClassLoader，由这个加载器自行选择加载类的文件系统或URL。如果所有加载器都无法加载这个类的话，JVM就抛出ClassNotFoundException异常。
 
@@ -75,18 +77,20 @@ ClassLoader通过双亲委托的方式来搜索类，而双亲委托是一种委
 
 ```java
 final String dir = "file:/Users/phantomVK/repositories/intelliJ/cl/src";
-URLClassLoader loader = new URLClassLoader(new URL[]{new URL(dir)});
+URLClassLoader loader = new URLClassLoader(new URL[] { new URL(dir) });
 Class clazz = loader.loadClass("com.phantomvk.Man");
 ClassLoader classLoader = clazz.getClassLoader();
+
 while (classLoader != null) {
     System.out.println(classLoader);
     classLoader = classLoader.getParent();
 }
+
 System.out.println(classLoader);
 ```
 加载Man的类加载器显示结果
 
-```java
+```
 sun.misc.Launcher$AppClassLoader@4b67cf4d
 sun.misc.Launcher$ExtClassLoader@61bbe9ba
 null
@@ -98,15 +102,15 @@ null
 * AppClassLoader的类加载器是ExtClassLoader
 * ExtClassLoader的类加载器是BootstrapLoader。
 
-BootstrapLoader由C语言实现而不是Java，不运行在JVM管理的内存区中。所以ExtClassLoader的类加载器没法显示BootstrapLoader的引用地址，只能显示null。
+BootstrapLoader由C++实现而不是Java，不运行在JVM中。所以ExtClassLoader的类加载器没法显示BootstrapLoader的引用地址，只能显示null。
 
 
 # 自定义ClassLoader
 
 自定义ClassLoader比较简单
 
-* 只需要继承ClassLoader父类
-* 仅重写Class<?> findClass(String name)方法，指定然后返回这个类
+* 只需要继承ClassLoader父类；
+* 仅重写Class<?> findClass(String name)方法，查找并返回这个类；
 * 剩余的加载过程由父类完成，无需手动处理。
 
 
