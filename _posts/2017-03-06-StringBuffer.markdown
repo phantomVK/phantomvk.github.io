@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Java源码系列 -- StringBuffer"
+title:      "Java源码系列(3) -- StringBuffer"
 date:       2017-03-06
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
