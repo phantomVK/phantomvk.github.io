@@ -26,6 +26,9 @@ tags:
  * @author Doug Lea
 */
 public class AtomicInteger extends Number implements java.io.Serializable {
+```
+
+```java
     private static final long serialVersionUID = 6214790243416807050L;
 
     // setup to use Unsafe.compareAndSwapInt for updates
@@ -40,7 +43,9 @@ public class AtomicInteger extends Number implements java.io.Serializable {
     }
 
     private volatile int value;
+```
 
+```java
     /**
      * Creates a new AtomicInteger with the given initial value.
      *
@@ -55,7 +60,9 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      */
     public AtomicInteger() {
     }
+```
 
+```java
     /**
      * Gets the current value.
      *
@@ -93,7 +100,9 @@ public class AtomicInteger extends Number implements java.io.Serializable {
     public final int getAndSet(int newValue) {
         return unsafe.getAndSetInt(this, valueOffset, newValue);
     }
+```
 
+```java
     /**
      * Atomically sets the value to the given updated value
      * if the current value {@code ==} the expected value.
@@ -122,7 +131,9 @@ public class AtomicInteger extends Number implements java.io.Serializable {
     public final boolean weakCompareAndSet(int expect, int update) {
         return unsafe.compareAndSwapInt(this, valueOffset, expect, update);
     }
+```
 
+```java
     /**
      * Atomically increments by one the current value.
      *
@@ -178,7 +189,9 @@ public class AtomicInteger extends Number implements java.io.Serializable {
     public final int addAndGet(int delta) {
         return unsafe.getAndAddInt(this, valueOffset, delta) + delta;
     }
+```
 
+```java
     /**
      * Atomically updates the current value with the results of
      * applying the given function, returning the previous value. The
@@ -216,7 +229,9 @@ public class AtomicInteger extends Number implements java.io.Serializable {
         } while (!compareAndSet(prev, next));
         return next;
     }
+```
 
+```java
     /**
      * Atomically updates the current value with the results of
      * applying the given function to the current and given values,
@@ -264,7 +279,9 @@ public class AtomicInteger extends Number implements java.io.Serializable {
         } while (!compareAndSet(prev, next));
         return next;
     }
+```
 
+```java
     /**
      * Returns the String representation of the current value.
      * @return the String representation of the current value
@@ -272,7 +289,9 @@ public class AtomicInteger extends Number implements java.io.Serializable {
     public String toString() {
         return Integer.toString(get());
     }
+```
 
+```java
     /**
      * Returns the value of this {@code AtomicInteger} as an {@code int}.
      */
