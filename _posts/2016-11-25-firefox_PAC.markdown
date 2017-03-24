@@ -12,7 +12,7 @@ tags:
 
 # 使用范围
 
-这个插件及相应设置适合Linux、MacOSX、Windows下的FireFox浏览器，主要用在Linux里面。这个插件必须配合已经连通的SS服务使用，单独使用插件无效。
+这个插件及相应设置适合Linux、MacOSX、Windows下的FireFox浏览器。这个插件必须配合已经连通的SS服务使用，单独使用插件无效。
 
 下面的设置是在Ubuntu 16.04 LTS x86_64演示。
 
@@ -36,7 +36,7 @@ tags:
 
 ![img](/img/firefox_pac/edit.png)
 
-把里面的首选项`删除`，剩下一个来修改
+把里面的首选项全部选中`删除`，只需要剩下一条修改
 
 ![img](/img/firefox_pac/delete.png)
 
@@ -58,5 +58,5 @@ tags:
 
 ![img](/img/firefox_pac/sub.png)
 
-当`Shadowsocks`开启之后，自动代理，所有的URL会自动选择合适的访问规则。如果遇到不在规则里面的URL，那就手动使用全局模式访问
+当`Shadowsocks`开启之后就会自动代理，自动选择合适的访问规则。如果遇到不在规则里面的URL，请手动使用全局模式访问
 

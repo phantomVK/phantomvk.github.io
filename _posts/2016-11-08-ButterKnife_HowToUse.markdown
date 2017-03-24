@@ -12,7 +12,7 @@ tags:
 
 # 介绍
 
-ButterKnife为Android View而设的绑定注解，把我们从`findViewById()`和`setOnclicktListener()`中全面解放。
+ButterKnife是专为Android View而设的注解绑定库，把我们从`findViewById()`和`setOnClicktListener()`中全面解放。
 
 使用ButterKnife注意要点：
 

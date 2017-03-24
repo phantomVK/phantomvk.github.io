@@ -12,7 +12,7 @@ tags:
 
 # 前言
 
-上一篇文章 [Android View 事件分发源码剖析](https://phantomvk.github.io/2016/10/18/android_view_dispatchTouchEvent/) 我们详细介绍了View事件分发的细节。接下来我们继续学习ViewGroup事件分发的内容。此次源码同样基于Android SDK 23，即Android 6.0。如果你看的是以前版本的源码，可能会有明显的不一样，请自行斟酌。
+上一篇文章 [Android View 事件分发源码剖析](http://phantomvk.coding.me/2016/10/18/Android_View/) 我们详细介绍了View事件分发的细节。接下来我们继续学习ViewGroup事件分发的内容。此次源码同样基于Android SDK 23，即Android 6.0。如果你看的是以前版本的源码，可能会有明显的不一样，请自行斟酌。
 
 # 一、 代码构建
 

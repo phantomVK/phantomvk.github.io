@@ -190,18 +190,18 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         stopNestedScroll(); // 停止嵌套滚动
     }
 
-    // 安全机制过滤触摸事件，被遮挡要过滤该事件
+    // 安全机制过滤触摸事件，控件被遮挡就要过滤该事件
     if (onFilterTouchEventForSecurity(event)) {
         ListenerInfo li = mListenerInfo; // 这里获取mListenerInfo
         
         // 以下所有条件成立执行这个语句块并返回True:
         //    1. mListenerInfo不为空，已设置OnTouchListener
-        //    2. view模式是Enable，表明控件是可用的
+        //    2. View模式是Enable，表明控件是可用的
         //    3. 调用mOnTouchListener.onTouch()消费事件
         if (li != null && li.mOnTouchListener != null
                 && (mViewFlags & ENABLED_MASK) == ENABLED
                 && li.mOnTouchListener.onTouch(this, event)) {
-            result = true; //若li.mOnClickListener返回false，则result为false
+            result = true; //若li.mOnTouchListener返回false，则result为false
         }
         
         // result为false，交给onTouchEvent处理
@@ -397,7 +397,7 @@ private final class CheckForTap implements Runnable {
 
 **checkForLongClick**
 
-仅在view支持长按时执行有效，否则直接退出方法
+仅在View支持长按时执行有效，否则直接退出方法
 
 ```java
 private void checkForLongClick(int delayOffset) {
@@ -440,7 +440,7 @@ private final class CheckForLongPress implements Runnable {
 }
 ```
 
-在run里面调用的performLongClick。如果设置的长按回调会在下面调用。返回值与handled相同，直接控制**mHasPerformedLongPress**。
+在run里面调用的`performLongClick()`，如果设置了长按监听，会在以下方法调用。方法返回handled值，直接控制`CheckForLongPress()`的**mHasPerformedLongPress**。
 
 
 ```java
@@ -485,8 +485,8 @@ setPressed
 
 ```java
 public void setPressed(boolean pressed) {
-	// 如果状态不是PRESSED，更新标志位并刷新背景
-	final boolean needsRefresh =
+    // 如果状态不是PRESSED，更新标志位并刷新背景
+    final boolean needsRefresh =
 	    pressed != ((mPrivateFlags & PFLAG_PRESSED) == PFLAG_PRESSED);
 
     if (pressed) {
@@ -502,7 +502,7 @@ public void setPressed(boolean pressed) {
 }
 ```
 
-当触发时间不到100ms，触点移到控件外，就会清除PREPRESSED标志。
+当触发时间不到100ms且触点移到控件外，移除PREPRESSED标志。
 
 ```java
 private void removeTapCallback() {
@@ -566,8 +566,8 @@ if ((mPrivateFlags & PFLAG_PRESSED) != 0 || prepressed) {
     }
     
     if (prepressed) {
-		postDelayed(mUnsetPressedState,
-   	        ViewConfiguration.getPressedStateDuration()); // 64ms
+        postDelayed(mUnsetPressedState, 
+                ViewConfiguration.getPressedStateDuration()); // 64ms
     } else if (!post(mUnsetPressedState)) {
         mUnsetPressedState.run(); // Post失败就取消按下状态
     }
@@ -577,7 +577,7 @@ if ((mPrivateFlags & PFLAG_PRESSED) != 0 || prepressed) {
 mIgnoreNextUpEvent = false;
 ```
 
-`performClick()`在`ACTION_UP`的过程中被调用的，`onClick`事件是在这里被执行的。
+`performClick()`在`ACTION_UP`的过程中被调用的，`onClick`事件是在这里执行。
 
 ```java
 public boolean performClick() {
@@ -585,7 +585,7 @@ public boolean performClick() {
     final ListenerInfo li = mListenerInfo;
     if (li != null && li.mOnClickListener != null) {
         playSoundEffect(SoundEffectConstants.CLICK); // 点击音效
-        li.mOnClickListener.onClick(this);
+        li.mOnClickListener.onClick(this); // 执行OnClickListener
         result = true;
     } else {
         result = false;
@@ -595,6 +595,8 @@ public boolean performClick() {
     return result;
 }
 ```
+
+取消Pressed状态
 
 ```java
 private final class UnsetPressedState implements Runnable {

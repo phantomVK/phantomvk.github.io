@@ -10,7 +10,7 @@ tags:
 
 ## 系统环境
 
-__运行环境：`Ubuntu 16.04 LTS x86_64` 、`openJDK8`、`Hadoop-1.2.1`、`openSSH`__
+__运行环境：`Ubuntu 16.04 LTS x86_64` 、`openJDK9`、`Hadoop-1.2.1`、`openSSH`__
 
 
 ## 一、JDK安装及配置
@@ -42,7 +42,7 @@ $ cd /opt/hadoop-1.2.1/conf
 
 #### 2.2.2 配置hadoop-env.sh
 
-在文件中添加安装`JDK`的路径，这里用的是`opanJDK`
+在文件中添加安装`JDK`的路径，这里用的是`openJDK`
 
 ```bash
 $ vim hadoop-env.sh  

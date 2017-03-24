@@ -15,25 +15,25 @@ Handler是Android中一种处理线程消息循环的机制，而 [Message](http
 public final class Message implements Parcelable
 ```
 
-Android常用序列化有 Serializable 和 [Parcelable](https://developer.android.com/reference/android/os/Parcelable.html) 两种，该类继承Parcelable接口表明支持序列化。前者用的时间比较长且范围更广，但是序列化过程中产生大量小对象；后者性能好，但是需要手动实现4个必须方法，只有Android中可以使用。
+Android常用序列化有 Serializable 和 [Parcelable](https://developer.android.com/reference/android/os/Parcelable.html) 两种，该类支持后者的序列化。前者用的时间比较长且范围更广，但是序列化过程中产生大量小对象；后者性能好，但是需要手动实现序列化实现方法，只有Android中可以使用。
 
 
 # 一、成员变量
 
-用一个标志来区分不同的消息的身份，不同的Handler使用相同值的不同消息不会弄混。一般用十六进制形式表示，阅读起来比较容易。
+用一个标志来区分不同的消息的身份，不同的Handler使用相同值的消息不会弄混。一般用十六进制形式表示，阅读起来比较容易。
 
 ```java
 public int what; // 0x01
 ```
 
-`arg1`和`arg2`都是类中可选变量用来存放两个数值，不用访问`obj`对象就能读取变量。
+`arg1`和`arg2`都是类中可选变量，可以用来存放两个数值，不用访问`obj`对象就能读取变量。
 
 ```java
 public int arg1; 
 public int arg2;
 ```
 
-`obj`用来保存一个需要的对象，在处理的时候取出来使用。
+`obj`用来保存对象，接受消息后取出获得传送的对象。
 
 ```java
 public Object obj; // 用来保存对象
@@ -47,7 +47,7 @@ static final int FLAG_ASYNCHRONOUS = 1 << 1; // 异步标志值
 static final int FLAGS_TO_CLEAR_ON_COPY_FROM = FLAG_IN_USE;
 
 int flags; // 消息标志，上面三个常量 FLAG_* 用在这里
-long when; // 估计和arg1、arg2性质一样，存时间戳
+long when; // 存时间戳
 ```
 
 ```java
@@ -65,9 +65,9 @@ private static boolean gCheckRecycle = true; // 该版本系统是否支持回�
 
 # 二、消息体获取
 
-从消息池里取可复用消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取同一个空消息体导致使用紊乱。如果没有可复用的对象，新消息体会被创建。
+从消息池中获得可复用消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取同一个空消息体导致使用紊乱。如果没有可复用的对象，新消息会被创建。
 
-当然我们可以手动创建一个消息对象，但是最好从`obtain()`中获取缓存好的消息体，避免造成多余对象创建。
+当然我们可以手动创建一个消息对象，但是最好从`obtain()`中获取缓存好的空消息体，避免造成多余对象创建。
 
 ```java
 public static Message obtain() {
@@ -210,7 +210,7 @@ void recycleUnchecked() {
     callback = null;
     data = null;
     
-    // 最多缓存50个消息体
+    // 最多缓存49个空消息体
     synchronized (sPoolSync) {
         if (sPoolSize < MAX_POOL_SIZE) {
             next = sPool;
@@ -279,7 +279,7 @@ public void setData(Bundle data) {
     this.data = data;
 }
 
-// 把消息发送到Handler，配合obtain()使用，这样target不为空。
+// 把消息发送到Handler，配合obtain()使用令target不为空
 public void sendToTarget() {
     target.sendMessage(this);
 }
