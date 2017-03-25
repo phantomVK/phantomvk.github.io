@@ -130,6 +130,7 @@ public final V get(K key) {
         }
     }
     
+    // 处理两个实例出现冲突后把多余的实例进行垃圾回收，这里是createdValue
     if (mapValue != null) {
         entryRemoved(false, key, createdValue, mapValue);
         return mapValue;

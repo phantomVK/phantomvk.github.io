@@ -93,7 +93,7 @@ public StringBuilder append(CharSequence s) {
     return this;
 }
 
-// IndexOutOfBoundsException
+// 超出边界异常
 @Override
 public StringBuilder append(CharSequence s, int start, int end) {
     super.append(s, start, end);
@@ -106,7 +106,7 @@ public StringBuilder append(char[] str) {
     return this;
 }
 
-// IndexOutOfBoundsException
+// 超出边界异常
 @Override
 public StringBuilder append(char[] str, int offset, int len) {
     super.append(str, offset, len);
@@ -195,7 +195,7 @@ public StringBuilder deleteCharAt(int index) {
 替换字符串
 
 ```java
-// StringIndexOutOfBoundsException
+// 字符串超出边界异常
 @Override
 public StringBuilder replace(int start, int end, String str) {
     super.replace(start, end, str);
@@ -208,41 +208,42 @@ public StringBuilder replace(int start, int end, String str) {
 插入字符串
 
 ```java
-// StringIndexOutOfBoundsException
+// 字符串超出边界异常
 @Override
 public StringBuilder insert(int index, char[] str, int offset, int len) {
     super.insert(index, str, offset, len);
     return this;
 }
 
-// StringIndexOutOfBoundsException
+// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, Object obj) {
         super.insert(offset, obj);
         return this;
 }
 
-// StringIndexOutOfBoundsException@Override
+// 字符串超出边界异常
+@Override
 public StringBuilder insert(int offset, String str) {
     super.insert(offset, str);
     return this;
 }
 
-// StringIndexOutOfBoundsException
+// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, char[] str) {
     super.insert(offset, str);
     return this;
 }
 
-// IndexOutOfBoundsException
+// 超出边界异常
 @Override
 public StringBuilder insert(int dstOffset, CharSequence s) {
         super.insert(dstOffset, s);
         return this;
 }
 
-// IndexOutOfBoundsException
+// 超出边界异常
 @Override
 public StringBuilder insert(int dstOffset, CharSequence s,
                             int start, int end)
@@ -251,42 +252,42 @@ public StringBuilder insert(int dstOffset, CharSequence s,
     return this;
 }
 
-// StringIndexOutOfBoundsException
+// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, boolean b) {
     super.insert(offset, b);
     return this;
 }
 
-// IndexOutOfBoundsException
+// 超出边界异常
 @Override
 public StringBuilder insert(int offset, char c) {
     super.insert(offset, c);
     return this;
 }
 
-// StringIndexOutOfBoundsException
+// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, int i) {
     super.insert(offset, i);
     return this;
 }
 
-// StringIndexOutOfBoundsException
+// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, long l) {
     super.insert(offset, l);
     return this;
 }
 
-// IndexOutOfBoundsException
+// 超出边界异常
 @Override
 public StringBuilder insert(int offset, float f) {
     super.insert(offset, f);
     return this;
 }
 
-// StringIndexOutOfBoundsException
+// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, double d) {
     super.insert(offset, d);

@@ -136,6 +136,7 @@ public void ensureCapacity(int minCapacity) {
 ```java
 private void ensureCapacityInternal(int minCapacity) {
     if (elementData == DEFAULTCAPACITY_EMPTY_ELEMENTDATA) {
+        // 取DEFAULT_CAPACITY=10和minCapacity两者中的最大值
         minCapacity = Math.max(DEFAULT_CAPACITY, minCapacity);
     }
 
@@ -163,14 +164,18 @@ private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
 ```java
 private void grow(int minCapacity) {
-    // overflow-conscious code
+    // 有溢出检查
     int oldCapacity = elementData.length;
     int newCapacity = oldCapacity + (oldCapacity >> 1);
+    
+    // 取计算值与minCapacity大者
     if (newCapacity - minCapacity < 0)
         newCapacity = minCapacity;
+        
+    // 上溢检查
     if (newCapacity - MAX_ARRAY_SIZE > 0)
         newCapacity = hugeCapacity(minCapacity);
-    // minCapacity is usually close to size, so this is a win:
+    // 选择minCapacity是因为其更接近Size
     elementData = Arrays.copyOf(elementData, newCapacity);
 }
 ```
@@ -179,6 +184,7 @@ private void grow(int minCapacity) {
 
 ```java
 private static int hugeCapacity(int minCapacity) {
+    // 下溢检查
     if (minCapacity < 0)
         throw new OutOfMemoryError();
     return (minCapacity > MAX_ARRAY_SIZE) ?
@@ -217,9 +223,10 @@ public boolean contains(Object o) {
 ```
 
 ### 4.5 元素查找
+
 查找指定元素的序号。若元素是空对象，则找数组遇到第一个null的下标。其他情况，找到元素返回下标，找不到返回`-1`  
 
-```
+```java
 public int indexOf(Object o) {
     if (o == null) {
         for (int i = 0; i < size; i++)
@@ -251,9 +258,9 @@ public int lastIndexOf(Object o) {
 }
 ```
 
-浅拷贝，正常来说不会出现`CloneNotSupportedException`，因为本身实现了`Cloneable`接口
-
 ### 4.6 浅克隆
+
+正常来说不会出现`CloneNotSupportedException`，因为本身实现了`Cloneable`接口
 
 ```java
 public Object clone() {
@@ -379,7 +386,7 @@ public E remove(int index) {
     if (numMoved > 0)
         System.arraycopy(elementData, index+1, elementData, index,
                          numMoved);
-    elementData[--size] = null; // clear to let GC do its work
+    elementData[--size] = null; // 释放索引以便GC
 
     return oldValue;
 }
@@ -409,7 +416,7 @@ private void fastRemove(int index) {
     if (numMoved > 0)
         System.arraycopy(elementData, index+1, elementData, index,
                          numMoved);
-    elementData[--size] = null; // clear to let GC do its work
+    elementData[--size] = null; // 释放索引以便GC
 }
 ```
 
@@ -485,7 +492,7 @@ private boolean batchRemove(Collection<?> c, boolean complement) {
             w += size - r;
         }
         if (w != size) {
-            // clear to let GC do its work
+            // 释放索引以便GC
             for (int i = w; i < size; i++)
                 elementData[i] = null;
             modCount += size - w;
@@ -510,7 +517,7 @@ private void writeObject(java.io.ObjectOutputStream s)
     // Write out size as capacity for behavioural compatibility with clone()
     s.writeInt(size);
 
-    // Write out all elements in the proper order.
+    // 按照适当顺序写入所有元素
     for (int i=0; i<size; i++) {
         s.writeObject(elementData[i]);
     }
@@ -524,18 +531,18 @@ private void readObject(java.io.ObjectInputStream s)
     throws java.io.IOException, ClassNotFoundException {
     elementData = EMPTY_ELEMENTDATA;
 
-    // Read in size, and any hidden stuff
+    // 读取数组已占用大小和其他隐藏的隐藏
     s.defaultReadObject();
 
-    // Read in capacity
-    s.readInt(); // ignored
+    // 读取数组总长度
+    s.readInt(); // 忽略
 
     if (size > 0) {
-        // be like clone(), allocate array based upon size not capacity
+        // 很像clone()，由size决定数组的大小
         ensureCapacityInternal(size);
 
         Object[] a = elementData;
-        // Read in all elements in the proper order.
+        // 按照适当顺序读出所有元素
         for (int i=0; i<size; i++) {
             a[i] = s.readObject();
         }
@@ -561,11 +568,11 @@ public Iterator<E> iterator() {
 }
 
 /**
- * An optimized version of AbstractList.Itr
+ * 优化版AbstractList.Itr
  */
 private class Itr implements Iterator<E> {
-    int cursor;       // index of next element to return
-    int lastRet = -1; // index of last element returned; -1 if no such
+    int cursor;       // 下一个待返回元素序号
+    int lastRet = -1; // 已经返回的最后一个元素的序号；-1表示并没有元素返回过
     int expectedModCount = modCount;
 
     public boolean hasNext() {
@@ -703,8 +710,7 @@ static void subListRangeCheck(int fromIndex, int toIndex, int size) {
     if (toIndex > size)
         throw new IndexOutOfBoundsException("toIndex = " + toIndex);
     if (fromIndex > toIndex)
-        throw new IllegalArgumentException("fromIndex(" + fromIndex +
-                                           ") > toIndex(" + toIndex + ")");
+        throw new IllegalArgumentException("fromIndex(" + fromIndex + ") > toIndex(" + toIndex + ")");
 }
 
 private class SubList extends AbstractList<E> implements RandomAccess {
