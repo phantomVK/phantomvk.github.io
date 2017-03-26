@@ -10,14 +10,14 @@ tags:
 
 ## 系统环境
 
-__运行环境：`Ubuntu 16.04 LTS x86_64` 、`openJDK9`、`Hadoop-1.2.1`、`openSSH`__
+__运行环境：`Ubuntu 16.04 LTS AMD64` 、`openJDK 9`、`Hadoop-1.2.1`、`openSSH`__
 
 
 ## 一、JDK安装及配置
 
 #### 安装JDK
 
-Hadoop依赖JDK，请确认系统已经安装JDK。安装参考 __[Ubuntu安装Oracle JDK8](https://phantomvk.github.io/2016/11/23/Ubuntu_Oracle_JDK)__
+Hadoop依赖JDK，请确认系统已经安装JDK。安装参考 __[Ubuntu安装Oracle JDK8](http://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__
 
 ## 二、 Hadoop安装及配置
 
@@ -46,6 +46,7 @@ $ cd /opt/hadoop-1.2.1/conf
 
 ```bash
 $ vim hadoop-env.sh  
+
  export JAVA_HOME=/usr/lib/jvm/java-9-openjdk-amd64 
 ```
 
@@ -165,6 +166,11 @@ SHUTDOWN_MSG: Shutting down NameNode at mike-virtual-machine/127.0.1.1
 ```bash
 $ cd /opt/hadoop-1.2.1/bin
 $ ./start_all.sh
+```
+
+运行结果
+
+```
 starting namenode, logging to /opt/hadoop-1.2.1/libexec/../logs/hadoop-root-namenode-mike-virtual-machine.out
 localhost: Warning: Permanently added 'localhost' (ECDSA) to the list of known hosts.
 root@localhost's password: 
@@ -265,7 +271,7 @@ $ cd /etc/ssh/ssh_config
 ```
 
 
-配置`ssh - sshd_config`
+配置`sshd_config`
 
 ```bash
 $ cd /etc/ssh/sshd_config
@@ -282,7 +288,7 @@ $ ssh localhost # 检查ssh服务
 
 #### 4.5 安装dpkg报错
 
-多个窗口同时使用`apt-get`会出现这个错误，这种情况不用处理
+多个窗口同时使用`apt-get`会出现这个错误，不要同时使用就好了。
 
 ```bash
 .....
