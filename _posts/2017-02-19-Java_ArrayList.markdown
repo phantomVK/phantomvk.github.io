@@ -146,7 +146,7 @@ private void ensureCapacityInternal(int minCapacity) {
 private void ensureExplicitCapacity(int minCapacity) {
     modCount++;
 
-    // 溢出检查，minCapacity必须必数组长度大
+    // 溢出检查，minCapacity必须比数组长度大
     if (minCapacity - elementData.length > 0)
         grow(minCapacity);
 }

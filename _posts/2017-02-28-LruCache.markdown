@@ -379,7 +379,7 @@ public synchronized final int evictionCount() {
 
 ### 4.9 队列快照
 
-返回当前队列的快照。值得注意的是，虽然这个快照是新的`LinkedHashMap`实例，但是键实例却是浅拷贝的。
+返回当前队列的快照。值得注意的是，虽然这个快照是新的`LinkedHashMap`实例，但是键是浅拷贝的。
 
 ```java
 /**
