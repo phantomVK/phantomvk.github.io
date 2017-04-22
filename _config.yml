@@ -2,16 +2,16 @@
 title: phantomVK
 SEOTitle: phantomVK 博客
 header-img: img/home.jpg
-email: phantomVK@163.com
+email: phantomvk@163.com
 description: "Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析"
 keyword: "Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析"
-#url: "http://"       # your host, for absolute URL
-#baseurl: "/"         # for example, '/blog' if your blog hosted on 'host/blog'
+# url: ""              # your host, for absolute URL
+# baseurl: ""                             # for example, '/blog' if your blog hosted on 'host/blog'
 
 
 
 # SNS settings
-RSS: true
+RSS: false
 zhihu_username:     phantomvk
 github_username:    phantomvk
 #weibo_username:     
@@ -46,36 +46,43 @@ kramdown:
   input: GFM                            # use Github Flavored Markdown !important
 
 
+
 # Disqus settings
 #disqus_username: _your_disqus_short_name_
+
 
 
 # Analytics settings
 # Baidu Analytics 
 # ba_track_id: [your track id]
 
+
+
 # Google Analytics
-ga_track_id: 'UA-88382061-1'            # Format: UA-xxxxxx-xx
-ga_domain: phantomvk.github.io
+# ga_track_id: ''            # Format: UA-xxxxxx-xx
+# ga_domain: 
+
 
 
 # Sidebar settings
 sidebar: true                           # whether or not using Sidebar.
 sidebar-about-description: "世界再无聊，总有可探索的境地"
-sidebar-avatar: /img/avatar.jpg         # use absolute URL, seeing it's used in both `/` and `/about/`
+sidebar-avatar: /img/avatar.jpg      # use absolute URL, seeing it's used in both `/` and `/about/`
+
+# Pay QRcode
 sidebar-wechat-pay: /img/wechat.jpg
 sidebar-alipay-pay: /img/alipay.jpg
 
 
 # Pay Tags
 pay-tags: false
-pay-tags-wechat: false
-pay-tags-alipay: false
-
+pay-tags-wechat: true
+pay-tags-alipay: true
 
 # Featured Tags
 featured-tags: true                     # whether or not using Feature-Tags
 featured-condition-size: 1              # A tag will be featured if the size of it is more than this condition value
+
 
 
 # Progressive Web Apps
@@ -83,13 +90,14 @@ chrome-tab-theme-color: "#000000"
 service-worker: true
 
 
+
 # Friends
-# friends: [
-#    {
-#        title: "",
-#        href: ""
-#    },{
-#        title: "",
-#        href: ""
-#    }
-# ]
+friends: [
+    {
+        title: "",
+        href: ""
+    },{
+        title: "",
+        href: ""
+    }
+]

@@ -39,7 +39,7 @@ layout: default
                     <h5><a href="{{'/tags/' | prepend: site.baseurl }}">FEATURED TAGS</a></h5>
                     <div class="tags">
         				{% for tag in site.tags %}
-                            {% if tag[1].size > {{site.featured-condition-size}} %}
+                            {% if tag[1].size > site.featured-condition-size %}
                 				<a href="{{ site.baseurl }}/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">
                                     {{ tag[0] }}
                                 </a>
@@ -88,7 +88,7 @@ layout: default
                     <h5><a href="{{'/tags/' | prepend: site.baseurl }}">FEATURED TAGS</a></h5>
                     <div class="tags">
                         {% for tag in site.tags %}
-                            {% if tag[1].size > {{site.featured-condition-size}} %}
+                            {% if tag[1].size > site.featured-condition-size %}
                                 <a href="{{ site.baseurl }}/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">
                                     {{ tag[0] }}
                                 </a>
@@ -190,11 +190,11 @@ layout: default
                 <h5>打赏支持</h5>
                     <p>如果我的文章对您有帮助，请打赏或者分享给更多朋友,谢谢!</p>
                     {% if site.pay-tags-wechat %}
-                        <p>微信支付</p>
+                        <p>微信二维码</p>
                         <img src="{{site.sidebar-wechat-pay}}" />
                     {% endif %}
                     {% if site.pay-tags-alipay %}
-                        <p>支付宝支付</p>
+                        <p>支付宝二维码</p>
                         <img src="{{site.sidebar-alipay-pay}}" />
                     {% endif %}
                     </div>
