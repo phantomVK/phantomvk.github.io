@@ -49,19 +49,14 @@ kramdown:
 # Disqus settings
 #disqus_username: _your_disqus_short_name_
 
-# Duoshuo settings
-# duoshuo_username: pha
-# Share component is depend on Comment so we can NOT use share only.
-# duoshuo_share: true                     # set to false if you want to use Comment without Sharing
-
 
 # Analytics settings
 # Baidu Analytics 
 # ba_track_id: [your track id]
 
 # Google Analytics
-# ga_track_id: 'UA-88382061-1'            # Format: UA-xxxxxx-xx
-# ga_domain: phantomvk.github.io
+ga_track_id: 'UA-88382061-1'            # Format: UA-xxxxxx-xx
+ga_domain: phantomvk.github.io
 
 
 # Sidebar settings
