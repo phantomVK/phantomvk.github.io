@@ -4,6 +4,16 @@
         <div class="row">
             <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
                 <ul class="list-inline text-center">
+                    {% if site.RSS %}
+                    <li>
+                        <a href="{{ "/feed.xml" | prepend: site.baseurl }}">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    {% endif %}
                     {% if site.twitter_username %}
                     <li>
                         <a href="https://twitter.com/{{ site.twitter_username }}">
@@ -14,6 +24,8 @@
                         </a>
                     </li>
                     {% endif %}
+
+                    <!-- add Weibo, Zhihu by Hux, add target = "_blank" to <a> by Hux -->
                     {% if site.zhihu_username %}
                     <li>
                         <a target="_blank" href="https://www.zhihu.com/people/{{ site.zhihu_username }}">
@@ -34,6 +46,8 @@
                         </a>
                     </li>
                     {% endif %}
+
+
                     {% if site.facebook_username %}
                     <li>
                         <a target="_blank" href="https://www.facebook.com/{{ site.facebook_username }}">
@@ -60,16 +74,6 @@
                             <span class="fa-stack fa-lg">
                                 <i class="fa fa-circle fa-stack-2x"></i>
                                 <i class="fa fa-linkedin fa-stack-1x fa-inverse"></i>
-                            </span>
-                        </a>
-                    </li>
-                    {% endif %}
-                    {% if site.RSS %}
-                    <li>
-                        <a href="{{ "/feed.xml" | prepend: site.baseurl }}">
-                            <span class="fa-stack fa-lg">
-                                <i class="fa fa-circle fa-stack-2x"></i>
-                                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
                             </span>
                         </a>
                     </li>
@@ -105,6 +109,7 @@
 </script>
 {% endif %}
 
+
 <!-- async load function -->
 <script>
     function async(u, c) {
@@ -139,6 +144,7 @@
     })
 </script>
 
+
 <!-- Google Analytics -->
 {% if site.ga_track_id %}
 <script>
@@ -157,7 +163,8 @@
 </script>
 {% endif %}
 
-<!-- Baidu Analytics -->
+
+<!-- Baidu Tongji -->
 {% if site.ba_track_id %}
 <script>
     // dynamic User by Hux
@@ -173,6 +180,8 @@
     })();
 </script>
 {% endif %}
+
+
 
 <!-- Side Catalog -->
 {% if page.catalog %}
@@ -220,3 +229,4 @@
     });
 </script>
 {% endif %}
+
