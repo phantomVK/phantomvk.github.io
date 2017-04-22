@@ -108,19 +108,6 @@ layout: default
                     {% endif %}
                 </ul>
 
-
-                {% if site.duoshuo_username %}
-                <!-- 多说评论框 start -->
-                <div class="comment">
-                    <div class="ds-thread"
-                        data-thread-key="{{page.id}}"
-                        data-title="{{page.title}}"
-                        data-url="{{site.url}}{{site.baseurl}}{{page.url}}" >
-                    </div>
-                </div>
-                <!-- 多说评论框 end -->
-                {% endif %}
-
                 {% if site.disqus_username %}
                 <!-- disqus 评论框 start -->
                 <div class="comment">
@@ -186,7 +173,6 @@ layout: default
     </div>
 </article>
 
-
 {% if site.disqus_username %}
 <script type="text/javascript">
     var disqus_shortname = "{{site.disqus_username}}";
@@ -200,7 +186,6 @@ layout: default
     })();
 </script>
 {% endif %}
-
 
 {% if site.anchorjs %}
 <!-- async load function -->
