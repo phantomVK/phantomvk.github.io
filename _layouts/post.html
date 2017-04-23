@@ -41,22 +41,17 @@ layout: default
         </div>
     </div>
 </header>
-
 <!-- Post Content -->
 <article>
     <div class="container">
         <div class="row">
-
             <!-- Post Container -->
             <div class="
                 col-lg-8 col-lg-offset-2
                 col-md-10 col-md-offset-1
                 post-container">
-
 				{{ content }}
-
                 <hr style="visibility: hidden;">
-
                 <ul class="pager">
                     {% if page.previous.url %}
                     <li class="previous">
@@ -83,7 +78,6 @@ layout: default
                 </div>
                 <!-- disqus 评论框 end -->
                 {% endif %}
-
             </div>  
 
             <!-- Side Catalog Container -->
@@ -117,9 +111,7 @@ layout: default
                     <div class="tags">
         				{% for tag in site.tags %}
                             {% if tag[1].size > site.featured-condition-size %}
-                				<a href="/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">
-                                    {{ tag[0] }}
-                                </a>
+                				<a href="/tags/#{{ tag[0] }}" title="{{ tag[0] }}" rel="{{ tag[1].size }}">{{ tag[0] }}</a>
                             {% endif %}
         				{% endfor %}
         			</div>
@@ -157,7 +149,6 @@ layout: default
 </script>
 <!-- disqus 公共JS代码 end -->
 {% endif %}
-
 
 {% if site.anchorjs %}
 <!-- async load function -->
