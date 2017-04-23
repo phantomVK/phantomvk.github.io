@@ -11,21 +11,30 @@ header-img: "img/archives.jpg"
     {% capture next_year %}{{ post.previous.date | date: "%Y" }}{% endcapture %}
     {% capture next_month %}{{ post.previous.date | date: "%B" }}{% endcapture %}
     {% if forloop.first %}
-        <legend id="{{this_year}}-{{this_month}}">{{this_year}} {{this_month}}</legend>
+        <legend id="{{this_year}}-{{this_month}}"><font color="#0085a1">{{this_year}} {{this_month}}</font></legend>
         <ul>
     {% endif %}
-    <li><b><span><font color="blue">{{ post.date | date: "%F" }}</font></span> &raquo; <a href="{{ BASE_PATH }}{{ post.url }}">{{ post.title }}</a></b></li>
+    <b>
+        <span>
+            <font style="font-size:18px" face="Consolas">{{ post.date | date: "%F" }}</font>
+            <font style="font-size:20px" color="blue">&raquo;</font>
+            <font style="font-size:18px" face="sans-serif"><a href="{{ BASE_PATH }}{{ post.url }}">{{ post.title }}</a></font>
+        </span>
+    </b>
+    <br>
     {% if forloop.last %}
         </ul>
     {% else %}
         {% if this_year != next_year %}
+            <br>
             </ul>
-            <legend id="{{next_year}}-{{next_month}}">{{next_year}} {{next_month}}</legend>
+            <legend id="{{next_year}}-{{next_month}}"><font color="#0085a1">{{next_year}} {{next_month}}</font></legend>
             <ul>
         {% else %}    
         {% if this_month != next_month %}
+            <br>
             </ul>
-            <legend id="{{next_year}}-{{next_month}}">{{next_year}} {{next_month}}</legend>
+            <legend id="{{next_year}}-{{next_month}}"><font color="#0085a1">{{next_year}} {{next_month}}</font></legend>
             <ul>
         {% endif %}
         {% endif %}
