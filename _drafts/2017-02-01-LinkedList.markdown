@@ -11,13 +11,15 @@ tags:
 
 ## 一、介绍
 
-Java常用的list实现有[ArrayList](http://phantomvk.coding.me/2017/02/19/Java_ArrayList/)和LinkedList。顾名思义，ArrayList通过数组实现，LinkedList通过链表实现。由于Java中没有指针的概念，所以Java通过一个对象保存下一对象引用的方式实现链表的概念。
+Java常用的List实现有[ArrayList](http://phantomvk.coding.me/2017/02/19/Java_ArrayList/)和LinkedList。ArrayList通过数组实现，LinkedList通过链表实现。由于Java中没有指针的概念，所以通过一个对象保存下一对象引用的方式实现链表的概念。
 
 ```java
 public class LinkedList<E>
     extends AbstractSequentialList<E>
     implements List<E>, Deque<E>, Cloneable, java.io.Serializable
 ```
+
+从本节开始，源码只会摘选重要的部分进行深入剖析，例如`序列化实现`、`toString()`、`空实现构造方法`和简单方法，只要删除不会对整体造成理解造成影响，就不会出现。
 
 ## 二、数据成员
 
@@ -44,11 +46,7 @@ transient Node<E> last;
 ## 三、构造方法
 
 ```java
-// 构造列表
-public LinkedList() {
-}
-
-// 用指定集合构建一个包含其元素的列表，元素保存的顺序由集合的迭代器决定
+// 用指定集合构建列表，元素保存的顺序由集合的迭代器输出决定
 public LinkedList(Collection<? extends E> c) {
     this();
     addAll(c); // 若c为空抛空指针异常
@@ -57,15 +55,7 @@ public LinkedList(Collection<? extends E> c) {
 
 ## 四、成员方法
 
-### 4.1 增加
 
-### 4.2 删除
-
-### 4.3 查找
-
-### 4.4 修改
-
-### 4.5 其他
 ```java
 // 把元素作为第一个节点进入列表
 private void linkFirst(E e) {
@@ -913,51 +903,6 @@ public <T> T[] toArray(T[] a) {
         a[size] = null;
 
     return a;
-}
-```
-
-### 序列化
-
-```java
-private static final long serialVersionUID = 876323262645176354L;
-
-/**
- * Saves the state of this {@code LinkedList} instance to a stream
- * (that is, serializes it).
- *
- * @serialData The size of the list (the number of elements it
- *             contains) is emitted (int), followed by all of its
- *             elements (each an Object) in the proper order.
- */
-private void writeObject(java.io.ObjectOutputStream s)
-    throws java.io.IOException {
-    // Write out any hidden serialization magic
-    s.defaultWriteObject();
-
-    // Write out size
-    s.writeInt(size);
-
-    // Write out all elements in the proper order.
-    for (Node<E> x = first; x != null; x = x.next)
-        s.writeObject(x.item);
-}
-
-/**
- * Reconstitutes this {@code LinkedList} instance from a stream
- * (that is, deserializes it).
- */
-@SuppressWarnings("unchecked")
-private void readObject(java.io.ObjectInputStream s)
-    throws java.io.IOException, ClassNotFoundException {
-    // Read in any hidden serialization magic
-    s.defaultReadObject();
-
-    // Read in size
-    int size = s.readInt();
-
-    // Read in all elements in the proper order.
-    for (int i = 0; i < size; i++)
-        linkLast((E)s.readObject());
 }
 ```
 

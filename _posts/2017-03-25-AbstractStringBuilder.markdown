@@ -11,27 +11,26 @@ tags:
 
 ## 一、类签名
 
-`AbstractStringBuilder`是`StringBuilder`和`StringBuffer`的父类，包含字符串操作的实现逻辑。这两子类主要是根据各自需求对字符串修改过程做同步处理。
-
-作为可变字符串的父类，`AbstractStringBuilder`借助字符数组的形式实现可变字符串，且此类中大部分方法属于字符修改、插入、追加等字符串改变操作。
+`AbstractStringBuilder`是`StringBuilder`和`StringBuffer`的父类，包含字符串操作的实现逻辑，子类根据各自需求对方法调用做同步处理，本身是线程不安全的。作为可变字符串的父类，`AbstractStringBuilder`借助字符数组的形式实现可变字符串，类中大部分方法是字符修改、插入、追加等操作。
 
 ```java
 abstract class AbstractStringBuilder implements Appendable, CharSequence
 ```
 
+实现`CharSequence`，所以两个子类`StringBuilder`和`StringBuffer`的实例可以直接赋值给`CharSequence`。
+
 ## 二、数据成员
 
 ```java
 char[] value; // 保存字符串的数组
-int count; // 记录字符长度
+int count;    // 记录字符长度
 ```
 
 ## 三、构造方法
 
 ```java
 // 必要的无参构造方法，用于序列化和子类
-AbstractStringBuilder() {
-}
+AbstractStringBuilder() { }
 
 // 通过指定容量构造字符串数组
 AbstractStringBuilder(int capacity) {
@@ -42,20 +41,26 @@ AbstractStringBuilder(int capacity) {
 ## 四、成员方法
 
 ### 4.1 长度相关
+
+已保存在字符串数组的字符个数
+
 ```java
-// 已保存在字符串数组的字符个数
 @Override
 public int length() {
     return count;
 }
+```
 
-// 字符串数组的空间长度，包含可插入新字符的空间
+字符串数组的空间长度，包含可插入新字符的空间。在同一时刻，总有`length()`小于等于`capacity()`
+
+```java
 public int capacity() {
     return value.length;
 }
 ```
 
 ### 4.2 增加容量
+
 保证字符数组大小至少要和具体的最小值相等。若当前容量小于参数具体值，则创建一个更大的数组，数值取下列之大者：
 
    * minimumCapacity的具体大小；
@@ -632,13 +637,6 @@ private void reverseAllValidSurrogatePairs() {
 ```
 
 ### 4.12 其他
-
-抽象方法，在子类中实现
-
-```java
-@Override
-public abstract String toString();
-```
 
 获取字符串序列
 
