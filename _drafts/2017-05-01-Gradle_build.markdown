@@ -1,7 +1,6 @@
 ---
 layout:     post
-title:      ""
-subtitle:   ""
+title:      "Gradle构建安装包"
 date:       2017-01-01
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -10,8 +9,6 @@ tags:
     - tags
 ---
 
-
-# Gradle构建
 
 
 ## 一、默认配置
