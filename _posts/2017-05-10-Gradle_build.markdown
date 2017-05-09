@@ -225,12 +225,12 @@ versionCode rootProject.ext.versionCodeProp
 versionName rootProject.ext.versionNameProp
 ```
 
-### 3.5 分包名后安装问题
+### 4.1 分包名安装报错
 
 我曾经遇到在Gradle中渠道正确分包名，但在同一台手机里安装不同渠道应用会失败。现象既不能覆盖前一个渠道应用，又不能安装为一个新的应用，显示`无法完成安装`。
 
 
-### 3.6 问题解决
+### 4.2 问题解决
 
 这个问题是`ContentProvider`申明是使用了相同的授权包名，多个`ContentProvider`是不能安装的，不然手机会不知道应该提供哪个`ContentProvider`，毕竟都同名。
 
@@ -266,6 +266,9 @@ lintOptions {
     abortOnError false
 }
 ```
+
+
+### 5.2 packagingOptions
 
 还有多个包中存在相同的文件，在编译合并是会报错。因为不是关系到运行代码，直接排除在打包外。
 
