@@ -13,7 +13,7 @@ tags:
 
 ## 一、默认配置
 
-首先看看android域默认构建参数：`defaultConfig`包含应用默认包名、最低SDK版本、目标SDK版本、应用版本序号和应用版本代号，其他地方的相同配置会覆盖默认参数。
+`android`域 `defaultConfig` 包含应用默认包名、最低SDK版本、目标SDK版本、应用版本序号和应用版本代号。如果其他地方配置相同参数，新的参数会覆盖默认参数。
 
 ```groovy
 android {
@@ -35,26 +35,24 @@ android {
 }
 ```
 
-`defaultConfig`里定义的变量在所有子域中生效，前提是没有被新变量值覆盖。例如：
+`defaultConfig`定义的变量在所有子域中生效
 
 ```groovy
 defaultConfig {
-        applicationId "com.phantomvk.app"
-        minSdkVersion 16
-        targetSdkVersion 25
-        versionCode 1
-        versionName "1.0"
-        buildConfigField "String", "BUG_REPORT_URL", "\"https://phantomvk.com\api\report\""
-    }
+    applicationId "com.phantomvk.app"
+    minSdkVersion 16
+    targetSdkVersion 25
+    versionCode 1
+    versionName "1.0"
+    buildConfigField "String", "BUG_REPORT_URL", "\"https://phantomvk.com\api\report\""
+}
 ```
 
 ## 二、构建类型
 
-`buildType`构建类型默认是`debug`模式，提供并支持`release`模式。
+`buildType`构建类型默认为`debug`模式，同时支持`release`模式。
 
-由于`debug`模式很少甚至不需要使用自定义配置项，所以`debug`配置项是不显示出来的，倒是可以显式添加。
-
-`release`里能开启代码混淆和资源压缩的支持，需要在`proguard-android.txt`里编写规则。
+由于`debug`模式很少甚至不需要配置参数，所以`debug`配置项默认不显示出来的，需要定制的话可以手动添加。`release`可以开启代码混淆和资源压缩的支持，需要在`proguard-android.txt`里编写规则。
 
 ```groovy
 buildTypes {

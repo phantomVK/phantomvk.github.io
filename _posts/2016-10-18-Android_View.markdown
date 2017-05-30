@@ -195,27 +195,27 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         ListenerInfo li = mListenerInfo; // 这里获取mListenerInfo
         
         // 所有条件成立执行此语句块:
-        //    1. mListenerInfo不为空，已设置OnTouchListener
-        //    2. View模式是Enable，表明控件是可用的
-        //    3. 尝试用mOnTouchListener.onTouch()消费事件
+        //  1. mListenerInfo不为空，已设置OnTouchListener
+        //  2. View模式是Enable，表明控件可用
+        //  3. mOnTouchListener.onTouch()尝试消费事件
         if (li != null && li.mOnTouchListener != null
                 && (mViewFlags & ENABLED_MASK) == ENABLED
                 && li.mOnTouchListener.onTouch(this, event)) {
             result = true; // mOnTouchListener.onTouch()消费成功
         }
         
-        // result为false，交给onTouchEvent处理
+        // 若 li.mOnTouchListener.onTouch(this, event)没
+        // 有执行，则result为false，并交给onTouchEvent()处理
         if (!result && onTouchEvent(event)) {
             result = true;
         }
     }
 
+    // mOnTouchListener.onTouch()和都onTouchEvent(event)没有消费事件
     if (!result && mInputEventConsistencyVerifier != null) {
         mInputEventConsistencyVerifier.onUnhandledEvent(event, 0);
     }
     
-    // 嵌套滚动之后，如果这是动作的结束就清除动作
-    // 同样可取消ACTION_DOWN后其他不需要的动作
     if (actionMasked == MotionEvent.ACTION_UP ||
             actionMasked == MotionEvent.ACTION_CANCEL ||
             (actionMasked == MotionEvent.ACTION_DOWN && !result)) {
@@ -225,6 +225,8 @@ public boolean dispatchTouchEvent(MotionEvent event) {
     return result;
 }
 ```
+
+____
 
 那么`li.mOnTouchListener`在哪里设定？上面的代码有一段可知：
 
@@ -264,7 +266,7 @@ ListenerInfo getListenerInfo() {
 
 如果设置了`View.OnTouchListener()`，其返回值决定了事件是否继续分发给`onTouchEvent`实例。
 
-假如`OnTouchListener()`返回`false`，`onTouchEvent`可以接收事件：
+假如`OnTouchListener()`返回`false`则`onTouchEvent`接收事件
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
@@ -275,14 +277,14 @@ public boolean onTouchEvent(MotionEvent event) {
     final int viewFlags = mViewFlags;
     final int action = event.getAction();
     
-    // View为Disable进入，表示空间功能无效
+    // View为Disable表示空间功能无效
     if ((viewFlags & ENABLED_MASK) == DISABLED) {
         if (action == MotionEvent.ACTION_UP
                 && (mPrivateFlags & PFLAG_PRESSED) != 0) {
             setPressed(false);
         }  
          
-        // 可点击或长按的不可用View单纯消费事件，不触发动作
+        // 可点击或长按不可用View仅消费事件，不触发动作
        	return (((viewFlags & CLICKABLE) == CLICKABLE
                 || (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE)
                 || (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE);
@@ -304,7 +306,7 @@ public boolean onTouchEvent(MotionEvent event) {
         } 
         return true;
     }
-    return false; // OnTouchEvent没有消费事件并继续下发
+    return false; // OnTouchEvent事件继续下发
 }
 ```
 
@@ -396,7 +398,9 @@ private void checkForLongClick(int delayOffset) {
         if (mPendingCheckForLongPress == null) {
             mPendingCheckForLongPress = new CheckForLongPress();
         }
-        mPendingCheckForLongPress.rememberWindowAttachCount(); // 可能是多点触控数值
+     
+        // 可能是多点触控数
+        mPendingCheckForLongPress.rememberWindowAttachCount();
         
         // 减去Prepress已经延迟的100ms
         postDelayed(mPendingCheckForLongPress,
