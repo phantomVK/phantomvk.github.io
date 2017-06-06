@@ -1,10 +1,10 @@
 ---
 layout:     post
 title:      "dlopen is 32-bit instead of 64-bit"
-date:       2017-06-06
+date:       2017-06-05
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
-catalog:    true
+catalog:    false
 tags:
     - Android
 ---
