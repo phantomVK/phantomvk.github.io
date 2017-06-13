@@ -43,6 +43,6 @@ java.lang.RuntimeException: Error receiving broadcast Intent { act=android.net.c
 
 从Android 6.0起，系统启用了更加严格的权限管理。如READ_PHONE_STATE这种权限，即使在AndroidManifest中已经声明，如果没有在运行时并向用户明确请求允许权限，又没有做相应处理，就会导致应用闪退。
 
-但是apk可通过build.gradle的targetSDK表明最高支持的系统版本。已知新的权限系统只在Android 6.0(23)及以上的系统有效，那把targetSDK设置小于等于22即可避开新的权限管理。
+但apk可通过build.gradle的targetSDK表明最高支持的系统版本。已知新的权限系统只在Android 6.0(23)及以上的系统有效，那把targetSDK设置小于等于22即可避开新的权限管理。
 
 
