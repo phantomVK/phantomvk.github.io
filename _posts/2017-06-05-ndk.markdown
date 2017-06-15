@@ -9,6 +9,8 @@ tags:
     - Android
 ---
 
+有的手机默认支持64位，启动的时候会尝试加载64位的so。不过包却不一定对64位做出支持。当系统无法加载到理想的包，就会抛出以下异常。
+
 ```
 06-01 14:40:51.903 25196-25196/com.abc.app.pkg E/art: 
     dlopen("/data/data/com.abc.app.pkg/files/libs/libBaiduMapSDK_base_v4_2_1.so", RTLD_LAZY) failed: 
@@ -44,8 +46,8 @@ tags:
             at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1019)
             at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:814)
 ```  
-
-有的手机默认支持64位包，启动的时候会尝试加载64位的so。不过包却不一定支持，因此一旦加载失败就会抛出异常。由于64位是可以向下兼容32位的，所以只需要在budil.gradlez中指定特定支持的指令集即可。  
+  
+不过，Android 64位是可以向下兼容32位程序的，apk只需要在budil.gradle中明确支持的指令集，以此适配手机即可。
 
 ```groovy
 android {

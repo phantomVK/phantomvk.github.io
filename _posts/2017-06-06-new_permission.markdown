@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Android 22新系统授权失败导致闪退"
+title:      "Android 22授权获取失败导致闪退"
 date:       2017-06-06
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -8,6 +8,8 @@ catalog:    false
 tags:
     - Android
 ---
+
+从Android 6.0版本开始，系统启用更加严格的权限管理，部分重要权限只能在运行过程由用户授权，无法通过声明获得。如READ_PHONE_STATE这种权限，即使在AndroidManifest中已经声明，如果既没有在运行时向用户请求，又没有做相应处理，就会导致应用闪退。
 
 ```
 java.lang.RuntimeException: Error receiving broadcast Intent { act=android.net.conn.CONNECTIVITY_CHANGE flg=0x4000010 (has extras) }
@@ -41,8 +43,6 @@ java.lang.RuntimeException: Error receiving broadcast Intent { act=android.net.c
             at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:831) 
 ```
 
-从Android 6.0起，系统启用了更加严格的权限管理。如READ_PHONE_STATE这种权限，即使在AndroidManifest中已经声明，如果没有在运行时并向用户明确请求允许权限，又没有做相应处理，就会导致应用闪退。
-
-但是apk可通过build.gradle的targetSDK表明最高支持的系统版本。已知新的权限系统只在Android 6.0(23)及以上的系统有效，那把targetSDK设置小于等于22即可避开新的权限管理。
+但是apk可通过build.gradle的targetSDK表明最高支持的系统版本。已知新的权限系统只在Android 6.0(23)及以上的系统有效，那把targetSDK设置小于等于22即可避开新的权限管理。然而，最稳妥的做法是针对Android 6.0以上系统特别进行权限处理。
 
 
