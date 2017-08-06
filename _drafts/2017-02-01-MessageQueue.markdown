@@ -11,21 +11,12 @@ tags:
 
 # 一、类签名
 
-这是一个低层次的类，持有将要被Looper分发的消息队列。消息并不是直接加入到MessageQueue中，而是通过与对应Handler相连接的Looper加入的。
+MessageQueue是个低级类，持有将要被Looper分发的消息队列。但消息并不是直接加入到MessageQueue中，而是通过一个Looper相对应的Handler加入。
 
-通过方法Looper.myQueue()可以获取当前线程的Looper
+通过方法Looper.myQueue()，可以获取当前线程的MessageQueue。
 
 ```java
-/**
- * Low-level class holding the list of messages to be dispatched by a
- * {@link Looper}.  Messages are not added directly to a MessageQueue,
- * but rather through {@link Handler} objects associated with the Looper.
- * 
- * <p>You can retrieve the MessageQueue for the current thread with
- * {@link Looper#myQueue() Looper.myQueue()}.
- */
 public final class MessageQueue 
-
 ```
 
 # 二、成员变量
@@ -34,11 +25,11 @@ public final class MessageQueue
 private static final String TAG = "MessageQueue";
 private static final boolean DEBUG = false;
 
-// True if the message queue can be quit.
+// 消息队列可以被结束时为True
 private final boolean mQuitAllowed;
 
 @SuppressWarnings("unused")
-private long mPtr; // used by native code
+private long mPtr; // 由原生代码调用
 
 Message mMessages;
 private final ArrayList<IdleHandler> mIdleHandlers = new ArrayList<IdleHandler>();
@@ -59,7 +50,7 @@ private int mNextBarrierToken;
 ```java
 private native static long nativeInit();
 private native static void nativeDestroy(long ptr);
-private native void nativePollOnce(long ptr, int timeoutMillis); /*non-static for callbacks*/
+private native void nativePollOnce(long ptr, int timeoutMillis); // 非静态回调
 private native static void nativeWake(long ptr);
 private native static boolean nativeIsPolling(long ptr);
 private native static void nativeSetFileDescriptorEvents(long ptr, int fd, int events);
@@ -90,21 +81,22 @@ private void dispose() {
         mPtr = 0;
     }
 }
+```
 
-/**
- * Returns true if the looper has no pending messages which are due to be processed.
- *
- * <p>This method is safe to call from any thread.
- *
- * @return True if the looper is idle.
- */
+isIdle()方法可以获取消息队列的空闲状态。当消息队列中没有需要处理的消息时，该方法返回True，否则返回False。待处理的意思是消息队列的消息还没有到达预定处理时间，而非消息队列中没有消息。
+
+由于`MessageQueue`不是一个静态类，所以方法中`synchronized (this)`的锁实际上是给实例方法对应的实例上锁，以此保证线程安全。
+
+```java
 public boolean isIdle() {
     synchronized (this) {
         final long now = SystemClock.uptimeMillis();
         return mMessages == null || now < mMessages.when;
     }
 }
+```
 
+```
 /**
  * Add a new {@link IdleHandler} to this message queue.  This may be
  * removed automatically for you by returning false from
@@ -422,18 +414,24 @@ Message next() {
 }
 ```
 
+队列结束。
+
 ```java
 void quit(boolean safe) {
+    // mQuitAllowed 为 false 表示该队列不允许退出，尤其是主线程持有的队列
     if (!mQuitAllowed) {
         throw new IllegalStateException("Main thread not allowed to quit.");
     }
 
     synchronized (this) {
+        // 如果此前已经调用了一次quit()，则Quitting 为 True
+        // 以后再次调用quit()会直接退出方法，结束操作由第一次的quit()继续执行
         if (mQuitting) {
             return;
         }
         mQuitting = true;
 
+        // 根据标志位决定是否需要安全退出队列
         if (safe) {
             removeAllFutureMessagesLocked();
         } else {
@@ -602,6 +600,9 @@ boolean enqueueMessage(Message msg, long when) {
 }
 ```
 
+
+检查消息队列中是否保存了某条消息
+
 ```java
 boolean hasMessages(Handler h, int what, Object object) {
     if (h == null) {
@@ -637,6 +638,8 @@ boolean hasMessages(Handler h, Runnable r, Object object) {
     }
 }
 ```
+
+从消息队列中移除已进队的消息
 
 ```java
 void removeMessages(Handler h, int what, Object object) {
