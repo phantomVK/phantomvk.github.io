@@ -277,7 +277,7 @@ public boolean onTouchEvent(MotionEvent event) {
     final int viewFlags = mViewFlags;
     final int action = event.getAction();
     
-    // View为Disable表示空间功能无效
+    // View为Disable表示控件无效
     if ((viewFlags & ENABLED_MASK) == DISABLED) {
         if (action == MotionEvent.ACTION_UP
                 && (mPrivateFlags & PFLAG_PRESSED) != 0) {
