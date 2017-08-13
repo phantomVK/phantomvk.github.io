@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "ThreadLocal"
+title:      "Java源码系列(?) -- ThreadLocal"
 date:       2017-01-01
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
-catalog:    false
+catalog:    true
 tags:
-    - Java
+    - Java源码系列
 ---
 
 ```java
@@ -265,7 +265,9 @@ public class ThreadLocal<T> {
             return supplier.get();
         }
     }
+```
 
+```java
     /**
      * ThreadLocalMap is a customized hash map suitable only for
      * maintaining thread local values. No operations are exported
@@ -700,6 +702,9 @@ public class ThreadLocal<T> {
             }
         }
     }
+```
+
+```java    
 }
 ```
 

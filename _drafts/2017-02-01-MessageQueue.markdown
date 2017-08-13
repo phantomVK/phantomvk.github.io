@@ -25,7 +25,7 @@ public final class MessageQueue
 private static final String TAG = "MessageQueue";
 private static final boolean DEBUG = false;
 
-// 消息队列可以被结束时为True
+// 消息队列可以被结束时为 True
 private final boolean mQuitAllowed;
 
 @SuppressWarnings("unused")
@@ -37,9 +37,10 @@ private SparseArray<FileDescriptorRecord> mFileDescriptorRecords;
 private IdleHandler[] mPendingIdleHandlers;
 private boolean mQuitting;
 
-// Indicates whether next() is blocked waiting in pollOnce() with a non-zero timeout.
+// 表明next() 是否会在pollOnce()上有一个非零的超时阻塞等待Indicates whether next() is blocked waiting in pollOnce() with a non-zero timeout.
 private boolean mBlocked;
 
+// Barriers由一个空target的消息表示，这个消息的arg1变量包含一个token
 // The next barrier token.
 // Barriers are indicated by messages with a null target whose arg1 field carries the token.
 private int mNextBarrierToken;
@@ -58,12 +59,18 @@ private native static void nativeSetFileDescriptorEvents(long ptr, int fd, int e
 
 # 四、成员方法
 
+MessageQueue的构建方法，只有一个参数quitAllowed，表明这个消息队列是否能被终止
+
 ```java
 MessageQueue(boolean quitAllowed) {
     mQuitAllowed = quitAllowed;
     mPtr = nativeInit();
 }
+```
 
+析构方法，主要是调用了dispose()
+
+```java
 @Override
 protected void finalize() throws Throwable {
     try {
@@ -72,9 +79,14 @@ protected void finalize() throws Throwable {
         super.finalize();
     }
 }
+```
 
+
+
+```java
 // Disposes of the underlying message queue.
 // Must only be called on the looper thread or the finalizer.
+// 销毁消息队列，只能被looper所在的线程或者是finalizer调用
 private void dispose() {
     if (mPtr != 0) {
         nativeDestroy(mPtr);
@@ -311,6 +323,8 @@ Message next() {
     // Return here if the message loop has already quit and been disposed.
     // This can happen if the application tries to restart a looper after quit
     // which is not supported.
+    // 如果消息的looper已经退出且已经被销毁，此方法就会在return null;返回
+    // 如果应用在消息队列已经退出后尝试重启looper，就会遇到这个情况。这种状态得到支持的
     final long ptr = mPtr;
     if (ptr == 0) {
         return null;
@@ -327,6 +341,7 @@ Message next() {
 
         synchronized (this) {
             // Try to retrieve the next message.  Return if found.
+            // 尝试获取下一条消息，并在找到后返回改消息
             final long now = SystemClock.uptimeMillis();
             Message prevMsg = null;
             Message msg = mMessages;
@@ -339,7 +354,7 @@ Message next() {
             }
             if (msg != null) {
                 if (now < msg.when) {
-                    // 下一个消息还没有准备好，这是一个可以唤醒消息的超时时间Next message is not ready.  Set a timeout to wake up when it is ready.
+                    // 下一个消息还没有准备好，这是一个可以唤醒消息的超时时间 Next message is not ready.  Set a timeout to wake up when it is ready.
                     nextPollTimeoutMillis = (int) Math.min(msg.when - now, Integer.MAX_VALUE);
                 } else {
                     // 获取一个消息
@@ -592,6 +607,7 @@ boolean enqueueMessage(Message msg, long when) {
         }
 
         // We can assume mPtr != 0 because mQuitting is false.
+        // 因为mQuitting为false，所以我们可以假设mPtr != 0
         if (needWake) {
             nativeWake(mPtr);
         }
@@ -797,11 +813,14 @@ void dump(Printer pw, String prefix) {
 }
 ```
 
+
+IdleHandler是个回调接口，用来确定线程什么时候会阻塞并等待更多的消息到达
+
 ```java
 /**
  * Callback interface for discovering when a thread is going to block
  * waiting for more messages.
- */
+ */ 
 public static interface IdleHandler {
     /**
      * Called when the message queue has run out of messages and will now
@@ -812,7 +831,9 @@ public static interface IdleHandler {
      */
     boolean queueIdle();
 }
+```
 
+```java
 /**
  * A listener which is invoked when file descriptor related events occur.
  */

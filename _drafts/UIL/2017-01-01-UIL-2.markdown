@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Universal-Image-Loader (二) ImageLoader.class"
+title:      "UIL 2.ImageLoader.class"
 date:       2017-08-01
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
