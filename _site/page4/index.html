@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="phantomvk">
+    <meta name="google-site-verification" content="IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="keywords"  content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="theme-color" content="#000000">
+    <title>phantomVK 博客</title>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <link rel="canonical" href="http://localhost:4000/page4/">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+    <link rel="stylesheet" href="/css/syntax.css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body ontouchstart="">
+    <nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">phantomVK</a>
+        </div>
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="/">Home</a></li>
+                    
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/archives/">Archives</a></li>
+                    <li><a href="/tags/">Tags</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            setTimeout(function(){
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+    <!-- Page Header -->
+<header class="intro-header" style="background-image: url('/img/home.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 ">
+                <div class="site-heading">
+                    <h1>phantomVK</h1>
+                    <span class="subheading">Cease to struggle and you cease to live.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<div class="container">
+	<div class="row">
+        
+
+		<div class="
+            col-lg-8 col-lg-offset-1
+            col-md-8 col-md-offset-1
+            col-sm-12
+            col-xs-12
+            postlist-container">
+			
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="post-preview">
+    <a href="/2016/10/26/pip_FixNotPermitted/">
+        <h2 class="post-title">解决 mac OSX pip OSError: [Errno 1] Operation not permitted</h2>
+        
+        <div class="post-content-preview">这段时间在弄机器学习的事情，然后看Macbook里面的Python库有点旧，就用pip更新一下。
+
+$ pip install --upgrade numpy
+
+
+
+结果抛出下面这个异常报告
+
+Exception:
+Traceback (most recent call last):
+  File "/Library/Python/2.7/site-packages/pip-7.1.0-py...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on October 26, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/10/18/Android_View/">
+        <h2 class="post-title">Android源码系列(1) -- View</h2>
+        
+        <div class="post-content-preview">前言
+
+最近看View的事件分发源码，并做了一些笔记。笔记以注释的形式插入到代码中，请仔细阅读文章中给出的源码，或有错漏之处，欢迎指正。– 源码来自Android 6.0
+
+一、代码构建
+
+1.1 自定义Button
+
+为了能看见事件调用什么方法，先继承Button类并重载dispatchTouchEvent()和onTouchEvent()。而所有发送给View的事件，首先是由dispat...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on October 18, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/10/12/JVM_JMM/">
+        <h2 class="post-title">JVM内存模型</h2>
+        
+        <div class="post-content-preview">一、JVM内存模型
+
+1.1 意义
+
+我们常说的Java内存模型(Java Memory Model, JMM)指的是Java运行时(Java runtime)内存模型。Java源码首先编译成字节码，由虚拟机读取运行。字节码是静态代码，需要加载到内存才能成为可以动态运行的对象。
+
+虽然Java虚拟机自动内存管理为Java开发者节省很多开发时间，不需要为内存管理编写冗余易错的代码。但要是对JV...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on October 12, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/10/09/Hadoop_build/">
+        <h2 class="post-title">Hadoop伪分布式搭建</h2>
+        
+        <div class="post-content-preview">系统环境
+
+运行环境：Ubuntu 16.04 LTS AMD64 、openJDK 9、Hadoop-1.2.1、openSSH
+
+一、JDK安装及配置
+
+安装JDK
+
+Hadoop依赖JDK，请确认系统已经安装JDK。安装参考 Ubuntu安装Oracle JDK8
+
+二、 Hadoop安装及配置
+
+2.1 下载Hadoop
+
+一个版本不太高的Hadoop，通过wget下载清华大学镜像源...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on October 9, 2016
+    </p>
+</div>
+<hr>
+
+
+<!-- Pager -->
+
+<ul class="pager">
+    
+    <li class="previous"><a href="/page3">&larr; 上一页</a></li>
+    
+    
+</ul>
+
+
+		</div>
+        <div class="
+            col-lg-3 col-lg-offset-0
+            col-md-3 col-md-offset-0
+            col-sm-12
+            col-xs-12
+            sidebar-container">
+
+            <!-- Short About -->
+            <section class="visible-md visible-lg">
+                <hr>
+                <h5><a href="/about/">phantomVK</a></h5>
+                <div class="short-about">
+                    <img src="/img/avatar.jpg" />
+                    <p>世界再无聊，总有可探索的境地</p>
+                    <!-- SNS Link -->
+                    <ul class="list-inline">
+                        
+                        
+                        
+                        <li>
+                            <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                                <span class="fa-stack fa-lg">
+                                    <i class="fa fa-circle fa-stack-2x"></i>
+                                    <i class="fa  fa-stack-1x fa-inverse">知</i>
+                                </span>
+                            </a>
+                        </li>
+                        
+                        
+                        
+                        
+                        <li>
+                            <a target="_blank" href="https://github.com/phantomvk">
+                                <span class="fa-stack fa-lg">
+                                    <i class="fa fa-circle fa-stack-2x"></i>
+                                    <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                                </span>
+                            </a>
+                        </li>
+                        
+                        
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Featured Tags -->
+            
+            <section>
+                <hr class="hidden-sm hidden-xs">
+                <h5><a href="/tags/">标签</a></h5>
+                <div class="tags">
+                    
+                        
+                            <a href="/tags/#Tools" title="Tools" rel="3">
+                                Tools
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Java" title="Java" rel="4">
+                                Java
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Android源码系列" title="Android源码系列" rel="6">
+                                Android源码系列
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Python" title="Python" rel="3">
+                                Python
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Android" title="Android" rel="13">
+                                Android
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Java源码系列" title="Java源码系列" rel="4">
+                                Java源码系列
+                            </a>
+                        
+                    
+                        
+                    
+                </div>
+            </section>
+            
+
+            <!-- Pay -->
+            
+
+            <!-- Friends Blog -->
+            
+            <hr>
+            <h5>好友链接</h5>
+            <ul class="list-inline">
+                <li><a href=""></a></li>
+                <li><a href=""></a></li>
+            </ul>
+		</div>
+	</div>
+</div>
+
+    <footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; phantomVK 2017 | Powered by Jekyll with Hux Theme
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="/js/jquery.min.js "></script>
+<script src="/js/bootstrap.min.js "></script>
+<script src="/js/hux-blog.min.js "></script>
+
+<script type="text/javascript">
+    if(navigator.serviceWorker){
+        navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {console.log('Service Worker Registered. ', registration)})
+            .catch((error) => {console.log('ServiceWorker registration failed: ', error)})
+    }
+</script>
+
+
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<script>
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+
+
+
+</body>
+</html>

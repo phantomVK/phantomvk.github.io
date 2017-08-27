@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="phantomvk">
+    <meta name="google-site-verification" content="IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="keywords"  content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="theme-color" content="#000000">
+    <title>Android Menuitem 各种坑 - phantomVK 博客</title>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <link rel="canonical" href="http://localhost:4000/2016/12/13/Android_Menuitem/">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+    <link rel="stylesheet" href="/css/syntax.css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body ontouchstart="">
+    <nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">phantomVK</a>
+        </div>
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="/">Home</a></li>
+                    
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/archives/">Archives</a></li>
+                    <li><a href="/tags/">Tags</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            setTimeout(function(){
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+    <!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/main_img.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#Android" title="Android">Android</a>
+                        
+                    </div>
+                    <h1>Android Menuitem 各种坑</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by phantomVK on December 13, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+				<p>ToolBar上添加Menu，除搜索图标外其他的都收起来。修改ToolBar背景色为深灰色，然后才发现MenuItem里面的背景色还是原来白色。</p>
+
+<p>修改颜色后，ToolBar为深灰，有搜索和菜单图标</p>
+
+<p><img src="/img/android/menuitem/toolbar.png" alt="img" /></p>
+
+<p>打开菜单后</p>
+
+<p><img src="/img/android/menuitem/overflow.png" alt="img" /></p>
+
+<h1 id="修改menuitem背景颜色">修改MenuItem背景颜色</h1>
+
+<p>原来<code class="highlighter-rouge">res/values/styles.xml</code>的配置</p>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="nt">&lt;resources&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"AppTheme"</span> <span class="na">parent=</span><span class="s">"Theme.AppCompat.Light.DarkActionBar"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimary"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimaryDark"</span><span class="nt">&gt;</span>@color/colorPrimaryDark<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorAccent"</span><span class="nt">&gt;</span>@color/colorAccent<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+
+<span class="nt">&lt;/resources&gt;</span>
+</code></pre>
+</div>
+
+<p>修改后</p>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="nt">&lt;resources&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"AppTheme"</span> <span class="na">parent=</span><span class="s">"Theme.AppCompat.Light.DarkActionBar"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimary"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimaryDark"</span><span class="nt">&gt;</span>@color/colorPrimaryDark<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorAccent"</span><span class="nt">&gt;</span>@color/colorAccent<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"actionOverflowMenuStyle"</span><span class="nt">&gt;</span>@style/optionMenu<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"optionMenu"</span> <span class="na">parent=</span><span class="s">"Widget.AppCompat.ActionBar.Overflow"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:popupBackground"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+    
+<span class="nt">&lt;/resources&gt;</span>
+</code></pre>
+</div>
+
+<p>这样MenuItem的背景颜色就修改了</p>
+
+<p><img src="/img/android/menuitem/bg_overflow.png" alt="img" /></p>
+
+<hr />
+
+<p>但这看起来明显不对劲：</p>
+
+<ul>
+  <li>菜单把ToolBar的两个图标遮住</li>
+  <li>背景色改变后和文字颜色不协调</li>
+</ul>
+
+<h1 id="修改文字颜色">修改文字颜色</h1>
+
+<p>我们先处理文字的颜色，添加<code class="highlighter-rouge">android:textColor</code>和对应的颜色即可</p>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="nt">&lt;resources&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"AppTheme"</span> <span class="na">parent=</span><span class="s">"Theme.AppCompat.Light.DarkActionBar"</span><span class="nt">&gt;</span>
+        <span class="c">&lt;!-- Customize your theme here. --&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimary"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimaryDark"</span><span class="nt">&gt;</span>@color/colorPrimaryDark<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorAccent"</span><span class="nt">&gt;</span>@color/colorAccent<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"actionOverflowMenuStyle"</span><span class="nt">&gt;</span>@style/optionMenu<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:textColor"</span><span class="nt">&gt;</span>@color/colorWhite<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"optionMenu"</span> <span class="na">parent=</span><span class="s">"Widget.AppCompat.ActionBar.Overflow"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:popupBackground"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+
+<span class="nt">&lt;/resources&gt;</span>
+</code></pre>
+</div>
+
+<p><img src="/img/android/menuitem/bg_text_overflow.png" alt="img" /></p>
+
+<h1 id="遮蔽toolbar图标">遮蔽ToolBar图标</h1>
+
+<p>遮蔽图标的问题比较好解决，
+把<code class="highlighter-rouge">parent="Widget.AppCompat.ActionBar.Overflow"&gt;</code>的<code class="highlighter-rouge">.Overflow</code>去掉</p>
+
+<p><img src="/img/android/menuitem/bg_text_good.png" alt="img" /></p>
+
+<h1 id="menuitem图标显示">MenuItem图标显示</h1>
+
+<p>上面的图片中MenuItem的Icon本来是不显示的，需要加入以下代码。在Android 5.0手机上测试可以用，Android 4.4及之前的还不清楚。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="nd">@Override</span>
+<span class="kd">protected</span> <span class="kt">boolean</span> <span class="nf">onPrepareOptionsPanel</span><span class="o">(</span><span class="n">View</span> <span class="n">view</span><span class="o">,</span> <span class="n">Menu</span> <span class="n">menu</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">menu</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">menu</span><span class="o">.</span><span class="na">getClass</span><span class="o">().</span><span class="na">getSimpleName</span><span class="o">().</span><span class="na">equals</span><span class="o">(</span><span class="s">"MenuBuilder"</span><span class="o">))</span> <span class="o">{</span>
+            <span class="k">try</span><span class="o">{</span>
+                <span class="n">Method</span> <span class="n">m</span> <span class="o">=</span> <span class="n">menu</span><span class="o">.</span><span class="na">getClass</span><span class="o">().</span><span class="na">getDeclaredMethod</span><span class="o">(</span><span class="s">"setOptionalIconsVisible"</span><span class="o">,</span> <span class="n">Boolean</span><span class="o">.</span><span class="na">TYPE</span><span class="o">);</span>
+                <span class="n">m</span><span class="o">.</span><span class="na">setAccessible</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+                <span class="n">m</span><span class="o">.</span><span class="na">invoke</span><span class="o">(</span><span class="n">menu</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">Log</span><span class="o">.</span><span class="na">e</span><span class="o">(</span><span class="n">getClass</span><span class="o">().</span><span class="na">getSimpleName</span><span class="o">(),</span> <span class="s">"onMenuOpened...Unable to set icons for overflow menu"</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="kd">super</span><span class="o">.</span><span class="na">onPrepareOptionsPanel</span><span class="o">(</span><span class="n">view</span><span class="o">,</span> <span class="n">menu</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+
+                <hr style="visibility: hidden;">
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/12/03/Android_Looper/" data-toggle="tooltip" data-placement="top" title="Android源码系列(5) -- Looper">
+                        上一篇<br>
+                        <span>Android源码系列(5) -- Looper</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/12/16/Android_LifeCycle/" data-toggle="tooltip" data-placement="top" title="重现onPause到onResume生命周期">
+                        下一篇<br>
+                        <span>重现onPause到onResume生命周期</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+                
+            </div>  
+
+            <!-- Side Catalog Container -->
+            
+                <div class="
+                    col-lg-2 col-lg-offset-0
+                    visible-lg-block
+                    sidebar-container
+                    catalog-container">
+                    <div class="side-catalog">
+                        <hr class="hidden-sm hidden-xs">
+                        <h5>
+                            <a class="catalog-toggle" href="#">目录</a>
+                        </h5>
+                        <ul class="catalog-body"></ul>
+                    </div>
+                </div>
+            
+
+            <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">标签</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#Tools" title="Tools" rel="3">Tools</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java" title="Java" rel="4">Java</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android源码系列" title="Android源码系列" rel="6">Android源码系列</a>
+                            
+        				
+                            
+                				<a href="/tags/#Python" title="Python" rel="3">Python</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android" title="Android" rel="13">Android</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java源码系列" title="Java源码系列" rel="4">Java源码系列</a>
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                
+                <hr>
+                <h5>友情链接</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href=""></a></li>
+                    
+                        <li><a href=""></a></li>
+                    
+                </ul>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+    <footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; phantomVK 2017 | Powered by Jekyll with Hux Theme
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="/js/jquery.min.js "></script>
+<script src="/js/bootstrap.min.js "></script>
+<script src="/js/hux-blog.min.js "></script>
+
+<script type="text/javascript">
+    if(navigator.serviceWorker){
+        navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {console.log('Service Worker Registered. ', registration)})
+            .catch((error) => {console.log('ServiceWorker registration failed: ', error)})
+    }
+</script>
+
+
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<script>
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+</body>
+</html>

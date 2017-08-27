@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="phantomvk">
+    <meta name="google-site-verification" content="IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="keywords"  content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="theme-color" content="#000000">
+    <title>Android学习笔记，持续更新 - phantomVK 博客</title>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <link rel="canonical" href="http://localhost:4000/2017/02/15/Notebook_For_Android/">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+    <link rel="stylesheet" href="/css/syntax.css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body ontouchstart="">
+    <nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">phantomVK</a>
+        </div>
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="/">Home</a></li>
+                    
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/archives/">Archives</a></li>
+                    <li><a href="/tags/">Tags</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            setTimeout(function(){
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+    <!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/main_img.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#Android" title="Android">Android</a>
+                        
+                    </div>
+                    <h1>Android学习笔记，持续更新</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by phantomVK on February 15, 2017</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+				<h2 id="一tablayout">一、TabLayout</h2>
+
+<h3 id="11-tablayout常见xml属性">1.1 TabLayout常见XML属性</h3>
+
+<table>
+  <thead>
+    <tr>
+      <th>属性</th>
+      <th>说明</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>app:tabIndicatorColor</td>
+      <td>tab滚动指示横线颜色</td>
+    </tr>
+    <tr>
+      <td>app:tabSelectedTextColor</td>
+      <td>被选中tab子项的文本颜色</td>
+    </tr>
+    <tr>
+      <td>app:tabTextColor</td>
+      <td>tab子项默认的文本颜色</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="12-java调用">1.2 Java调用</h3>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="n">TabLayout</span> <span class="n">mTabLayout</span> <span class="o">=</span> <span class="o">(</span><span class="n">TabLayout</span><span class="o">)</span> <span class="n">findViewById</span><span class="o">(</span><span class="n">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">tabLayout</span><span class="o">);</span>
+<span class="n">TabLayout</span><span class="o">.</span><span class="na">Tab</span> <span class="n">mContactsTab</span> <span class="o">=</span> <span class="n">mTabLayout</span><span class="o">.</span><span class="na">newTab</span><span class="o">().</span><span class="na">setText</span><span class="o">(</span><span class="s">"Contacts"</span><span class="o">);</span>
+<span class="n">mTabLayout</span><span class="o">.</span><span class="na">addTab</span><span class="o">(</span><span class="n">mContactsTab</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span> <span class="c1">// 添加Tab且默认选中</span>
+</code></pre>
+</div>
+
+<h3 id="13-滚动模式">1.3 滚动模式</h3>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="n">mTabLayout</span><span class="o">.</span><span class="na">setTabMode</span><span class="o">(</span><span class="n">TabLayout</span><span class="o">.</span><span class="na">MODE_FIXED</span><span class="o">);</span>
+</code></pre>
+</div>
+
+<p>一共两种模式:</p>
+
+<ul>
+  <li>TabLayout.MODE_FIXED (默认)</li>
+  <li>TabLayout.MODE_SCROLLABLE</li>
+</ul>
+
+<h3 id="14-添加监听">1.4 添加监听</h3>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="n">mTabLayout</span><span class="o">.</span><span class="na">addOnTabSelectedListener</span><span class="o">(</span><span class="k">new</span> <span class="n">TabLayout</span><span class="o">.</span><span class="na">OnTabSelectedListener</span><span class="o">()</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onTabSelected</span><span class="o">(</span><span class="n">TabLayout</span><span class="o">.</span><span class="na">Tab</span> <span class="n">tab</span><span class="o">)</span> <span class="o">{}</span>
+    
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onTabUnselected</span><span class="o">(</span><span class="n">TabLayout</span><span class="o">.</span><span class="na">Tab</span> <span class="n">tab</span><span class="o">)</span> <span class="o">{}</span>
+    
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onTabReselected</span><span class="o">(</span><span class="n">TabLayout</span><span class="o">.</span><span class="na">Tab</span> <span class="n">tab</span><span class="o">)</span> <span class="o">{}</span>
+<span class="o">});</span>
+</code></pre>
+</div>
+
+<h3 id="15-tabgravity设置">1.5 TabGravity设置</h3>
+
+<p>只在TabMode为<code class="highlighter-rouge">TabLayout.MODE_FIXED</code>时才会生效。
+<code class="highlighter-rouge">GRAVITY_FILL</code>占满<code class="highlighter-rouge">TabLayout</code>空间，<code class="highlighter-rouge">GRAVITY_CENTER</code>居中<code class="highlighter-rouge">Wrap_Content</code>。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="n">mTabLayout</span><span class="o">.</span><span class="na">setTabGravity</span><span class="o">(</span><span class="n">TabLayout</span><span class="o">.</span><span class="na">GRAVITY_FILL</span><span class="o">);</span>
+<span class="n">mTabLayout</span><span class="o">.</span><span class="na">setTabGravity</span><span class="o">(</span><span class="n">TabLayout</span><span class="o">.</span><span class="na">GRAVITY_CENTER</span><span class="o">);</span>
+</code></pre>
+</div>
+
+<h3 id="16-viewpager和tablayout">1.6 ViewPager和TabLayout</h3>
+
+<p>在<code class="highlighter-rouge">mPagerAdapter</code>添加页面，绑定到<code class="highlighter-rouge">mViewPager</code>上。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">private</span> <span class="n">ViewPagerAdapter</span> <span class="n">mPagerAdapter</span><span class="o">;</span>
+<span class="kd">private</span> <span class="n">ViewPager</span> <span class="n">mViewPager</span> <span class="o">=</span> <span class="o">(</span><span class="n">ViewPager</span><span class="o">)</span> <span class="n">findViewById</span><span class="o">(</span><span class="n">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">viewPager</span><span class="o">);</span>
+<span class="kd">private</span> <span class="n">TabLayout</span> <span class="n">mTabLayout</span> <span class="o">=</span> <span class="o">(</span><span class="n">TabLayout</span><span class="o">)</span> <span class="n">findViewById</span><span class="o">(</span><span class="n">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">tabLayout</span><span class="o">);</span>
+
+<span class="n">mPagerAdapter</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ViewPagerAdapter</span><span class="o">(</span><span class="n">getSupportFragmentManager</span><span class="o">());</span>
+<span class="n">mPagerAdapter</span><span class="o">.</span><span class="na">addTab</span><span class="o">(</span><span class="k">new</span> <span class="n">MainFragment</span><span class="o">(),</span> <span class="s">"所有书签"</span><span class="o">);</span>
+<span class="n">mPagerAdapter</span><span class="o">.</span><span class="na">addTab</span><span class="o">(</span><span class="k">new</span> <span class="n">ReadingFragment</span><span class="o">(),</span> <span class="s">"正在阅读"</span><span class="o">);</span>
+<span class="n">mPagerAdapter</span><span class="o">.</span><span class="na">addTab</span><span class="o">(</span><span class="k">new</span> <span class="n">ReadFragment</span><span class="o">(),</span> <span class="s">"完成阅读"</span><span class="o">);</span>
+
+<span class="n">mViewPager</span><span class="o">.</span><span class="na">setAdapter</span><span class="o">(</span><span class="n">mPagerAdapter</span><span class="o">);</span>
+<span class="n">mTabLayout</span><span class="o">.</span><span class="na">setupWithViewPager</span><span class="o">(</span><span class="n">viewPager</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+</code></pre>
+</div>
+
+<p>使用的ViewPagerAdaptor</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ViewPagerAdapter</span> <span class="kd">extends</span> <span class="n">FragmentPagerAdapter</span> <span class="o">{</span>
+
+    <span class="kd">private</span> <span class="kd">final</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">Fragment</span><span class="o">&gt;</span> <span class="n">fragments</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ArrayList</span><span class="o">&lt;&gt;();</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="n">List</span><span class="o">&lt;</span><span class="n">String</span><span class="o">&gt;</span> <span class="n">titles</span> <span class="o">=</span> <span class="k">new</span> <span class="n">ArrayList</span><span class="o">&lt;&gt;();</span>
+
+    <span class="kd">public</span> <span class="nf">ViewPagerAdapter</span><span class="o">(</span><span class="n">FragmentManager</span> <span class="n">fm</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">(</span><span class="n">fm</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">addTab</span><span class="o">(</span><span class="n">Fragment</span> <span class="n">fragment</span><span class="o">,</span> <span class="n">String</span> <span class="n">title</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">fragments</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">fragment</span><span class="o">);</span>
+        <span class="n">titles</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">title</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="n">Fragment</span> <span class="nf">getFragments</span><span class="o">(</span><span class="kt">int</span> <span class="n">position</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">fragments</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">position</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="n">Fragment</span> <span class="nf">getItem</span><span class="o">(</span><span class="kt">int</span> <span class="n">position</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">fragments</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">position</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">int</span> <span class="nf">getCount</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">fragments</span><span class="o">.</span><span class="na">size</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="n">CharSequence</span> <span class="nf">getPageTitle</span><span class="o">(</span><span class="kt">int</span> <span class="n">position</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">titles</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">position</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h2 id="二drawerlayout">二、DrawerLayout</h2>
+
+<h3 id="21-drawerlayout常用功能">2.1 DrawerLayout常用功能</h3>
+
+<p>获取抽屉状态和控制抽屉开闭</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="n">mDrawerLayout</span><span class="o">.</span><span class="na">isDrawerOpen</span><span class="o">(</span><span class="n">GravityCompat</span><span class="o">.</span><span class="na">START</span><span class="o">);</span> <span class="c1">// boolean, 抽屉是否展开</span>
+
+<span class="n">mDrawerLayout</span><span class="o">.</span><span class="na">closeDrawer</span><span class="o">(</span><span class="n">GravityCompat</span><span class="o">.</span><span class="na">START</span><span class="o">);</span>  <span class="c1">// void, 收起抽屉</span>
+<span class="n">mDrawerLayout</span><span class="o">.</span><span class="na">openDrawer</span><span class="o">(</span><span class="n">GravityCompat</span><span class="o">.</span><span class="na">START</span><span class="o">);</span>   <span class="c1">// void, 打开抽屉</span>
+</code></pre>
+</div>
+
+<p>用法示例</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">private</span> <span class="n">DrawerLayout</span> <span class="n">mDrawerLayout</span><span class="o">;</span> <span class="c1">// 声明控件</span>
+<span class="n">mDrawerLayout</span> <span class="o">=</span> <span class="o">(</span><span class="n">DrawerLayout</span><span class="o">)</span> <span class="n">findViewById</span><span class="o">(</span><span class="n">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">drawer_layout</span><span class="o">);</span> <span class="c1">// 初始化控件</span>
+
+<span class="k">if</span> <span class="o">(</span><span class="n">mDrawerLayout</span><span class="o">.</span><span class="na">isDrawerOpen</span><span class="o">(</span><span class="n">GravityCompat</span><span class="o">.</span><span class="na">START</span><span class="o">))</span> <span class="o">{</span>
+    <span class="n">mDrawerLayout</span><span class="o">.</span><span class="na">closeDrawer</span><span class="o">(</span><span class="n">GravityCompat</span><span class="o">.</span><span class="na">START</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="22-drawerlayout与startactivity冲突">2.2 DrawerLayout与startActivity冲突</h3>
+
+<p>参考自 <a href="http://stackoverflow.com/questions/18343018/optimizing-drawer-and-activity-launching-speed">Optimizing drawer and activity launching speed</a></p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">class</span> <span class="nc">SmoothDrawerToggle</span> <span class="kd">extends</span> <span class="n">ActionBarDrawerToggle</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="n">Runnable</span> <span class="n">runnable</span><span class="o">;</span>
+
+    <span class="n">SmoothDrawerToggle</span><span class="o">(</span><span class="n">Activity</span> <span class="n">activity</span><span class="o">,</span> <span class="n">DrawerLayout</span> <span class="n">drawerLayout</span><span class="o">,</span> <span class="n">Toolbar</span> <span class="n">toolbar</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">(</span><span class="n">activity</span><span class="o">,</span> <span class="n">drawerLayout</span><span class="o">,</span> <span class="n">toolbar</span><span class="o">,</span> <span class="n">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">navigation_drawer_open</span><span class="o">,</span> <span class="n">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">navigation_drawer_close</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onDrawerOpened</span><span class="o">(</span><span class="n">View</span> <span class="n">drawerView</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onDrawerOpened</span><span class="o">(</span><span class="n">drawerView</span><span class="o">);</span>
+        <span class="n">invalidateOptionsMenu</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onDrawerClosed</span><span class="o">(</span><span class="n">View</span> <span class="n">view</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onDrawerClosed</span><span class="o">(</span><span class="n">view</span><span class="o">);</span>
+        <span class="n">invalidateOptionsMenu</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onDrawerStateChanged</span><span class="o">(</span><span class="kt">int</span> <span class="n">newState</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onDrawerStateChanged</span><span class="o">(</span><span class="n">newState</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">runnable</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">newState</span> <span class="o">==</span> <span class="n">DrawerLayout</span><span class="o">.</span><span class="na">STATE_IDLE</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">runnable</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+            <span class="n">runnable</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="kt">void</span> <span class="nf">runWhenIdle</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">runnable</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">runnable</span> <span class="o">=</span> <span class="n">runnable</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">private</span> <span class="n">SmoothDrawerToggle</span> <span class="n">mToggle</span><span class="o">;</span>
+<span class="kd">private</span> <span class="n">DrawerLayout</span> <span class="n">drawerLayout</span><span class="o">;</span>
+<span class="kd">private</span> <span class="n">NavigationView</span> <span class="n">navView</span><span class="o">;</span>
+<span class="kd">private</span> <span class="n">Toolbar</span> <span class="n">toolBar</span><span class="o">;</span>
+
+<span class="c1">// 在onCreate()中初始化</span>
+<span class="n">navView</span><span class="o">.</span><span class="na">setNavigationItemSelectedListener</span><span class="o">(</span><span class="k">this</span><span class="o">);</span> <span class="c1">// NavigationView.OnNavigationItemSelectedListener </span>
+<span class="n">mToggle</span> <span class="o">=</span> <span class="k">new</span> <span class="n">SmoothDrawerToggle</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">drawerLayout</span><span class="o">,</span> <span class="n">toolBar</span><span class="o">);</span> <span class="c1">// Activity.Context, 设置该抽屉xml的ID, toolBar用于抽屉开闭图标 </span>
+<span class="n">drawerLayout</span><span class="o">.</span><span class="na">addDrawerListener</span><span class="o">(</span><span class="n">mToggle</span><span class="o">);</span> <span class="c1">// 给抽屉加入自定义的Listener</span>
+<span class="n">mToggle</span><span class="o">.</span><span class="na">syncState</span><span class="o">();</span>
+</code></pre>
+</div>
+<h3 id="23-箭头颜色">2.3 箭头颜色</h3>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="nt">&lt;resources&gt;</span>
+    <span class="c">&lt;!-- DrawerArrowStyle --&gt;</span>
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"DrawerArrowStyle"</span> <span class="na">parent=</span><span class="s">"Widget.AppCompat.DrawerArrowToggle"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"spinBars"</span><span class="nt">&gt;</span>true<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"color"</span><span class="nt">&gt;</span>#FFFFFF<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+
+    <span class="c">&lt;!-- Base application theme. --&gt;</span>
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"AppTheme"</span> <span class="na">parent=</span><span class="s">"Theme.AppCompat.Light.NoActionBar"</span><span class="nt">&gt;</span>
+        <span class="c">&lt;!-- Customize your theme here. --&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimary"</span><span class="nt">&gt;</span>@color/colorPrimary<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimaryDark"</span><span class="nt">&gt;</span>@color/colorPrimaryDark<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorAccent"</span><span class="nt">&gt;</span>@color/colorAccent<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"drawerArrowStyle"</span><span class="nt">&gt;</span>@style/DrawerArrowStyle<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+<span class="nt">&lt;/resources&gt;</span>
+</code></pre>
+</div>
+
+<h2 id="三splashactivity">三、SplashActivity</h2>
+
+<h3 id="闪屏页代码">闪屏页代码</h3>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">SplashActivity</span> <span class="kd">extends</span> <span class="n">Activity</span> <span class="o">{</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="n">String</span> <span class="n">SHOW_SPLASH</span> <span class="o">=</span> <span class="s">"SHOW_SPLASH"</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">START_ACTIVITY</span> <span class="o">=</span> <span class="mh">0x01</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">SPLASH_DURATION</span> <span class="o">=</span> <span class="mi">3000</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">NO_SPLASH_DURATION</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+
+    <span class="kd">private</span> <span class="n">SplashHandler</span> <span class="n">mHandler</span><span class="o">;</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="n">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="n">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">activity_splash</span><span class="o">);</span>
+
+        <span class="n">mHandler</span> <span class="o">=</span> <span class="k">new</span> <span class="n">SplashHandler</span><span class="o">(</span><span class="n">Looper</span><span class="o">.</span><span class="na">getMainLooper</span><span class="o">());</span>
+        <span class="kt">boolean</span> <span class="n">startSplash</span> <span class="o">=</span> <span class="n">SharedPrefsUtil</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="n">SHOW_SPLASH</span><span class="o">,</span> <span class="kc">false</span><span class="o">,</span> <span class="k">this</span><span class="o">);</span>
+
+        <span class="k">if</span> <span class="o">(</span><span class="n">startSplash</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">mHandler</span><span class="o">.</span><span class="na">sendEmptyMessageDelayed</span><span class="o">(</span><span class="n">START_ACTIVITY</span><span class="o">,</span> <span class="n">NO_SPLASH_DURATION</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="n">mHandler</span><span class="o">.</span><span class="na">sendEmptyMessageDelayed</span><span class="o">(</span><span class="n">START_ACTIVITY</span><span class="o">,</span> <span class="n">SPLASH_DURATION</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="kd">class</span> <span class="nc">SplashHandler</span> <span class="kd">extends</span> <span class="n">Handler</span> <span class="o">{</span>
+        <span class="n">SplashHandler</span><span class="o">(</span><span class="n">Looper</span> <span class="n">mLooper</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kd">super</span><span class="o">(</span><span class="n">mLooper</span><span class="o">);</span>
+        <span class="o">}</span>
+
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleMessage</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kd">super</span><span class="o">.</span><span class="na">handleMessage</span><span class="o">(</span><span class="n">msg</span><span class="o">);</span>
+
+            <span class="n">Intent</span> <span class="n">intent</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Intent</span><span class="o">(</span><span class="n">SplashActivity</span><span class="o">.</span><span class="na">this</span><span class="o">,</span> <span class="n">MainActivity</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+            <span class="n">startActivity</span><span class="o">(</span><span class="n">intent</span><span class="o">);</span>
+            <span class="c1">//切换Activity的过程中渐变效果</span>
+            <span class="n">overridePendingTransition</span><span class="o">(</span><span class="n">android</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">anim</span><span class="o">.</span><span class="na">fade_in</span><span class="o">,</span> <span class="n">android</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">anim</span><span class="o">.</span><span class="na">fade_out</span><span class="o">);</span>
+            <span class="n">SplashActivity</span><span class="o">.</span><span class="na">this</span><span class="o">.</span><span class="na">finish</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 单击提早关闭SplashActivity，选用</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">onTouchEvent</span><span class="o">(</span><span class="n">MotionEvent</span> <span class="n">event</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">event</span><span class="o">.</span><span class="na">getAction</span><span class="o">()</span> <span class="o">==</span> <span class="n">MotionEvent</span><span class="o">.</span><span class="na">ACTION_DOWN</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">mHandler</span><span class="o">.</span><span class="na">removeMessages</span><span class="o">(</span><span class="n">START_ACTIVITY</span><span class="o">);</span>
+            <span class="n">mHandler</span><span class="o">.</span><span class="na">sendEmptyMessage</span><span class="o">(</span><span class="n">START_ACTIVITY</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 屏蔽返回按键</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onBackPressed</span><span class="o">()</span> <span class="o">{</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h2 id="四utils">四、Utils</h2>
+
+<h3 id="41-toastutil">4.1 ToastUtil</h3>
+
+<p>避免多次连续使用Toast时一直显示Toast，为了避免内存泄漏，使用的Context请调用ApplicationContext.</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">ToastUtil</span> <span class="o">{</span>
+
+    <span class="kd">private</span> <span class="kd">static</span> <span class="n">Toast</span> <span class="n">mToast</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="n">String</span> <span class="n">mLastMsg</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kt">long</span> <span class="n">mFirstTime</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kt">long</span> <span class="n">mSecondTime</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">makeText</span><span class="o">(</span><span class="n">Context</span> <span class="n">context</span><span class="o">,</span> <span class="n">String</span> <span class="n">msg</span><span class="o">,</span> <span class="kt">int</span> <span class="n">duration</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mToast</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">mToast</span> <span class="o">=</span> <span class="n">Toast</span><span class="o">.</span><span class="na">makeText</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">msg</span><span class="o">,</span> <span class="n">duration</span><span class="o">);</span>
+            <span class="n">mToast</span><span class="o">.</span><span class="na">show</span><span class="o">();</span>
+            <span class="n">mFirstTime</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">();</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="n">mSecondTime</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">();</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">msg</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">mLastMsg</span><span class="o">))</span> <span class="o">{</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">mSecondTime</span> <span class="o">-</span> <span class="n">mFirstTime</span> <span class="o">&gt;</span> <span class="mi">2500</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="n">mToast</span><span class="o">.</span><span class="na">show</span><span class="o">();</span>
+                <span class="o">}</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="n">mLastMsg</span> <span class="o">=</span> <span class="n">msg</span><span class="o">;</span>
+                <span class="n">mToast</span><span class="o">.</span><span class="na">setText</span><span class="o">(</span><span class="n">msg</span><span class="o">);</span>
+                <span class="n">mToast</span><span class="o">.</span><span class="na">show</span><span class="o">();</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="n">mFirstTime</span> <span class="o">=</span> <span class="n">mSecondTime</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">makeText</span><span class="o">(</span><span class="n">Context</span> <span class="n">context</span><span class="o">,</span> <span class="kt">int</span> <span class="n">text</span><span class="o">,</span> <span class="kt">int</span> <span class="n">duration</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">makeText</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">context</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="n">text</span><span class="o">),</span> <span class="n">duration</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">cancel</span><span class="o">(</span><span class="n">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mToast</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">mToast</span><span class="o">.</span><span class="na">cancel</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="42-doubleclickutil">4.2 DoubleClickUtil</h3>
+
+<p>双击返回键退出应用</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ClickHelper</span> <span class="o">{</span>
+
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kt">long</span> <span class="n">mLastClick</span> <span class="o">=</span> <span class="mi">0L</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">THRESHOLD</span> <span class="o">=</span> <span class="mi">2000</span><span class="o">;</span>
+
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">boolean</span> <span class="nf">check</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kt">long</span> <span class="n">now</span> <span class="o">=</span> <span class="n">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">();</span>
+        <span class="kt">boolean</span> <span class="n">exit</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">mLastClick</span> <span class="o">&lt;</span> <span class="n">THRESHOLD</span><span class="o">;</span>
+        <span class="n">mLastClick</span> <span class="o">=</span> <span class="n">now</span><span class="o">;</span>
+        <span class="k">return</span> <span class="n">exit</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="43-glidecacheutil">4.3 GlideCacheUtil</h3>
+
+<p>提供Glide磁盘缓存占用大小和清理功能</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">class</span> <span class="nc">GlideCacheUtil</span> <span class="o">{</span>
+    <span class="cm">/**
+     * 公开的缓存清理方法
+     *
+     * @param context Activity context
+     */</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">clearAll</span><span class="o">(</span><span class="n">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">clearDisk</span><span class="o">(</span><span class="n">context</span><span class="o">);</span>
+        <span class="n">clearMemory</span><span class="o">(</span><span class="n">context</span><span class="o">);</span>
+        <span class="n">String</span> <span class="n">cacheDir</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">getExternalCacheDir</span><span class="o">()</span> <span class="o">+</span> <span class="n">ExternalCacheDiskCacheFactory</span><span class="o">.</span><span class="na">DEFAULT_DISK_CACHE_DIR</span><span class="o">;</span>
+        <span class="n">clearFile</span><span class="o">(</span><span class="n">cacheDir</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="cm">/**
+     * 获取Glide缓存大小的字符串
+     *
+     * @param context Activity context
+     * @return 包含Glide缓存大小的字符串，如"324.49KB"
+     */</span>
+    <span class="kd">public</span> <span class="kd">static</span> <span class="n">String</span> <span class="nf">getCacheSize</span><span class="o">(</span><span class="n">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">File</span> <span class="n">file</span> <span class="o">=</span> <span class="k">new</span> <span class="n">File</span><span class="o">(</span><span class="n">context</span><span class="o">.</span><span class="na">getCacheDir</span><span class="o">()</span> <span class="o">+</span> <span class="s">"/"</span> <span class="o">+</span> <span class="n">InternalCacheDiskCacheFactory</span><span class="o">.</span><span class="na">DEFAULT_DISK_CACHE_DIR</span><span class="o">);</span>
+        <span class="kt">double</span> <span class="n">folderSize</span> <span class="o">=</span> <span class="n">getFolderSize</span><span class="o">(</span><span class="n">file</span><span class="o">);</span>
+        <span class="k">return</span> <span class="nf">formatSize</span><span class="o">(</span><span class="n">folderSize</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="cm">/**
+     * 清除Glide磁盘缓存内容，必须运行在子线程，避免阻塞主线程
+     *
+     * @param context Activity context
+     */</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">clearDisk</span><span class="o">(</span><span class="kd">final</span> <span class="n">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">Looper</span><span class="o">.</span><span class="na">myLooper</span><span class="o">()</span> <span class="o">==</span> <span class="n">Looper</span><span class="o">.</span><span class="na">getMainLooper</span><span class="o">())</span> <span class="o">{</span>
+            <span class="k">new</span> <span class="nf">Thread</span><span class="o">(</span><span class="k">new</span> <span class="n">Runnable</span><span class="o">()</span> <span class="o">{</span>
+                <span class="nd">@Override</span>
+                <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span>
+                    <span class="n">Glide</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">context</span><span class="o">).</span><span class="na">clearDiskCache</span><span class="o">();</span>
+                <span class="o">}</span>
+            <span class="o">}).</span><span class="na">start</span><span class="o">();</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="n">Glide</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">context</span><span class="o">).</span><span class="na">clearDiskCache</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="cm">/**
+     * 清除Glide内存的缓存内容，必须运行在主线程
+     *
+     * @param context Activity context
+     */</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">clearMemory</span><span class="o">(</span><span class="kd">final</span> <span class="n">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">Looper</span><span class="o">.</span><span class="na">myLooper</span><span class="o">()</span> <span class="o">==</span> <span class="n">Looper</span><span class="o">.</span><span class="na">getMainLooper</span><span class="o">())</span> <span class="o">{</span>
+            <span class="n">Glide</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">context</span><span class="o">).</span><span class="na">clearMemory</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="cm">/**
+     * 统计文件夹大小
+     *
+     * @param file 文件夹路径
+     * @return 返回文件夹大小，单位字节
+     */</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kt">double</span> <span class="nf">getFolderSize</span><span class="o">(</span><span class="n">File</span> <span class="n">file</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">File</span><span class="o">[]</span> <span class="n">list</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="na">listFiles</span><span class="o">();</span>
+
+        <span class="k">if</span> <span class="o">(</span><span class="n">list</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="mi">0</span><span class="o">;</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="kt">double</span> <span class="n">size</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+
+            <span class="k">for</span> <span class="o">(</span><span class="n">File</span> <span class="n">f</span> <span class="o">:</span> <span class="n">list</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">size</span> <span class="o">+=</span> <span class="o">(</span><span class="n">f</span><span class="o">.</span><span class="na">isDirectory</span><span class="o">()</span> <span class="o">?</span> <span class="n">getFolderSize</span><span class="o">(</span><span class="n">f</span><span class="o">)</span> <span class="o">:</span> <span class="n">f</span><span class="o">.</span><span class="na">length</span><span class="o">());</span>
+            <span class="o">}</span>
+            <span class="k">return</span> <span class="n">size</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="cm">/**
+     * 清除缓存文件
+     *
+     * @param filePath       缓存路径
+     * @param deleteThisPath 是否删除缓存根目录
+     * @return 删除结果布尔标志
+     */</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kt">boolean</span> <span class="nf">clearFile</span><span class="o">(</span><span class="n">String</span> <span class="n">filePath</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">deleteThisPath</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kt">boolean</span> <span class="n">flag</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">Utils</span><span class="o">.</span><span class="na">isEmpty</span><span class="o">(</span><span class="n">filePath</span><span class="o">))</span> <span class="o">{</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="n">File</span> <span class="n">file</span> <span class="o">=</span> <span class="k">new</span> <span class="n">File</span><span class="o">(</span><span class="n">filePath</span><span class="o">);</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">file</span><span class="o">.</span><span class="na">isDirectory</span><span class="o">())</span> <span class="o">{</span>
+                    <span class="n">File</span> <span class="n">files</span><span class="o">[]</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="na">listFiles</span><span class="o">();</span>
+                    <span class="k">for</span> <span class="o">(</span><span class="n">File</span> <span class="n">f</span> <span class="o">:</span> <span class="n">files</span><span class="o">)</span> <span class="o">{</span>
+                        <span class="n">clearFile</span><span class="o">(</span><span class="n">f</span><span class="o">.</span><span class="na">getAbsolutePath</span><span class="o">(),</span> <span class="n">deleteThisPath</span><span class="o">);</span>
+                    <span class="o">}</span>
+                <span class="o">}</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">deleteThisPath</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="k">if</span> <span class="o">(!</span><span class="n">file</span><span class="o">.</span><span class="na">isDirectory</span><span class="o">())</span> <span class="o">{</span>
+                        <span class="n">flag</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="na">delete</span><span class="o">();</span>
+                    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                        <span class="k">if</span> <span class="o">(</span><span class="n">file</span><span class="o">.</span><span class="na">listFiles</span><span class="o">().</span><span class="na">length</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                            <span class="n">flag</span> <span class="o">=</span> <span class="n">file</span><span class="o">.</span><span class="na">delete</span><span class="o">();</span>
+                        <span class="o">}</span>
+                    <span class="o">}</span>
+                <span class="o">}</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">e</span><span class="o">.</span><span class="na">printStackTrace</span><span class="o">();</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">flag</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="cm">/**
+     * 返回表示Glide缓存大小的字符串，如"324.49KB"、"3.72MB"
+     *
+     * @param size 缓存文件夹的大小，单位为字节
+     * @return 缓存大小，自适应单位KB/MB
+     */</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="n">String</span> <span class="nf">formatSize</span><span class="o">(</span><span class="kt">double</span> <span class="n">size</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">size</span> <span class="o">/=</span> <span class="mi">1024</span><span class="o">;</span> <span class="c1">// from B to KB</span>
+
+        <span class="k">if</span> <span class="o">(</span><span class="n">size</span> <span class="o">&gt;=</span> <span class="mi">1024</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">BigDecimal</span> <span class="n">sizeMB</span> <span class="o">=</span> <span class="k">new</span> <span class="n">BigDecimal</span><span class="o">(</span><span class="n">Double</span><span class="o">.</span><span class="na">toString</span><span class="o">(</span><span class="n">size</span> <span class="o">/</span> <span class="mi">1024</span><span class="o">));</span>
+            <span class="k">return</span> <span class="n">sizeMB</span><span class="o">.</span><span class="na">setScale</span><span class="o">(</span><span class="mi">2</span><span class="o">,</span> <span class="n">BigDecimal</span><span class="o">.</span><span class="na">ROUND_HALF_UP</span><span class="o">).</span><span class="na">toPlainString</span><span class="o">()</span> <span class="o">+</span> <span class="s">"MB"</span><span class="o">;</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="n">BigDecimal</span> <span class="n">sizeKB</span> <span class="o">=</span> <span class="k">new</span> <span class="n">BigDecimal</span><span class="o">(</span><span class="n">Double</span><span class="o">.</span><span class="na">toString</span><span class="o">(</span><span class="n">size</span><span class="o">));</span>
+            <span class="k">return</span> <span class="n">sizeKB</span><span class="o">.</span><span class="na">setScale</span><span class="o">(</span><span class="mi">2</span><span class="o">,</span> <span class="n">BigDecimal</span><span class="o">.</span><span class="na">ROUND_HALF_UP</span><span class="o">).</span><span class="na">toPlainString</span><span class="o">()</span> <span class="o">+</span> <span class="s">"KB"</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h2 id="五获取库图片路径">五、获取库图片路径</h2>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="c1">//调用的Intent</span>
+<span class="n">Intent</span> <span class="n">intent</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Intent</span><span class="o">(</span><span class="n">Intent</span><span class="o">.</span><span class="na">ACTION_GET_CONTENT</span><span class="o">);</span>
+<span class="n">intent</span><span class="o">.</span><span class="na">setType</span><span class="o">(</span><span class="s">"image/*"</span><span class="o">);</span>
+<span class="n">intent</span><span class="o">.</span><span class="na">addCategory</span><span class="o">(</span><span class="n">Intent</span><span class="o">.</span><span class="na">CATEGORY_OPENABLE</span><span class="o">);</span>
+<span class="n">startActivityForResult</span><span class="o">(</span><span class="n">intent</span><span class="o">,</span> <span class="n">FOR_RESULT_SUCCESS</span><span class="o">);</span>
+              
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">onActivityResult</span><span class="o">(</span><span class="kt">int</span> <span class="n">requestCode</span><span class="o">,</span> <span class="kt">int</span> <span class="n">resultCode</span><span class="o">,</span> <span class="n">Intent</span> <span class="n">data</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">requestCode</span> <span class="o">==</span> <span class="n">FOR_RESULT_SUCCESS</span> <span class="o">&amp;&amp;</span> <span class="n">data</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">Uri</span> <span class="n">uri</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="na">getData</span><span class="o">();</span>
+        <span class="n">String</span><span class="o">[]</span> <span class="n">project</span> <span class="o">=</span> <span class="o">{</span><span class="n">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">Media</span><span class="o">.</span><span class="na">DATA</span><span class="o">};</span>
+        <span class="n">CursorLoader</span> <span class="n">loader</span> <span class="o">=</span> <span class="k">new</span> <span class="n">CursorLoader</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">uri</span><span class="o">,</span> <span class="n">project</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+        <span class="n">Cursor</span> <span class="n">cursor</span> <span class="o">=</span> <span class="n">loader</span><span class="o">.</span><span class="na">loadInBackground</span><span class="o">();</span>
+        <span class="kt">int</span> <span class="n">index</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="na">getColumnIndexOrThrow</span><span class="o">(</span><span class="n">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">Media</span><span class="o">.</span><span class="na">DATA</span><span class="o">);</span>
+        <span class="n">cursor</span><span class="o">.</span><span class="na">moveToFirst</span><span class="o">();</span>
+        <span class="n">String</span> <span class="n">path</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h2 id="六progressbar-进度条">六、ProgressBar 进度条</h2>
+
+<p>进度条布局代码</p>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="nt">&lt;ProgressBar</span>
+    <span class="na">android:id=</span><span class="s">"@+id/pb_progressbar"</span>
+    <span class="na">style=</span><span class="s">"@style/StyleProgressBarMini"</span>
+    <span class="na">android:layout_width=</span><span class="s">"fill_parent"</span>
+    <span class="na">android:layout_height=</span><span class="s">"wrap_content"</span>
+    <span class="na">android:layout_margin=</span><span class="s">"30dp"</span>
+    <span class="na">android:background=</span><span class="s">"@drawable/shape_progressbar_bg"</span>
+    <span class="na">android:max=</span><span class="s">"1000"</span>
+    <span class="na">android:progress=</span><span class="s">"768"</span> <span class="nt">/&gt;</span>
+</code></pre>
+</div>
+
+<p>@style/StyleProgressBarMini</p>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"StyleProgressBarMini"</span> <span class="na">parent=</span><span class="s">"@android:style/Widget.ProgressBar.Horizontal"</span><span class="nt">&gt;</span> 
+    <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:maxHeight"</span><span class="nt">&gt;</span>50dp<span class="nt">&lt;/item&gt;</span> 
+    <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:minHeight"</span><span class="nt">&gt;</span>10dp<span class="nt">&lt;/item&gt;</span> 
+    <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:indeterminateOnly"</span><span class="nt">&gt;</span>false<span class="nt">&lt;/item&gt;</span> 
+    <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:indeterminateDrawable"</span><span class="nt">&gt;</span>@android:drawable/progress_indeterminate_horizontal<span class="nt">&lt;/item&gt;</span> 
+    <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:progressDrawable"</span><span class="nt">&gt;</span>@drawable/shape_progressbar_mini<span class="nt">&lt;/item&gt;</span> 
+<span class="nt">&lt;/style&gt;</span>
+</code></pre>
+</div>
+
+<p>@drawable/shape_progressbar_mini</p>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="cp">&lt;?xml version="1.0" encoding="utf-8"?&gt;</span>
+<span class="nt">&lt;layer-list</span> <span class="na">xmlns:android=</span><span class="s">"http://schemas.android.com/apk/res/android"</span> <span class="nt">&gt;</span>
+    <span class="c">&lt;!-- 背景 --&gt;</span>
+    <span class="nt">&lt;item</span> <span class="na">android:id=</span><span class="s">"@android:id/background"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;shape&gt;</span>
+            <span class="nt">&lt;corners</span> <span class="na">android:radius=</span><span class="s">"5dip"</span> <span class="nt">/&gt;</span>
+            <span class="nt">&lt;gradient</span>
+                <span class="na">android:angle=</span><span class="s">"270"</span>
+                <span class="na">android:centerY=</span><span class="s">"0.75"</span>
+                <span class="na">android:endColor=</span><span class="s">"#FFFFFF"</span>
+                <span class="na">android:startColor=</span><span class="s">"#FFFFFF"</span> <span class="nt">/&gt;</span>
+        <span class="nt">&lt;/shape&gt;</span>
+    <span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;item</span> <span class="na">android:id=</span><span class="s">"@android:id/secondaryProgress"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;clip&gt;</span>
+            <span class="nt">&lt;shape&gt;</span>
+                <span class="nt">&lt;corners</span> <span class="na">android:radius=</span><span class="s">"0dip"</span> <span class="nt">/&gt;</span>
+ 
+                <span class="nt">&lt;gradient</span>
+                    <span class="na">android:angle=</span><span class="s">"270"</span>
+                    <span class="na">android:centerY=</span><span class="s">"0.75"</span>
+                    <span class="na">android:endColor=</span><span class="s">"#df0024"</span>
+                    <span class="na">android:startColor=</span><span class="s">"#df0024"</span> <span class="nt">/&gt;</span>
+            <span class="nt">&lt;/shape&gt;</span>
+        <span class="nt">&lt;/clip&gt;</span>
+    <span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;item</span> <span class="na">android:id=</span><span class="s">"@android:id/progress"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;clip&gt;</span>
+            <span class="nt">&lt;shape&gt;</span>
+                <span class="nt">&lt;corners</span> <span class="na">android:radius=</span><span class="s">"5dip"</span> <span class="nt">/&gt;</span>
+                <span class="nt">&lt;gradient</span>
+                    <span class="na">android:angle=</span><span class="s">"270"</span>
+                    <span class="na">android:centerY=</span><span class="s">"0.75"</span>
+                    <span class="na">android:endColor=</span><span class="s">"#de42ec"</span>
+                    <span class="na">android:startColor=</span><span class="s">"#de42ec"</span> <span class="nt">/&gt;</span>
+            <span class="nt">&lt;/shape&gt;</span>
+        <span class="nt">&lt;/clip&gt;</span>
+    <span class="nt">&lt;/item&gt;</span>
+<span class="nt">&lt;/layer-list&gt;</span>
+</code></pre>
+</div>
+
+<p>@drawable/shape_progressbar_bg</p>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="cp">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span>
+<span class="nt">&lt;shape</span> <span class="na">xmlns:android=</span><span class="s">"http://schemas.android.com/apk/res/android"</span>
+    <span class="na">android:shape=</span><span class="s">"rectangle"</span> <span class="nt">&gt;</span>
+    <span class="c">&lt;!-- 边框填充的颜色 --&gt;</span>
+    <span class="nt">&lt;solid</span> <span class="na">android:color=</span><span class="s">"#cecece"</span> <span class="nt">/&gt;</span>
+    <span class="c">&lt;!-- 设置进度条的四个角为弧形的半径 --&gt;</span>
+    <span class="nt">&lt;corners</span> <span class="na">android:radius=</span><span class="s">"90dp"</span> <span class="nt">/&gt;</span>
+    <span class="c">&lt;!-- padding：边界的间隔--&gt;</span>
+    <span class="nt">&lt;padding</span>
+        <span class="na">android:bottom=</span><span class="s">"1dp"</span>
+        <span class="na">android:left=</span><span class="s">"1dp"</span>
+        <span class="na">android:right=</span><span class="s">"1dp"</span>
+        <span class="na">android:top=</span><span class="s">"1dp"</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/shape&gt;</span>
+</code></pre>
+</div>
+
+
+                <hr style="visibility: hidden;">
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2017/02/13/SplashActivity/" data-toggle="tooltip" data-placement="top" title="简单Android闪屏页控制逻辑">
+                        上一篇<br>
+                        <span>简单Android闪屏页控制逻辑</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2017/02/19/Java_ArrayList/" data-toggle="tooltip" data-placement="top" title="Java源码系列(1) -- ArrayList">
+                        下一篇<br>
+                        <span>Java源码系列(1) -- ArrayList</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+                
+            </div>  
+
+            <!-- Side Catalog Container -->
+            
+                <div class="
+                    col-lg-2 col-lg-offset-0
+                    visible-lg-block
+                    sidebar-container
+                    catalog-container">
+                    <div class="side-catalog">
+                        <hr class="hidden-sm hidden-xs">
+                        <h5>
+                            <a class="catalog-toggle" href="#">目录</a>
+                        </h5>
+                        <ul class="catalog-body"></ul>
+                    </div>
+                </div>
+            
+
+            <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">标签</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#Tools" title="Tools" rel="3">Tools</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java" title="Java" rel="4">Java</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android源码系列" title="Android源码系列" rel="6">Android源码系列</a>
+                            
+        				
+                            
+                				<a href="/tags/#Python" title="Python" rel="3">Python</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android" title="Android" rel="13">Android</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java源码系列" title="Java源码系列" rel="4">Java源码系列</a>
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                
+                <hr>
+                <h5>友情链接</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href=""></a></li>
+                    
+                        <li><a href=""></a></li>
+                    
+                </ul>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+    <footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; phantomVK 2017 | Powered by Jekyll with Hux Theme
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="/js/jquery.min.js "></script>
+<script src="/js/bootstrap.min.js "></script>
+<script src="/js/hux-blog.min.js "></script>
+
+<script type="text/javascript">
+    if(navigator.serviceWorker){
+        navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {console.log('Service Worker Registered. ', registration)})
+            .catch((error) => {console.log('ServiceWorker registration failed: ', error)})
+    }
+</script>
+
+
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<script>
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+</body>
+</html>

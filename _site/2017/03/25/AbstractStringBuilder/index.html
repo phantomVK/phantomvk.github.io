@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="phantomvk">
+    <meta name="google-site-verification" content="IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="keywords"  content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="theme-color" content="#000000">
+    <title>Java源码系列(4) -- AbstractStringBuilder - phantomVK 博客</title>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <link rel="canonical" href="http://localhost:4000/2017/03/25/AbstractStringBuilder/">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+    <link rel="stylesheet" href="/css/syntax.css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body ontouchstart="">
+    <nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">phantomVK</a>
+        </div>
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="/">Home</a></li>
+                    
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/archives/">Archives</a></li>
+                    <li><a href="/tags/">Tags</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            setTimeout(function(){
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+    <!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/main_img.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#Java源码系列" title="Java源码系列">Java源码系列</a>
+                        
+                    </div>
+                    <h1>Java源码系列(4) -- AbstractStringBuilder</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by phantomVK on March 25, 2017</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+				<h2 id="一类签名">一、类签名</h2>
+
+<p><code class="highlighter-rouge">AbstractStringBuilder</code>是<code class="highlighter-rouge">StringBuilder</code>和<code class="highlighter-rouge">StringBuffer</code>的父类，包含字符串操作的实现逻辑，子类根据各自需求对方法调用做同步处理，本身是线程不安全的。作为可变字符串的父类，<code class="highlighter-rouge">AbstractStringBuilder</code>借助字符数组的形式实现可变字符串，类中大部分方法是字符修改、插入、追加等操作。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">abstract</span> <span class="kd">class</span> <span class="nc">AbstractStringBuilder</span> <span class="kd">implements</span> <span class="n">Appendable</span><span class="o">,</span> <span class="n">CharSequence</span>
+</code></pre>
+</div>
+
+<p>实现<code class="highlighter-rouge">CharSequence</code>，所以两个子类<code class="highlighter-rouge">StringBuilder</code>和<code class="highlighter-rouge">StringBuffer</code>的实例可以直接赋值给<code class="highlighter-rouge">CharSequence</code>。</p>
+
+<h2 id="二数据成员">二、数据成员</h2>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kt">char</span><span class="o">[]</span> <span class="n">value</span><span class="o">;</span> <span class="c1">// 保存字符串的数组</span>
+<span class="kt">int</span> <span class="n">count</span><span class="o">;</span>    <span class="c1">// 记录字符长度</span>
+</code></pre>
+</div>
+
+<h2 id="三构造方法">三、构造方法</h2>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="c1">// 必要的无参构造方法，用于序列化和子类</span>
+<span class="n">AbstractStringBuilder</span><span class="o">()</span> <span class="o">{</span> <span class="o">}</span>
+
+<span class="c1">// 通过指定容量构造字符串数组</span>
+<span class="n">AbstractStringBuilder</span><span class="o">(</span><span class="kt">int</span> <span class="n">capacity</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">char</span><span class="o">[</span><span class="n">capacity</span><span class="o">];</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h2 id="四成员方法">四、成员方法</h2>
+
+<h3 id="41-长度相关">4.1 长度相关</h3>
+
+<p>已保存在字符串数组的字符个数</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">length</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">count</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>字符串数组的空间长度，包含可插入新字符的空间。在同一时刻，总有<code class="highlighter-rouge">length()</code>小于等于<code class="highlighter-rouge">capacity()</code></p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">int</span> <span class="nf">capacity</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">value</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="42-增加容量">4.2 增加容量</h3>
+
+<p>保证字符数组大小至少要和具体的最小值相等。若当前容量小于参数具体值，则创建一个更大的数组，数值取下列之大者：</p>
+
+<ul>
+  <li>minimumCapacity的具体大小；</li>
+  <li>原容量值的两倍</li>
+</ul>
+
+<p>若minimumCapacity不可用，下列直接退出。本类有方法减少字符数组的长度</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">ensureCapacity</span><span class="o">(</span><span class="kt">int</span> <span class="n">minimumCapacity</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">minimumCapacity</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">minimumCapacity</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 包含参数检查，最小容量不得小于已有字符串数组长度，没有同步特性</span>
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">ensureCapacityInternal</span><span class="o">(</span><span class="kt">int</span> <span class="n">minimumCapacity</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 仅minimumCapacity大于数组长度可用</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">minimumCapacity</span> <span class="o">-</span> <span class="n">value</span><span class="o">.</span><span class="na">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="n">expandCapacity</span><span class="o">(</span><span class="n">minimumCapacity</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 容量扩增方法，没有大小检查或加入同步特性</span>
+<span class="kt">void</span> <span class="nf">expandCapacity</span><span class="o">(</span><span class="kt">int</span> <span class="n">minimumCapacity</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kt">int</span> <span class="n">newCapacity</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="na">length</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">2</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">newCapacity</span> <span class="o">-</span> <span class="n">minimumCapacity</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="n">newCapacity</span> <span class="o">=</span> <span class="n">minimumCapacity</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">newCapacity</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">minimumCapacity</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="c1">// 下溢</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">OutOfMemoryError</span><span class="o">();</span>
+        <span class="n">newCapacity</span> <span class="o">=</span> <span class="n">Integer</span><span class="o">.</span><span class="na">MAX_VALUE</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="n">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">newCapacity</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="43-裁剪增加">4.3 裁剪、增加</h3>
+
+<p>可变字符数组有空余用于插入更多字符，可以通过裁剪剩余空间达到提高内存使用效率的目的。如果内存空间不紧张或没有特殊要求，不要使用这个方法，因为向裁剪后的字符数组添加字符一定会引起扩容。</p>
+
+<p>实现方式：把字符串拷贝到长度刚好合适的字符数组中返回，释放原数组空间</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">trimToSize</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">count</span> <span class="o">&lt;</span> <span class="n">value</span><span class="o">.</span><span class="na">length</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">count</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>通过添加字符’\n’，令字符串长度达到<code class="highlighter-rouge">newLength</code>，仅在<code class="highlighter-rouge">newLength</code>大于数组内字符串长度有效。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setLength</span><span class="o">(</span><span class="kt">int</span> <span class="n">newLength</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">newLength</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">newLength</span><span class="o">);</span>
+        
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">newLength</span><span class="o">);</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">count</span> <span class="o">&lt;</span> <span class="n">newLength</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">Arrays</span><span class="o">.</span><span class="na">fill</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">count</span><span class="o">,</span> <span class="n">newLength</span><span class="o">,</span> <span class="sc">'\0'</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="n">count</span> <span class="o">=</span> <span class="n">newLength</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="44-查找">4.4 查找</h3>
+
+<p>返回指定索引值下的字符</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">char</span> <span class="nf">charAt</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;=</span> <span class="n">count</span><span class="o">))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+    <span class="k">return</span> <span class="n">value</span><span class="o">[</span><span class="n">index</span><span class="o">];</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>返回指定索引下字符的编码值</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">int</span> <span class="nf">codePointAt</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;=</span> <span class="n">count</span><span class="o">))</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">Character</span><span class="o">.</span><span class="na">codePointAtImpl</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">count</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>返回指定索引前一位字符的编码值</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">int</span> <span class="nf">codePointBefore</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">i</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">i</span> <span class="o">&gt;=</span> <span class="n">count</span><span class="o">))</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">Character</span><span class="o">.</span><span class="na">codePointBeforeImpl</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">int</span> <span class="nf">codePointCount</span><span class="o">(</span><span class="kt">int</span> <span class="n">beginIndex</span><span class="o">,</span> <span class="kt">int</span> <span class="n">endIndex</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">beginIndex</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">endIndex</span> <span class="o">&gt;</span> <span class="n">count</span> <span class="o">||</span> <span class="n">beginIndex</span> <span class="o">&gt;</span> <span class="n">endIndex</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">Character</span><span class="o">.</span><span class="na">codePointCountImpl</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">beginIndex</span><span class="o">,</span> <span class="n">endIndex</span><span class="o">-</span><span class="n">beginIndex</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">int</span> <span class="nf">offsetByCodePoints</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="kt">int</span> <span class="n">codePointOffset</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">index</span> <span class="o">&gt;</span> <span class="n">count</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">Character</span><span class="o">.</span><span class="na">offsetByCodePointsImpl</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">count</span><span class="o">,</span>
+                                            <span class="n">index</span><span class="o">,</span> <span class="n">codePointOffset</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>复制指定范围的字符串到给定的字符数组中</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">getChars</span><span class="o">(</span><span class="kt">int</span> <span class="n">srcBegin</span><span class="o">,</span> <span class="kt">int</span> <span class="n">srcEnd</span><span class="o">,</span> <span class="kt">char</span><span class="o">[]</span> <span class="n">dst</span><span class="o">,</span> <span class="kt">int</span> <span class="n">dstBegin</span><span class="o">)</span>
+<span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">srcBegin</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">srcBegin</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">srcEnd</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">srcEnd</span> <span class="o">&gt;</span> <span class="n">count</span><span class="o">))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">srcEnd</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">srcBegin</span> <span class="o">&gt;</span> <span class="n">srcEnd</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="s">"srcBegin &gt; srcEnd"</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">srcBegin</span><span class="o">,</span> <span class="n">dst</span><span class="o">,</span> <span class="n">dstBegin</span><span class="o">,</span> <span class="n">srcEnd</span> <span class="o">-</span> <span class="n">srcBegin</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="45-append">4.5 append</h3>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code>
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="n">Object</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">append</span><span class="o">(</span><span class="n">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">obj</span><span class="o">));</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="n">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">str</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="k">return</span> <span class="nf">appendNull</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">str</span><span class="o">.</span><span class="na">length</span><span class="o">();</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">str</span><span class="o">.</span><span class="na">getChars</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="n">len</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">count</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// Documentation in subclasses because of synchro difference</span>
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="n">StringBuffer</span> <span class="n">sb</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">sb</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="k">return</span> <span class="nf">appendNull</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">sb</span><span class="o">.</span><span class="na">length</span><span class="o">();</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">sb</span><span class="o">.</span><span class="na">getChars</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="n">len</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">count</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="n">AbstractStringBuilder</span> <span class="n">asb</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">asb</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="k">return</span> <span class="nf">appendNull</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">asb</span><span class="o">.</span><span class="na">length</span><span class="o">();</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">asb</span><span class="o">.</span><span class="na">getChars</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="n">len</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">count</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// Documentation in subclasses because of synchro difference</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="n">CharSequence</span> <span class="n">s</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">s</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="k">return</span> <span class="nf">appendNull</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">s</span> <span class="k">instanceof</span> <span class="n">String</span><span class="o">)</span>
+        <span class="k">return</span> <span class="k">this</span><span class="o">.</span><span class="na">append</span><span class="o">((</span><span class="n">String</span><span class="o">)</span><span class="n">s</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">s</span> <span class="k">instanceof</span> <span class="n">AbstractStringBuilder</span><span class="o">)</span>
+        <span class="k">return</span> <span class="k">this</span><span class="o">.</span><span class="na">append</span><span class="o">((</span><span class="n">AbstractStringBuilder</span><span class="o">)</span><span class="n">s</span><span class="o">);</span>
+
+    <span class="k">return</span> <span class="k">this</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">s</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">s</span><span class="o">.</span><span class="na">length</span><span class="o">());</span>
+<span class="o">}</span>
+
+<span class="kd">private</span> <span class="n">AbstractStringBuilder</span> <span class="nf">appendNull</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kt">int</span> <span class="n">c</span> <span class="o">=</span> <span class="n">count</span><span class="o">;</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">c</span> <span class="o">+</span> <span class="mi">4</span><span class="o">);</span>
+    <span class="kd">final</span> <span class="kt">char</span><span class="o">[]</span> <span class="n">value</span> <span class="o">=</span> <span class="k">this</span><span class="o">.</span><span class="na">value</span><span class="o">;</span>
+    <span class="n">value</span><span class="o">[</span><span class="n">c</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'n'</span><span class="o">;</span>
+    <span class="n">value</span><span class="o">[</span><span class="n">c</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'u'</span><span class="o">;</span>
+    <span class="n">value</span><span class="o">[</span><span class="n">c</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'l'</span><span class="o">;</span>
+    <span class="n">value</span><span class="o">[</span><span class="n">c</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'l'</span><span class="o">;</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">c</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="n">CharSequence</span> <span class="n">s</span><span class="o">,</span> <span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">s</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s">"null"</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">start</span> <span class="o">&gt;</span> <span class="n">end</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">end</span> <span class="o">&gt;</span> <span class="n">s</span><span class="o">.</span><span class="na">length</span><span class="o">()))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">(</span>
+            <span class="s">"start "</span> <span class="o">+</span> <span class="n">start</span> <span class="o">+</span> <span class="s">", end "</span> <span class="o">+</span> <span class="n">end</span> <span class="o">+</span> <span class="s">", s.length() "</span>
+            <span class="o">+</span> <span class="n">s</span><span class="o">.</span><span class="na">length</span><span class="o">());</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="o">;</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">start</span><span class="o">,</span> <span class="n">j</span> <span class="o">=</span> <span class="n">count</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">end</span><span class="o">;</span> <span class="n">i</span><span class="o">++,</span> <span class="n">j</span><span class="o">++)</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">j</span><span class="o">]</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">char</span><span class="o">[]</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">str</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">count</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">char</span> <span class="n">str</span><span class="o">[],</span> <span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">int</span> <span class="n">len</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">len</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span>                <span class="c1">// let arraycopy report AIOOBE for len &lt; 0</span>
+        <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="n">offset</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">count</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">boolean</span> <span class="n">b</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">b</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="mi">4</span><span class="o">);</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'t'</span><span class="o">;</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'r'</span><span class="o">;</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'u'</span><span class="o">;</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'e'</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="mi">5</span><span class="o">);</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'f'</span><span class="o">;</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'a'</span><span class="o">;</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'l'</span><span class="o">;</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'s'</span><span class="o">;</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="sc">'e'</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">char</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="mi">1</span><span class="o">);</span>
+    <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">++]</span> <span class="o">=</span> <span class="n">c</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">i</span> <span class="o">==</span> <span class="n">Integer</span><span class="o">.</span><span class="na">MIN_VALUE</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">append</span><span class="o">(</span><span class="s">"-2147483648"</span><span class="o">);</span>
+        <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="kt">int</span> <span class="n">appendedLength</span> <span class="o">=</span> <span class="o">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="n">Integer</span><span class="o">.</span><span class="na">stringSize</span><span class="o">(-</span><span class="n">i</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span>
+                                 <span class="o">:</span> <span class="n">Integer</span><span class="o">.</span><span class="na">stringSize</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+    <span class="kt">int</span> <span class="n">spaceNeeded</span> <span class="o">=</span> <span class="n">count</span> <span class="o">+</span> <span class="n">appendedLength</span><span class="o">;</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">spaceNeeded</span><span class="o">);</span>
+    <span class="n">Integer</span><span class="o">.</span><span class="na">getChars</span><span class="o">(</span><span class="n">i</span><span class="o">,</span> <span class="n">spaceNeeded</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">spaceNeeded</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">long</span> <span class="n">l</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">l</span> <span class="o">==</span> <span class="n">Long</span><span class="o">.</span><span class="na">MIN_VALUE</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">append</span><span class="o">(</span><span class="s">"-9223372036854775808"</span><span class="o">);</span>
+        <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="kt">int</span> <span class="n">appendedLength</span> <span class="o">=</span> <span class="o">(</span><span class="n">l</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="n">Long</span><span class="o">.</span><span class="na">stringSize</span><span class="o">(-</span><span class="n">l</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span>
+                                 <span class="o">:</span> <span class="n">Long</span><span class="o">.</span><span class="na">stringSize</span><span class="o">(</span><span class="n">l</span><span class="o">);</span>
+    <span class="kt">int</span> <span class="n">spaceNeeded</span> <span class="o">=</span> <span class="n">count</span> <span class="o">+</span> <span class="n">appendedLength</span><span class="o">;</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">spaceNeeded</span><span class="o">);</span>
+    <span class="n">Long</span><span class="o">.</span><span class="na">getChars</span><span class="o">(</span><span class="n">l</span><span class="o">,</span> <span class="n">spaceNeeded</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">spaceNeeded</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">float</span> <span class="n">f</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">FloatingDecimal</span><span class="o">.</span><span class="na">appendTo</span><span class="o">(</span><span class="n">f</span><span class="o">,</span><span class="k">this</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+<span class="n">eturn</span>  <span class="n">a</span> <span class="n">reference</span> <span class="n">to</span> <span class="k">this</span> <span class="n">object</span><span class="o">.</span>
+ <span class="o">*/</span>
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">double</span> <span class="n">d</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">FloatingDecimal</span><span class="o">.</span><span class="na">appendTo</span><span class="o">(</span><span class="n">d</span><span class="o">,</span><span class="k">this</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">appendCodePoint</span><span class="o">(</span><span class="kt">int</span> <span class="n">codePoint</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="k">this</span><span class="o">.</span><span class="na">count</span><span class="o">;</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">Character</span><span class="o">.</span><span class="na">isBmpCodePoint</span><span class="o">(</span><span class="n">codePoint</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="mi">1</span><span class="o">);</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">count</span><span class="o">]</span> <span class="o">=</span> <span class="o">(</span><span class="kt">char</span><span class="o">)</span> <span class="n">codePoint</span><span class="o">;</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">count</span> <span class="o">=</span> <span class="n">count</span> <span class="o">+</span> <span class="mi">1</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">Character</span><span class="o">.</span><span class="na">isValidCodePoint</span><span class="o">(</span><span class="n">codePoint</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="mi">2</span><span class="o">);</span>
+        <span class="n">Character</span><span class="o">.</span><span class="na">toSurrogates</span><span class="o">(</span><span class="n">codePoint</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">count</span><span class="o">);</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">count</span> <span class="o">=</span> <span class="n">count</span> <span class="o">+</span> <span class="mi">2</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="46-移除字符">4.6 移除字符</h3>
+
+<p>移除字符串</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">delete</span><span class="o">(</span><span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">start</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">end</span> <span class="o">&gt;</span> <span class="n">count</span><span class="o">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">count</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">start</span> <span class="o">&gt;</span> <span class="n">end</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">len</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">start</span><span class="o">+</span><span class="n">len</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">start</span><span class="o">,</span> <span class="n">count</span><span class="o">-</span><span class="n">end</span><span class="o">);</span>
+        <span class="n">count</span> <span class="o">-=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>移除一个字符</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">deleteCharAt</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;=</span> <span class="n">count</span><span class="o">))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">index</span><span class="o">+</span><span class="mi">1</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">count</span><span class="o">-</span><span class="n">index</span><span class="o">-</span><span class="mi">1</span><span class="o">);</span>
+    <span class="n">count</span><span class="o">--;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="47-替换">4.7 替换</h3>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">replace</span><span class="o">(</span><span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">,</span> <span class="n">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">start</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">start</span> <span class="o">&gt;</span> <span class="n">count</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="s">"start &gt; length()"</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">start</span> <span class="o">&gt;</span> <span class="n">end</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="s">"start &gt; end"</span><span class="o">);</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">end</span> <span class="o">&gt;</span> <span class="n">count</span><span class="o">)</span>
+        <span class="n">end</span> <span class="o">=</span> <span class="n">count</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">str</span><span class="o">.</span><span class="na">length</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">newCount</span> <span class="o">=</span> <span class="n">count</span> <span class="o">+</span> <span class="n">len</span> <span class="o">-</span> <span class="o">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="o">);</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">newCount</span><span class="o">);</span>
+
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">end</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">start</span> <span class="o">+</span> <span class="n">len</span><span class="o">,</span> <span class="n">count</span> <span class="o">-</span> <span class="n">end</span><span class="o">);</span>
+    <span class="n">str</span><span class="o">.</span><span class="na">getChars</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">start</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="n">newCount</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setCharAt</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="kt">char</span> <span class="n">ch</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;=</span> <span class="n">count</span><span class="o">))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+    <span class="n">value</span><span class="o">[</span><span class="n">index</span><span class="o">]</span> <span class="o">=</span> <span class="n">ch</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="48-获取子序列">4.8 获取子序列</h3>
+
+<p>从指定起点获取后面字符序列，结果是<code class="highlighter-rouge">String</code></p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="n">String</span> <span class="nf">substring</span><span class="o">(</span><span class="kt">int</span> <span class="n">start</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">substring</span><span class="o">(</span><span class="n">start</span><span class="o">,</span> <span class="n">count</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>获取给定范围内的字符序列，结果是<code class="highlighter-rouge">CharSequence</code></p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="n">CharSequence</span> <span class="nf">subSequence</span><span class="o">(</span><span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">substring</span><span class="o">(</span><span class="n">start</span><span class="o">,</span> <span class="n">end</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>获取给定范围内的字符序列，结果是<code class="highlighter-rouge">String</code></p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="n">String</span> <span class="nf">substring</span><span class="o">(</span><span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">start</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">end</span> <span class="o">&gt;</span> <span class="n">count</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">end</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">start</span> <span class="o">&gt;</span> <span class="n">end</span><span class="o">)</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="nf">String</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">start</span><span class="o">,</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="49-insert">4.9 insert</h3>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="kt">char</span><span class="o">[]</span> <span class="n">str</span><span class="o">,</span> <span class="kt">int</span> <span class="n">offset</span><span class="o">,</span>
+                                    <span class="kt">int</span> <span class="n">len</span><span class="o">)</span>
+<span class="o">{</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;</span> <span class="n">length</span><span class="o">()))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">offset</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">len</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">offset</span> <span class="o">&gt;</span> <span class="n">str</span><span class="o">.</span><span class="na">length</span> <span class="o">-</span> <span class="n">len</span><span class="o">))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span>
+            <span class="s">"offset "</span> <span class="o">+</span> <span class="n">offset</span> <span class="o">+</span> <span class="s">", len "</span> <span class="o">+</span> <span class="n">len</span> <span class="o">+</span> <span class="s">", str.length "</span>
+            <span class="o">+</span> <span class="n">str</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">index</span> <span class="o">+</span> <span class="n">len</span><span class="o">,</span> <span class="n">count</span> <span class="o">-</span> <span class="n">index</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="n">offset</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="n">Object</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">obj</span><span class="o">));</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="n">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">offset</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">offset</span> <span class="o">&gt;</span> <span class="n">length</span><span class="o">()))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">offset</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">str</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="n">str</span> <span class="o">=</span> <span class="s">"null"</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">str</span><span class="o">.</span><span class="na">length</span><span class="o">();</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">offset</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">len</span><span class="o">,</span> <span class="n">count</span> <span class="o">-</span> <span class="n">offset</span><span class="o">);</span>
+    <span class="n">str</span><span class="o">.</span><span class="na">getChars</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">offset</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">char</span><span class="o">[]</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">offset</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">offset</span> <span class="o">&gt;</span> <span class="n">length</span><span class="o">()))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">StringIndexOutOfBoundsException</span><span class="o">(</span><span class="n">offset</span><span class="o">);</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">str</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">offset</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">len</span><span class="o">,</span> <span class="n">count</span> <span class="o">-</span> <span class="n">offset</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">offset</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">dstOffset</span><span class="o">,</span> <span class="n">CharSequence</span> <span class="n">s</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">s</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s">"null"</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">s</span> <span class="k">instanceof</span> <span class="n">String</span><span class="o">)</span>
+        <span class="k">return</span> <span class="k">this</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">dstOffset</span><span class="o">,</span> <span class="o">(</span><span class="n">String</span><span class="o">)</span><span class="n">s</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">dstOffset</span><span class="o">,</span> <span class="n">s</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">s</span><span class="o">.</span><span class="na">length</span><span class="o">());</span>
+<span class="o">}</span>
+
+ <span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">dstOffset</span><span class="o">,</span> <span class="n">CharSequence</span> <span class="n">s</span><span class="o">,</span>
+                                     <span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">s</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="n">s</span> <span class="o">=</span> <span class="s">"null"</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">dstOffset</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">dstOffset</span> <span class="o">&gt;</span> <span class="k">this</span><span class="o">.</span><span class="na">length</span><span class="o">()))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">(</span><span class="s">"dstOffset "</span><span class="o">+</span><span class="n">dstOffset</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">start</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">end</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">start</span> <span class="o">&gt;</span> <span class="n">end</span><span class="o">)</span> <span class="o">||</span> <span class="o">(</span><span class="n">end</span> <span class="o">&gt;</span> <span class="n">s</span><span class="o">.</span><span class="na">length</span><span class="o">()))</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">(</span>
+            <span class="s">"start "</span> <span class="o">+</span> <span class="n">start</span> <span class="o">+</span> <span class="s">", end "</span> <span class="o">+</span> <span class="n">end</span> <span class="o">+</span> <span class="s">", s.length() "</span>
+            <span class="o">+</span> <span class="n">s</span><span class="o">.</span><span class="na">length</span><span class="o">());</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="o">;</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="n">len</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">dstOffset</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">dstOffset</span> <span class="o">+</span> <span class="n">len</span><span class="o">,</span>
+                     <span class="n">count</span> <span class="o">-</span> <span class="n">dstOffset</span><span class="o">);</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="n">start</span><span class="o">;</span> <span class="n">i</span><span class="o">&lt;</span><span class="n">end</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">dstOffset</span><span class="o">++]</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="na">charAt</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="n">len</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">b</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">b</span><span class="o">));</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">char</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">ensureCapacityInternal</span><span class="o">(</span><span class="n">count</span> <span class="o">+</span> <span class="mi">1</span><span class="o">);</span>
+    <span class="n">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="n">offset</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">offset</span> <span class="o">+</span> <span class="mi">1</span><span class="o">,</span> <span class="n">count</span> <span class="o">-</span> <span class="n">offset</span><span class="o">);</span>
+    <span class="n">value</span><span class="o">[</span><span class="n">offset</span><span class="o">]</span> <span class="o">=</span> <span class="n">c</span><span class="o">;</span>
+    <span class="n">count</span> <span class="o">+=</span> <span class="mi">1</span><span class="o">;</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">int</span> <span class="n">i</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">i</span><span class="o">));</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">long</span> <span class="n">l</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">l</span><span class="o">));</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">float</span> <span class="n">f</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">f</span><span class="o">));</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">double</span> <span class="n">d</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">d</span><span class="o">));</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="410-查索引">4.10 查索引</h3>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">int</span> <span class="nf">indexOf</span><span class="o">(</span><span class="n">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">indexOf</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">indexOf</span><span class="o">(</span><span class="n">String</span> <span class="n">str</span><span class="o">,</span> <span class="kt">int</span> <span class="n">fromIndex</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">String</span><span class="o">.</span><span class="na">indexOf</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">count</span><span class="o">,</span> <span class="n">str</span><span class="o">,</span> <span class="n">fromIndex</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="n">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="n">count</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="n">String</span> <span class="n">str</span><span class="o">,</span> <span class="kt">int</span> <span class="n">fromIndex</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">String</span><span class="o">.</span><span class="na">lastIndexOf</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">count</span><span class="o">,</span> <span class="n">str</span><span class="o">,</span> <span class="n">fromIndex</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="411-字符序列翻转">4.11 字符序列翻转</h3>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="n">AbstractStringBuilder</span> <span class="nf">reverse</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kt">boolean</span> <span class="n">hasSurrogates</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="n">count</span> <span class="o">-</span> <span class="mi">1</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="o">(</span><span class="n">n</span><span class="o">-</span><span class="mi">1</span><span class="o">)</span> <span class="o">&gt;&gt;</span> <span class="mi">1</span><span class="o">;</span> <span class="n">j</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">j</span><span class="o">--)</span> <span class="o">{</span>
+        <span class="kt">int</span> <span class="n">k</span> <span class="o">=</span> <span class="n">n</span> <span class="o">-</span> <span class="n">j</span><span class="o">;</span>
+        <span class="kt">char</span> <span class="n">cj</span> <span class="o">=</span> <span class="n">value</span><span class="o">[</span><span class="n">j</span><span class="o">];</span>
+        <span class="kt">char</span> <span class="n">ck</span> <span class="o">=</span> <span class="n">value</span><span class="o">[</span><span class="n">k</span><span class="o">];</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">j</span><span class="o">]</span> <span class="o">=</span> <span class="n">ck</span><span class="o">;</span>
+        <span class="n">value</span><span class="o">[</span><span class="n">k</span><span class="o">]</span> <span class="o">=</span> <span class="n">cj</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">Character</span><span class="o">.</span><span class="na">isSurrogate</span><span class="o">(</span><span class="n">cj</span><span class="o">)</span> <span class="o">||</span>
+            <span class="n">Character</span><span class="o">.</span><span class="na">isSurrogate</span><span class="o">(</span><span class="n">ck</span><span class="o">))</span> <span class="o">{</span>
+            <span class="n">hasSurrogates</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">hasSurrogates</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">reverseAllValidSurrogatePairs</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">reverseAllValidSurrogatePairs</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">count</span> <span class="o">-</span> <span class="mi">1</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="kt">char</span> <span class="n">c2</span> <span class="o">=</span> <span class="n">value</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">Character</span><span class="o">.</span><span class="na">isLowSurrogate</span><span class="o">(</span><span class="n">c2</span><span class="o">))</span> <span class="o">{</span>
+            <span class="kt">char</span> <span class="n">c1</span> <span class="o">=</span> <span class="n">value</span><span class="o">[</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="o">];</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">Character</span><span class="o">.</span><span class="na">isHighSurrogate</span><span class="o">(</span><span class="n">c1</span><span class="o">))</span> <span class="o">{</span>
+                <span class="n">value</span><span class="o">[</span><span class="n">i</span><span class="o">++]</span> <span class="o">=</span> <span class="n">c1</span><span class="o">;</span>
+                <span class="n">value</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="n">c2</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="412-其他">4.12 其他</h3>
+
+<p>获取字符串序列</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">final</span> <span class="kt">char</span><span class="o">[]</span> <span class="nf">getValue</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">value</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+
+                <hr style="visibility: hidden;">
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2017/03/06/StringBuffer/" data-toggle="tooltip" data-placement="top" title="Java源码系列(3) -- StringBuffer">
+                        上一篇<br>
+                        <span>Java源码系列(3) -- StringBuffer</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2017/04/25/menu-icon/" data-toggle="tooltip" data-placement="top" title="Android ActionBar溢出菜单icon">
+                        下一篇<br>
+                        <span>Android ActionBar溢出菜单icon</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+                
+            </div>  
+
+            <!-- Side Catalog Container -->
+            
+                <div class="
+                    col-lg-2 col-lg-offset-0
+                    visible-lg-block
+                    sidebar-container
+                    catalog-container">
+                    <div class="side-catalog">
+                        <hr class="hidden-sm hidden-xs">
+                        <h5>
+                            <a class="catalog-toggle" href="#">目录</a>
+                        </h5>
+                        <ul class="catalog-body"></ul>
+                    </div>
+                </div>
+            
+
+            <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">标签</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#Tools" title="Tools" rel="3">Tools</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java" title="Java" rel="4">Java</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android源码系列" title="Android源码系列" rel="6">Android源码系列</a>
+                            
+        				
+                            
+                				<a href="/tags/#Python" title="Python" rel="3">Python</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android" title="Android" rel="13">Android</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java源码系列" title="Java源码系列" rel="4">Java源码系列</a>
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                
+                <hr>
+                <h5>友情链接</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href=""></a></li>
+                    
+                        <li><a href=""></a></li>
+                    
+                </ul>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+    <footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; phantomVK 2017 | Powered by Jekyll with Hux Theme
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="/js/jquery.min.js "></script>
+<script src="/js/bootstrap.min.js "></script>
+<script src="/js/hux-blog.min.js "></script>
+
+<script type="text/javascript">
+    if(navigator.serviceWorker){
+        navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {console.log('Service Worker Registered. ', registration)})
+            .catch((error) => {console.log('ServiceWorker registration failed: ', error)})
+    }
+</script>
+
+
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<script>
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+</body>
+</html>

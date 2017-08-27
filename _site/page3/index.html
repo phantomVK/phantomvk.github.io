@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="phantomvk">
+    <meta name="google-site-verification" content="IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="keywords"  content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="theme-color" content="#000000">
+    <title>phantomVK 博客</title>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <link rel="canonical" href="http://localhost:4000/page3/">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+    <link rel="stylesheet" href="/css/syntax.css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body ontouchstart="">
+    <nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">phantomVK</a>
+        </div>
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="/">Home</a></li>
+                    
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/archives/">Archives</a></li>
+                    <li><a href="/tags/">Tags</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            setTimeout(function(){
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+    <!-- Page Header -->
+<header class="intro-header" style="background-image: url('/img/home.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 ">
+                <div class="site-heading">
+                    <h1>phantomVK</h1>
+                    <span class="subheading">Cease to struggle and you cease to live.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<div class="container">
+	<div class="row">
+        
+
+		<div class="
+            col-lg-8 col-lg-offset-1
+            col-md-8 col-md-offset-1
+            col-sm-12
+            col-xs-12
+            postlist-container">
+			
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="post-preview">
+    <a href="/2016/12/01/Android_Handler/">
+        <h2 class="post-title">Android源码系列(4) -- Handler</h2>
+        
+        <div class="post-content-preview">一、作用
+
+Handler有两个主要用法：
+
+
+  计划在将来某个时间点处理Message和Runnable
+  在不同线程里将一个动作加入Handler所对应的队列去执行
+
+
+二、成员变量
+
+Handler有4个不可变成员变量：消息队列mQueue、消息队列所属mLooper、可选Handler回调mCallback、可选异步标志mAsynchronous
+
+final MessageQu...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on December 1, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/11/28/ubuntu_cuda/">
+        <h2 class="post-title">深度学习环境配置: Ubuntu16.04 & CUDA8.0</h2>
+        
+        <div class="post-content-preview">深度学习系统用Ubuntu 16.04，显卡是一张nVidia GTS450，主要用来做简单实验。用比较新的nVidia显卡驱动和CUDA8。
+
+请看完文章再尝试哦
+
+添加下载源
+
+$ cd /etc/apt/
+$ sudo cp sources.list sources.list.bak
+$ sudo vi sources.list 
+
+
+
+把源添加到文件前面，保存
+
+deb http:/...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on November 28, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/11/25/firefox_PAC/">
+        <h2 class="post-title">FireFox配置PAC</h2>
+        
+        <div class="post-content-preview">使用范围
+
+这个插件及相应设置适合Linux、MacOSX、Windows下的FireFox浏览器。这个插件必须配合已经连通的SS服务使用，单独使用插件无效。
+
+下面的设置是在Ubuntu 16.04 LTS x86_64演示。
+
+安装插件
+
+进入FireFox的附加组件 - 插件中，搜索Autoproxy。选择下面这个插件，安装之后重启FireFox。
+
+
+
+设置AutoProxy
+
+重启...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on November 25, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/11/23/apkbuilder/">
+        <h2 class="post-title">apkbuilder找不到的问题</h2>
+        
+        <div class="post-content-preview">apkbuilder在 Android SDK build tools r22里面被移除了。如果我们还需要使用这个工具的话，可以通过以下方式重新取得apkbuilder。
+
+切换工作目录，把工作目录切换到tools下面。例子中是在linux平台的tools.
+
+android-sdk-linux/tools
+
+
+
+对于Windows：
+
+$ copy android.bat apkbuild...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on November 23, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/11/23/Ubuntu_Install_JDK/">
+        <h2 class="post-title">Ubuntu 16.04安装Oracle JDK8</h2>
+        
+        <div class="post-content-preview">简述
+
+虽然在Ubuntu上安装Oracle JDK不是什么难事，但是偶尔配置一次就到处找命令相当令人讨厌。所以这里主要用来记录需要的命令，做个备忘录。
+
+我自己试过在JDK官网下载二进制编译包，也试过apt-get的方式。因为我个人比较懒，而且使用的电脑已经联网，就直接使用apt-get的方式，相比前者方便不少。
+
+安装Oracle JDK8
+
+$ sudo add-apt-reposit...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on November 23, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/11/13/Android_Message/">
+        <h2 class="post-title">Android源码系列(3) -- Message</h2>
+        
+        <div class="post-content-preview">Handler是Android中一种处理线程消息循环的机制，而 Message 是Handler放消息的包装。
+
+public final class Message implements Parcelable
+
+
+
+Android常用序列化有 Serializable 和 Parcelable 两种，该类支持后者的序列化。前者用的时间比较长且范围更广，但是序列化过程中产生大量小对象；后者性...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on November 13, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/11/08/ButterKnife_HowToUse/">
+        <h2 class="post-title">ButterKnife使用方法</h2>
+        
+        <div class="post-content-preview">介绍
+
+ButterKnife是专为Android View而设的注解绑定库，把我们从findViewById()和setOnClicktListener()中全面解放。
+
+使用ButterKnife注意要点：
+
+
+  属性不能用private或static修饰，否则会报错
+  不能通过注解实现setContentView()
+  调用ButterKnife.bind(this)之前必须先调...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on November 8, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/11/07/android-viewgroup/">
+        <h2 class="post-title">Android源码系列(2) -- ViewGroup</h2>
+        
+        <div class="post-content-preview">前言
+
+上一篇文章 Android View 事件分发源码剖析 我们详细介绍了View事件分发的细节。接下来我们继续学习ViewGroup事件分发的内容。此次源码同样基于Android SDK 23，即Android 6.0。如果你看的是以前版本的源码，可能会有明显的不一样，请自行斟酌。
+
+一、 代码构建
+
+继承LinearLayout类，重写dispatchTouchEvent、onInt...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on November 7, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/10/30/Numpy_Notes/">
+        <h2 class="post-title">NumPy学习手记</h2>
+        
+        <div class="post-content-preview">Python原生提供多种数据类型的支持，包括列表、元组、字典、集合等。不过对于数据统计、数据挖掘、机器学习来说，这些支持不够用，而NumPy则是数学运算库的不二之选。
+
+一、安装或升级
+
+没有pip的请先安装Python包管理工具。
+
+安装NumPy:
+
+$ pip install numpy
+
+
+
+升级NumPy:
+
+$ pip install --upgrade numpy
+
+
+
+二、导...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on October 30, 2016
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2016/10/28/pip_Timeout/">
+        <h2 class="post-title">pip 下载超时 镜像源配置</h2>
+        
+        <div class="post-content-preview">国内访问Python pip官方镜像源速度非常慢，matplotlib下载速度只有10KB/s，而且下载没一会儿还连接超时。浪费时间不止，几次下载没有一次成功过。最好的解决办法就是给pip增加国内镜像源。按照下面步骤设置好后，matplotlib下载有超百倍提升，从15KB/s提升到3.6MB/s。体积比较小的库下载速度实测满速。
+
+先拿Mac OSX来详细说，终端进入目录：
+
+$ cd ~...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on October 28, 2016
+    </p>
+</div>
+<hr>
+
+
+<!-- Pager -->
+
+<ul class="pager">
+    
+    <li class="previous"><a href="/page2">&larr; 上一页</a></li>
+    
+    
+    <li class="next"><a href="/page4">下一页 &rarr;</a></li>
+    
+</ul>
+
+
+		</div>
+        <div class="
+            col-lg-3 col-lg-offset-0
+            col-md-3 col-md-offset-0
+            col-sm-12
+            col-xs-12
+            sidebar-container">
+
+            <!-- Short About -->
+            <section class="visible-md visible-lg">
+                <hr>
+                <h5><a href="/about/">phantomVK</a></h5>
+                <div class="short-about">
+                    <img src="/img/avatar.jpg" />
+                    <p>世界再无聊，总有可探索的境地</p>
+                    <!-- SNS Link -->
+                    <ul class="list-inline">
+                        
+                        
+                        
+                        <li>
+                            <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                                <span class="fa-stack fa-lg">
+                                    <i class="fa fa-circle fa-stack-2x"></i>
+                                    <i class="fa  fa-stack-1x fa-inverse">知</i>
+                                </span>
+                            </a>
+                        </li>
+                        
+                        
+                        
+                        
+                        <li>
+                            <a target="_blank" href="https://github.com/phantomvk">
+                                <span class="fa-stack fa-lg">
+                                    <i class="fa fa-circle fa-stack-2x"></i>
+                                    <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                                </span>
+                            </a>
+                        </li>
+                        
+                        
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Featured Tags -->
+            
+            <section>
+                <hr class="hidden-sm hidden-xs">
+                <h5><a href="/tags/">标签</a></h5>
+                <div class="tags">
+                    
+                        
+                            <a href="/tags/#Tools" title="Tools" rel="3">
+                                Tools
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Java" title="Java" rel="4">
+                                Java
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Android源码系列" title="Android源码系列" rel="6">
+                                Android源码系列
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Python" title="Python" rel="3">
+                                Python
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Android" title="Android" rel="13">
+                                Android
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Java源码系列" title="Java源码系列" rel="4">
+                                Java源码系列
+                            </a>
+                        
+                    
+                        
+                    
+                </div>
+            </section>
+            
+
+            <!-- Pay -->
+            
+
+            <!-- Friends Blog -->
+            
+            <hr>
+            <h5>好友链接</h5>
+            <ul class="list-inline">
+                <li><a href=""></a></li>
+                <li><a href=""></a></li>
+            </ul>
+		</div>
+	</div>
+</div>
+
+    <footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; phantomVK 2017 | Powered by Jekyll with Hux Theme
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="/js/jquery.min.js "></script>
+<script src="/js/bootstrap.min.js "></script>
+<script src="/js/hux-blog.min.js "></script>
+
+<script type="text/javascript">
+    if(navigator.serviceWorker){
+        navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {console.log('Service Worker Registered. ', registration)})
+            .catch((error) => {console.log('ServiceWorker registration failed: ', error)})
+    }
+</script>
+
+
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<script>
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+
+
+
+</body>
+</html>

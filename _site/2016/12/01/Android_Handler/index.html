@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="phantomvk">
+    <meta name="google-site-verification" content="IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="keywords"  content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="theme-color" content="#000000">
+    <title>Android源码系列(4) -- Handler - phantomVK 博客</title>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <link rel="canonical" href="http://localhost:4000/2016/12/01/Android_Handler/">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+    <link rel="stylesheet" href="/css/syntax.css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body ontouchstart="">
+    <nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">phantomVK</a>
+        </div>
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="/">Home</a></li>
+                    
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/archives/">Archives</a></li>
+                    <li><a href="/tags/">Tags</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            setTimeout(function(){
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+    <!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/main_img.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#Android源码系列" title="Android源码系列">Android源码系列</a>
+                        
+                    </div>
+                    <h1>Android源码系列(4) -- Handler</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by phantomVK on December 1, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+				<h1 id="一作用">一、作用</h1>
+
+<p>Handler有两个主要用法：</p>
+
+<ul>
+  <li>计划在将来某个时间点处理Message和Runnable</li>
+  <li>在不同线程里将一个动作加入Handler所对应的队列去执行</li>
+</ul>
+
+<h1 id="二成员变量">二、成员变量</h1>
+
+<p>Handler有4个不可变成员变量：消息队列<code class="highlighter-rouge">mQueue</code>、消息队列所属<code class="highlighter-rouge">mLooper</code>、可选Handler回调<code class="highlighter-rouge">mCallback</code>、可选异步标志<code class="highlighter-rouge">mAsynchronous</code></p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">final</span> <span class="n">MessageQueue</span> <span class="n">mQueue</span><span class="o">;</span>
+<span class="kd">final</span> <span class="n">Looper</span> <span class="n">mLooper</span><span class="o">;</span>
+<span class="kd">final</span> <span class="n">Callback</span> <span class="n">mCallback</span><span class="o">;</span>
+<span class="kd">final</span> <span class="kt">boolean</span> <span class="n">mAsynchronous</span><span class="o">;</span>
+</code></pre>
+</div>
+
+<h1 id="三构造方法">三、构造方法</h1>
+
+<p>如果线程已经开启Looper，Handler可以使用下面的构造方法。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="nf">Handler</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="kc">null</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nf">Handler</span><span class="o">(</span><span class="n">Callback</span> <span class="n">callback</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="n">callback</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nf">Handler</span><span class="o">(</span><span class="kt">boolean</span> <span class="n">async</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="kc">null</span><span class="o">,</span> <span class="n">async</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nf">Handler</span><span class="o">(</span><span class="n">Callback</span> <span class="n">callback</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">async</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 判断是否匿名类、本地类、成员类，判断修饰符是否static，避免内存泄漏</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">FIND_POTENTIAL_LEAKS</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="n">Class</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="n">Handler</span><span class="o">&gt;</span> <span class="n">klass</span> <span class="o">=</span> <span class="n">getClass</span><span class="o">();</span>
+        <span class="k">if</span> <span class="o">((</span><span class="n">klass</span><span class="o">.</span><span class="na">isAnonymousClass</span><span class="o">()</span> <span class="o">||</span> <span class="n">klass</span><span class="o">.</span><span class="na">isMemberClass</span><span class="o">()</span> <span class="o">||</span> <span class="n">klass</span><span class="o">.</span><span class="na">isLocalClass</span><span class="o">())</span> <span class="o">&amp;&amp;</span>
+                <span class="o">(</span><span class="n">klass</span><span class="o">.</span><span class="na">getModifiers</span><span class="o">()</span> <span class="o">&amp;</span> <span class="n">Modifier</span><span class="o">.</span><span class="na">STATIC</span><span class="o">)</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">Log</span><span class="o">.</span><span class="na">w</span><span class="o">(</span><span class="n">TAG</span><span class="o">,</span> <span class="s">"The following Handler class should be static or leaks might occur: "</span> <span class="o">+</span>
+                <span class="n">klass</span><span class="o">.</span><span class="na">getCanonicalName</span><span class="o">());</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 主动获取Handler所在线程的Looper</span>
+    <span class="n">mLooper</span> <span class="o">=</span> <span class="n">Looper</span><span class="o">.</span><span class="na">myLooper</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mLooper</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span>
+            <span class="s">"Can't create handler inside thread that has not called Looper.prepare()"</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="n">mQueue</span> <span class="o">=</span> <span class="n">mLooper</span><span class="o">.</span><span class="na">mQueue</span><span class="o">;</span>
+    <span class="n">mCallback</span> <span class="o">=</span> <span class="n">callback</span><span class="o">;</span>
+    <span class="n">mAsynchronous</span> <span class="o">=</span> <span class="n">async</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>带Looper形参的构造方法。通常和<code class="highlighter-rouge">Looper.getMainLooper()</code>合用。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="nf">Handler</span><span class="o">(</span><span class="n">Looper</span> <span class="n">looper</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="n">looper</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nf">Handler</span><span class="o">(</span><span class="n">Looper</span> <span class="n">looper</span><span class="o">,</span> <span class="n">Callback</span> <span class="n">callback</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="n">looper</span><span class="o">,</span> <span class="n">callback</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nf">Handler</span><span class="o">(</span><span class="n">Looper</span> <span class="n">looper</span><span class="o">,</span> <span class="n">Callback</span> <span class="n">callback</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">async</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mLooper</span> <span class="o">=</span> <span class="n">looper</span><span class="o">;</span>
+    <span class="n">mQueue</span> <span class="o">=</span> <span class="n">looper</span><span class="o">.</span><span class="na">mQueue</span><span class="o">;</span>
+    <span class="n">mCallback</span> <span class="o">=</span> <span class="n">callback</span><span class="o">;</span>
+    <span class="n">mAsynchronous</span> <span class="o">=</span> <span class="n">async</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h1 id="四封装">四、封装</h1>
+
+<p>作用是把<code class="highlighter-rouge">r</code>赋值给<code class="highlighter-rouge">msg.callback</code>，把<code class="highlighter-rouge">token</code>赋值给<code class="highlighter-rouge">m.obj</code>。因为下一个代码块就使用到这个方法，所以拿到前面先说。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">private</span> <span class="kd">static</span> <span class="n">Message</span> <span class="nf">getPostMessage</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">Message</span> <span class="n">m</span> <span class="o">=</span> <span class="n">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">();</span>
+    <span class="n">m</span><span class="o">.</span><span class="na">callback</span> <span class="o">=</span> <span class="n">r</span><span class="o">;</span>
+    <span class="k">return</span> <span class="n">m</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">private</span> <span class="kd">static</span> <span class="n">Message</span> <span class="nf">getPostMessage</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">,</span> <span class="n">Object</span> <span class="n">token</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">Message</span> <span class="n">m</span> <span class="o">=</span> <span class="n">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">();</span>
+    <span class="n">m</span><span class="o">.</span><span class="na">obj</span> <span class="o">=</span> <span class="n">token</span><span class="o">;</span>
+    <span class="n">m</span><span class="o">.</span><span class="na">callback</span> <span class="o">=</span> <span class="n">r</span><span class="o">;</span>
+    <span class="k">return</span> <span class="n">m</span><span class="o">;</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h1 id="五消息发送">五、消息发送</h1>
+
+<p>方法封装形参<code class="highlighter-rouge">Runnable</code>，方法名组成是 <code class="highlighter-rouge">post()</code></p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">post</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">)</span> <span class="o">{</span>
+   <span class="k">return</span> <span class="nf">sendMessageDelayed</span><span class="o">(</span><span class="n">getPostMessage</span><span class="o">(</span><span class="n">r</span><span class="o">),</span> <span class="mi">0</span><span class="o">);</span> <span class="c1">//delayMillis = 0 </span>
+<span class="o">}</span>
+
+<span class="c1">// 时间单位毫秒，如:delayMillis = 1000</span>
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">postDelayed</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">,</span> <span class="kt">long</span> <span class="n">delayMillis</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">sendMessageDelayed</span><span class="o">(</span><span class="n">getPostMessage</span><span class="o">(</span><span class="n">r</span><span class="o">),</span> <span class="n">delayMillis</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>方法形参是<code class="highlighter-rouge">msg</code>或<code class="highlighter-rouge">msg.what</code>，方法名组成是 <code class="highlighter-rouge">sendMessage()</code>。没有方法形参既有<code class="highlighter-rouge">Runnable</code>，又有<code class="highlighter-rouge">msg</code></p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">sendMessage</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">sendMessageDelayed</span><span class="o">(</span><span class="n">msg</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// msg.what用16进制，如:0x01</span>
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">sendEmptyMessageDelayed</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">,</span> <span class="kt">long</span> <span class="n">delayMillis</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">Message</span> <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">();</span>
+    <span class="n">msg</span><span class="o">.</span><span class="na">what</span> <span class="o">=</span> <span class="n">what</span><span class="o">;</span>
+    <span class="k">return</span> <span class="nf">sendMessageDelayed</span><span class="o">(</span><span class="n">msg</span><span class="o">,</span> <span class="n">delayMillis</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>以上方法带<code class="highlighter-rouge">Delayed</code>可设置延迟时间，带<code class="highlighter-rouge">EmptyMessage</code>为创建空消息。共同点是都调用了<code class="highlighter-rouge">sendMessageDelayed()</code>，并返回这个调用的结果。</p>
+
+<p><code class="highlighter-rouge">SystemClock.uptimeMillis()</code>是从开机到现在的毫秒数，不包括手机睡眠的时间。</p>
+
+<p><code class="highlighter-rouge">postAtTime()</code>重载方法调用了<code class="highlighter-rouge">sendMessageAtTime()</code>。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">postAtTime</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">,</span> <span class="kt">long</span> <span class="n">uptimeMillis</span><span class="o">){</span>
+    <span class="k">return</span> <span class="nf">sendMessageAtTime</span><span class="o">(</span><span class="n">getPostMessage</span><span class="o">(</span><span class="n">r</span><span class="o">),</span> <span class="n">uptimeMillis</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">postAtTime</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">,</span> <span class="n">Object</span> <span class="n">token</span><span class="o">,</span> <span class="kt">long</span> <span class="n">uptimeMillis</span><span class="o">){</span>
+    <span class="k">return</span> <span class="nf">sendMessageAtTime</span><span class="o">(</span><span class="n">getPostMessage</span><span class="o">(</span><span class="n">r</span><span class="o">,</span> <span class="n">token</span><span class="o">),</span> <span class="n">uptimeMillis</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p><code class="highlighter-rouge">sendEmptyMessage()</code>调<code class="highlighter-rouge">sendEmptyMessageDelayed()</code>，<code class="highlighter-rouge">sendEmptyMessageDelayed()</code>和<code class="highlighter-rouge">sendEmptyMessageAtTime</code>最终调用<code class="highlighter-rouge">sendMessageAtTime()</code>。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">sendEmptyMessage</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">sendEmptyMessageDelayed</span><span class="o">(</span><span class="n">what</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">sendMessageDelayed</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">,</span> <span class="kt">long</span> <span class="n">delayMillis</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">delayMillis</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">delayMillis</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="nf">sendMessageAtTime</span><span class="o">(</span><span class="n">msg</span><span class="o">,</span> <span class="n">SystemClock</span><span class="o">.</span><span class="na">uptimeMillis</span><span class="o">()</span> <span class="o">+</span> <span class="n">delayMillis</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">sendEmptyMessageAtTime</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">,</span> <span class="kt">long</span> <span class="n">uptimeMillis</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">Message</span> <span class="n">msg</span> <span class="o">=</span> <span class="n">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">();</span>
+    <span class="n">msg</span><span class="o">.</span><span class="na">what</span> <span class="o">=</span> <span class="n">what</span><span class="o">;</span>
+    <span class="k">return</span> <span class="nf">sendMessageAtTime</span><span class="o">(</span><span class="n">msg</span><span class="o">,</span> <span class="n">uptimeMillis</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>总而言之，上面所有post和send都终结在<code class="highlighter-rouge">sendMessageAtTime()</code>，而<code class="highlighter-rouge">sendMessageAtTime()</code>仅负责把消息确定一个具体执行时间点，然后送进消息队列中。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">sendMessageAtTime</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">,</span> <span class="kt">long</span> <span class="n">uptimeMillis</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">MessageQueue</span> <span class="n">queue</span> <span class="o">=</span> <span class="n">mQueue</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">queue</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">RuntimeException</span> <span class="n">e</span> <span class="o">=</span> <span class="k">new</span> <span class="n">RuntimeException</span><span class="o">(</span>
+                <span class="k">this</span> <span class="o">+</span> <span class="s">" sendMessageAtTime() called with no mQueue"</span><span class="o">);</span>
+        <span class="n">Log</span><span class="o">.</span><span class="na">w</span><span class="o">(</span><span class="s">"Looper"</span><span class="o">,</span> <span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">(),</span> <span class="n">e</span><span class="o">);</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="nf">enqueueMessage</span><span class="o">(</span><span class="n">queue</span><span class="o">,</span> <span class="n">msg</span><span class="o">,</span> <span class="n">uptimeMillis</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>消息默认放在消息队列的队尾处，返回<code class="highlighter-rouge">true</code>代表成功进入队列，不代表消息会被调度。</p>
+
+<p>一般情况下，消息队列都会等待所有消息完成才退出。但如果手动关闭消息队列，那滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">private</span> <span class="kt">boolean</span> <span class="nf">enqueueMessage</span><span class="o">(</span><span class="n">MessageQueue</span> <span class="n">queue</span><span class="o">,</span> <span class="n">Message</span> <span class="n">msg</span><span class="o">,</span> <span class="kt">long</span> <span class="n">uptimeMillis</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">msg</span><span class="o">.</span><span class="na">target</span> <span class="o">=</span> <span class="k">this</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mAsynchronous</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">msg</span><span class="o">.</span><span class="na">setAsynchronous</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">queue</span><span class="o">.</span><span class="na">enqueueMessage</span><span class="o">(</span><span class="n">msg</span><span class="o">,</span> <span class="n">uptimeMillis</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>消息也可以放在消息队列头优先执行，不过这两个方法只能在非常特殊的情况下采取用，因为顺序问题和未知副作用很容易导致队列后方消息发生饥饿。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">postAtFrontOfQueue</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">){</span>
+    <span class="k">return</span> <span class="nf">sendMessageAtFrontOfQueue</span><span class="o">(</span><span class="n">getPostMessage</span><span class="o">(</span><span class="n">r</span><span class="o">));</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">sendMessageAtFrontOfQueue</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">MessageQueue</span> <span class="n">queue</span> <span class="o">=</span> <span class="n">mQueue</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">queue</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">RuntimeException</span> <span class="n">e</span> <span class="o">=</span> <span class="k">new</span> <span class="n">RuntimeException</span><span class="o">(</span>
+            <span class="k">this</span> <span class="o">+</span> <span class="s">" sendMessageAtTime() called with no mQueue"</span><span class="o">);</span>
+        <span class="n">Log</span><span class="o">.</span><span class="na">w</span><span class="o">(</span><span class="s">"Looper"</span><span class="o">,</span> <span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">(),</span> <span class="n">e</span><span class="o">);</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="nf">enqueueMessage</span><span class="o">(</span><span class="n">queue</span><span class="o">,</span> <span class="n">msg</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h1 id="六调度和回调">六、调度和回调</h1>
+
+<h3 id="61-消息调度">6.1 消息调度</h3>
+
+<p>当消息到达预定执行时间，消息所在的Looper就会调用<code class="highlighter-rouge">msg.target.dispatchMessage(msg)</code>，也就是下面方法</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kt">void</span> <span class="nf">dispatchMessage</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">msg</span><span class="o">.</span><span class="na">callback</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">handleCallback</span><span class="o">(</span><span class="n">msg</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mCallback</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mCallback</span><span class="o">.</span><span class="na">handleMessage</span><span class="o">(</span><span class="n">msg</span><span class="o">))</span> <span class="o">{</span>
+                <span class="k">return</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="n">handleMessage</span><span class="o">(</span><span class="n">msg</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h3 id="62-消息回调">6.2 消息回调</h3>
+
+<p>(1) 首先<code class="highlighter-rouge">dispatchMessage(msg)</code>尝试执行消息体的<code class="highlighter-rouge">msg.callback</code>。不过由于上面有<code class="highlighter-rouge">EmptyMessage</code>一类方法的存在，所以<code class="highlighter-rouge">msg.callback</code>可能为空而跳过。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">private</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">handleCallback</span><span class="o">(</span><span class="n">Message</span> <span class="n">message</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">message</span><span class="o">.</span><span class="na">callback</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>(2) <code class="highlighter-rouge">msg.callback</code>不行就看看Handler自己有没有<code class="highlighter-rouge">mCallback</code>。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">Callback</span> <span class="o">{</span>
+    <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">handleMessage</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>例子: 创建Handler时可以实现这个回调，支持操作主线程UI</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="n">Handler</span> <span class="n">handler</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Handler</span><span class="o">(</span><span class="k">new</span> <span class="n">Handler</span><span class="o">.</span><span class="na">Callback</span><span class="o">()</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">handleMessage</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="n">Toast</span><span class="o">.</span><span class="na">makeText</span><span class="o">(</span><span class="n">Activity</span><span class="o">.</span><span class="na">this</span><span class="o">,</span><span class="s">"handleMessage override"</span><span class="o">,</span><span class="n">Toast</span><span class="o">.</span><span class="na">LENGTH_SHORT</span><span class="o">).</span><span class="na">show</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">});</span>
+</code></pre>
+</div>
+
+<p>(3) 如果上两个回调都不存在，就只能寄托于我们自己重载的方法</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleMessage</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">handleMessage</span><span class="o">(</span><span class="n">msg</span><span class="o">);</span>
+    <span class="k">switch</span><span class="o">(</span><span class="n">msg</span><span class="o">.</span><span class="na">what</span><span class="o">){</span>
+        <span class="k">case</span> <span class="nl">START_ACTIVITY:</span>
+            <span class="n">Intent</span> <span class="n">intent</span> <span class="o">=</span> <span class="k">new</span> <span class="n">Intent</span><span class="o">(</span><span class="n">Activity</span><span class="o">.</span><span class="na">this</span><span class="o">,</span> <span class="n">MainActivity</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+            <span class="n">Activity</span><span class="o">.</span><span class="na">this</span><span class="o">.</span><span class="na">startActivity</span><span class="o">(</span><span class="n">intent</span><span class="o">);</span>
+            <span class="k">break</span><span class="o">;</span>
+        <span class="k">case</span> <span class="nl">TOAST_SHORT_SHOW:</span>
+            <span class="n">Toast</span><span class="o">.</span><span class="na">makeText</span><span class="o">(</span><span class="n">Activity</span><span class="o">.</span><span class="na">this</span><span class="o">,</span> <span class="s">"Toast"</span><span class="o">,</span> <span class="n">Toast</span><span class="o">.</span><span class="na">LENGTH_SHORT</span><span class="o">).</span><span class="na">show</span><span class="o">();</span>
+            <span class="k">break</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h1 id="七移除消息">七、移除消息</h1>
+
+<p>根据消息身份<code class="highlighter-rouge">what</code>、消息<code class="highlighter-rouge">Runnable</code>或<code class="highlighter-rouge">msg.obj</code>移除队列中对应的消息。例如发送<code class="highlighter-rouge">msg</code>，用同一个<code class="highlighter-rouge">msg.what</code>作为参数。所有方法最终调用<code class="highlighter-rouge">MessageQueue.removeMessages</code>，具体在<code class="highlighter-rouge">MessageQueue</code>的源码阅读里面说。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kt">void</span> <span class="nf">removeCallbacks</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mQueue</span><span class="o">.</span><span class="na">removeMessages</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">r</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">void</span> <span class="nf">removeCallbacks</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">,</span> <span class="n">Object</span> <span class="n">token</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mQueue</span><span class="o">.</span><span class="na">removeMessages</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">r</span><span class="o">,</span> <span class="n">token</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">void</span> <span class="nf">removeMessages</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mQueue</span><span class="o">.</span><span class="na">removeMessages</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">what</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">void</span> <span class="nf">removeMessages</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">,</span> <span class="n">Object</span> <span class="n">object</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mQueue</span><span class="o">.</span><span class="na">removeMessages</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">what</span><span class="o">,</span> <span class="n">object</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">void</span> <span class="nf">removeCallbacksAndMessages</span><span class="o">(</span><span class="n">Object</span> <span class="n">token</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mQueue</span><span class="o">.</span><span class="na">removeCallbacksAndMessages</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">token</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h1 id="八查找消息">八、查找消息</h1>
+
+<p>查看对应消息是否存在</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">hasMessages</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mQueue</span><span class="o">.</span><span class="na">hasMessages</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">what</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">hasMessages</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">,</span> <span class="n">Object</span> <span class="n">object</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mQueue</span><span class="o">.</span><span class="na">hasMessages</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">what</span><span class="o">,</span> <span class="n">object</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">hasCallbacks</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">r</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mQueue</span><span class="o">.</span><span class="na">hasMessages</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">r</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h1 id="九阻塞非安全执行">九、阻塞非安全执行</h1>
+
+<p>如果当前执行线程是Handler的线程，Runnable会被立刻执行。否则把它放在消息队列中一直等待执行完毕或者超时。超时后这个任务还是在队列中，在后面的某个时刻它仍然会执行，很有可能造成死锁，所以尽量不要用它。</p>
+
+<p>这个方法使用场景是Android初始化一个WindowManagerService，因为WindowManagerService不成功，其他组件就不允许继续，所以使用阻塞的方式直到完成。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">runWithScissors</span><span class="o">(</span><span class="kd">final</span> <span class="n">Runnable</span> <span class="n">r</span><span class="o">,</span> <span class="kt">long</span> <span class="n">timeout</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">r</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">(</span><span class="s">"runnable must not be null"</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">timeout</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">(</span><span class="s">"timeout must be non-negative"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">Looper</span><span class="o">.</span><span class="na">myLooper</span><span class="o">()</span> <span class="o">==</span> <span class="n">mLooper</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">r</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="c1">// 一个阻塞的队列</span>
+    <span class="n">BlockingRunnable</span> <span class="n">br</span> <span class="o">=</span> <span class="k">new</span> <span class="n">BlockingRunnable</span><span class="o">(</span><span class="n">r</span><span class="o">);</span>
+    <span class="k">return</span> <span class="n">br</span><span class="o">.</span><span class="na">postAndWait</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">timeout</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="n">IMessenger</span> <span class="n">mMessenger</span><span class="o">;</span>  <span class="c1">// IPC</span>
+
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">BlockingRunnable</span> <span class="kd">implements</span> <span class="n">Runnable</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="n">Runnable</span> <span class="n">mTask</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kt">boolean</span> <span class="n">mDone</span><span class="o">;</span>
+
+    <span class="kd">public</span> <span class="nf">BlockingRunnable</span><span class="o">(</span><span class="n">Runnable</span> <span class="n">task</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">mTask</span> <span class="o">=</span> <span class="n">task</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="n">mTask</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+        <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+            <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">mDone</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+                <span class="n">notifyAll</span><span class="o">();</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">postAndWait</span><span class="o">(</span><span class="n">Handler</span> <span class="n">handler</span><span class="o">,</span> <span class="kt">long</span> <span class="n">timeout</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">handler</span><span class="o">.</span><span class="na">post</span><span class="o">(</span><span class="k">this</span><span class="o">))</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span>
+
+        <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">timeout</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                <span class="kd">final</span> <span class="kt">long</span> <span class="n">expirationTime</span> <span class="o">=</span> <span class="n">SystemClock</span><span class="o">.</span><span class="na">uptimeMillis</span><span class="o">()</span> <span class="o">+</span> <span class="n">timeout</span><span class="o">;</span>
+                <span class="k">while</span> <span class="o">(!</span><span class="n">mDone</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="kt">long</span> <span class="n">delay</span> <span class="o">=</span> <span class="n">expirationTime</span> <span class="o">-</span> <span class="n">SystemClock</span><span class="o">.</span><span class="na">uptimeMillis</span><span class="o">();</span>
+                    <span class="k">if</span> <span class="o">(</span><span class="n">delay</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span> <span class="c1">// timeout</span>
+                    <span class="o">}</span>
+                    <span class="k">try</span> <span class="o">{</span>
+                        <span class="n">wait</span><span class="o">(</span><span class="n">delay</span><span class="o">);</span>
+                    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">InterruptedException</span> <span class="n">ex</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="o">}</span>
+                <span class="o">}</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="k">while</span> <span class="o">(!</span><span class="n">mDone</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="k">try</span> <span class="o">{</span>
+                        <span class="n">wait</span><span class="o">();</span>
+                    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="n">InterruptedException</span> <span class="n">ex</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="o">}</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h1 id="十获取消息名">十、获取消息名</h1>
+
+<p>获取消息里Handler的类名，或消息msg.what的16进制值。如果我们开始就使用16进制设置，这里不用换算就能对应起来。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="n">String</span> <span class="nf">getMessageName</span><span class="o">(</span><span class="n">Message</span> <span class="n">message</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">message</span><span class="o">.</span><span class="na">callback</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">message</span><span class="o">.</span><span class="na">callback</span><span class="o">.</span><span class="na">getClass</span><span class="o">().</span><span class="na">getName</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="s">"0x"</span> <span class="o">+</span> <span class="n">Integer</span><span class="o">.</span><span class="na">toHexString</span><span class="o">(</span><span class="n">message</span><span class="o">.</span><span class="na">what</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<p>获取空消息体的重载方法</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">public</span> <span class="kd">final</span> <span class="n">Message</span> <span class="nf">obtainMessage</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">(</span><span class="k">this</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="n">Message</span> <span class="nf">obtainMessage</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">what</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="n">Message</span> <span class="nf">obtainMessage</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">,</span> <span class="n">Object</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">what</span><span class="o">,</span> <span class="n">obj</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="n">Message</span> <span class="nf">obtainMessage</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">,</span> <span class="kt">int</span> <span class="n">arg1</span><span class="o">,</span> <span class="kt">int</span> <span class="n">arg2</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">what</span><span class="o">,</span> <span class="n">arg1</span><span class="o">,</span> <span class="n">arg2</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kd">final</span> <span class="n">Message</span> <span class="nf">obtainMessage</span><span class="o">(</span><span class="kt">int</span> <span class="n">what</span><span class="o">,</span> <span class="kt">int</span> <span class="n">arg1</span><span class="o">,</span> <span class="kt">int</span> <span class="n">arg2</span><span class="o">,</span> <span class="n">Object</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">what</span><span class="o">,</span> <span class="n">arg1</span><span class="o">,</span> <span class="n">arg2</span><span class="o">,</span> <span class="n">obj</span><span class="o">);</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+<h1 id="十一其他">十一、其他</h1>
+
+<p>剩下这个方法关于跨进程通讯的Messager，在AIDL中使用。</p>
+
+<div class="language-java highlighter-rouge"><pre class="highlight"><code><span class="kd">private</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">MessengerImpl</span> <span class="kd">extends</span> <span class="n">IMessenger</span><span class="o">.</span><span class="na">Stub</span> <span class="o">{</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">send</span><span class="o">(</span><span class="n">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">msg</span><span class="o">.</span><span class="na">sendingUid</span> <span class="o">=</span> <span class="n">Binder</span><span class="o">.</span><span class="na">getCallingUid</span><span class="o">();</span>
+        <span class="n">Handler</span><span class="o">.</span><span class="na">this</span><span class="o">.</span><span class="na">sendMessage</span><span class="o">(</span><span class="n">msg</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</code></pre>
+</div>
+
+
+                <hr style="visibility: hidden;">
+                <ul class="pager">
+                    
+                    <li class="previous">
+                        <a href="/2016/11/28/ubuntu_cuda/" data-toggle="tooltip" data-placement="top" title="深度学习环境配置: Ubuntu16.04 & CUDA8.0">
+                        上一篇<br>
+                        <span>深度学习环境配置: Ubuntu16.04 & CUDA8.0</span>
+                        </a>
+                    </li>
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/12/03/Android_Looper/" data-toggle="tooltip" data-placement="top" title="Android源码系列(5) -- Looper">
+                        下一篇<br>
+                        <span>Android源码系列(5) -- Looper</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+                
+            </div>  
+
+            <!-- Side Catalog Container -->
+            
+                <div class="
+                    col-lg-2 col-lg-offset-0
+                    visible-lg-block
+                    sidebar-container
+                    catalog-container">
+                    <div class="side-catalog">
+                        <hr class="hidden-sm hidden-xs">
+                        <h5>
+                            <a class="catalog-toggle" href="#">目录</a>
+                        </h5>
+                        <ul class="catalog-body"></ul>
+                    </div>
+                </div>
+            
+
+            <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">标签</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#Tools" title="Tools" rel="3">Tools</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java" title="Java" rel="4">Java</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android源码系列" title="Android源码系列" rel="6">Android源码系列</a>
+                            
+        				
+                            
+                				<a href="/tags/#Python" title="Python" rel="3">Python</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android" title="Android" rel="13">Android</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java源码系列" title="Java源码系列" rel="4">Java源码系列</a>
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                
+                <hr>
+                <h5>友情链接</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href=""></a></li>
+                    
+                        <li><a href=""></a></li>
+                    
+                </ul>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+    <footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; phantomVK 2017 | Powered by Jekyll with Hux Theme
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="/js/jquery.min.js "></script>
+<script src="/js/bootstrap.min.js "></script>
+<script src="/js/hux-blog.min.js "></script>
+
+<script type="text/javascript">
+    if(navigator.serviceWorker){
+        navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {console.log('Service Worker Registered. ', registration)})
+            .catch((error) => {console.log('ServiceWorker registration failed: ', error)})
+    }
+</script>
+
+
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<script>
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+</body>
+</html>

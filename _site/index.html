@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="phantomvk">
+    <meta name="google-site-verification" content="IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="keywords"  content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="theme-color" content="#000000">
+    <title>phantomVK 博客</title>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <link rel="canonical" href="http://localhost:4000/">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+    <link rel="stylesheet" href="/css/syntax.css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body ontouchstart="">
+    <nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">phantomVK</a>
+        </div>
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="/">Home</a></li>
+                    
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/archives/">Archives</a></li>
+                    <li><a href="/tags/">Tags</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            setTimeout(function(){
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+    <!-- Page Header -->
+<header class="intro-header" style="background-image: url('/img/home.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 ">
+                <div class="site-heading">
+                    <h1>phantomVK</h1>
+                    <span class="subheading">Cease to struggle and you cease to live.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<div class="container">
+	<div class="row">
+        
+
+		<div class="
+            col-lg-8 col-lg-offset-1
+            col-md-8 col-md-offset-1
+            col-sm-12
+            col-xs-12
+            postlist-container">
+			
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="post-preview">
+    <a href="/2017/08/27/HeightListView/">
+        <h2 class="post-title">HeightListView - 自适应TextView高度</h2>
+        
+        <div class="post-content-preview">使用Adapter可能需要在一个item里包含ListView控件动态展示多个TextView。普通的ListView会出现所有的TextView只显示第一行而不是多行内容的问题。
+
+问题的根源是ListView没有正确计算出每个TextView文字需要的高度，仅显示一行文字的高度。
+
+重写的的类中，把计算高度的onItemsChanged()通过DataSetObserver绑定到数据对应...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on August 27, 2017
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2017/08/13/view_measure_note/">
+        <h2 class="post-title">View测量代码笔记</h2>
+        
+        <div class="post-content-preview">在网上看见两种对View测量大小的方法。初步测量的数值没有问题，所以先做个笔记记录，以后深入研究。
+
+// 方法一
+view.measure(0, 0);
+view.getMeasuredHeight();
+
+// 方法二
+view.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLay...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on August 13, 2017
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2017/06/06/new_permission/">
+        <h2 class="post-title">Android 22授权获取失败导致闪退</h2>
+        
+        <div class="post-content-preview">从Android 6.0版本开始，系统启用更加严格的权限管理，部分重要权限只能在运行过程由用户授权，无法通过声明获得。如READ_PHONE_STATE这种权限，即使在AndroidManifest中已经声明，如果既没有在运行时向用户请求，又没有做相应处理，就会导致应用闪退。
+
+java.lang.RuntimeException: Error receiving broadcast Int...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on June 6, 2017
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2017/06/05/ndk/">
+        <h2 class="post-title">dlopen is 32-bit instead of 64-bit</h2>
+        
+        <div class="post-content-preview">有的手机默认支持64位，启动的时候会尝试加载64位的so。不过包却不一定对64位做出支持。当系统无法加载到理想的包，就会抛出以下异常。
+
+06-01 14:40:51.903 25196-25196/com.abc.app.pkg E/art: 
+    dlopen("/data/data/com.abc.app.pkg/files/libs/libBaiduMapSDK_base_v4_...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on June 5, 2017
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2017/05/10/Gradle_build/">
+        <h2 class="post-title">Gradle构建安装包</h2>
+        
+        <div class="post-content-preview">一、默认配置
+
+android域 defaultConfig 包含应用默认包名、最低SDK版本、目标SDK版本、应用版本序号和应用版本代号。如果其他地方配置相同参数，新的参数会覆盖默认参数。
+
+android {
+    compileSdkVersion 25
+    buildToolsVersion "25.0.2"
+    defaultConfig {
+        applic...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on May 10, 2017
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2017/04/25/month-days/">
+        <h2 class="post-title">计算月天数</h2>
+        
+        <div class="post-content-preview">计算月有多少天，已包括闰年的情况
+
+days = ( month == 2 ) ? ( 28 + isLeapYear ) : 31 - ( month - 1 ) % 7 % 2;
+
+
+
+</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on April 25, 2017
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2017/04/25/menu-icon/">
+        <h2 class="post-title">Android ActionBar溢出菜单icon</h2>
+        
+        <div class="post-content-preview">两个方法都通过反射的方式调用图标显示方法，差别是不同Android版本会调用不同方法名，所以总有一个会被成功调用。
+
+@Override
+public boolean onMenuOpened(int featureId, Menu menu) {
+    if (featureId == Window.FEATURE_ACTION_BAR &amp;&amp; menu != null) ...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on April 25, 2017
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2017/03/25/AbstractStringBuilder/">
+        <h2 class="post-title">Java源码系列(4) -- AbstractStringBuilder</h2>
+        
+        <div class="post-content-preview">一、类签名
+
+AbstractStringBuilder是StringBuilder和StringBuffer的父类，包含字符串操作的实现逻辑，子类根据各自需求对方法调用做同步处理，本身是线程不安全的。作为可变字符串的父类，AbstractStringBuilder借助字符数组的形式实现可变字符串，类中大部分方法是字符修改、插入、追加等操作。
+
+abstract class Abstract...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on March 25, 2017
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2017/03/06/StringBuffer/">
+        <h2 class="post-title">Java源码系列(3) -- StringBuffer</h2>
+        
+        <div class="post-content-preview">一、类签名
+
+相信看过 Java源码系列(2) – StringBuilder 的读者都了解StringBuilder和StringBuffer的异同，这里我们再复习一次加深印象。
+
+public final class StringBuffer
+    extends AbstractStringBuilder
+    implements java.io.Serializable, Ch...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on March 6, 2017
+    </p>
+</div>
+<hr>
+
+<div class="post-preview">
+    <a href="/2017/02/28/LruCache/">
+        <h2 class="post-title">Android源码系列(6) -- LruCache</h2>
+        
+        <div class="post-content-preview">一、类签名
+
+LruCache是Android提供的一个缓存工具类，根据最近最少使用算法缓存item，避免因缓存item过多导致内存占用巨大，或内存释放不及时引起内存溢出。
+
+public class LruCache&lt;K, V&gt;
+
+
+
+资源缓存除了Lru思想外，还有巧妙利用Java里4种对象引用类型完成内存回收。这4种类型分别是强、软、弱、虚。详情请自行阅读《深入理解Java虚...</div>
+    </a>
+    <p class="post-meta">
+        Posted by phantomVK on February 28, 2017
+    </p>
+</div>
+<hr>
+
+
+<!-- Pager -->
+
+<ul class="pager">
+    
+    
+    <li class="next"><a href="/page2">下一页 &rarr;</a></li>
+    
+</ul>
+
+
+		</div>
+        <div class="
+            col-lg-3 col-lg-offset-0
+            col-md-3 col-md-offset-0
+            col-sm-12
+            col-xs-12
+            sidebar-container">
+
+            <!-- Short About -->
+            <section class="visible-md visible-lg">
+                <hr>
+                <h5><a href="/about/">phantomVK</a></h5>
+                <div class="short-about">
+                    <img src="/img/avatar.jpg" />
+                    <p>世界再无聊，总有可探索的境地</p>
+                    <!-- SNS Link -->
+                    <ul class="list-inline">
+                        
+                        
+                        
+                        <li>
+                            <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                                <span class="fa-stack fa-lg">
+                                    <i class="fa fa-circle fa-stack-2x"></i>
+                                    <i class="fa  fa-stack-1x fa-inverse">知</i>
+                                </span>
+                            </a>
+                        </li>
+                        
+                        
+                        
+                        
+                        <li>
+                            <a target="_blank" href="https://github.com/phantomvk">
+                                <span class="fa-stack fa-lg">
+                                    <i class="fa fa-circle fa-stack-2x"></i>
+                                    <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                                </span>
+                            </a>
+                        </li>
+                        
+                        
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Featured Tags -->
+            
+            <section>
+                <hr class="hidden-sm hidden-xs">
+                <h5><a href="/tags/">标签</a></h5>
+                <div class="tags">
+                    
+                        
+                            <a href="/tags/#Tools" title="Tools" rel="3">
+                                Tools
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Java" title="Java" rel="4">
+                                Java
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Android源码系列" title="Android源码系列" rel="6">
+                                Android源码系列
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Python" title="Python" rel="3">
+                                Python
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Android" title="Android" rel="13">
+                                Android
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Java源码系列" title="Java源码系列" rel="4">
+                                Java源码系列
+                            </a>
+                        
+                    
+                        
+                    
+                </div>
+            </section>
+            
+
+            <!-- Pay -->
+            
+
+            <!-- Friends Blog -->
+            
+            <hr>
+            <h5>好友链接</h5>
+            <ul class="list-inline">
+                <li><a href=""></a></li>
+                <li><a href=""></a></li>
+            </ul>
+		</div>
+	</div>
+</div>
+
+    <footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; phantomVK 2017 | Powered by Jekyll with Hux Theme
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="/js/jquery.min.js "></script>
+<script src="/js/bootstrap.min.js "></script>
+<script src="/js/hux-blog.min.js "></script>
+
+<script type="text/javascript">
+    if(navigator.serviceWorker){
+        navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {console.log('Service Worker Registered. ', registration)})
+            .catch((error) => {console.log('ServiceWorker registration failed: ', error)})
+    }
+</script>
+
+
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<script>
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+
+
+
+</body>
+</html>

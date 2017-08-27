@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="phantomvk">
+    <meta name="google-site-verification" content="IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="keywords"  content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="theme-color" content="#000000">
+    <title>Hadoop伪分布式搭建 - phantomVK 博客</title>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <link rel="canonical" href="http://localhost:4000/2016/10/09/Hadoop_build/">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+    <link rel="stylesheet" href="/css/syntax.css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body ontouchstart="">
+    <nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">phantomVK</a>
+        </div>
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="/">Home</a></li>
+                    
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/archives/">Archives</a></li>
+                    <li><a href="/tags/">Tags</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            setTimeout(function(){
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+    <!-- Post Header -->
+<style type="text/css">
+    header.intro-header{
+        position: relative;
+        background-image: url('/img/home.jpg')
+    }
+
+    
+</style>
+<header class="intro-header" >
+    <div class="header-mask"></div>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <div class="post-heading">
+                    <div class="tags">
+                        
+                        <a class="tag" href="/tags/#Tools" title="Tools">Tools</a>
+                        
+                    </div>
+                    <h1>Hadoop伪分布式搭建</h1>
+                    
+                    
+                    <h2 class="subheading"></h2>
+                    
+                    <span class="meta">Posted by phantomVK on October 9, 2016</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+<!-- Post Content -->
+<article>
+    <div class="container">
+        <div class="row">
+            <!-- Post Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                post-container">
+				<h2 id="系统环境">系统环境</h2>
+
+<p><strong>运行环境：<code class="highlighter-rouge">Ubuntu 16.04 LTS AMD64</code> 、<code class="highlighter-rouge">openJDK 9</code>、<code class="highlighter-rouge">Hadoop-1.2.1</code>、<code class="highlighter-rouge">openSSH</code></strong></p>
+
+<h2 id="一jdk安装及配置">一、JDK安装及配置</h2>
+
+<h4 id="安装jdk">安装JDK</h4>
+
+<p>Hadoop依赖JDK，请确认系统已经安装JDK。安装参考 <strong><a href="http://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/">Ubuntu安装Oracle JDK8</a></strong></p>
+
+<h2 id="二-hadoop安装及配置">二、 Hadoop安装及配置</h2>
+
+<h3 id="21-下载hadoop">2.1 下载Hadoop</h3>
+
+<p>一个版本不太高的Hadoop，通过<code class="highlighter-rouge">wget</code>下载<a href="https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common">清华大学镜像源</a>，然后解压到<code class="highlighter-rouge">/opt</code></p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span><span class="nb">cd</span> /opt
+<span class="gp">$ </span>wget https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common/hadoop-1.2.1/hadoop-1.2.1.tar.gz
+<span class="gp">$ </span>tar -zxvf hadoop-1.2.1.tar.gz
+</code></pre>
+</div>
+
+<h3 id="22-配置hadoop参数">2.2 配置Hadoop参数</h3>
+
+<h4 id="221-配置文件路径">2.2.1 配置文件路径</h4>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span><span class="nb">cd</span> /opt/hadoop-1.2.1/conf
+</code></pre>
+</div>
+
+<h4 id="222-配置hadoop-envsh">2.2.2 配置hadoop-env.sh</h4>
+
+<p>在文件中添加安装<code class="highlighter-rouge">JDK</code>的路径，这里用的是<code class="highlighter-rouge">openJDK</code></p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>vim hadoop-env.sh  
+
+ <span class="nb">export </span><span class="nv">JAVA_HOME</span><span class="o">=</span>/usr/lib/jvm/java-9-openjdk-amd64 
+</code></pre>
+</div>
+
+<h4 id="223-配置core-sitexml">2.2.3 配置core-site.xml</h4>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>vim core-site.xml
+</code></pre>
+</div>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="nt">&lt;configuration&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>hadoop.tmp.dir<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>/hadoop<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>dfs.name.dir<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>/hadoop/name<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>fs.default.name<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>hdfs://localhost:9000<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+<span class="nt">&lt;/configuration&gt;</span>
+</code></pre>
+</div>
+
+<h4 id="224-配置hdfs-sitexml">2.2.4 配置hdfs-site.xml</h4>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>vim hdfs-site.xml
+</code></pre>
+</div>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="nt">&lt;configuration&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>dfs.data.dir<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>/hadoop/data<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+<span class="nt">&lt;/configuration&gt;</span>
+</code></pre>
+</div>
+
+<h4 id="225-配置mapred-sitexml">2.2.5 配置mapred-site.xml</h4>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>vim mapred-site.xml
+</code></pre>
+</div>
+
+<div class="language-xml highlighter-rouge"><pre class="highlight"><code><span class="nt">&lt;configuration&gt;</span>
+    <span class="nt">&lt;property&gt;</span>
+        <span class="nt">&lt;name&gt;</span>mapred.job.tracker<span class="nt">&lt;/name&gt;</span>
+        <span class="nt">&lt;value&gt;</span>localhost:9001<span class="nt">&lt;/value&gt;</span>
+    <span class="nt">&lt;/property&gt;</span>
+<span class="nt">&lt;/configuration&gt;</span>
+</code></pre>
+</div>
+
+<h4 id="226-配置etcprofile">2.2.6 配置/etc/profile</h4>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>vim /etc/profile
+</code></pre>
+</div>
+
+<p>增加下面配置</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code> export HADOOP_HOME=/opt/hadoop-1.2.1 
+</code></pre>
+</div>
+
+<p>然后在相同文件的<code class="highlighter-rouge">PATH</code>变量中追加参数<code class="highlighter-rouge">$HADOOP_HOME/bin:</code>，保存退出后调用下列命令刷新<code class="highlighter-rouge">profile</code></p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span><span class="nb">source</span> /etc/profile
+</code></pre>
+</div>
+
+<h3 id="23-初始化namenode">2.3 初始化NameNode</h3>
+
+<p>运行命令后会自动开始格式化，看见NameNode自动关闭即可</p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>hadoop namenode -format 
+<span class="k">************************************************************</span>
+STARTUP_MSG: Starting NameNode
+STARTUP_MSG:   host <span class="o">=</span> mike-virtual-machine/127.0.1.1
+STARTUP_MSG:   args <span class="o">=</span> <span class="o">[</span>-format]
+STARTUP_MSG:   version <span class="o">=</span> 1.2.1
+STARTUP_MSG:   build <span class="o">=</span> https://svn.apache.org/repos/asf/hadoop/common/branches/branch-1.2 -r 1503152; compiled by <span class="s1">'mattf'</span> on Mon Jul 22 15:23:09 PDT 2013
+STARTUP_MSG:   java <span class="o">=</span> 9-internal
+<span class="k">************************************************************</span>/
+16/06/18 11:36:16 INFO util.GSet: Computing capacity <span class="k">for </span>map BlocksMap
+16/06/18 11:36:16 INFO util.GSet: VM <span class="nb">type</span>       <span class="o">=</span> 64-bit
+16/06/18 11:36:16 INFO util.GSet: 2.0% max memory <span class="o">=</span> 1048576000
+16/06/18 11:36:16 INFO util.GSet: capacity      <span class="o">=</span> 2^21 <span class="o">=</span> 2097152 entries
+16/06/18 11:36:16 INFO util.GSet: <span class="nv">recommended</span><span class="o">=</span>2097152, <span class="nv">actual</span><span class="o">=</span>2097152
+16/06/18 11:36:17 INFO namenode.FSNamesystem: <span class="nv">fsOwner</span><span class="o">=</span>root
+16/06/18 11:36:17 INFO namenode.FSNamesystem: <span class="nv">supergroup</span><span class="o">=</span>supergroup
+16/06/18 11:36:17 INFO namenode.FSNamesystem: <span class="nv">isPermissionEnabled</span><span class="o">=</span><span class="nb">true
+</span>16/06/18 11:36:17 INFO namenode.FSNamesystem: dfs.block.invalidate.limit<span class="o">=</span>100
+16/06/18 11:36:17 INFO namenode.FSNamesystem: <span class="nv">isAccessTokenEnabled</span><span class="o">=</span><span class="nb">false </span><span class="nv">accessKeyUpdateInterval</span><span class="o">=</span>0 min<span class="o">(</span>s<span class="o">)</span>, <span class="nv">accessTokenLifetime</span><span class="o">=</span>0 min<span class="o">(</span>s<span class="o">)</span>
+16/06/18 11:36:17 INFO namenode.FSEditLog: dfs.namenode.edits.toleration.length <span class="o">=</span> 0
+16/06/18 11:36:17 INFO namenode.NameNode: Caching file names occuring more than 10 <span class="nb">times 
+</span>16/06/18 11:36:17 INFO common.Storage: Image file /hadoop/dfs/name/current/fsimage of size 110 bytes saved <span class="k">in </span>0 seconds.
+16/06/18 11:36:17 INFO namenode.FSEditLog: closing edit log: <span class="nv">position</span><span class="o">=</span>4, <span class="nv">editlog</span><span class="o">=</span>/hadoop/dfs/name/current/edits
+16/06/18 11:36:17 INFO namenode.FSEditLog: close success: truncate to 4, <span class="nv">editlog</span><span class="o">=</span>/hadoop/dfs/name/current/edits
+16/06/18 11:36:17 INFO common.Storage: Storage directory /hadoop/dfs/name has been successfully formatted.
+16/06/18 11:36:17 INFO namenode.NameNode: SHUTDOWN_MSG: 
+/<span class="k">************************************************************</span>
+SHUTDOWN_MSG: Shutting down NameNode at mike-virtual-machine/127.0.1.1
+<span class="k">************************************************************</span>/
+</code></pre>
+</div>
+
+<h2 id="三-启动hadoop服务">三、 启动Hadoop服务</h2>
+
+<h4 id="31-启动">3.1 启动</h4>
+
+<p>进入Hadoop目录下，通过脚本启动Hadoop</p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span><span class="nb">cd</span> /opt/hadoop-1.2.1/bin
+<span class="gp">$ </span>./start_all.sh
+</code></pre>
+</div>
+
+<p>运行结果</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>starting namenode, logging to /opt/hadoop-1.2.1/libexec/../logs/hadoop-root-namenode-mike-virtual-machine.out
+localhost: Warning: Permanently added 'localhost' (ECDSA) to the list of known hosts.
+root@localhost's password: 
+localhost: 
+localhost: starting datanode, logging to /opt/hadoop-1.2.1/libexec/../logs/hadoop-root-datanode-mike-virtual-machine.out
+localhost: Warning: Permanently added 'localhost' (ECDSA) to the list of known hosts.
+root@localhost's password: 
+localhost: 
+localhost: starting secondarynamenode, logging to /opt/hadoop-1.2.1/libexec/../logs/hadoop-root-secondarynamenode-mike-virtual-machine.out
+starting jobtracker, logging to /opt/hadoop-1.2.1/libexec/../logs/hadoop-root-jobtracker-mike-virtual-machine.out
+localhost: Warning: Permanently added 'localhost' (ECDSA) to the list of known hosts.
+root@localhost's password: 
+localhost: 
+localhost: starting tasktracker, logging to /opt/hadoop-1.2.1/libexec/../logs/hadoop-root-tasktracker-mike-virtual-machine.out
+</code></pre>
+</div>
+
+<p>用<code class="highlighter-rouge">jps</code>看看已经开启的JVM进程，看见如下服务表示Hadoop已经启动</p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>jps
+ 2531 DataNode
+ 2524 NameNode
+ 2678 SecondaryNameNode
+ 2778 JobTracker
+ 2940 TaskTracker
+ 3039 sun.tools.jps.Jps
+</code></pre>
+</div>
+
+<h2 id="四-疑难解答">四、 疑难解答</h2>
+
+<h4 id="41-解决-etcprofile-失效">4.1 解决 /etc/profile 失效</h4>
+
+<p>在<code class="highlighter-rouge">~/.bashrc</code>添加环境变量</p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span><span class="nb">cd</span> ~
+<span class="gp">$ </span>vim .bashrc
+  <span class="nb">export </span><span class="nv">HADOOP_HOME_WARN_SUPPRESS</span><span class="o">=</span>1
+  <span class="nb">export </span><span class="nv">HADOOP_HOME</span><span class="o">=</span>/opt/hadoop-1.2.1
+  <span class="nb">export </span><span class="nv">JAVA_HOME</span><span class="o">=</span>/usr/lib/jvm/java-9-openjdk-amd64/
+  <span class="nb">export </span><span class="nv">JER_HOME</span><span class="o">=</span><span class="nv">$JAVA_HOME</span>/jre
+  <span class="nb">export </span><span class="nv">CLASSPATH</span><span class="o">=</span><span class="nv">$JAVA_HOME</span>/lib:<span class="nv">$JRE_HOME</span>/lib:<span class="nv">$CLASSPATH</span>
+  <span class="nb">export </span><span class="nv">PATH</span><span class="o">=</span><span class="nv">$JAVA_HOME</span>/bin:<span class="nv">$JRE_HOME</span>/bin:<span class="nv">$HADOOP_HOME</span>/bin:<span class="nv">$PATH</span>
+<span class="gp">$ </span><span class="nb">source</span> .bashrc
+</code></pre>
+</div>
+
+<h4 id="42-找不到配置文件">4.2 找不到配置文件</h4>
+
+<p>这个错误可能只在使用openJDK的时候才出现</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>Error: Config file not found: /usr/lib/jvm/java-9-openjdk-amd64/conf/management/management.properties
+</code></pre>
+</div>
+
+<p>原因是软链接不存在，手动创建正确软链接即可</p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span><span class="nb">cd</span> /usr/lib/jvm/java-9-openjdk-amd64
+<span class="gp">$ </span>touch conf
+<span class="gp">$ </span>ln -s lib conf
+<span class="gp">$ </span>ls -la conf
+ lrwxrwxrwx 1 root root 3 6月  16 17:24 conf -<span class="nv">$ </span>lib
+</code></pre>
+</div>
+
+<h4 id="43-hadoop_home报deprecated">4.3 HADOOP_HOME报deprecated</h4>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code>Warning: <span class="nv">$HADOOP_HOME</span> is deprecated
+</code></pre>
+</div>
+
+<p>在<code class="highlighter-rouge">~/.bash_profile</code>里增加一个环境变量抑制错误提示</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>export HADOOP_HOME_WARN_SUPPRESS=1
+</code></pre>
+</div>
+
+<h4 id="44-ssh无法连接">4.4 SSH无法连接</h4>
+
+<p>没有安装<code class="highlighter-rouge">openSSH</code>服务导致</p>
+
+<div class="highlighter-rouge"><pre class="highlight"><code>localhost: ssh: connect to host localhost port 22: Connection refused
+</code></pre>
+</div>
+
+<p>下载<code class="highlighter-rouge">openssh-server</code></p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>ssh-agent
+<span class="gp">$ </span>apt-get install openssh-server
+</code></pre>
+</div>
+
+<p>配置<code class="highlighter-rouge">ssh_config</code></p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span><span class="nb">cd</span> /etc/ssh/ssh_config
+    StrictHostKeyChecking no     <span class="c"># 修改为no</span>
+    UserKnownHostsFile /dev/null <span class="c"># 添加这行</span>
+</code></pre>
+</div>
+
+<p>配置<code class="highlighter-rouge">sshd_config</code></p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span><span class="nb">cd</span> /etc/ssh/sshd_config
+    PermitRootLogin prohibit-password        <span class="c"># 改为 yes</span>
+    PasswordAuthentication prohibit-password <span class="c"># 取消注释</span>
+</code></pre>
+</div>
+
+<p>重启系统，开启<code class="highlighter-rouge">ssh</code>服务</p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>service sshd restart
+<span class="gp">$ </span>ssh localhost <span class="c"># 检查ssh服务</span>
+</code></pre>
+</div>
+
+<h4 id="45-安装dpkg报错">4.5 安装dpkg报错</h4>
+
+<p>多个窗口同时使用<code class="highlighter-rouge">apt-get</code>会出现这个错误，不要同时使用就好了。</p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code>.....
+.....
+E:Sub-process /usr/bin/dpkg returned an error code<span class="o">(</span>1<span class="o">)</span>
+</code></pre>
+</div>
+
+<p>如果问题一直无法解决，可以尝试:</p>
+
+<div class="language-bash highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span><span class="nb">cd</span> /var/lib/dpkg
+<span class="gp">$ </span>mv info infobak
+<span class="gp">$ </span>mkdir info
+<span class="gp">$ </span>mv ./info/<span class="k">*</span> ./infobak
+<span class="gp">$ </span>rm -rf ./info 
+<span class="gp">$ </span>mv ./infobak ./info
+</code></pre>
+</div>
+
+
+                <hr style="visibility: hidden;">
+                <ul class="pager">
+                    
+                    
+                    <li class="next">
+                        <a href="/2016/10/12/JVM_JMM/" data-toggle="tooltip" data-placement="top" title="JVM内存模型">
+                        下一篇<br>
+                        <span>JVM内存模型</span>
+                        </a>
+                    </li>
+                    
+                </ul>
+
+                
+            </div>  
+
+            <!-- Side Catalog Container -->
+            
+                <div class="
+                    col-lg-2 col-lg-offset-0
+                    visible-lg-block
+                    sidebar-container
+                    catalog-container">
+                    <div class="side-catalog">
+                        <hr class="hidden-sm hidden-xs">
+                        <h5>
+                            <a class="catalog-toggle" href="#">目录</a>
+                        </h5>
+                        <ul class="catalog-body"></ul>
+                    </div>
+                </div>
+            
+
+            <!-- Sidebar Container -->
+            <div class="
+                col-lg-8 col-lg-offset-2
+                col-md-10 col-md-offset-1
+                sidebar-container">
+
+                <!-- Featured Tags -->
+                
+                <section>
+                    <hr class="hidden-sm hidden-xs">
+                    <h5><a href="/tags/">标签</a></h5>
+                    <div class="tags">
+        				
+                            
+                				<a href="/tags/#Tools" title="Tools" rel="3">Tools</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java" title="Java" rel="4">Java</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android源码系列" title="Android源码系列" rel="6">Android源码系列</a>
+                            
+        				
+                            
+                				<a href="/tags/#Python" title="Python" rel="3">Python</a>
+                            
+        				
+                            
+                				<a href="/tags/#Android" title="Android" rel="13">Android</a>
+                            
+        				
+                            
+                				<a href="/tags/#Java源码系列" title="Java源码系列" rel="4">Java源码系列</a>
+                            
+        				
+                            
+        				
+        			</div>
+                </section>
+                
+
+                <!-- Friends Blog -->
+                
+                <hr>
+                <h5>友情链接</h5>
+                <ul class="list-inline">
+                    
+                        <li><a href=""></a></li>
+                    
+                        <li><a href=""></a></li>
+                    
+                </ul>
+                
+            </div>
+        </div>
+    </div>
+</article>
+
+
+
+
+<!-- async load function -->
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+<!-- anchor-js, Doc:http://bryanbraun.github.io/anchorjs/ -->
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/anchor-js/1.1.1/anchor.min.js",function(){
+        anchors.options = {
+          visible: 'always',
+          placement: 'right',
+          icon: '#'
+        };
+        anchors.add().remove('.intro-header h1').remove('.subheading').remove('.sidebar-container h5');
+    })
+</script>
+<style>
+    /* place left on bigger screen */
+    @media all and (min-width: 800px) {
+        .anchorjs-link{
+            position: absolute;
+            left: -0.75em;
+            font-size: 1.1em;
+            margin-top : -0.1em;
+        }
+    }
+</style>
+
+    <footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; phantomVK 2017 | Powered by Jekyll with Hux Theme
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="/js/jquery.min.js "></script>
+<script src="/js/bootstrap.min.js "></script>
+<script src="/js/hux-blog.min.js "></script>
+
+<script type="text/javascript">
+    if(navigator.serviceWorker){
+        navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {console.log('Service Worker Registered. ', registration)})
+            .catch((error) => {console.log('ServiceWorker registration failed: ', error)})
+    }
+</script>
+
+
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<script>
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+
+
+
+<script type="text/javascript">
+    function generateCatalog (selector) {
+        var P = $('div.post-container'),a,n,t,l,i,c;
+        a = P.find('h1,h2,h3,h4,h5,h6');
+        a.each(function () {
+            n = $(this).prop('tagName').toLowerCase();
+            i = "#"+$(this).prop('id');
+            t = $(this).text();
+            c = $('<a href="'+i+'" rel="nofollow">'+t+'</a>');
+            l = $('<li class="'+n+'_nav"></li>').append(c);
+            $(selector).append(l);
+        });
+        return true;    
+    }
+
+    generateCatalog(".catalog-body");
+
+    $(".catalog-toggle").click((function(e){
+        e.preventDefault();
+        $('.side-catalog').toggleClass("fold")
+    }))
+
+    async("/js/jquery.nav.js", function () {
+        $('.catalog-body').onePageNav({
+            currentClass: "active",
+            changeHash: !1,
+            easing: "swing",
+            filter: "",
+            scrollSpeed: 700,
+            scrollOffset: 0,
+            scrollThreshold: .2,
+            begin: null,
+            end: null,
+            scrollChange: null,
+            padding: 80
+        });
+    });
+</script>
+
+</body>
+</html>

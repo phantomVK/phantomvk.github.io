@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="author" content="phantomvk">
+    <meta name="google-site-verification" content="IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="keywords"  content="Android,phantomvk,Android技术博客,Android源码分析,Android源码剖析">
+    <meta name="theme-color" content="#000000">
+    <title>Tags - phantomVK 博客</title>
+    <link rel="shortcut icon" href="/img/favicon.ico">
+    <link rel="canonical" href="http://localhost:4000/tags/">
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/hux-blog.min.css">
+    <link rel="stylesheet" href="/css/syntax.css">
+    <link href="//cdnjs.cloudflare.com/ajax/libs/font-awesome/4.6.3/css/font-awesome.min.css" rel="stylesheet" type="text/css">
+</head>
+
+<body ontouchstart="">
+    <nav class="navbar navbar-default navbar-custom navbar-fixed-top">
+    <div class="container-fluid">
+        <div class="navbar-header page-scroll">
+            <button type="button" class="navbar-toggle">
+                <span class="sr-only">Toggle navigation</span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+                <span class="icon-bar"></span>
+            </button>
+            <a class="navbar-brand" href="/">phantomVK</a>
+        </div>
+        <div id="huxblog_navbar">
+            <div class="navbar-collapse">
+                <ul class="nav navbar-nav navbar-right">
+                    <li><a href="/">Home</a></li>
+                    
+                    <li><a href="/about/">About</a></li>
+                    <li><a href="/archives/">Archives</a></li>
+                    <li><a href="/tags/">Tags</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</nav>
+<script>
+    var $body   = document.body;
+    var $toggle = document.querySelector('.navbar-toggle');
+    var $navbar = document.querySelector('#huxblog_navbar');
+    var $collapse = document.querySelector('.navbar-collapse');
+    var __HuxNav__ = {
+        close: function(){
+            $navbar.className = " ";
+            setTimeout(function(){
+                if($navbar.className.indexOf('in') < 0) {
+                    $collapse.style.height = "0px"
+                }
+            },400)
+        },
+        open: function(){
+            $collapse.style.height = "auto"
+            $navbar.className += " in";
+        }
+    }
+    $toggle.addEventListener('click', function(e){
+        if ($navbar.className.indexOf('in') > 0) {
+            __HuxNav__.close()
+        }else{
+            __HuxNav__.open()
+        }
+    })
+    document.addEventListener('click', function(e){
+        if(e.target == $toggle) return;
+        if(e.target.className == 'icon-bar') return;
+        __HuxNav__.close();
+    })
+</script>
+    <!-- Page Header -->
+<header class="intro-header" style="background-image: url('/img/tags.jpg')">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1 ">
+                <div class="site-heading">
+                    <h1>Tags</h1>
+                    <span class="subheading">keep hungry keep foolish</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<div class="container">
+	<div class="row">
+        
+
+		<div class="
+            col-lg-8 col-lg-offset-1
+            col-md-8 col-md-offset-1
+            col-sm-12
+            col-xs-12
+            postlist-container">
+			<!-- Main Content -->
+<!-- 标签云 -->
+<div id='tag_cloud' class="tags">
+	<a href="#Tools" title="Tools" rel="3">Tools</a><a href="#Java" title="Java" rel="4">Java</a><a href="#Android源码系列" title="Android源码系列" rel="6">Android源码系列</a><a href="#Python" title="Python" rel="3">Python</a><a href="#Android" title="Android" rel="13">Android</a><a href="#Java源码系列" title="Java源码系列" rel="4">Java源码系列</a><a href="#Algorithm" title="Algorithm" rel="1">Algorithm</a>
+</div>
+<!-- 标签列表 -->
+
+<div class="one-tag-list">
+	<span class="fa fa-tag listing-seperator" id="Tools">
+		<span class="tag-text">Tools</span>
+	</span>
+	<hr>
+	
+	<div class="post-preview">
+	    <a href="/2016/11/28/ubuntu_cuda/">
+	        <h2 class="post-title">深度学习环境配置: Ubuntu16.04 & CUDA8.0</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/11/25/firefox_PAC/">
+	        <h2 class="post-title">FireFox配置PAC</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/10/09/Hadoop_build/">
+	        <h2 class="post-title">Hadoop伪分布式搭建</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+</div>
+
+<div class="one-tag-list">
+	<span class="fa fa-tag listing-seperator" id="Java">
+		<span class="tag-text">Java</span>
+	</span>
+	<hr>
+	
+	<div class="post-preview">
+	    <a href="/2017/01/16/cms_failure/">
+	        <h2 class="post-title">CMS并发失效与晋升失败</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/12/28/Java_ClassLoader/">
+	        <h2 class="post-title">分析ClassLoader原理</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/11/23/Ubuntu_Install_JDK/">
+	        <h2 class="post-title">Ubuntu 16.04安装Oracle JDK8</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/10/12/JVM_JMM/">
+	        <h2 class="post-title">JVM内存模型</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+</div>
+
+<div class="one-tag-list">
+	<span class="fa fa-tag listing-seperator" id="Android源码系列">
+		<span class="tag-text">Android源码系列</span>
+	</span>
+	<hr>
+	
+	<div class="post-preview">
+	    <a href="/2017/02/28/LruCache/">
+	        <h2 class="post-title">Android源码系列(6) -- LruCache</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/12/03/Android_Looper/">
+	        <h2 class="post-title">Android源码系列(5) -- Looper</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/12/01/Android_Handler/">
+	        <h2 class="post-title">Android源码系列(4) -- Handler</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/11/13/Android_Message/">
+	        <h2 class="post-title">Android源码系列(3) -- Message</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/11/07/android-viewgroup/">
+	        <h2 class="post-title">Android源码系列(2) -- ViewGroup</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/10/18/Android_View/">
+	        <h2 class="post-title">Android源码系列(1) -- View</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+</div>
+
+<div class="one-tag-list">
+	<span class="fa fa-tag listing-seperator" id="Python">
+		<span class="tag-text">Python</span>
+	</span>
+	<hr>
+	
+	<div class="post-preview">
+	    <a href="/2016/10/30/Numpy_Notes/">
+	        <h2 class="post-title">NumPy学习手记</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/10/28/pip_Timeout/">
+	        <h2 class="post-title">pip 下载超时 镜像源配置</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/10/26/pip_FixNotPermitted/">
+	        <h2 class="post-title">解决 mac OSX pip OSError: [Errno 1] Operation not permitted</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+</div>
+
+<div class="one-tag-list">
+	<span class="fa fa-tag listing-seperator" id="Android">
+		<span class="tag-text">Android</span>
+	</span>
+	<hr>
+	
+	<div class="post-preview">
+	    <a href="/2017/08/27/HeightListView/">
+	        <h2 class="post-title">HeightListView - 自适应TextView高度</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/08/13/view_measure_note/">
+	        <h2 class="post-title">View测量代码笔记</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/06/06/new_permission/">
+	        <h2 class="post-title">Android 22授权获取失败导致闪退</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/06/05/ndk/">
+	        <h2 class="post-title">dlopen is 32-bit instead of 64-bit</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/05/10/Gradle_build/">
+	        <h2 class="post-title">Gradle构建安装包</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/04/25/menu-icon/">
+	        <h2 class="post-title">Android ActionBar溢出菜单icon</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/02/15/Notebook_For_Android/">
+	        <h2 class="post-title">Android学习笔记，持续更新</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/02/13/SplashActivity/">
+	        <h2 class="post-title">简单Android闪屏页控制逻辑</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/01/11/Android_StatusBar/">
+	        <h2 class="post-title">Android沉浸式状态栏变色</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/12/16/Android_LifeCycle/">
+	        <h2 class="post-title">重现onPause到onResume生命周期</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/12/13/Android_Menuitem/">
+	        <h2 class="post-title">Android Menuitem 各种坑</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/11/23/apkbuilder/">
+	        <h2 class="post-title">apkbuilder找不到的问题</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2016/11/08/ButterKnife_HowToUse/">
+	        <h2 class="post-title">ButterKnife使用方法</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+</div>
+
+<div class="one-tag-list">
+	<span class="fa fa-tag listing-seperator" id="Java源码系列">
+		<span class="tag-text">Java源码系列</span>
+	</span>
+	<hr>
+	
+	<div class="post-preview">
+	    <a href="/2017/03/25/AbstractStringBuilder/">
+	        <h2 class="post-title">Java源码系列(4) -- AbstractStringBuilder</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/03/06/StringBuffer/">
+	        <h2 class="post-title">Java源码系列(3) -- StringBuffer</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/02/23/StringBuilder/">
+	        <h2 class="post-title">Java源码系列(2) -- StringBuilder</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+	<div class="post-preview">
+	    <a href="/2017/02/19/Java_ArrayList/">
+	        <h2 class="post-title">Java源码系列(1) -- ArrayList</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+</div>
+
+<div class="one-tag-list">
+	<span class="fa fa-tag listing-seperator" id="Algorithm">
+		<span class="tag-text">Algorithm</span>
+	</span>
+	<hr>
+	
+	<div class="post-preview">
+	    <a href="/2017/04/25/month-days/">
+	        <h2 class="post-title">计算月天数</h2>
+	        
+	    </a>
+	</div>
+	<hr width="0">
+	
+</div>
+
+		</div>
+        <div class="
+            col-lg-3 col-lg-offset-0
+            col-md-3 col-md-offset-0
+            col-sm-12
+            col-xs-12
+            sidebar-container">
+
+            <!-- Short About -->
+            <section class="visible-md visible-lg">
+                <hr>
+                <h5><a href="/about/">phantomVK</a></h5>
+                <div class="short-about">
+                    <img src="/img/avatar.jpg" />
+                    <p>世界再无聊，总有可探索的境地</p>
+                    <!-- SNS Link -->
+                    <ul class="list-inline">
+                        
+                        
+                        
+                        <li>
+                            <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                                <span class="fa-stack fa-lg">
+                                    <i class="fa fa-circle fa-stack-2x"></i>
+                                    <i class="fa  fa-stack-1x fa-inverse">知</i>
+                                </span>
+                            </a>
+                        </li>
+                        
+                        
+                        
+                        
+                        <li>
+                            <a target="_blank" href="https://github.com/phantomvk">
+                                <span class="fa-stack fa-lg">
+                                    <i class="fa fa-circle fa-stack-2x"></i>
+                                    <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                                </span>
+                            </a>
+                        </li>
+                        
+                        
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Featured Tags -->
+            
+            <section>
+                <hr class="hidden-sm hidden-xs">
+                <h5><a href="/tags/">标签</a></h5>
+                <div class="tags">
+                    
+                        
+                            <a href="/tags/#Tools" title="Tools" rel="3">
+                                Tools
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Java" title="Java" rel="4">
+                                Java
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Android源码系列" title="Android源码系列" rel="6">
+                                Android源码系列
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Python" title="Python" rel="3">
+                                Python
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Android" title="Android" rel="13">
+                                Android
+                            </a>
+                        
+                    
+                        
+                            <a href="/tags/#Java源码系列" title="Java源码系列" rel="4">
+                                Java源码系列
+                            </a>
+                        
+                    
+                        
+                    
+                </div>
+            </section>
+            
+
+            <!-- Pay -->
+            
+
+            <!-- Friends Blog -->
+            
+            <hr>
+            <h5>好友链接</h5>
+            <ul class="list-inline">
+                <li><a href=""></a></li>
+                <li><a href=""></a></li>
+            </ul>
+		</div>
+	</div>
+</div>
+
+    <footer>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+                <ul class="list-inline text-center">
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://www.zhihu.com/people/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa  fa-stack-1x fa-inverse">知</i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                    
+                    
+                    <li>
+                        <a target="_blank" href="https://github.com/phantomvk">
+                            <span class="fa-stack fa-lg">
+                                <i class="fa fa-circle fa-stack-2x"></i>
+                                <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                            </span>
+                        </a>
+                    </li>
+                    
+                    
+                </ul>
+                <p class="copyright text-muted">
+                    Copyright &copy; phantomVK 2017 | Powered by Jekyll with Hux Theme
+                </p>
+            </div>
+        </div>
+    </div>
+</footer>
+
+<script src="/js/jquery.min.js "></script>
+<script src="/js/bootstrap.min.js "></script>
+<script src="/js/hux-blog.min.js "></script>
+
+<script type="text/javascript">
+    if(navigator.serviceWorker){
+        navigator.serviceWorker
+            .register('/sw.js')
+            .then((registration) => {console.log('Service Worker Registered. ', registration)})
+            .catch((error) => {console.log('ServiceWorker registration failed: ', error)})
+    }
+</script>
+
+
+<script>
+    function async(u, c) {
+      var d = document, t = 'script',
+          o = d.createElement(t),
+          s = d.getElementsByTagName(t)[0];
+      o.src = u;
+      if (c) { o.addEventListener('load', function (e) { c(null, e); }, false); }
+      s.parentNode.insertBefore(o, s);
+    }
+</script>
+
+<script>
+    if($('#tag_cloud').length !== 0){
+        async('/js/jquery.tagcloud.js',function(){
+            $.fn.tagcloud.defaults = {
+                color: {start: '#bbbbee', end: '#0085a1'},
+            };
+            $('#tag_cloud a').tagcloud();
+        })
+    }
+</script>
+
+<script>
+    async("//cdnjs.cloudflare.com/ajax/libs/fastclick/1.0.6/fastclick.min.js", function(){
+        var $nav = document.querySelector("nav");
+        if($nav) FastClick.attach($nav);
+    })
+</script>
+
+
+
+
+
+
+</body>
+</html>
