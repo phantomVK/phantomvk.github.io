@@ -37,7 +37,7 @@ packagingOptions {
 
 报错的原因是`com.squareup.retrofit2:adapter-rxjava`只能支持`Retrofit1`，不支持`Retrofit2`，所以只要引入以下的库替代即可：
 
-```
+```groovy
 implementation 'com.jakewharton.retrofit:retrofit2-rxjava2-adapter:1.0.0'
 ```
 
