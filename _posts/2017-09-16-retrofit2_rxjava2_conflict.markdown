@@ -27,7 +27,7 @@ com.android.build.api.transform.TransformException: com.android.builder.packagin
 
 即使通过以下方式忽略`META-INF/rxjava.properties`，重新编译后还会出现`Unable to merge dex`错误
 
-```
+```groovy
 packagingOptions {  
     exclude 'META-INF/rxjava.properties'
 } 
