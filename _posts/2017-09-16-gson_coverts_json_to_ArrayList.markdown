@@ -23,7 +23,7 @@ public class UriDeserializer implements JsonDeserializer<Uri> {
 }
 ```
 
-构建一个Gson对象并注册类型转换器，用于转换Uri的`UriDeserializer`。然后fromJson转换字符串`list`为对应的ArrayList实例
+构建Gson对象并注册类型转换器`UriDeserializer`，用fromJson转换字符串`list`为对应的ArrayList实例
 
 ```java
 Gson mGson = new GsonBuilder()
@@ -34,6 +34,11 @@ return mGson.fromJson(list, new TypeToken<ArrayList<HomeserverConnectionConfig>>
 }.getType());
 ```
 
+参考：
 
+<https://stackoverflow.com/questions/12384064/gson-convert-from-json-to-a-typed-arraylistt>
 
+<https://stackoverflow.com/questions/22533432/create-object-from-gson-string-doesnt-work>
+
+<https://stackoverflow.com/questions/22271779/is-it-possible-to-use-gson-fromjson-to-get-arraylistarrayliststring>
 
