@@ -12,13 +12,18 @@ tags:
 如果Json中有Uri相关的字符串，先构建类`UriDeserializer`
 
 ```java
-public class UriDeserializer implements JsonDeserializer<Uri> {
+public class UriInOut implements JsonSerializer<Uri>, JsonDeserializer<Uri> {
+
+    @Override
+    public JsonElement serialize(Uri src, Type typeOfSrc, JsonSerializationContext context) {
+        return new JsonPrimitive(src.toString());
+    }
 
     @Override
     public Uri deserialize(final JsonElement src, final Type srcType,
                            final JsonDeserializationContext context) throws JsonParseException {
-
-        return Uri.parse(src.toString());
+        // Convert "https://abc.com" to https://abc.com
+        return Uri.parse(src.toString().replace("\"", ""));
     }
 }
 ```
@@ -27,11 +32,10 @@ public class UriDeserializer implements JsonDeserializer<Uri> {
 
 ```java
 Gson mGson = new GsonBuilder()
-        .registerTypeAdapter(Uri.class, new UriDeserializer())
+        .registerTypeAdapter(Uri.class, new UriInOut())
         .create();
     
-return mGson.fromJson(list, new TypeToken<ArrayList<HomeserverConnectionConfig>>() {
-}.getType());
+return mGson.fromJson(list, new TypeToken<ArrayList<HomeserverConnectionConfig>>(){}.getType());
 ```
 
 参考：
