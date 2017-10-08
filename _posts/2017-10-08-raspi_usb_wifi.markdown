@@ -141,29 +141,27 @@ network={
 pi@raspberrypi:~ $ wpa_passphrase MERCURY_4E1A blackcar>~/wifi.conf
 ```
 
-把内容粘贴到`/etc/wpa_supplicant/wpa_supplicant.conf`。
+### 2.3 修改wpa_supplicant.conf
 
 修改`wpa_supplicant.conf`需要管理员权限，请切换到`root`:
 
 ```shell
 pi@raspberrypi:~ $ su
 Password:
+```
 
+把内容粘贴到`/etc/wpa_supplicant/wpa_supplicant.conf`
+
+```shell
 root@raspberrypi:/home/pi# nano /etc/wpa_supplicant/wpa_supplicant.conf
 ```
 
 或重定向的方式给`wpa_supplicant.conf`追加`wifi.conf`：
 
 ```shell
-root@raspberrypi:/home/pi# pwd
-/home/pi
-
-root@raspberrypi:/home/pi# ls
-wifi.conf
-
 root@raspberrypi:/home/pi# less wifi.conf >>/etc/wpa_supplicant/wpa_supplicant.conf
 ```
-### 2.3 修改配置文件
+### 2.4 修改配置文件
 
 配置`/etc/network/interfaces`:
 
@@ -196,7 +194,7 @@ pre-up wpa_supplicant -B w -D wext -i wlan0 -c /etc/wpa_supplicant/wpa_supplican
 post-down killall -q wpa_supplicant
 ```
 
-### 2.4 重启网络
+### 2.5 重启网络
 
 设置完成后保存退出，并重启树莓派的的网络：
 
