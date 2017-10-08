@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "树莓派设置USB无线网卡"
-date:       2017-10-08
+date:       2017-10-21
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
@@ -13,9 +13,13 @@ tags:
 
 ### 1.1 注意事项
 
-1. 使用无线网卡前请检查电源是否能提供足够的电压和电流，以免损坏硬件。
+1. 使用无线网卡前请检查电源能否提供足够电压和电流；
 
-2. 使用最新系统，假如系统恰好增加了新网卡的支持，能免去自己编译驱动的麻烦。
+2. 使用最新系统：假如系统恰好增加新网卡的支持，能免去自己编译驱动的麻烦；
+
+3. 仅针对RaspberryPi 3B以下的设备，这些设备没有配备无线网卡；
+
+4. 请用有线ssh登入，设置过程中树莓派是需要重启无线网络的。
 
 ### 1.2 硬件信息
 
@@ -58,7 +62,7 @@ wlan0     IEEE 802.11  ESSID:"NETGEAR76"
 
 ### 2.1 扫描可见SSID
 
-通过`sudo iwlist wlan0 scan`扫描附近可见的SSID，并截取两个无线路由器的信息，后者`NETGEAR76`是已经连接的，现在用`MERCURY_4E1A`演示。
+通过`sudo iwlist wlan0 scan`扫描附近可见的SSID，并截取两个无线路由器的信息。后者`NETGEAR76`是已经连接的，现用前者`MERCURY_4E1A`演示。
 
 ```shell
 pi@raspberrypi:~ $ sudo iwlist wlan0 scan
@@ -124,7 +128,7 @@ wlan0     Scan completed :
 
 ### 2.2 设置SSID和对应密码
 
-使用命令`wpa_passphrase SSID 密码`配置SSID和对应的密码，复制内容备用：
+使用命令`wpa_passphrase SSID 密码`生成SSID和对应的密码，复制内容备用：
 
 ```shell
 pi@raspberrypi:~ $ wpa_passphrase MERCURY_4E1A blackcar
@@ -150,7 +154,7 @@ pi@raspberrypi:~ $ su
 Password:
 ```
 
-把内容粘贴到`/etc/wpa_supplicant/wpa_supplicant.conf`
+把内容粘贴到`/etc/wpa_supplicant/wpa_supplicant.conf`：
 
 ```shell
 root@raspberrypi:/home/pi# nano /etc/wpa_supplicant/wpa_supplicant.conf
@@ -159,7 +163,7 @@ root@raspberrypi:/home/pi# nano /etc/wpa_supplicant/wpa_supplicant.conf
 或重定向的方式给`wpa_supplicant.conf`追加`wifi.conf`：
 
 ```shell
-root@raspberrypi:/home/pi# less wifi.conf >>/etc/wpa_supplicant/wpa_supplicant.conf
+root@raspberrypi:/home/pi# less wifi.conf >> /etc/wpa_supplicant/wpa_supplicant.conf
 ```
 ### 2.4 修改配置文件
 
@@ -223,7 +227,7 @@ wlan0     IEEE 802.11  ESSID:"MERCURY_4E1A"
           Tx excessive retries:0  Invalid misc:5   Missed beacon:0
 ```
 
-用`ifconfig`查看信息
+用`ifconfig`查看信息，获得了IP地址`192.168.0.101`
 
 ```shell
 pi@raspberrypi:~ $ ifconfig
