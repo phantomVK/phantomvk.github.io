@@ -1,0 +1,44 @@
+---
+layout:     post
+title:      "Gson转换Json中Uri字符串"
+date:       2017-10-08
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    false
+tags:
+    - Android
+---
+
+如果Json中有Uri字符串，需要自定义Gson的解释器：
+
+先创建类`UriDeserializer`
+
+```java
+public class UriInOut implements JsonSerializer<Uri>, JsonDeserializer<Uri> {
+
+    @Override
+    public JsonElement serialize(Uri src, Type typeOfSrc, JsonSerializationContext context) {
+        return new JsonPrimitive(src.toString());
+    }
+
+    @Override
+    public Uri deserialize(final JsonElement src, final Type srcType,
+                           final JsonDeserializationContext context) throws JsonParseException {
+        // Convert "https://phantomvk.com" to https://phantomvk.com
+        return Uri.parse(src.toString().replace("\"", ""));
+    }
+}
+```
+
+最后构建Gson对象，并注册类型转换器`UriDeserializer`即可
+
+```java
+Gson mGson = new GsonBuilder()
+        .registerTypeAdapter(Uri.class, new UriInOut())
+        .create();
+```
+
+参考：
+
+<https://stackoverflow.com/questions/22533432/create-object-from-gson-string-doesnt-work>
+
