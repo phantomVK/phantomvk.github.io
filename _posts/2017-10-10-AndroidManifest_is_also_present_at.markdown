@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Error: AndroidManifest.xml is also present at ..."
-date:       2017-10-15
+date:       2017-10-10
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
