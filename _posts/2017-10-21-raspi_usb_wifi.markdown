@@ -15,11 +15,11 @@ tags:
 
 1. 使用无线网卡前请检查电源能否提供足够电压和电流；
 
-2. 使用最新系统：假如系统恰好增加新网卡的支持，能免去自己编译驱动的麻烦；
+2. 使用最新系统：系统增加新网卡的支持，能免去编译驱动的麻烦；
 
 3. 仅针对RaspberryPi 3B以下的设备，这些设备没有配备无线网卡；
 
-4. 请用有线ssh登入，设置过程中树莓派是需要重启无线网络的。
+4. 请用有线ssh登入，设置过程中树莓派是需要重启无线网络。
 
 ### 1.2 硬件信息
 
@@ -33,9 +33,9 @@ Bus 001 Device 002: ID 0424:9514 Standard Microsystems Corp. SMC9514 Hub
 Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
 ```
 
-上面显示的`Ralink Technology, Corp. MT7601U Wireless Adapter`是我的无线网卡。
+上面显示的`Ralink Technology, Corp. MT7601U Wireless Adapter`是我的无线网卡。在`Raspbian Stretch Lite 2017-09-07 Kernel 4.9`系统镜像中已经自带该网卡的驱动。
 
-在`Raspbian Stretch Lite 2017-09-07 Kernel 4.9`系统镜像中已经自带该网卡的驱动。如果你的无线网卡在系统中无法识别，请自行编译安装驱动。
+如果你的无线网卡在系统中无法识别，请自行编译安装驱动。
 
 ### 1.3 查看已经连接的网络
 
@@ -43,9 +43,10 @@ Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
 
 ```shell
 pi@raspberrypi:~ $ iwconfig
-
 eth0      no wireless extensions.
+
 lo        no wireless extensions.
+
 wlan0     IEEE 802.11  ESSID:"NETGEAR76"
           Mode:Managed  Frequency:2.462 GHz  Access Point: 10:DA:43:7A:A3:E8
           Bit Rate=24 Mb/s   Tx-Power=20 dBm
@@ -142,7 +143,7 @@ network={
 或通过重定向命令写入到文件备用:
 
 ```shell
-pi@raspberrypi:~ $ wpa_passphrase MERCURY_4E1A blackcar>~/wifi.conf
+pi@raspberrypi:~ $ wpa_passphrase MERCURY_4E1A blackcar > ~/wifi.conf
 ```
 
 ### 2.3 修改wpa_supplicant.conf
@@ -165,7 +166,7 @@ root@raspberrypi:/home/pi# nano /etc/wpa_supplicant/wpa_supplicant.conf
 ```shell
 root@raspberrypi:/home/pi# less wifi.conf >> /etc/wpa_supplicant/wpa_supplicant.conf
 ```
-### 2.4 修改配置文件
+### 2.4 配置文件
 
 配置`/etc/network/interfaces`:
 
@@ -227,7 +228,7 @@ wlan0     IEEE 802.11  ESSID:"MERCURY_4E1A"
           Tx excessive retries:0  Invalid misc:5   Missed beacon:0
 ```
 
-用`ifconfig`查看信息，获得了IP地址`192.168.0.101`
+用`ifconfig`查看可知获得IP地址：`192.168.0.101`
 
 ```shell
 pi@raspberrypi:~ $ ifconfig
