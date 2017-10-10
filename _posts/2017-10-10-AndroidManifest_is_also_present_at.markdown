@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Error: AndroidManifest.xml is also present at ..."
+title:      "Error: AndroidManifest.xml is also present at"
 date:       2017-10-10
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -20,7 +20,7 @@ Error:Execution failed for task ':app:processDebugManifest'.
 
 在`build.gradle(project:...)`的`buildscript {...}`内添加添加代码。`${versions.support}`是一个全局变量，为"26.1.0"，请根据具体情况修改。
 
-```groovy
+```
 subprojects {
     project.configurations.all {
         resolutionStrategy.eachDependency { details ->
