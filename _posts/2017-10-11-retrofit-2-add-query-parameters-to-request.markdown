@@ -9,9 +9,9 @@ tags:
     - Android
 ---
 
-在Retrofit2里一般通过`@Query`注解来给单个请求增加`query`参数，也可能需要给每个请求都加上`query`参数的场景：如`Kong`通过`Authorization`的`JWT`值验证每个请求的合法性。
+在`Retrofit2`里一般通过`@Query`注解来给单个请求增加`query`参数，也可能需要给每个请求都加上`query`参数的场景：如`Kong`通过`Authorization`的`JWT`值验证每个请求的合法性。
 
-如果很多接口，给每个接口单独使用`@Query`注解是不合理的。所以这种情况下最好的方式是拦截所有网络请求，添加`query`参数后再发送。
+如果很多接口，给每个接口修改`@Query`注解是不合理的，所以这种情况下最好的方式是拦截所有网络请求，添加`query`参数后再发送。
 
 请看下列代码：
 
@@ -24,7 +24,7 @@ client.addInterceptor(new Interceptor() {
     
         Request request = chain.request();
         
-        HttpUrl url = request.url()
+        HttpUrl httpUrl = request.url()
                 .newBuilder()
                 .addQueryParameter("query_name", "query_value")
                 .addQueryParameter("query_name", "query_value")
