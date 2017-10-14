@@ -41,7 +41,11 @@ export PATH
 export GO_HOME
 ```
 
-保存之后`pi@raspberrypi:/usr $ source profile`
+保存之后
+
+```bash
+pi@raspberrypi:/usr $ source profile
+```
 
 验证安装：
 
