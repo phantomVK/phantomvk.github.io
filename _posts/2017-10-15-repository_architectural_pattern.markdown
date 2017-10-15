@@ -1,0 +1,184 @@
+---
+layout:     post
+title:      "Repository模式探索"
+date:       2017-10-15
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    true
+tags:
+    - ArchitecturalPattern
+---
+
+移动端开发中，经常遇到通用的数据加载：例如IM中个人头像加载。
+
+在应用开发初期，由于缺乏把所有加载逻辑整合到一起的思维，导致后期头像逻辑变化时，只能用搜索找出相关的代码并修改。即使代码分散的地方比较少，也经常出现遗漏修改，亲历。
+
+头像加载这种统一的加载逻辑，必须整合到一个类中，并做好抽象，以便应对将来的需求变更。拓展开来，用户名获取、应用配置读取、读取Session都能受益。
+
+下面基于IM头像加载的实战，总结出相关经验。
+
+## 一、设计思想
+
+总结实战后接口设计的三个基本目的：
+
+1. 通过接口定义来指明实现的具体方向，声明接口的功能范围;
+2. 对调用屏蔽实现：调用方只需了解接口方法的功能，而不需要了解具体实现;
+3. 抽象需要预留一定的拓展性：如个人头像接口设计时，考虑群头像和个人头像交互;
+
+## 二、接口功能
+
+产品开发过程要满足以下产品需求：
+
+1. 用`userId`即可把用户头像加载到`ImageView`中;
+2. 能指定加载来源的`filePath`，而不是仅根据`userId`;
+3. `userId`对应的`url`根据一定的逻辑拼接出来；
+4. 群头像有最多四个用户的个人头像，所以个人头像需要为群头像逻辑提供用户的`Bitmap`.
+
+根据上述的需求，可以整理出以下的抽象接口。这些接口虽然已经投入到生产环境中，但是不一定设计得非常科学，还在进一步演进，请酌情参考。
+
+方法具体能力在注释中已经写得很明确，不再复述。
+
+```java
+/**
+ * Global avatar loading repository interface.
+ */
+public interface IUserAvatarLoader {
+
+    /**
+     * Load avatar into ImageView if exists, else load the default drawable.
+     */
+    void loadByUserId(Context context, String userId, ImageView view);
+
+    /**
+     * Load avatar into ImageView by local file path.
+     */
+    void loadByFilePath(Context context, String filePath, ImageView view);
+
+    /**
+     * Return a {@link Bitmap} instance according to specific image url and size.
+     */
+    Bitmap getBitmap(Context context, String imageUrl, int ImageSize) throws ExecutionException, InterruptedException;
+
+    /**
+     * Return the url requests of avatar.
+     */
+    String getUrl(String userId);
+}
+```
+
+## 三、具体实现
+
+定义抽象接口后，下一步是选择具体的图片加载框架。
+
+常用的图片加载框架有`Picasso`和`Glide`等。由于头像已经抽象为接口，使用前者或后者对用户都是无感且透明的。
+
+如果将来决定迁移到其他图片加载框架，那只需要在`UserAvatarLoader`这一实现层来修改，所有调用点不需要任何修改。
+
+若更换实现时要修改抽象接口，想必在接口设计就存在设计遗漏甚至设计错误。因此，前期接口往往决定了后期实现难度和可用性。
+
+下面为项目中的实现：我们用的是`Glide`，其提供了合理的三级缓存功能，再配合`OkHttp`网络框架，能节省大量开发时间。
+
+```java
+public class UserAvatarLoader implements IUserAvatarLoader {
+
+    private static final String API = "https://api.phantomvk.com";
+
+    @Override
+    public void loadByUserId(Context context, String userId, ImageView view) {
+        Glide.with(context)
+                .load(getUrl(userId))
+                .apply(ImageOptions.userAvatarOptions)
+                .into(view);
+    }
+
+    @Override
+    public void loadByFilePath(Context context, String filePath, ImageView view) {
+        Glide.with(context)
+                .load(filePath)
+                .apply(ImageOptions.userAvatarOptions)
+                .into(view);
+    }
+
+    @Override
+    public Bitmap getBitmap(Context context, String imageUrl, int imageSize)
+            throws ExecutionException, InterruptedException {
+            
+        return Glide.with(context)
+                .asBitmap()
+                .load(imageUrl)
+                .submit(imageSize, imageSize)
+                .get();
+    }
+
+    @Override
+    public String getUrl(String userId) {
+        return API + "/api/v1/rcs/profile/" + userId + "/avatar";
+    }
+}
+```
+
+上面还用到了`Glide`的`RequestOption`，所以把所有`RequestOption`整理到一个类中。
+
+其中
+
+1. `R.drawable.def_avatar`是默认头像资源;
+2. `android.R.color.darker_gray`是消息图片加载过程的背景色.
+
+```java
+public final class ImageOptions {
+
+    public static RequestOptions userAvatarOptions = new RequestOptions()
+            .placeholder(R.drawable.def_avatar)
+            .error(R.drawable.def_avatar)
+            .autoClone();
+
+    public static RequestOptions chatMessageOptions = new RequestOptions()
+            .placeholder(android.R.color.darker_gray)
+            .centerCrop()
+            .autoClone();
+}
+```
+
+## 四、构建工厂
+
+虽然实现已经完成，但是还差一步：就是调用点的整合。
+
+如果不通过一个工厂来提供调用点，那么使用时还是得各自构建对象。这样不仅消耗堆内存空间，也增加了GC的压力。以后更换具体的实现类还得一个一个手动更换。
+
+所以我们还要增加一层，对调用屏蔽构建方式：
+
+```java
+public class ImageLoaders {
+
+    private static IUserAvatarLoader userAvatarLoader = new UserAvatarLoader();
+    
+    private static IChatMessageLoader chatMessageLoader = new ChatMessageLoader();
+
+    public static IUserAvatarLoader userAvatarLoader() {
+        return userAvatarLoader;
+    }
+
+    public static IChatMessageLoader chatMessageLoader() {
+        return chatMessageLoader;
+    }
+}
+```
+
+考虑到应用初次启动动就需要调用头像加载逻辑，都在主线程完成初始化，无谓懒加载什么了，静态变量初始化就够了。
+
+## 五、用法
+
+使用只要像下面调用，以后任何修改这行代码都不需要改变。
+
+用`userId`加载头像
+
+```java
+ImageLoaders.userAvatarLoader().loadByUserId(context, userID, avatarView);
+```
+
+由文件加载头像
+
+```java
+ImageLoaders.userAvatarLoader().loadByFilePath(context, file.getAbsolutePath(), view)
+```
+
