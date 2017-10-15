@@ -14,7 +14,7 @@ keyword: "Android,phantomvk,Android技术博客,Android源码分析,Android源�
 RSS: false
 zhihu_username:     phantomvk
 github_username:    phantomvk
-#weibo_username:     
+weibo_username:     phantomvk
 #twitter_username:   
 #facebook_username:  
 #linkedin_username: firstname-lastname-idxxxx
@@ -75,7 +75,7 @@ sidebar-alipay-pay: /img/alipay.jpg
 
 
 # Pay Tags
-pay-tags: false
+pay-tags: true
 pay-tags-wechat: true
 pay-tags-alipay: true
 
