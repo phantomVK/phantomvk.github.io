@@ -75,9 +75,9 @@ sidebar-alipay-pay: /img/alipay.jpg
 
 
 # Pay Tags
-pay-tags: true
-pay-tags-wechat: true
-pay-tags-alipay: true
+pay-tags: false
+pay-tags-wechat: false
+pay-tags-alipay: false
 
 # Featured Tags
 featured-tags: true                     # whether or not using Feature-Tags
