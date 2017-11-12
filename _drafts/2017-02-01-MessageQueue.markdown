@@ -108,6 +108,8 @@ public boolean isIdle() {
 }
 ```
 
+增加`IdleHandler`到消息队列中。
+
 ```
 /**
  * Add a new {@link IdleHandler} to this message queue.  This may be
@@ -127,7 +129,11 @@ public void addIdleHandler(@NonNull IdleHandler handler) {
         mIdleHandlers.add(handler);
     }
 }
+```
 
+移除一个从`addIdleHandler(IdleHandler handler)`添加的`IdleHandler`。如果需要移除的`IdleHandler`不在列表中，那什么都不返回。
+
+```java
 /**
  * Remove an {@link IdleHandler} from the queue that was previously added
  * with {@link #addIdleHandler}.  If the given object is not currently
@@ -143,6 +149,8 @@ public void removeIdleHandler(@NonNull IdleHandler handler) {
     }
 }
 ```
+
+检查队列是否还正常轮询。
 
 ```java
 /**
