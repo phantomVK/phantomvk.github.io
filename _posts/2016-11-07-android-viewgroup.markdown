@@ -67,7 +67,6 @@ public class MyLinearLayout extends LinearLayout {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-    
         int action = event.getAction();
         switch (action) {
             case MotionEvent.ACTION_DOWN:
@@ -152,7 +151,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 
     boolean handled = false;
     
-    // 根据隐私策略而来决定是否过滤本次触摸事件
+    // 检查是否被其他View覆盖
     if (onFilterTouchEventForSecurity(ev)) {
         final int action = ev.getAction();
         final int actionMasked = action & MotionEvent.ACTION_MASK;
@@ -266,7 +265,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                         // 如果触摸位置在child的区域内，则把事件分发给对应的子View或ViewGroup
                         if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign)) {
                             mLastTouchDownTime = ev.getDownTime();
-                            // 获取TouchDown的下表
+                            // 获取TouchDown的下标
                             if (preorderedList != null) {
                                 // childIndex points into presorted list, find original index
                                 for (int j = 0; j < childrenCount; j++) {
@@ -281,7 +280,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                             // 获取TouchDown的坐标
                             mLastTouchDownX = ev.getX();
                             mLastTouchDownY = ev.getY();
-                            // 添加TouchTarget，mFirstTouchTarget不为空null
+                            // 添加TouchTarget，mFirstTouchTarget不为null
                             newTouchTarget = addTouchTarget(child, idBitsToAssign);
                             // 已经分发给NewTouchTarget，退出
                             alreadyDispatchedToNewTouchTarget = true;

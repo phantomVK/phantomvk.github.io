@@ -1,0 +1,8 @@
+//        ISessionManager manager = ServiceFactory.getInstance().getSessionManager();
+//        manager.clearSessions(manager.getContext(), true);
+//        Intent intent = new Intent().setClassName("com.finogeeks.finochatapp",
+//                        "com.finogeeks.finochatapp.modules.login.ui.SplashActivity")
+//                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+//        manager.getContext().startActivity(intent);
+
+
