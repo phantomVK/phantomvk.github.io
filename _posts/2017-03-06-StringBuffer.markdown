@@ -56,7 +56,7 @@ public StringBuffer(CharSequence seq) {
 
 ## 四、成员方法
 
-为了保证线程安全，几乎所有方法都使用`synchronized`修饰符。同步锁加在这个字符串序列实例上，只要有一个线程已经占用这个实例，其他线程只能等待上一个线程释放同步再去竞争。
+为了保证线程安全，几乎所有方法都使用`synchronized`修饰符。同步锁加在这个字符串序列实例上，只要有一个线程已经占用这个实例，其他线程只能等待上一个线程释放同步锁再去竞争。
 
 值得一提的是，`synchronied`锁有三种类别，分别是`对象锁`、`实例锁`、`类锁`。`对象锁`是类中有一个静态常量Object对象作代码块锁的锁对象，只要同步代码块已经持有该对象，其他同步代码块只能等待上一个锁释放；`实例锁`的实例方法使用`synchronied`作为锁目标，只要该实例有一个同步方法在使用，其他线程对同一个实例同步操作只能等待上一个同步结束；`类锁`针对类静态方法需要使用线程同步的情况。由于静态类不需要初始化构造就能被访问，所以需要上锁的地方只能把整个类作为锁目标。
 
@@ -132,7 +132,7 @@ public synchronized void getChars(int srcBegin, int srcEnd, char[] dst,
 
 @Override
 public int indexOf(String str) {
-    // Note, synchronization achieved via invocations of other StringBuffer methods
+    // 备注:这个方法的同步依赖于其他StringBuffer方法的实现
     return super.indexOf(str);
 }
 
@@ -143,7 +143,7 @@ public synchronized int indexOf(String str, int fromIndex) {
 
 @Override
 public int lastIndexOf(String str) {
-    // Note, synchronization achieved via invocations of other StringBuffer methods
+    // 备注:这个方法的同步依赖于其他StringBuffer方法的实现
     return lastIndexOf(str, count);
 }
 
