@@ -2986,87 +2986,6 @@ public static String copyValueOf(char data[], int offset, int count) {
 public static String copyValueOf(char data[]) {
     return new String(data);
 }
-
-/**
- * Returns the string representation of the {@code boolean} argument.
- *
- * @param   b   a {@code boolean}.
- * @return  if the argument is {@code true}, a string equal to
- *          {@code "true"} is returned; otherwise, a string equal to
- *          {@code "false"} is returned.
- */
-public static String valueOf(boolean b) {
-    return b ? "true" : "false";
-}
-
-/**
- * Returns the string representation of the {@code char}
- * argument.
- *
- * @param   c   a {@code char}.
- * @return  a string of length {@code 1} containing
- *          as its single character the argument {@code c}.
- */
-public static String valueOf(char c) {
-    char data[] = {c};
-    return new String(data, true);
-}
-
-/**
- * Returns the string representation of the {@code int} argument.
- * <p>
- * The representation is exactly the one returned by the
- * {@code Integer.toString} method of one argument.
- *
- * @param   i   an {@code int}.
- * @return  a string representation of the {@code int} argument.
- * @see     java.lang.Integer#toString(int, int)
- */
-public static String valueOf(int i) {
-    return Integer.toString(i);
-}
-
-/**
- * Returns the string representation of the {@code long} argument.
- * <p>
- * The representation is exactly the one returned by the
- * {@code Long.toString} method of one argument.
- *
- * @param   l   a {@code long}.
- * @return  a string representation of the {@code long} argument.
- * @see     java.lang.Long#toString(long)
- */
-public static String valueOf(long l) {
-    return Long.toString(l);
-}
-
-/**
- * Returns the string representation of the {@code float} argument.
- * <p>
- * The representation is exactly the one returned by the
- * {@code Float.toString} method of one argument.
- *
- * @param   f   a {@code float}.
- * @return  a string representation of the {@code float} argument.
- * @see     java.lang.Float#toString(float)
- */
-public static String valueOf(float f) {
-    return Float.toString(f);
-}
-
-/**
- * Returns the string representation of the {@code double} argument.
- * <p>
- * The representation is exactly the one returned by the
- * {@code Double.toString} method of one argument.
- *
- * @param   d   a {@code double}.
- * @return  a  string representation of the {@code double} argument.
- * @see     java.lang.Double#toString(double)
- */
-public static String valueOf(double d) {
-    return Double.toString(d);
-}
 ```
 
 ```java
@@ -3095,3 +3014,4 @@ public static String valueOf(double d) {
  */
 public native String intern();
 ```
+

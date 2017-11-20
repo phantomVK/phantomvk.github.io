@@ -328,11 +328,8 @@ private int dispatchEvents(int fd, int events) {
 
 ```java
 Message next() {
-    // Return here if the message loop has already quit and been disposed.
-    // This can happen if the application tries to restart a looper after quit
-    // which is not supported.
-    // 如果消息的looper已经退出且已经被销毁，此方法就会在return null;返回
-    // 如果应用在消息队列已经退出后尝试重启looper，就会遇到这个情况。这种状态得到支持的
+    // 如果消息的looper已经退出且已经被销毁，此方法就会在return null;
+    // 如果应用在消息队列已经退出后尝试重启looper，就会遇到这个情况。这种状态是不应该初出现的。
     final long ptr = mPtr;
     if (ptr == 0) {
         return null;
@@ -348,7 +345,6 @@ Message next() {
         nativePollOnce(ptr, nextPollTimeoutMillis);
 
         synchronized (this) {
-            // Try to retrieve the next message.  Return if found.
             // 尝试获取下一条消息，并在找到后返回改消息
             final long now = SystemClock.uptimeMillis();
             Message prevMsg = null;
@@ -362,7 +358,7 @@ Message next() {
             }
             if (msg != null) {
                 if (now < msg.when) {
-                    // 下一个消息还没有准备好，这是一个可以唤醒消息的超时时间 Next message is not ready.  Set a timeout to wake up when it is ready.
+                    // 下一个消息还没有准备好，这是一个可以唤醒消息的超时时间
                     nextPollTimeoutMillis = (int) Math.min(msg.when - now, Integer.MAX_VALUE);
                 } else {
                     // 获取一个消息
@@ -407,7 +403,7 @@ Message next() {
             mPendingIdleHandlers = mIdleHandlers.toArray(mPendingIdleHandlers);
         }
 
-        // Run the idle handlers.
+        // 运行idle handlers.
         // We only ever reach this code block during the first iteration.
         for (int i = 0; i < pendingIdleHandlerCount; i++) {
             final IdleHandler idler = mPendingIdleHandlers[i];
@@ -496,8 +492,8 @@ public int postSyncBarrier() {
 }
 
 private int postSyncBarrier(long when) {
-    // Enqueue a new sync barrier token.
-    // We don't need to wake the queue because the purpose of a barrier is to stall it.
+    // 进队一个新的sync barrier token.
+    // 不需要去唤醒队列，因为barrier的目的就是为了停顿队列
     synchronized (this) {
         final int token = mNextBarrierToken++;
         final Message msg = Message.obtain();
@@ -535,8 +531,7 @@ private int postSyncBarrier(long when) {
  * @hide
  */
 public void removeSyncBarrier(int token) {
-    // Remove a sync barrier token from the queue.
-    // If the queue is no longer stalled by a barrier then wake it.
+    // Remove a sync barrier tokenbarrier token fro    // If the queue is no longer stalled by a barrier then wake it.
     synchronized (this) {
         Message prev = null;
         Message p = mMessages;
