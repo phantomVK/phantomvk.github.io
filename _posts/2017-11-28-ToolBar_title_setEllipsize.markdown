@@ -9,7 +9,7 @@ tags:
     - Android
 ---
 
-下面通过反射`ToolBar`的`setEllipsize`方法，设置标题中间为截断位置
+下面通过反射`ToolBar`中`TextView`的`setEllipsize`方法，设置标题中间为截断位置
 
 ```java
     private void setEllipsize(Toolbar toolBar) {
