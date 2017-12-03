@@ -1,83 +1,96 @@
 ---
 layout:     post
 title:      "RxLifecycle"
-date:       2017-01-01
+date:       2017-12-04
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
-catalog:    false
+catalog:    true
 tags:
     - Android源码系列
 ---
 
+# 一、前言
+
+## 1.1 简介
+
+用`RxJava`的舒畅毋庸置疑，`map`、`flatmap`、`filter`附以链式操作，避免回调地狱又解决频繁线程切换的问题，而`RxJava`初学者会不知不觉中掉进内存泄漏的坑中。
+
+发生最多的场景是网络访问后回调主线程显示结果：如果界面已经退出，但是订阅没有解除，那`Activity`或`Fragment`的句柄会一直被`Observer`持有，最后导致内存泄漏。
+
+## 1.2 Disposable解除订阅
+
+早期传统错发是构造时自己管理`Observer`的`Disposable`，并在`onDestroy`中解除这个`Disposable`。先看传统处理方法:
+
 ```java
-public abstract class RxAppCompatActivity extends AppCompatActivity implements LifecycleProvider<ActivityEvent> {
+private CompositeDisposable mCompositeDisposable = new CompositeDisposable();
 
-    private final BehaviorSubject<ActivityEvent> lifecycleSubject = BehaviorSubject.create();
+@Override
+protected void onCreate(@Nullable Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
 
-    @Override
-    @NonNull
-    @CheckResult
-    public final Observable<ActivityEvent> lifecycle() {
-        return lifecycleSubject.hide();
-    }
+    // 举个栗子
+    Disposable disposable = Observable.just(1)
+            .map(integer -> "Map to string: " + integer)
+            .filter(s -> !s.isEmpty())
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(s -> ToastUtils.shortShow(this, s));
+    
+    // 加到这个集合里
+    mCompositeDisposable.add(disposable);
+}
 
-    @Override
-    @NonNull
-    @CheckResult
-    public final <T> LifecycleTransformer<T> bindUntilEvent(@NonNull ActivityEvent event) {
-        return RxLifecycle.bindUntilEvent(lifecycleSubject, event);
-    }
-
-    @Override
-    @NonNull
-    @CheckResult
-    public final <T> LifecycleTransformer<T> bindToLifecycle() {
-        return RxLifecycleAndroid.bindActivity(lifecycleSubject);
-    }
-
-    @Override
-    @CallSuper
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        lifecycleSubject.onNext(ActivityEvent.CREATE);
-    }
-
-    @Override
-    @CallSuper
-    protected void onStart() {
-        super.onStart();
-        lifecycleSubject.onNext(ActivityEvent.START);
-    }
-
-    @Override
-    @CallSuper
-    protected void onResume() {
-        super.onResume();
-        lifecycleSubject.onNext(ActivityEvent.RESUME);
-    }
-
-    @Override
-    @CallSuper
-    protected void onPause() {
-        lifecycleSubject.onNext(ActivityEvent.PAUSE);
-        super.onPause();
-    }
-
-    @Override
-    @CallSuper
-    protected void onStop() {
-        lifecycleSubject.onNext(ActivityEvent.STOP);
-        super.onStop();
-    }
-
-    @Override
-    @CallSuper
-    protected void onDestroy() {
-        lifecycleSubject.onNext(ActivityEvent.DESTROY);
-        super.onDestroy();
+@Override
+protected void onDestroy() {
+    super.onDestroy();
+    
+    // 一定要在这里解除所有的订阅，不然上面写的代码白费了
+    if (mCompositeDisposable != null) {
+        mCompositeDisposable.clear();
     }
 }
 ```
+
+上面的方案除了代码多一些，比不解除订阅的做法要好。说实话，方法的逻辑是没错的，只是不够懒，用省时间省代码的方法，达到少写`boilerplate code (俗语: 模板代码)`的目的。
+
+## 1.3 RxLifecycle
+
+那就引入`RxLifecycle`，然后代码里加一行`.compose(bindToLifecycle())`即可，剩下的工作自己撒手不管。
+
+```java
+@Override
+protected void onCreate(@Nullable Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    setContentView(R.layout.activity_main);
+
+    // This is an example that do something useless.
+    Observable.just(1)
+            .compose(bindToLifecycle())
+            .map(integer -> "Map to string: " + integer)
+            .filter(s -> !s.isEmpty())
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread())
+            .subscribe(s -> ToastUtils.shortShow(this, s));
+}
+```
+
+它的缺点这里不会详细说，`RxLifecycle`原作者对此已经做出相关的[分析](http://blog.danlew.net/2017/08/02/why-not-rxlifecycle/)。
+
+# 二、源码的狂欢
+
+## 2.1 RxAppCompatActivity类签名
+
+`RxAppCompatActivity`抽象类的父类是`AppCompatActivity`。实现了`LifecycleProvider<ActivityEvent>`接口。
+
+```java
+public abstract class RxAppCompatActivity extends AppCompatActivity implements LifecycleProvider<ActivityEvent>
+```
+
+为实现`LifecycleProvider<ActivityEvent>`接口增加了一个`BehaviorSubject`实例和三个方法，`BehaviorSubject`后面会介绍，先说三个方法的用处。
+
+
+## 2.2 LifecycleProvider
 
 ```java
 /**
@@ -115,44 +128,53 @@ public interface LifecycleProvider<E> {
 }
 ```
 
+## 2.2 RxAppCompatActivity实现方法
+
+`RxLifecycle`提供两个方法：`bindUntilEvent`和`bindToLifecycle`实现生命周期绑定。
+
 ```java
-/*
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+private final BehaviorSubject<ActivityEvent> lifecycleSubject = BehaviorSubject.create();
 
-package com.trello.rxlifecycle2;
+@Override
+@NonNull
+@CheckResult
+public final Observable<ActivityEvent> lifecycle() {
+    return lifecycleSubject.hide();
+}
 
-import io.reactivex.BackpressureStrategy;
-import io.reactivex.Completable;
-import io.reactivex.CompletableSource;
-import io.reactivex.CompletableTransformer;
-import io.reactivex.Flowable;
-import io.reactivex.FlowableTransformer;
-import io.reactivex.Maybe;
-import io.reactivex.MaybeSource;
-import io.reactivex.MaybeTransformer;
-import io.reactivex.Observable;
-import io.reactivex.ObservableSource;
-import io.reactivex.ObservableTransformer;
-import io.reactivex.Single;
-import io.reactivex.SingleSource;
-import io.reactivex.SingleTransformer;
-import org.reactivestreams.Publisher;
+@Override
+@NonNull
+@CheckResult
+public final <T> LifecycleTransformer<T> bindUntilEvent(@NonNull ActivityEvent event) {
+    return RxLifecycle.bindUntilEvent(lifecycleSubject, event);
+}
 
-import javax.annotation.ParametersAreNonnullByDefault;
+@Override
+@NonNull
+@CheckResult
+public final <T> LifecycleTransformer<T> bindToLifecycle() {
+    return RxLifecycleAndroid.bindActivity(lifecycleSubject);
+}
+```
 
-import static com.trello.rxlifecycle2.internal.Preconditions.checkNotNull;
+`bindUntilEvent()`是自行指定观察者在什么合适的生命周期取消订阅，例如`bindUntilEvent(ActivityEvent.DESTROY)`。
 
+
+
+
+
+## 2.3 RxAppCompatActivity的生命周期
+
+```java
+@Override
+@CallSuper
+protected void onCreate(@Nullable Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    lifecycleSubject.onNext(ActivityEvent.CREATE);
+}
+```
+
+```java
 /**
  * Transformer that continues a subscription until a second Observable emits an event.
  */
@@ -220,32 +242,6 @@ public final class LifecycleTransformer<T> implements ObservableTransformer<T, T
 ```
 
 ```java
-/**
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-package com.trello.rxlifecycle2;
-
-import io.reactivex.Observable;
-import io.reactivex.functions.BiFunction;
-import io.reactivex.functions.Function;
-import io.reactivex.functions.Predicate;
-
-import javax.annotation.CheckReturnValue;
-import javax.annotation.Nonnull;
-
-import static com.trello.rxlifecycle2.internal.Preconditions.checkNotNull;
-
 public class RxLifecycle {
 
     private RxLifecycle() {
@@ -336,33 +332,6 @@ public class RxLifecycle {
 ```
 
 ```java
-/**
- * Copyright (c) 2016-present, RxJava Contributors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in
- * compliance with the License. You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License is
- * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See
- * the License for the specific language governing permissions and limitations under the License.
- */
-
-package io.reactivex.subjects;
-
-import io.reactivex.annotations.CheckReturnValue;
-import java.lang.reflect.Array;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.*;
-
-import io.reactivex.Observer;
-import io.reactivex.disposables.Disposable;
-import io.reactivex.internal.functions.ObjectHelper;
-import io.reactivex.internal.util.*;
-import io.reactivex.internal.util.AppendOnlyLinkedArrayList.NonThrowingPredicate;
-import io.reactivex.plugins.RxJavaPlugins;
-
 /**
  * Subject that emits the most recent item it has observed and all subsequent observed items to each subscribed
  * {@link Observer}.
