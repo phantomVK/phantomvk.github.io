@@ -47,7 +47,7 @@ protected void onDestroy() {
     
     // 统一解除所有订阅
     if (mCompositeDisposable != null) {
-        mCompositeDisposable.clear();
+        mCompositeDisposable.dispose();
     }
 }
 ```
@@ -154,33 +154,33 @@ public final Observable<ActivityEvent> lifecycle() {
 }
 ```
 
-`bindUntilEvent`和`bindToLifecycle`实现生命周期绑定，对应是实现了`LifecycleProvider`接口的抽象方法。
+`bindUntilEvent`和`bindToLifecycle`实现生命周期绑定
 
 ```java
 /**
-     * Binds a source until a specific event occurs.
-     *
-     * @param event the event that triggers unsubscription
-     * @return a reusable {@link LifecycleTransformer} which unsubscribes when the event triggers.
-     */
-    @Nonnull
-    @CheckReturnValue
-    <T> LifecycleTransformer<T> bindUntilEvent(@Nonnull E event);
+ * Binds a source until a specific event occurs.
+ *
+ * @param event the event that triggers unsubscription
+ * @return a reusable {@link LifecycleTransformer} which unsubscribes when the event triggers.
+ */
+@Nonnull
+@CheckReturnValue
+<T> LifecycleTransformer<T> bindUntilEvent(@Nonnull E event);
 
-    /**
-     * Binds a source until the next reasonable event occurs.
-     *
-     * @return a reusable {@link LifecycleTransformer} which unsubscribes at the correct time.
-     */
-    @Nonnull
-    @CheckReturnValue
-    <T> LifecycleTransformer<T> bindToLifecycle();
+/**
+ * Binds a source until the next reasonable event occurs.
+ *
+ * @return a reusable {@link LifecycleTransformer} which unsubscribes at the correct time.
+ */
+@Nonnull
+@CheckReturnValue
+<T> LifecycleTransformer<T> bindToLifecycle();
 ```
 
 
 ### 2.3.2 bindUntilEvent
 
-`bindUntilEvent()`是手动指定观察者取消订阅时的生命周期，不关心绑定寿命周期的状态
+`bindUntilEvent()`是手动指定观察者取消订阅时的生命周期，不关心所在生命周期的状态。
 
 ```java
 @Override
@@ -191,13 +191,15 @@ public final <T> LifecycleTransformer<T> bindUntilEvent(@NonNull ActivityEvent e
 }
 ```
 
+例如在`onDestroy`中解除绑定。
+
 ```java
 .bindUntilEvent(ActivityEvent.DESTROY)
 ```
 
 ### 2.3.3 bindToLifecycle
 
-`bindToLifecycle()`根据绑定时所处的生命周期，自动在合理的生命周期中解除订阅，用的时候只需要在`.compose()`中调这个方法即可：
+`bindToLifecycle()`根据绑定时所处生命周期，自动在合理的生命周期中解除订阅，用的时候只需要在`.compose()`中调这个方法即可：
 
 ```java
 @Override
@@ -215,6 +217,8 @@ public final <T> LifecycleTransformer<T> bindToLifecycle() {
 * `onCreate()`绑定 --> `onDestroy()`解除订阅
 * `onStart()`绑定 --> `onStop()`解除订阅
 * `onResume()`绑定 --> `onPause()`解除订阅
+
+下面仅取`onCreate`作为实例：
 
 ```java
 @Override
@@ -369,9 +373,9 @@ public class RxLifecycle {
 }
 ```
 
-## 2.6 Subject
+## 2.5 Subject
 
-上面还出现了`BehaviorSubject`，只看看他集成的父类`Subject`。这个类直接继承了`Observable<T>`，表明是以为被观察者，又实现`Observer<T>`，所以也能作为一名观察者。因此，作为两个角色都兼顾的类，最大的能力就是，对上级的被观察者，身份是观察者；对下级观察者，身份是被观察者。
+上面还出现了`BehaviorSubject`，只看看他继承的父类`Subject`。这个类直接继承了`Observable<T>`，表明是被观察者；又实现`Observer<T>`，所以也能作为一名观察者。作为两个角色都兼顾的类，对上级的被观察者身份是观察者，对下级观察者身份是被观察者。
 
 [官方文档](http://reactivex.io/RxJava/2.x/javadoc/)
 
@@ -454,7 +458,7 @@ public enum ActivityEvent {
 }
 ```
 
-`FragmentEvent`的生命周期枚举值
+`FragmentEvent`的生命周期枚举值，里面没有`onActivityCreated`，所以建议用`CREATE_VIEW`代替。
 
 ```java
 public enum FragmentEvent {
