@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Glide 4.0 StringSignature 找不到"
+title:      "Glide 4.0 StringSignature 找不到类"
 date:       2017-12-14
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
