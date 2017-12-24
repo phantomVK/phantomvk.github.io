@@ -17,7 +17,7 @@ tags:
 
 调用传入的闭包，并用`it`指代`T`，返回值与闭包的返回值一致。
 
-```java
+```kotlin
 /**
  * Calls the specified function [block] with `this` value as its argument and returns its result.
  */
@@ -59,7 +59,7 @@ results?.let {
 
 `apply`使用`this`指代`T`，闭包返回值是`Unit`。但是`apply`方法会自动返回`T`，通过`return this`实现。
 
-```java
+```kotlin
 /**
  * Calls the specified function [block] with `this` value as its receiver and returns `this` value.
  */
@@ -89,7 +89,7 @@ val linearLayout = LinearLayout(itemView.context).apply {
 
 上面的代码等价于：
 
-```java
+```kotlin
 val linearLayout = LinearLayout(itemView.context)
 linearLayout.orientation = LinearLayout.VERTICAL
 linearLayout.layoutParams = LinearLayout.LayoutParams(
@@ -121,7 +121,7 @@ progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
 
 一般会在传入`receiver`的时候就地创建实例，否则可以使用`apply`来替代`with`。
 
-```java
+```kotlin
 /**
  * Calls the specified function [block] with the given [receiver] as its receiver and returns its result.
  */
@@ -178,7 +178,7 @@ with(ArrayList<String>()) {
 
 根据函数签名可见，`run`不运行在任何变量上，既不能使用`it`，也不能使用`this`指代任何参数。
 
-```java
+```kotlin
 /**
  * Calls the specified function [block] and returns its result.
  */
