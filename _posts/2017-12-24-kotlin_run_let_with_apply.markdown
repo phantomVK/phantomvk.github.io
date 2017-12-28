@@ -212,7 +212,5 @@ url = intent.getStringExtra(EXTRA_URL)?.takeIf { it.isNotEmpty() } ?: run {
     toast("不能浏览一个空链接哦")
     activity.finish()
 }
-
-// If url is not null, continues...
 ```
 
