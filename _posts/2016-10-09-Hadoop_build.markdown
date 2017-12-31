@@ -15,9 +15,9 @@ __运行环境：`Ubuntu 16.04 LTS AMD64` 、`openJDK 9`、`Hadoop-1.2.1`、`ope
 
 ## 一、JDK安装及配置
 
-#### 安装JDK
+### 安装JDK
 
-Hadoop依赖JDK，请确认系统已经安装JDK。安装参考 __[Ubuntu安装Oracle JDK8](http://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__
+Hadoop依赖JDK，请确认系统已经安装JDK。安装参考 __[Ubuntu安装Oracle JDK8](http://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__ .
 
 ## 二、 Hadoop安装及配置
 
@@ -159,7 +159,7 @@ SHUTDOWN_MSG: Shutting down NameNode at mike-virtual-machine/127.0.1.1
 
 ## 三、 启动Hadoop服务
 
-#### 3.1 启动
+### 3.1 启动
 
 进入Hadoop目录下，通过脚本启动Hadoop
 
@@ -201,7 +201,7 @@ $ jps
 
 ## 四、 疑难解答
 
-#### 4.1 解决 /etc/profile 失效
+### 4.1 解决 /etc/profile 失效
 
 在`~/.bashrc`添加环境变量
 
@@ -217,7 +217,7 @@ $ vim .bashrc
 $ source .bashrc
 ```
 
-#### 4.2 找不到配置文件
+### 4.2 找不到配置文件
 
 这个错误可能只在使用openJDK的时候才出现
 
@@ -235,7 +235,7 @@ $ ls -la conf
  lrwxrwxrwx 1 root root 3 6月  16 17:24 conf -$ lib
 ```
 
-#### 4.3 HADOOP_HOME报deprecated
+### 4.3 HADOOP_HOME报deprecated
 
 ```bash
 Warning: $HADOOP_HOME is deprecated
@@ -247,7 +247,7 @@ Warning: $HADOOP_HOME is deprecated
 export HADOOP_HOME_WARN_SUPPRESS=1
 ```
 
-#### 4.4 SSH无法连接
+### 4.4 SSH无法连接
 
 没有安装`openSSH`服务导致
 
@@ -286,7 +286,7 @@ $ service sshd restart
 $ ssh localhost # 检查ssh服务
 ```
 
-#### 4.5 安装dpkg报错
+### 4.5 安装dpkg报错
 
 多个窗口同时使用`apt-get`会出现这个错误，不要同时使用就好了。
 
