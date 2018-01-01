@@ -10,7 +10,7 @@ tags:
 
 ## 系统环境
 
-__运行环境：`Ubuntu 16.04 LTS AMD64` 、`openJDK 9`、`Hadoop-1.2.1`、`openSSH`__
+__运行环境：`Ubuntu 16.04 LTS AMD64` 、`OpenJDK 9`、`Hadoop-1.2.1`、`OpenSSH`__
 
 
 ## 一、JDK安装及配置
@@ -42,7 +42,7 @@ $ cd /opt/hadoop-1.2.1/conf
 
 #### 2.2.2 配置hadoop-env.sh
 
-在文件中添加安装`JDK`的路径，这里用的是`openJDK`
+在文件中添加安装`JDK`的路径，这里用的是`OpenJDK`
 
 ```bash
 $ vim hadoop-env.sh  
@@ -219,7 +219,7 @@ $ source .bashrc
 
 ### 4.2 找不到配置文件
 
-这个错误可能只在使用openJDK的时候才出现
+这个错误可能只在使用OpenJDK的时候才出现
 
 ```
 Error: Config file not found: /usr/lib/jvm/java-9-openjdk-amd64/conf/management/management.properties
@@ -249,7 +249,7 @@ export HADOOP_HOME_WARN_SUPPRESS=1
 
 ### 4.4 SSH无法连接
 
-没有安装`openSSH`服务导致
+没有安装`OpenSSH`服务导致
 
 ```
 localhost: ssh: connect to host localhost port 22: Connection refused
