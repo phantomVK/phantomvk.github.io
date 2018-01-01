@@ -204,14 +204,14 @@ public boolean dispatchTouchEvent(MotionEvent event) {
             result = true; // mOnTouchListener.onTouch()消费成功
         }
         
-        // 若 li.mOnTouchListener.onTouch(this, event)没
-        // 有执行，则result为false，并交给onTouchEvent()处理
+        // 若li.mOnTouchListener.onTouch(this, event)没有执行或返回值为false
+        // 则result为false，并交给onTouchEvent()处理
         if (!result && onTouchEvent(event)) {
             result = true;
         }
     }
 
-    // mOnTouchListener.onTouch()和都onTouchEvent(event)没有消费事件
+    // mOnTouchListener.onTouch()和onTouchEvent(event)都没有消费事件
     if (!result && mInputEventConsistencyVerifier != null) {
         mInputEventConsistencyVerifier.onUnhandledEvent(event, 0);
     }
@@ -602,5 +602,7 @@ private final class UnsetPressedState implements Runnable {
 # 五、参考资料
 
 [InputEventConsistencyVerifier](http://developer.oesf.biz/em/developer/reference/eggplant/android/view/InputEventConsistencyVerifier.html)
+
+[TouchDelegate](https://developer.android.com/reference/android/view/TouchDelegate.html)
 
 
