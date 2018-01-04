@@ -9,19 +9,19 @@ tags:
     - Android
 ---
 
-显示`EditText`内容为明文
+显示`EditText`内容为明文:
 
 ```java
 setTransformationMethod(HideReturnsTransformationMethod.getInstance());
 ```
 
-显示`EditText`内容为密文
+显示`EditText`内容为密文:
 
 ```java
 setTransformationMethod(PasswordTransformationMethod.getInstance());
 ```
 
-实现被点击图标`OnClickListener`
+实现被点击图标的`OnClickListener`
 
 ```kotlin
 icon.setOnClickListener {

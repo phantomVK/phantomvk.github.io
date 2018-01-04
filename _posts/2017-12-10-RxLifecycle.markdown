@@ -52,7 +52,7 @@ protected void onDestroy() {
 }
 ```
 
-上述方案除了代码多一些，还有一个小缺点是不省代码，得用其他方法少写`boilerplate code (俗语: 模板代码)`。
+上述方案缺点是`boilerplate code(模板代码)`相当多，不够简洁。
 
 ## 1.3 新办法
 
@@ -81,14 +81,14 @@ protected void onCreate(@Nullable Bundle savedInstanceState) {
 
 ## 2.1 类签名
 
-`RxAppCompatActivity`抽象类的父类是`AppCompatActivity`。实现了`LifecycleProvider<ActivityEvent>`接口。
+`RxAppCompatActivity`抽象类的父类是`AppCompatActivity`，并实现了`LifecycleProvider<ActivityEvent>`接口。
 
 ```java
 public abstract class RxAppCompatActivity extends AppCompatActivity
     implements LifecycleProvider<ActivityEvent>
 ```
 
-实现`LifecycleProvider<ActivityEvent>`接口增加了三个方法，并维护了一个`BehaviorSubject`实例，该实例是`Subject`的子类，实现在RxJava中，`ActivityEvent`放在文章最后简略展示。
+实现`LifecycleProvider<ActivityEvent>`接口增加了三个方法，并维护了一个`BehaviorSubject`实例，该实例是`Subject`的子类，实现在`RxJava`中，`ActivityEvent`放在文章最后简略展示。
 
 ```java
 private final BehaviorSubject<ActivityEvent> lifecycleSubject = BehaviorSubject.create();
@@ -97,7 +97,7 @@ private final BehaviorSubject<ActivityEvent> lifecycleSubject = BehaviorSubject.
 
 ## 2.2 抽象接口
 
-`LifecycleProvider`是`RxLifecycle`功能的抽象接口.`RxLifecycle`只对几个基本组件的实现了`LifecycleProvider`，没覆盖自定义组件的部分。所以我们通过实现这个接口，给自己的组件增加`RxLifecycle`的能力。
+`LifecycleProvider`是`RxLifecycle`功能的抽象接口。`RxLifecycle`只对几个基本组件的实现了`LifecycleProvider`，没覆盖自定义组件的部分。所以我们通过实现这个接口，给自己的组件增加`RxLifecycle`的能力。
 
 ```java
 /**
