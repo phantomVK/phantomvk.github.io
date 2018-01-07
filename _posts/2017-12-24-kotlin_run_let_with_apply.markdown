@@ -11,18 +11,16 @@ tags:
 
 ## 前言
 
-下面除了`with`之外，所有用例都来自生产代码。因项目没有实际使用`with`语法，所以通过其他例子来示意。在不影响理解的情况下，所有用例移除业务相关代码。
+下面除了`with`之外，所有用例都来自`Android`生产代码。因项目没有实际使用`with`语法，所以通过其他例子来示意。在不影响理解的情况下，所有用例移除业务相关代码。
 
 文章中使用的`Kotlin`版本是`1.2.10`，不同版本的`Kotlin`标准库实现可能会有差异。
 
 ## 一、let
 
-调用传入的函数式，接收者为`T`，且用`it`指代`T`，返回值与函数式返回值一致。
+调用传入的函数式。接收者为`T`，且用`it`指代`T`，返回值与函数式返回值一致。
 
 ```kotlin
-/**
- * Calls the specified function [block] with `this` value as its argument and returns its result.
- */
+// 用`this`作为调用块的实参，并返回块执行结果
 @kotlin.internal.InlineOnly
 public inline fun <T, R> T.let(block: (T) -> R): R {
     contract {
@@ -32,7 +30,7 @@ public inline fun <T, R> T.let(block: (T) -> R): R {
 }
 ```
 
-### 用例一
+### 1.1 用例
 
 把`color:Int`颜色值设置到`text:TextView`。
 
@@ -41,15 +39,16 @@ color.let {
     try {
         text.setTextColor(Color.parseColor(it))
     } catch (e: Exception) {
-        Log.e("Class.name", "setTextColor($color) -> ${e.message}")
+        Log.e("ClazzName", "setTextColor($color) -> ${e.message}")
     }
 }
 ```
-### 用例二
+### 1.2 用例
 
-当`results:MutableList<String>`不为空时从`results`按`position`取对应值然后绑定。
+当`results:MutableList<String>`不为空时，从`results`按`position`取对应值并绑定到`viewHolder`。
 
 ```kotlin
+// results进行了判空操作
 results?.let {
     if (it.isNotEmpty()) {
         viewHolder.bind(holder, it[position])
@@ -59,12 +58,10 @@ results?.let {
 
 ## 二、apply
 
-`apply`使用`this`指代`T`，闭包返回值是`Unit`。但是`apply`方法会自动返回`T`，通过`return this`实现。
+`apply`使用`this`指代`T`，函数值返回值是`Unit`。但`apply`通过`return this`主动返回`T`的实例。
 
 ```kotlin
-/**
- * Calls the specified function [block] with `this` value as its receiver and returns `this` value.
- */
+// 用`this`作为执行块的接收者，并返回`this`的实例
 @kotlin.internal.InlineOnly
 public inline fun <T> T.apply(block: T.() -> Unit): T {
     contract {
@@ -76,9 +73,9 @@ public inline fun <T> T.apply(block: T.() -> Unit): T {
 ```
 
 
-### 用例一
+### 2.1 用例
 
-创建`LinearLayout`并利用`apply`设置参数，最后返回初始化完毕的`LinearLayout`实例。
+创建`LinearLayout`并利用`apply`设置初始化参数，最后返回初始化完毕的`LinearLayout`实例。
 
 ```kotlin
 val linearLayout = LinearLayout(itemView.context).apply {
@@ -99,7 +96,9 @@ linearLayout.layoutParams = LinearLayout.LayoutParams(
         LinearLayout.LayoutParams.WRAP_CONTENT)
 ```
 
-### 用例二
+如果构造过程中需要初始化的变量较多，使用`apply`形成的代码块会非常直观。
+
+### 2.2 用例
 
 根据`newProgress:Int`来修改`progressBar`的状态。
 
@@ -110,7 +109,7 @@ progressBar.apply {
 }
 ```
 
-等价下列代码：
+等价于下列代码：
 
 ```kotlin
 progressBar.progress = newProgress
@@ -119,14 +118,12 @@ progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
 
 ## 三、with
 
-接受一个`receiver`和一个函数，通过`this`调用`receiver`，返回值根据函数式最后一个返回值为准。
+接收一个`receiver`和一个函数式，通过`this`调用`receiver`，返回值根据函数式最后一个返回值为准。
 
-一般会在传入`receiver`的时候就地创建实例，否则可以使用`apply`来替代`with`。
+一般会在传入`receiver`的时候就地创建实例，不然使用`apply`来替代`with`会是更好的选择。
 
 ```kotlin
-/**
- * Calls the specified function [block] with the given [receiver] as its receiver and returns its result.
- */
+// 用给定的[receiver]作为执行块的接收者，并返回接收者的块执行结果
 @kotlin.internal.InlineOnly
 public inline fun <T, R> with(receiver: T, block: T.() -> R): R {
     contract {
@@ -136,7 +133,7 @@ public inline fun <T, R> with(receiver: T, block: T.() -> R): R {
 }
 ```
 
-### 用例一
+### 3.1 用例
 
 使用`ArrayList<String>()`作为闭包的参数，返回类型为`println()`的返回值`Unit`。
 
@@ -148,9 +145,10 @@ with(ArrayList<String>()) {
     println("this = " + this)
 }
 ```
-### 用例二
 
-使用`ArrayList<String>()`做为闭包的参数，返回值类型为`ArrayList<String>`。
+### 3.2用例
+
+使用`ArrayList<String>()`做为闭包的参数，返回值类型为`this:ArrayList<String>`。
 
 ```kotlin
 with(ArrayList<String>()) {
@@ -161,9 +159,9 @@ with(ArrayList<String>()) {
 }
 ```
 
-### 用例三
+### 3.3 用例
 
-使用`ArrayList<String>()`做为闭包的参数，返回值类型为`3.1415926`的类型`Double`。
+使用`ArrayList<String>()`做为闭包的参数，返回值类型为`3.1415926`的默认类型`Double`，注意不是`Float`。
 
 ```kotlin
 with(ArrayList<String>()) {
@@ -179,9 +177,7 @@ with(ArrayList<String>()) {
 执行传入的函数式，并返回函数的执行结果。`run`的主要目的是强调需要执行的函数。
 
 ```kotlin
-/**
- * Calls the specified function [block] and returns its result.
- */
+// 执行具有指定功能的[block]，并返回执行结果
 @kotlin.internal.InlineOnly
 public inline fun <R> run(block: () -> R): R {
     contract {
@@ -190,9 +186,7 @@ public inline fun <R> run(block: () -> R): R {
     return block()
 }
 
-/**
- * Calls the specified function [block] with `this` value as its receiver and returns its result.
- */
+// 用`this`作为执行块的接收者，并返回块执行的结果
 @kotlin.internal.InlineOnly
 public inline fun <T, R> T.run(block: T.() -> R): R {
     contract {
@@ -202,7 +196,7 @@ public inline fun <T, R> T.run(block: T.() -> R): R {
 }
 ```
 
-### 用例
+### 4.1 用例
 
 从`intent`取`EXTRA_URL`的值，不为非空且内容不为空，赋值给`url`。否则弹出提示并关闭页面。
 
