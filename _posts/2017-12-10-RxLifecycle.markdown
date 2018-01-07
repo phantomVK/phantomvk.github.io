@@ -101,33 +101,26 @@ private final BehaviorSubject<ActivityEvent> lifecycleSubject = BehaviorSubject.
 
 ```java
 /**
- * activity 和 fragment lifecycle providers公共的基本接口.
- *
- * Useful if you are writing utilities on top of rxlifecycle-components
- * or implementing your own component not supported by this library.
+ * activity 和 fragment lifecycle providers公共的基本接口
  */
 public interface LifecycleProvider<E> {
     /**
-     * @return a sequence of lifecycle events
+     * @return lifecycle事件序列
      */
     @Nonnull
     @CheckReturnValue
     Observable<E> lifecycle();
 
     /**
-     * Binds a source until a specific event occurs.
-     *
-     * @param event the event that triggers unsubscription
-     * @return a reusable {@link LifecycleTransformer} which unsubscribes when the event triggers.
+     * 绑定一个源，直到一个特定的事件发生（该事件就是手动绑定需结束事件的生命周期）
+
      */
     @Nonnull
     @CheckReturnValue
     <T> LifecycleTransformer<T> bindUntilEvent(@Nonnull E event);
 
     /**
-     * Binds a source until the next reasonable event occurs.
-     *
-     * @return a reusable {@link LifecycleTransformer} which unsubscribes at the correct time.
+     * 绑定一个源，直到下一个合理的事件发生
      */
     @Nonnull
     @CheckReturnValue
@@ -212,7 +205,7 @@ public final <T> LifecycleTransformer<T> bindToLifecycle() {
 
 ## 2.4 生命周期绑定
 
-`Activity`每个生命周期的`lifecycleSubject`发送相应生命周期事件。同理`onStart`到`onDestroy`也是完全一样。例如在`Activity`中：
+`Activity`每个生命周期的`lifecycleSubject`发射相应所在生命周期的事件。同理`onStart`到`onDestroy`也完全一样。例如在`Activity`中：
 
 * `onCreate()`绑定 --> `onDestroy()`解除订阅
 * `onStart()`绑定 --> `onStop()`解除订阅
@@ -291,13 +284,7 @@ public class RxLifecycle {
     }
 
     /**
-     * Binds the given source to a lifecycle.
-     * <p>
-     * When the lifecycle event occurs, the source will cease to emit any notifications.
-     *
-     * @param lifecycle the lifecycle sequence
-     * @param event the event which should conclude notifications from the source
-     * @return a reusable {@link LifecycleTransformer} that unsubscribes the source at the specified event
+     * 绑定给定的事件到lifecycle
      */
     @Nonnull
     @CheckReturnValue
@@ -318,14 +305,7 @@ public class RxLifecycle {
     }
 
     /**
-     * Binds the given source to a lifecycle.
-     * <p>
-     * This helper automatically determines (based on the lifecycle sequence itself) when the source
-     * should stop emitting items. Note that for this method, it assumes <em>any</em> event
-     * emitted by the given lifecycle indicates that the lifecycle is over.
-     *
-     * @param lifecycle the lifecycle sequence
-     * @return a reusable {@link LifecycleTransformer} that unsubscribes the source whenever the lifecycle emits
+     * 绑定给定源到lifecycle
      */
     @Nonnull
     @CheckReturnValue
@@ -334,18 +314,7 @@ public class RxLifecycle {
     }
 
     /**
-     * Binds the given source to a lifecycle.
-     * <p>
-     * This method determines (based on the lifecycle sequence itself) when the source
-     * should stop emitting items. It uses the provided correspondingEvents function to determine
-     * when to unsubscribe.
-     * <p>
-     * Note that this is an advanced usage of the library and should generally be used only if you
-     * really know what you're doing with a given lifecycle.
-     *
-     * @param lifecycle the lifecycle sequence
-     * @param correspondingEvents a function which tells the source when to unsubscribe
-     * @return a reusable {@link LifecycleTransformer} that unsubscribes the source during the Fragment lifecycle
+     * 绑定给定源到lifecycle
      */
     @Nonnull
     @CheckReturnValue
@@ -444,9 +413,6 @@ public abstract class Subject<T> extends Observable<T> implements Observer<T> {
 `ActivityEvent`的生命周期枚举值
 
 ```java
-/**
- * Lifecycle events that can be emitted by Activities.
- */
 public enum ActivityEvent {
 
     CREATE,
