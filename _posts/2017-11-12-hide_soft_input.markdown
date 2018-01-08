@@ -26,9 +26,7 @@ class MainActivity : AppCompatActivity() {
         return super.dispatchTouchEvent(ev)
     }
 
-    /**
-     * Check if click on the EditText, return true to hide soft input.
-     */
+    // Check if click on the EditText, return true to hide soft input.
     private fun shouldHideInput(view: View?, event: MotionEvent): Boolean {
         if (view != null && view is EditText) {
             val array = intArrayOf(0, 0)
@@ -42,9 +40,7 @@ class MainActivity : AppCompatActivity() {
         return false
     }
 
-    /**
-     * Hide system soft input.
-     */
+    // Hide system soft input.
     private fun hideSoftInput(token: IBinder?) {
         token?.let {
             val im = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager

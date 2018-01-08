@@ -295,13 +295,9 @@ private int safeSizeOf(K key, V value) {
 为此，一个折中的解决方案是根据图片内存占用情况，即使item依然保存在队列中，当内存占用超过设定值时，也要强制释放队列最近未使用的资源。被释放的图片在以后使用的时候再重新加载，用时间换取空间。
 
 ```java
-/**
- * Returns the size of the entry for {@code key} and {@code value} in
- * user-defined units.  The default implementation returns 1 so that size
- * is the number of entries and max size is the maximum number of entries.
- *
- * <p>An entry's size must not change while it is in the cache.
- */
+// 返回一个元素大小默认值为1，表示一个元素占用一个单位；
+// 对于其他类型如图片，一个元素大小可能是图片体积在内存中的占用；
+// 一个条目的size在运行时一定不能被改变，否则可能会导致数量控制失效。
 protected int sizeOf(K key, V value) {
     return 1;
 }
@@ -313,7 +309,7 @@ protected int sizeOf(K key, V value) {
 
 ```java
 public final void evictAll() {
-    trimToSize(-1); // -1 will evict 0-sized elements
+    trimToSize(-1);
 }
 ```
 
@@ -322,55 +318,51 @@ public final void evictAll() {
 
 ```java
 /**
- * For caches that do not override {@link #sizeOf}, this returns the number
- * of entries in the cache. For all other caches, this returns the sum of
- * the sizes of the entries in this cache.
+ * 如果方法没有被重载，则方法返回的是已保存在缓存中元素的数量。
+ * 对于其他缓存元素类型，此方法返回的是所有元素的体积的总大小
  */
 public synchronized final int size() {
     return size;
 }
 
 /**
- * For caches that do not override {@link #sizeOf}, this returns the maximum
- * number of entries in the cache. For all other caches, this returns the
- * maximum sum of the sizes of the entries in this cache.
+ * 如果方法没有被重载，则方法返回的是保存在缓存中元素数量的最大值。
+ * 对于其他缓存元素类型，此方法返回的是所有元素的体积的最大值
  */
 public synchronized final int maxSize() {
     return maxSize;
 }
 
 /**
- * Returns the number of times {@link #get} returned a value that was
- * already present in the cache.
+ * 返回元素命中次数
  */
 public synchronized final int hitCount() {
     return hitCount;
 }
 
 /**
- * Returns the number of times {@link #get} returned null or required a new
- * value to be created.
+ * 返回元素命中失败null，或需创建新元素的次数
  */
 public synchronized final int missCount() {
     return missCount;
 }
 
 /**
- * Returns the number of times {@link #create(Object)} returned a value.
+ * 返回新元素被创建次数
  */
 public synchronized final int createCount() {
     return createCount;
 }
 
 /**
- * Returns the number of times {@link #put} was called.
+ * 返回元素存入次数
  */
 public synchronized final int putCount() {
     return putCount;
 }
 
 /**
- * Returns the number of values that have been evicted.
+ * 返回元素丢弃次数
  */
 public synchronized final int evictionCount() {
     return evictionCount;
