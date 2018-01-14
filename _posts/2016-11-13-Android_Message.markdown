@@ -169,7 +169,7 @@ public static Message obtain(Handler h, int what, int arg1, int arg2, Object obj
 
 # 三、消息回收
 
-检查当前系统版本是否支持消息对象循环回收
+检查当前系统版本是否支持消息对象循环回收。当消息已经保存在缓存池中时，就会标记为`IN_USE`，不能再次回收。
 
 ```java
 public static void updateCheckRecycle(int targetSdkVersion) {
@@ -316,6 +316,7 @@ void markInUse() {
 ```java
 public static final Parcelable.Creator<Message> CREATOR
         = new Parcelable.Creator<Message>() {
+    // 通过Parcelable构造一个Message
     public Message createFromParcel(Parcel source) {
         Message msg = Message.obtain();
         msg.readFromParcel(source);
@@ -339,6 +340,7 @@ public void writeToParcel(Parcel dest, int flags) {
     dest.writeInt(what);
     dest.writeInt(arg1);
     dest.writeInt(arg2);
+    // obj对象一定要实现了Parcelable，否则无法支持跨进程通讯
     if (obj != null) {
         try {
             Parcelable p = (Parcelable)obj;

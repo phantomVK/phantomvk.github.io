@@ -104,7 +104,7 @@ public class MyLinearLayout extends LinearLayout {
 
 # 二、运行结果
 
-时间按照一定规律传递:
+事件按照一定规律传递:
 
 * MyLinearLayout: dispatchTouchEvent
 * MyLinearLayout: onInterceptTouchEvent
@@ -159,7 +159,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         // 有MotionEvent.ACTION_DOWN事件
         if (actionMasked == MotionEvent.ACTION_DOWN) {
             // 开始一个新的触摸动作时先丢弃之前所有的状态
-            // 框架可能由于APP切换、ANR或其他状态改变已经终止先前抬起或取消事件
+            // 框架可能由于APP切换、ANR或其他状态改变，结束了先前抬起或取消事件
             cancelAndClearTouchTargets(ev); // 取消并清除触摸的Targets
             resetTouchState(); // 重置触摸状态
         }
@@ -179,7 +179,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                 intercepted = false;
             }
         } else {
-            // 如果没有触摸targets且这个操作不是down事件，这个viewgroup会继续拦截
+            // 如果没有触摸targets，且这个操作不是down事件，这个viewgroup会继续拦截
             intercepted = true;
         }
 
@@ -234,7 +234,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                         final View child = (preorderedList == null)
                                 ? children[childIndex] : preorderedList.get(childIndex);
 
-                        // 若当前视图无法获取用户焦点跳过本次循环
+                        // 若当前视图无法获取用户焦点，跳过本次循环
                         if (childWithAccessibilityFocus != null) {
                             if (childWithAccessibilityFocus != child) {
                                 continue;
