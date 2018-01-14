@@ -1,0 +1,184 @@
+---
+layout:     post
+title:      "Java源码系列(5) -- HashSet"
+date:       2018-01-14
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    true
+tags:
+    - Java
+---
+
+## 一、类签名
+
+```java
+public class HashSet<E>
+    extends AbstractSet<E>
+    implements Set<E>, Cloneable, java.io.Serializable
+```
+
+## 二、数据成员
+
+```java
+// Serializable序列化ID
+static final long serialVersionUID = -5024744406713321676L;
+
+// HashSet利用HahsMap来实现存储
+private transient HashMap<E,Object> map;
+
+// Dummy value to associate with an Object in the backing Map
+private static final Object PRESENT = new Object();
+```
+
+
+## 三、构造方法
+
+```java
+// 构造全新的、空的集合，利用HashMap实例来实现，初始化大小为16，负载因子0.75
+public HashSet() {
+    map = new HashMap<>();
+}
+
+// 利用给定集合包含的元素来构造新的集合，HashMap实例初始化大小为16，负载因子0.75
+public HashSet(Collection<? extends E> c) {
+    map = new HashMap<>(Math.max((int) (c.size()/.75f) + 1, 16));
+    addAll(c);
+}
+
+// 通过指定大小的容量值和负载因子来初始化一个内部HashMap.
+public HashSet(int initialCapacity, float loadFactor) {
+    map = new HashMap<>(initialCapacity, loadFactor);
+}
+
+// 通过指定大小的容量值来初始化一个内部HashMap，负载因子默认值为0.75
+public HashSet(int initialCapacity) {
+    map = new HashMap<>(initialCapacity);
+}
+
+// 这个构造函数使用LinkedHashMap，构造参数多了一个无用的布尔值，用于区分上面的构造方法
+HashSet(int initialCapacity, float loadFactor, boolean dummy) {
+    map = new LinkedHashMap<>(initialCapacity, loadFactor);
+}
+```
+
+## 四、成员方法
+
+```java
+// 返回一个迭代器，迭代器指示的元素没有固定顺序
+public Iterator<E> iterator() {
+    return map.keySet().iterator();
+}
+
+// 返回集合中元素的数量
+public int size() {
+    return map.size();
+}
+
+// 如果容器中没有任何元素，返回true
+public boolean isEmpty() {
+    return map.isEmpty();
+}
+
+// 检查集合中是否包含指定元素
+public boolean contains(Object o) {
+    return map.containsKey(o);
+}
+
+// 若集合不包含带插入元素，并成功插入，返回true
+// 若集合中已包含指定元素，则原集合不会改变，并返回false
+public boolean add(E e) {
+    return map.put(e, PRESENT)==null;
+}
+
+// 从集合中移除指定元素
+public boolean remove(Object o) {
+    return map.remove(o)==PRESENT;
+}
+
+// 清空集合中所有元素
+public void clear() {
+    map.clear();
+}
+```
+
+## 五、克隆和序列化
+
+```java
+// 返回一个浅拷贝的HashSet实例，其中包含所有的元素都没有被重新拷贝
+@SuppressWarnings("unchecked")
+public Object clone() {
+    try {
+        HashSet<E> newSet = (HashSet<E>) super.clone();
+        newSet.map = (HashMap<E, Object>) map.clone();
+        return newSet;
+    } catch (CloneNotSupportedException e) {
+        throw new InternalError(e);
+    }
+}
+
+private void writeObject(java.io.ObjectOutputStream s)
+    throws java.io.IOException {
+    // Write out any hidden serialization magic
+    s.defaultWriteObject();
+
+    // Write out HashMap capacity and load factor
+    s.writeInt(map.capacity());
+    s.writeFloat(map.loadFactor());
+
+    // Write out size
+    s.writeInt(map.size());
+
+    // Write out all elements in the proper order.
+    for (E e : map.keySet())
+        s.writeObject(e);
+}
+
+private void readObject(java.io.ObjectInputStream s)
+    throws java.io.IOException, ClassNotFoundException {
+    // Read in any hidden serialization magic
+    s.defaultReadObject();
+
+    // Read capacity and verify non-negative.
+    int capacity = s.readInt();
+    if (capacity < 0) {
+        throw new InvalidObjectException("Illegal capacity: " +
+                                         capacity);
+    }
+
+    // Read load factor and verify positive and non NaN.
+    float loadFactor = s.readFloat();
+    if (loadFactor <= 0 || Float.isNaN(loadFactor)) {
+        throw new InvalidObjectException("Illegal load factor: " +
+                                         loadFactor);
+    }
+
+    // Read size and verify non-negative.
+    int size = s.readInt();
+    if (size < 0) {
+        throw new InvalidObjectException("Illegal size: " +
+                                         size);
+    }
+
+    // Set the capacity according to the size and load factor ensuring that
+    // the HashMap is at least 25% full but clamping to maximum capacity.
+    capacity = (int) Math.min(size * Math.min(1 / loadFactor, 4.0f),
+            HashMap.MAXIMUM_CAPACITY);
+
+    // Create backing HashMap
+    map = (((HashSet<?>)this) instanceof LinkedHashSet ?
+           new LinkedHashMap<E,Object>(capacity, loadFactor) :
+           new HashMap<E,Object>(capacity, loadFactor));
+
+    // Read in all elements in the proper order.
+    for (int i=0; i<size; i++) {
+        @SuppressWarnings("unchecked")
+            E e = (E) s.readObject();
+        map.put(e, PRESENT);
+    }
+}
+
+public Spliterator<E> spliterator() {
+    return new HashMap.KeySpliterator<E,Object>(map, 0, -1, 0, 0);
+}
+```
+
