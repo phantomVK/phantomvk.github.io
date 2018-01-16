@@ -593,3 +593,18 @@ public void onActivityResult(int requestCode, int resultCode, Intent data) {
 </shape>
 ```
 
+## 七、supportInvalidateOptionsMenu() deprecated
+
+```
+'supportInvalidateOptionsMenu(): Unit' is deprecated. Overrides deprecated member in 'android.support.v4.app.FragmentActivity'. Deprecated in Java
+:projectName:javaPreCompileDebug
+```
+
+__修复方法:__
+
+使用以下方法替换`supportInvalidateOptionsMenu()`
+
+```java
+invalidateOptionsMenu()
+```
+
