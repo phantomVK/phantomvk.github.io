@@ -11,7 +11,7 @@ tags:
 
 ## 一、介绍
 
-Java常用的List实现有[ArrayList](http://phantomvk.coding.me/2017/02/19/Java_ArrayList/)和LinkedList。ArrayList通过数组实现，LinkedList通过链表实现。由于Java中没有指针的概念，所以通过一个对象保存下一对象引用的方式实现链表的概念。
+Java常用的List实现有[ArrayList](http://phantomvk.coding.me/2017/02/19/Java_ArrayList/)和LinkedList。ArrayList通过数组实现，LinkedList通过链表实现。由于Java中没有指针的概念，所以通过一个对象保存下一对象引用的方式实现链表。
 
 ```java
 public class LinkedList<E>
@@ -19,9 +19,11 @@ public class LinkedList<E>
     implements List<E>, Deque<E>, Cloneable, java.io.Serializable
 ```
 
-从本节开始，源码只会摘选重要的部分进行深入剖析，例如`序列化实现`、`toString()`、`空实现构造方法`和简单方法，只要对整体理解不造成影响就会删除。
+从本节开始，源码只摘选重要部分进行深入剖析，例如`序列化实现`、`toString()`、`空实现构造方法`等简单方法不会出现。
 
 ## 二、数据成员
+
+LinkedList中保存元素的总数量，每次增删元素都会修改此值。
 
 ```java
 transient int size = 0;
@@ -45,8 +47,9 @@ transient Node<E> last;
 
 ## 三、构造方法
 
+用指定集合构建列表，元素保存的顺序由集合的迭代器输出决定
+
 ```java
-// 用指定集合构建列表，元素保存的顺序由集合的迭代器输出决定
 public LinkedList(Collection<? extends E> c) {
     this();
     addAll(c); // 若c为空抛空指针异常
@@ -56,10 +59,12 @@ public LinkedList(Collection<? extends E> c) {
 ## 四、成员方法
 
 ### 4.1 头插法、尾插法、选择插入
+
+把元素作为第一个节点进入列表，俗称头插法
+插入完成前: 头指针 -> f -> ....
+插入完成后: 头指针 -> newNode -> f -> ....
+
 ```java
-// 把元素作为第一个节点进入列表，俗称头插法
-// 插入完成前: 头指针 -> f -> ....
-// 插入完成后: 头指针 -> newNode -> f -> ....
 private void linkFirst(E e) {
     final Node<E> f = first;
     final Node<E> newNode = new Node<>(null, e, f);
@@ -71,10 +76,13 @@ private void linkFirst(E e) {
     size++;
     modCount++;
 }
+```
 
-// 把元素作为最后一个节点加入，俗称尾插法
-// 插入完成前：... -> l <- 尾指针
-// 插入完成后：... -> l -> newNode <- 尾指针
+把元素作为最后一个节点加入，俗称尾插法
+插入完成前：... -> l <- 尾指针
+插入完成后：... -> l -> newNode <- 尾指针
+
+```java
 void linkLast(E e) {
     final Node<E> l = last;
     final Node<E> newNode = new Node<>(l, e, null);
@@ -86,20 +94,29 @@ void linkLast(E e) {
     size++;
     modCount++;
 }
+```
 
-// 把元素添加到列表的首位
+把元素添加到列表的首位
+
+```java
 public void addFirst(E e) {
     linkFirst(e);
 }
+```
 
-// 把元素添加到列表的末尾
+把元素添加到列表的末尾
+
+```java
 public void addLast(E e) {
     linkLast(e);
 }
+```
 
-// 在一个非空节点之前插入元素
-// 插入完成前：pred -> succ -> ...
-// 插入完成后：pred -> newNode -> succ -> ...
+在一个非空节点之前插入元素
+插入完成前：pred -> succ -> ...
+插入完成后：pred -> newNode -> succ -> ...
+
+```java
 void linkBefore(E e, Node<E> succ) {
     // assert succ != null;
     final Node<E> pred = succ.prev;
@@ -116,8 +133,9 @@ void linkBefore(E e, Node<E> succ) {
 
 ### 4.2 解除链接
 
+解链接第一个非空的节点，私有方法
+
 ```java
-// 解链接第一个非空的节点，私有方法
 private E unlinkFirst(Node<E> f) {
     // assert f == first && f != null;
     final E element = f.item;
@@ -133,8 +151,11 @@ private E unlinkFirst(Node<E> f) {
     modCount++;
     return element;
 }
+```
 
-// 解链接最后一个非空节点，私有方法
+解链接最后一个非空节点，私有方法
+
+```java
 private E unlinkLast(Node<E> l) {
     // assert l == last && l != null;
     final E element = l.item;
@@ -150,8 +171,11 @@ private E unlinkLast(Node<E> l) {
     modCount++;
     return element;
 }
+```
 
-//解连接非空节点x
+解连接非空节点
+
+```java
 E unlink(Node<E> x) {
     final E element = x.item;
     final Node<E> next = x.next;
@@ -180,16 +204,20 @@ E unlink(Node<E> x) {
 
 ### 4.3 获取头元素和尾元素
 
+获取列表的第一个元素
+
 ```java
-// 获取列表的第一个元素
 public E getFirst() {
     final Node<E> f = first;
     if (f == null)
         throw new NoSuchElementException();
     return f.item;
 }
+```
 
-// 获取列表的最后一个元素
+获取列表的最后一个元素
+
+```java
 public E getLast() {
     final Node<E> l = last;
     if (l == null)
@@ -737,11 +765,11 @@ public Object clone() {
 
 ## 十、列表转数组
 
+返回一个包含所有元素的数组，元素顺序从链表第一位到最后一位。如果列表是空列表，会安全返回一个元素数量为0的有效数组对象。
+
+由于返回的数组与原链表无关，所以对数组的修改不会影响原链表。
+
 ```java
-// 返回一个包含所有元素的数组，元素顺序从链表第一位到最后一位；
-// 如果列表的空列表，会安全返回一个元素数量为0的有效数组对象；
-// 由于返回的数组与原链表无关，所以以后对数组的修改不会影响原链表；
-// 这个方法充当了数组和集合类型的桥梁
 public Object[] toArray() {
     // 首先构造一个与链表中有效元素数量一致的数组
     Object[] result = new Object[size];
@@ -751,13 +779,16 @@ public Object[] toArray() {
         result[i++] = x.item;
     return result;
 }
+```
 
-// 返回一个包含所有链表元素的数组，数组元素保存顺序与链表顺序一致；
-// 数组的返回类型由数组声明的类型为准，而不是链表节点保存类型为准；
-// 如果数组空间足够保存所有链表元素，则正常返回传入数组；
-// 否则会创建一个与数组类型一致，容量与链表长度一致的新数组；
-// 如果传入数组的容量大于链表的长度，则当最后一个链表节点存入数组位置
-// 下一个数组空间会被置为null。这样有助于计算数组实际包含的元素数；
+返回一个包含所有链表元素的数组，数组元素保存顺序与链表顺序一致。数组的返回类型由数组声明的类型为准，而不是链表节点保存类型为准。
+
+如果数组空间足够保存所有链表元素，则正常返回传入数组，否则会创建一个与数组类型一致，容量与链表长度一致的新数组。
+
+如果传入数组的容量大于链表的长度，则当最后一个链表节点存入数组位置
+下一个数组空间会被置为null。这样有助于计算数组实际包含的元素数。
+
+```java
 @SuppressWarnings("unchecked")
 public <T> T[] toArray(T[] a) {
     if (a.length < size)

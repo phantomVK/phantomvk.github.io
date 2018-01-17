@@ -6,14 +6,23 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Java
+    - Java源码系列
 ---
 
+## 零、前言
+
+HashMap是Java使用者必须了解的数据结构。从JDK7到JDK8，HashMap的实现也做了相当大的调整，从原来通过链表保存值的方式，到现在引入红黑树的实现
+
+## 一、类签名
+
+HashMap基本特性
+
+1. 允许使用空键和空值;
+2. 和Hashtable主要差别是线程不安全，其他功能基本一致;
+3. HashMap不保证元素的进出顺序一致;
+4. 遍历性能和存在里面的元素成正比，键值对越多，遍历时间也更长，即使Hash分布均衡;
+
 ```java
-1.允许使用空键和空值;
-2.和Hashtable主要差别是线程不安全，其他功能基本一致;
-3.HashMap不保证元素的进出顺序一致;
-4.遍历性能和存在里面的元素成正比，键值对越多，遍历时间也更长，即使Hash分布均衡;
 
 public class HashMap<K,V> extends AbstractMap<K,V>
     implements Map<K,V>, Cloneable, Serializable {
@@ -24,7 +33,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
 static final int DEFAULT_INITIAL_CAPACITY = 1 << 4; // aka 16
 
 // 最大容量，通过构造函数指定的HashMap大小不能超过这个值，
-// 大小不仅需是2的n次方，而且一定要小于1 << 30
+// 大小不仅需是2的n次方，而且一定小于1 << 30
 static final int MAXIMUM_CAPACITY = 1 << 30;
 
 /**
@@ -32,42 +41,25 @@ static final int MAXIMUM_CAPACITY = 1 << 30;
  */
 static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
-/**
- * The bin count threshold for using a tree rather than list for a
- * bin.  Bins are converted to trees when adding an element to a
- * bin with at least this many nodes. The value must be greater
- * than 2 and should be at least 8 to mesh with assumptions in
- * tree removal about conversion back to plain bins upon
- * shrinkage.
- */
+// 哈希桶元素数量超过8，元素就会从列表进化到红黑树
 static final int TREEIFY_THRESHOLD = 8;
 
-/**
- * The bin count threshold for untreeifying a (split) bin during a
- * resize operation. Should be less than TREEIFY_THRESHOLD, and at
- * most 6 to mesh with shrinkage detection under removal.
- */
+// 哈希桶内元素数量少于6时，原数就会冲从红黑树退化到列表
 static final int UNTREEIFY_THRESHOLD = 6;
 
-/**
- * The smallest table capacity for which bins may be treeified.
- * (Otherwise the table is resized if too many nodes in a bin.)
- * Should be at least 4 * TREEIFY_THRESHOLD to avoid conflicts
- * between resizing and treeification thresholds.
- */
 static final int MIN_TREEIFY_CAPACITY = 64;
 ```
 
+## 二、节点
+
+哈希桶节点，实现了Map.Entry接口
+
 ```java
-/**
- * Basic hash bin node, used for most entries.  (See below for
- * TreeNode subclass, and in LinkedHashMap for its Entry subclass.)
- */
 static class Node<K,V> implements Map.Entry<K,V> {
-    final int hash;
-    final K key;
-    V value;
-    Node<K,V> next;
+    final int hash; // 节点的哈希值
+    final K key;  // 键
+    V value;  // 值
+    Node<K,V> next; // 下一个节点的引用
 
     Node(int hash, K key, V value, Node<K,V> next) {
         this.hash = hash;
@@ -84,12 +76,14 @@ static class Node<K,V> implements Map.Entry<K,V> {
         return Objects.hashCode(key) ^ Objects.hashCode(value);
     }
 
+    // 新值设置后，会返回旧值，节点不会马上重新计算哈希值
     public final V setValue(V newValue) {
         V oldValue = value;
         value = newValue;
         return oldValue;
     }
 
+    // 仅当对象内存地址相同，或类型是Map.Entry且键值均一致返回true
     public final boolean equals(Object o) {
         if (o == this)
             return true;
@@ -104,9 +98,13 @@ static class Node<K,V> implements Map.Entry<K,V> {
 }
 ```
 
-```java
-/* ---------------- Static utilities -------------- */
+## 三、静态方法
 
+计算键的哈希值，并把算出哈希值得高位16位，并与低16位通过与或的方式实现哈希均匀。
+
+由于整个表使用2的幂作为掩码，这样可能会出现在该情况下只有很少数位有差别，从而导致严重哈希冲突。
+
+```java
 /**
  * Computes key.hashCode() and spreads (XORs) higher bits of hash
  * to lower.  Because the table uses power-of-two masking, sets of
@@ -125,9 +123,12 @@ static class Node<K,V> implements Map.Entry<K,V> {
  */
 static final int hash(Object key) {
     int h;
+    // 键位空的时候hash值恒为0
     return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
 }
+```
 
+```java
 /**
  * Returns x's Class if it is of the form "class C implements
  * Comparable<C>", else null.
@@ -204,6 +205,8 @@ transient int size;
  * rehash).  This field is used to make iterators on Collection-views of
  * the HashMap fail-fast.  (See ConcurrentModificationException).
  */
+// 用于统计HashMap结构性变化的次数，例如映射数量的变化，或重哈希的次数。
+// 其次，这个数字还能用在实现fail-fast机制，例如在并发非安全修改的检测上。
 transient int modCount;
 
 /**
@@ -223,18 +226,10 @@ int threshold;
 final float loadFactor;
 ```
 
-```java
-/* ---------------- Public operations -------------- */
+## 构造方法
 
-/**
- * Constructs an empty <tt>HashMap</tt> with the specified initial
- * capacity and load factor.
- *
- * @param  initialCapacity the initial capacity
- * @param  loadFactor      the load factor
- * @throws IllegalArgumentException if the initial capacity is negative
- *         or the load factor is nonpositive
- */
+```java
+// 用自定义大小，和自定义负载因子构造一个空的HashMap
 public HashMap(int initialCapacity, float loadFactor) {
     if (initialCapacity < 0)
         throw new IllegalArgumentException("Illegal initial capacity: " +
@@ -248,21 +243,12 @@ public HashMap(int initialCapacity, float loadFactor) {
     this.threshold = tableSizeFor(initialCapacity);
 }
 
-/**
- * Constructs an empty <tt>HashMap</tt> with the specified initial
- * capacity and the default load factor (0.75).
- *
- * @param  initialCapacity the initial capacity.
- * @throws IllegalArgumentException if the initial capacity is negative.
- */
+// 用自定义始化大小和默认负载因子0.75构造一个空的HashMap
 public HashMap(int initialCapacity) {
     this(initialCapacity, DEFAULT_LOAD_FACTOR);
 }
 
-/**
- * Constructs an empty <tt>HashMap</tt> with the default initial capacity
- * (16) and the default load factor (0.75).
- */
+// 用默认初始化大小16，和默认负载因子0.75构造一个空的HashMap
 public HashMap() {
     this.loadFactor = DEFAULT_LOAD_FACTOR; // all other fields defaulted
 }
@@ -276,11 +262,14 @@ public HashMap() {
  * @param   m the map whose mappings are to be placed in this map
  * @throws  NullPointerException if the specified map is null
  */
+// 创建一个新的HashMap，并保存指定Map的键值对
 public HashMap(Map<? extends K, ? extends V> m) {
     this.loadFactor = DEFAULT_LOAD_FACTOR;
     putMapEntries(m, false);
 }
+```
 
+```java
 /**
  * Implements Map.putAll and Map constructor
  *
@@ -308,20 +297,12 @@ final void putMapEntries(Map<? extends K, ? extends V> m, boolean evict) {
     }
 }
 
-/**
- * Returns the number of key-value mappings in this map.
- *
- * @return the number of key-value mappings in this map
- */
+// 返回HashMap中键值对的数量
 public int size() {
     return size;
 }
 
-/**
- * Returns <tt>true</tt> if this map contains no key-value mappings.
- *
- * @return <tt>true</tt> if this map contains no key-value mappings
- */
+// 返回HashMap包含键值对数量是否为空
 public boolean isEmpty() {
     return size == 0;
 }
@@ -375,14 +356,7 @@ final Node<K,V> getNode(int hash, Object key) {
     return null;
 }
 
-/**
- * Returns <tt>true</tt> if this map contains a mapping for the
- * specified key.
- *
- * @param   key   The key whose presence in this map is to be tested
- * @return <tt>true</tt> if this map contains a mapping for the specified
- * key.
- */
+// 返回是否在所有值中包含指定的值对象
 public boolean containsKey(Object key) {
     return getNode(hash(key), key) != null;
 }
@@ -1134,72 +1108,6 @@ final int capacity() {
         (threshold > 0) ? threshold :
         DEFAULT_INITIAL_CAPACITY;
 }
-
-/**
- * Save the state of the <tt>HashMap</tt> instance to a stream (i.e.,
- * serialize it).
- *
- * @serialData The <i>capacity</i> of the HashMap (the length of the
- *             bucket array) is emitted (int), followed by the
- *             <i>size</i> (an int, the number of key-value
- *             mappings), followed by the key (Object) and value (Object)
- *             for each key-value mapping.  The key-value mappings are
- *             emitted in no particular order.
- */
-private void writeObject(java.io.ObjectOutputStream s)
-    throws IOException {
-    int buckets = capacity();
-    // Write out the threshold, loadfactor, and any hidden stuff
-    s.defaultWriteObject();
-    s.writeInt(buckets);
-    s.writeInt(size);
-    internalWriteEntries(s);
-}
-
-/**
- * Reconstitute the {@code HashMap} instance from a stream (i.e.,
- * deserialize it).
- */
-private void readObject(java.io.ObjectInputStream s)
-    throws IOException, ClassNotFoundException {
-    // Read in the threshold (ignored), loadfactor, and any hidden stuff
-    s.defaultReadObject();
-    reinitialize();
-    if (loadFactor <= 0 || Float.isNaN(loadFactor))
-        throw new InvalidObjectException("Illegal load factor: " +
-                                         loadFactor);
-    s.readInt();                // Read and ignore number of buckets
-    int mappings = s.readInt(); // Read number of mappings (size)
-    if (mappings < 0)
-        throw new InvalidObjectException("Illegal mappings count: " +
-                                         mappings);
-    else if (mappings > 0) { // (if zero, use defaults)
-        // Size the table using given load factor only if within
-        // range of 0.25...4.0
-        float lf = Math.min(Math.max(0.25f, loadFactor), 4.0f);
-        float fc = (float)mappings / lf + 1.0f;
-        int cap = ((fc < DEFAULT_INITIAL_CAPACITY) ?
-                   DEFAULT_INITIAL_CAPACITY :
-                   (fc >= MAXIMUM_CAPACITY) ?
-                   MAXIMUM_CAPACITY :
-                   tableSizeFor((int)fc));
-        float ft = (float)cap * lf;
-        threshold = ((cap < MAXIMUM_CAPACITY && ft < MAXIMUM_CAPACITY) ?
-                     (int)ft : Integer.MAX_VALUE);
-        @SuppressWarnings({"rawtypes","unchecked"})
-            Node<K,V>[] tab = (Node<K,V>[])new Node[cap];
-        table = tab;
-
-        // Read the keys and values, and put the mappings in the HashMap
-        for (int i = 0; i < mappings; i++) {
-            @SuppressWarnings("unchecked")
-                K key = (K) s.readObject();
-            @SuppressWarnings("unchecked")
-                V value = (V) s.readObject();
-            putVal(hash(key), key, value, false, false);
-        }
-    }
-}
 ```
 
 ```java
@@ -1266,7 +1174,9 @@ final class EntryIterator extends HashIterator
     implements Iterator<Map.Entry<K,V>> {
     public final Map.Entry<K,V> next() { return nextNode(); }
 }
+```
 
+```java
 /* ------------------------------------------------------------ */
 // spliterators
 
@@ -1585,7 +1495,9 @@ void internalWriteEntries(java.io.ObjectOutputStream s) throws IOException {
         }
     }
 }
+```
 
+```java
 /* ------------------------------------------------------------ */
 // Tree bins
 
@@ -1969,7 +1881,9 @@ static final class TreeNode<K,V> extends LinkedHashMap.Entry<K,V> {
             }
         }
     }
+```
 
+```java
     /* ------------------------------------------------------------ */
     // Red-black tree methods, all adapted from CLR
 

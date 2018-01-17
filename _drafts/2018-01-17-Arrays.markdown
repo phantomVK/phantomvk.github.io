@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "Arrays"
-date:       2017-01-01
+title:      "Java源码系列 -- Arrays"
+date:       2018-01-17
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - tags
+    - Java源码系列
 ---
 
 ```java
@@ -20,7 +20,7 @@ public class Arrays {
      */
     private static final int MIN_ARRAY_SORT_GRAN = 1 << 13;
 
-    // Suppresses default constructor, ensuring non-instantiability.
+    // 默认构造函数设置为私有，阻止主动初始化
     private Arrays() {}
 
     /**

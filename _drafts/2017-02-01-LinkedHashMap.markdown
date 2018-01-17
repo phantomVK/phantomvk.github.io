@@ -11,38 +11,6 @@ tags:
 ---
 
 ```java
-/*
- * Copyright (c) 1997, 2013, Oracle and/or its affiliates. All rights reserved.
- * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-
-package java.util;
-
-import java.util.function.Consumer;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.io.IOException;
-
 /**
  * <p>Hash table and linked list implementation of the <tt>Map</tt> interface,
  * with predictable iteration order.  This implementation differs from
