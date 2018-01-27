@@ -19,8 +19,6 @@ public class LinkedList<E>
     implements List<E>, Deque<E>, Cloneable, java.io.Serializable
 ```
 
-从本节开始，源码只摘选重要部分进行深入剖析，例如`序列化实现`、`toString()`、`空实现构造方法`等简单方法不会出现。
-
 ## 二、数据成员
 
 LinkedList中保存元素的总数量，每次增删元素都会修改此值。
@@ -60,9 +58,10 @@ public LinkedList(Collection<? extends E> c) {
 
 ### 4.1 头插法、尾插法、选择插入
 
-把元素作为第一个节点进入列表，俗称头插法
-插入完成前: 头指针 -> f -> ....
-插入完成后: 头指针 -> newNode -> f -> ....
+把元素作为第一个节点进入列表,，俗称头插法：
+
+ - 插入完成前: 头指针 -> f -> ....
+ - 插入完成后: 头指针 -> newNode -> f -> ....
 
 ```java
 private void linkFirst(E e) {
@@ -78,9 +77,10 @@ private void linkFirst(E e) {
 }
 ```
 
-把元素作为最后一个节点加入，俗称尾插法
-插入完成前：... -> l <- 尾指针
-插入完成后：... -> l -> newNode <- 尾指针
+把元素作为最后一个节点加入，俗称尾插法：
+
+ - 插入完成前：... -> l <- 尾指针
+ - 插入完成后：... -> l -> newNode <- 尾指针
 
 ```java
 void linkLast(E e) {
@@ -112,9 +112,10 @@ public void addLast(E e) {
 }
 ```
 
-在一个非空节点之前插入元素
-插入完成前：pred -> succ -> ...
-插入完成后：pred -> newNode -> succ -> ...
+在一个非空节点之前插入元素：
+
+ - 插入完成前：pred -> succ -> ...
+ - 插入完成后：pred -> newNode -> succ -> ...
 
 ```java
 void linkBefore(E e, Node<E> succ) {
