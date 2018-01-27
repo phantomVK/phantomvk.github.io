@@ -27,15 +27,19 @@ LinkedList中保存元素的总数量，每次增删元素都会修改此值。
 transient int size = 0;
 ```
 
+头指针
+
 ```java
-// 第一个节点的指针
 /**
  * Invariant: (first == null && last == null) ||
  *            (first.prev == null && first.item != null)
  */
 transient Node<E> first;
+```
 
-// 最后一个节点的指针
+尾指针
+
+```java
 /**
  * Invariant: (first == null && last == null) ||
  *            (last.next == null && last.item != null)
@@ -58,10 +62,7 @@ public LinkedList(Collection<? extends E> c) {
 
 ### 4.1 头插法、尾插法、选择插入
 
-把元素作为第一个节点进入列表,，俗称头插法：
-
- - 插入完成前: 头指针 -> f -> ....
- - 插入完成后: 头指针 -> newNode -> f -> ....
+把元素作为第一个节点进入列表
 
 ```java
 private void linkFirst(E e) {
@@ -77,10 +78,7 @@ private void linkFirst(E e) {
 }
 ```
 
-把元素作为最后一个节点加入，俗称尾插法：
-
- - 插入完成前：... -> l <- 尾指针
- - 插入完成后：... -> l -> newNode <- 尾指针
+把元素作为最后一个节点加入
 
 ```java
 void linkLast(E e) {
@@ -114,14 +112,13 @@ public void addLast(E e) {
 
 在一个非空节点之前插入元素：
 
- - 插入完成前：pred -> succ -> ...
- - 插入完成后：pred -> newNode -> succ -> ...
-
 ```java
 void linkBefore(E e, Node<E> succ) {
-    // assert succ != null;
+    // succ的前一个节点pred
     final Node<E> pred = succ.prev;
+    // 在pred和succ创建并插入一个新的节点
     final Node<E> newNode = new Node<>(pred, e, succ);
+    // 把succ向前方向的指针从指向pred改为指向newNode
     succ.prev = newNode;
     if (pred == null)
         first = newNode;
@@ -216,7 +213,7 @@ public E getFirst() {
 }
 ```
 
-获取列表的最后一个元素
+获取列表的最后一个元素，由于有尾指针，所以不需要整条链表遍历，时间复杂度o(1)。
 
 ```java
 public E getLast() {
@@ -564,136 +561,7 @@ public boolean removeLastOccurrence(Object o) {
 }
 ```
 
-## 六、列表迭代器
-
-```java
-/**
- * Returns a list-iterator of the elements in this list (in proper
- * sequence), starting at the specified position in the list.
- * Obeys the general contract of {@code List.listIterator(int)}.<p>
- *
- * The list-iterator is <i>fail-fast</i>: if the list is structurally
- * modified at any time after the Iterator is created, in any way except
- * through the list-iterator's own {@code remove} or {@code add}
- * methods, the list-iterator will throw a
- * {@code ConcurrentModificationException}.  Thus, in the face of
- * concurrent modification, the iterator fails quickly and cleanly, rather
- * than risking arbitrary, non-deterministic behavior at an undetermined
- * time in the future.
- *
- * @param index index of the first element to be returned from the
- *              list-iterator (by a call to {@code next})
- * @return a ListIterator of the elements in this list (in proper
- *         sequence), starting at the specified position in the list
- * @throws IndexOutOfBoundsException {@inheritDoc}
- * @see List#listIterator(int)
- */
-public ListIterator<E> listIterator(int index) {
-    checkPositionIndex(index);
-    return new ListItr(index);
-}
-
-private class ListItr implements ListIterator<E> {
-    private Node<E> lastReturned;
-    private Node<E> next;
-    private int nextIndex;
-    private int expectedModCount = modCount;
-
-    ListItr(int index) {
-        // assert isPositionIndex(index);
-        next = (index == size) ? null : node(index);
-        nextIndex = index;
-    }
-
-    public boolean hasNext() {
-        return nextIndex < size;
-    }
-
-    public E next() {
-        checkForComodification();
-        if (!hasNext())
-            throw new NoSuchElementException();
-
-        lastReturned = next;
-        next = next.next;
-        nextIndex++;
-        return lastReturned.item;
-    }
-
-    public boolean hasPrevious() {
-        return nextIndex > 0;
-    }
-
-    public E previous() {
-        checkForComodification();
-        if (!hasPrevious())
-            throw new NoSuchElementException();
-
-        lastReturned = next = (next == null) ? last : next.prev;
-        nextIndex--;
-        return lastReturned.item;
-    }
-
-    public int nextIndex() {
-        return nextIndex;
-    }
-
-    public int previousIndex() {
-        return nextIndex - 1;
-    }
-
-    public void remove() {
-        checkForComodification();
-        if (lastReturned == null)
-            throw new IllegalStateException();
-
-        Node<E> lastNext = lastReturned.next;
-        unlink(lastReturned);
-        if (next == lastReturned)
-            next = lastNext;
-        else
-            nextIndex--;
-        lastReturned = null;
-        expectedModCount++;
-    }
-
-    public void set(E e) {
-        if (lastReturned == null)
-            throw new IllegalStateException();
-        checkForComodification();
-        lastReturned.item = e;
-    }
-
-    public void add(E e) {
-        checkForComodification();
-        lastReturned = null;
-        if (next == null)
-            linkLast(e);
-        else
-            linkBefore(e, next);
-        nextIndex++;
-        expectedModCount++;
-    }
-
-    public void forEachRemaining(Consumer<? super E> action) {
-        Objects.requireNonNull(action);
-        while (modCount == expectedModCount && nextIndex < size) {
-            action.accept(next.item);
-            lastReturned = next;
-            next = next.next;
-            nextIndex++;
-        }
-        checkForComodification();
-    }
-
-    final void checkForComodification() {
-        if (modCount != expectedModCount)
-            throw new ConcurrentModificationException();
-    }
-}
-```
-
-## 七、链表节点模型
+## 六、链表节点模型
 
 这是双向链表的模型，包含前一个节点的指针，下一个节点的指针，和该节点持有的实例。
 
@@ -711,7 +579,7 @@ private static class Node<E> {
 }
 ```
 
-## 八、倒序迭代器
+## 七、倒序迭代器
 
 ```java
 public Iterator<E> descendingIterator() {
@@ -735,36 +603,7 @@ private class DescendingIterator implements Iterator<E> {
 }
 ```
 
-## 九、克隆相关
-
-```java
-@SuppressWarnings("unchecked")
-private LinkedList<E> superClone() {
-    try {
-        return (LinkedList<E>) super.clone();
-    } catch (CloneNotSupportedException e) {
-        throw new InternalError(e);
-    }
-}
-
-// 返回列表的浅拷贝结果，列表内所有元素没有被克隆
-public Object clone() {
-    LinkedList<E> clone = superClone();
-
-    // Put clone into "virgin" state
-    clone.first = clone.last = null;
-    clone.size = 0;
-    clone.modCount = 0;
-
-    // Initialize clone with our elements
-    for (Node<E> x = first; x != null; x = x.next)
-        clone.add(x.item);
-
-    return clone;
-}
-```
-
-## 十、列表转数组
+八、列表转数组
 
 返回一个包含所有元素的数组，元素顺序从链表第一位到最后一位。如果列表是空列表，会安全返回一个元素数量为0的有效数组对象。
 
