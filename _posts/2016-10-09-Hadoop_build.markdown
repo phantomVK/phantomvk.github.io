@@ -56,6 +56,8 @@ $ vim hadoop-env.sh
 $ vim core-site.xml
 ```
 
+配置内容如下：
+
 ```xml
 <configuration>
     <property>
@@ -79,6 +81,8 @@ $ vim core-site.xml
 $ vim hdfs-site.xml
 ```
 
+配置内容如下：
+
 ```xml
 <configuration>
     <property>
@@ -93,6 +97,8 @@ $ vim hdfs-site.xml
 ```bash
 $ vim mapred-site.xml
 ```
+
+配置内容如下：
 
 ```xml
 <configuration>
@@ -109,13 +115,13 @@ $ vim mapred-site.xml
 $ vim /etc/profile
 ```
 
-增加下面配置
+增加下面配置：
 
 ```
  export HADOOP_HOME=/opt/hadoop-1.2.1 
 ```
 
-然后在相同文件的`PATH`变量中追加参数`$HADOOP_HOME/bin:`，保存退出后调用下列命令刷新`profile`
+然后在相同文件`PATH`变量中追加参数`$HADOOP_HOME/bin:`，保存退出后调用下列命令刷新`profile`
 
 ```bash
 $ source /etc/profile
@@ -187,7 +193,7 @@ localhost:
 localhost: starting tasktracker, logging to /opt/hadoop-1.2.1/libexec/../logs/hadoop-root-tasktracker-mike-virtual-machine.out
 ```
 
-用`jps`看看已经开启的JVM进程，看见如下服务表示Hadoop已经启动
+用`jps`查看可知Hadoop已经启动
 
 ```bash
 $ jps

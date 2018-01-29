@@ -603,7 +603,7 @@ private class DescendingIterator implements Iterator<E> {
 }
 ```
 
-八、列表转数组
+## 八、列表转数组
 
 返回一个包含所有元素的数组，元素顺序从链表第一位到最后一位。如果列表是空列表，会安全返回一个元素数量为0的有效数组对象。
 

@@ -13,7 +13,7 @@ tags:
 
 # 前言
 
-最近看View的事件分发源码，并做了一些笔记。笔记以注释的形式插入到代码中，请仔细阅读文章中给出的源码，或有错漏之处，欢迎指正。-- 源码来自Android 6.0
+最近看View的事件分发源码，并做了一些笔记。笔记以注释的形式插入到代码中，请仔细阅读文章中给出的源码，或有错漏之处，欢迎指正。源码基于Android 6.0。
 
 # 一、代码构建
 
@@ -129,11 +129,17 @@ public class MainActivity extends AppCompatActivity {
 
 ### 1.4 梳理
 
-一共设置三个东西：`dispatchTouchEvent()`、`onTouchEvent()`和`OnTouchListener()`。这三个被重写的方法都对`ACTION_DOWN`、`ACTION_MOVE`、`ACTION_UP`的动作显示信息。
+一共设置三个东西：
+
+- `dispatchTouchEvent()`
+- `onTouchEvent()`
+- `OnTouchListener()`
+
+这三个被重写的方法都对`ACTION_DOWN`、`ACTION_MOVE`、`ACTION_UP`的动作显示信息。
 
 # 二、运行结果
 
-### 2.1 OnTouchListener false
+### 2.1 OnTouchListener -> false
 
 `View.OnTouchListener`中返回`false`，点击按钮马上放开。如果手指一直在屏幕上滑动，Log的`ACTION_DOWN`和`ACTION_UP`之间会报告`ACTION_MOVE`的信息。我们并不关心`ACTION_MOVE`的状态，所以忽略它的消息。
 
@@ -149,7 +155,7 @@ public class MainActivity extends AppCompatActivity {
 10-13 23:53:29.414 17840-17840/? E/MyButton: onTouchEvent ACTION_UP
 ```
 
-### 2.2 OnTouchListener true
+### 2.2 OnTouchListener -> true
 
 在`View.OnTouchListener`的返回值中返回`true`，点击按钮马上放开:`dispatchTouchEvent（）` -> `onTouch`
 
@@ -195,16 +201,16 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         ListenerInfo li = mListenerInfo; // 这里获取mListenerInfo
         
         // 所有条件成立执行此语句块:
-        //  1. mListenerInfo不为空，已设置OnTouchListener
-        //  2. View模式是Enable，表明控件可用
-        //  3. mOnTouchListener.onTouch()尝试消费事件
+        //    1. mListenerInfo不为空，且已设置OnTouchListener
+        //    2. View模式是Enable，表明控件可用
+        //    3. mOnTouchListener.onTouch()尝试消费事件
         if (li != null && li.mOnTouchListener != null
                 && (mViewFlags & ENABLED_MASK) == ENABLED
                 && li.mOnTouchListener.onTouch(this, event)) {
             result = true; // mOnTouchListener.onTouch()消费成功
         }
         
-        // 若li.mOnTouchListener.onTouch(this, event)没有执行或返回值为false
+        // 若li.mOnTouchListener.onTouch(this, event)没有执行或返回值为false，
         // 则result为false，并交给onTouchEvent()处理
         if (!result && onTouchEvent(event)) {
             result = true;
@@ -240,7 +246,7 @@ if (li != null && li.mOnTouchListener != null
 }  
 ```
 
-`li.mOnTouchListener`依赖`mButton.setOnTouchListener`，当不设置`mButton.setOnTouchListener`时为空。
+`li.mOnTouchListener`依赖`mButton.setOnTouchListener`，当不设置`mButton.setOnTouchListener`时`li.mOnTouchListener`为空。
 
 在`MainActivity.onCreate`中给`mButton.setOnTouchListener`创建一个`OnTouchListener()`实例的同时，这个实例会保存在`getListenerInfo().mOnTouchListener`。
 
@@ -264,7 +270,7 @@ ListenerInfo getListenerInfo() {
 
 ### 3.2 onTouchEvent
 
-如果设置了`View.OnTouchListener()`，其返回值决定了事件是否继续分发给`onTouchEvent`实例。
+如果设置`View.OnTouchListener()`，其返回值决定事件是否继续分发给`onTouchEvent`实例。
 
 假如`OnTouchListener()`返回`false`则`onTouchEvent`接收事件
 
@@ -284,7 +290,7 @@ public boolean onTouchEvent(MotionEvent event) {
             setPressed(false);
         }  
          
-        // 可点击或长按不可用View仅消费事件，不触发动作
+        // 可点击或长按不可用的View仅消费事件，不触发动作
        	return (((viewFlags & CLICKABLE) == CLICKABLE
                 || (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE)
                 || (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE);
@@ -419,7 +425,8 @@ private final class CheckForLongPress implements Runnable {
     public void run() {
         // 需要检查是否已到达PRESSED状态
         if (isPressed() && (mParent != null)
-                && mOriginalWindowAttachCount == mWindowAttachCount) {   
+                && mOriginalWindowAttachCount == mWindowAttachCount) { 
+                // 长按条件满足，执行长按逻辑  
                 if (performLongClick()) {
                     mHasPerformedLongPress = true;
             }
@@ -442,12 +449,15 @@ public boolean performLongClick() {
 
     boolean handled = false;
     ListenerInfo li = mListenerInfo;
+    // 获取ListenerInfo，执行li.mOnLongClickListener
     if (li != null && li.mOnLongClickListener != null) {
         handled = li.mOnLongClickListener.onLongClick(View.this);
     }
+    // 如果没有长按操作，就展示上下文菜单ContextMenu()
     if (!handled) {
         handled = showContextMenu();
     }
+    // 如果长按操作或上下文菜单成功执行，触发一个长按震动反馈给用户
     if (handled) {
         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
     }
@@ -464,7 +474,7 @@ drawableHotspotChanged(x, y); // 当前位置
 if (!pointInView(x, y, mTouchSlop)) {
     removeTapCallback(); // 移除PREPRESSED状态和对应回调
     
-    // 是PRESSED就移除长按检测并移除PRESSED状态
+    // 是PRESSED就移除长按检测，并移除PRESSED状态
     if ((mPrivateFlags & PFLAG_PRESSED) != 0) {
         removeLongPressCallback();
 
@@ -523,7 +533,7 @@ boolean prepressed = (mPrivateFlags & PFLAG_PREPRESSED) != 0;
 
 // PRESSED或PREPRESSED有一个就执行
 if ((mPrivateFlags & PFLAG_PRESSED) != 0 || prepressed) {
-    // 在触摸模式下，应该聚焦但还没有
+    // 在触摸模式，请求聚焦但还没有获得焦点
     boolean focusTaken = false;
     if (isFocusable() && isFocusableInTouchMode() && !isFocused()) {
         focusTaken = requestFocus();
