@@ -114,20 +114,20 @@ public class MyLinearLayout extends LinearLayout {
 事件首先分发到`ViewGroup`中，然后`ViewGroup`分发到`View`。由于`View`是一个设置了`OnClickListener`的`Button`，所以`Button.onTouchEvent()`在父类中返回`true`终止分发。
 
 ```
-10-27 13:34:04.599 2106-2106/com.corevk.demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_DOWN
-10-27 13:34:04.599 2106-2106/com.corevk.demoproject E/MyLinearLayout: onInterceptTouchEvent ACTION_DOWN
-10-27 13:34:04.599 2106-2106/com.corevk.demoproject E/MyButton: dispatchTouchEvent ACTION_DOWN
-10-27 13:34:04.599 2106-2106/com.corevk.demoproject E/MyButton: onTouchEvent ACTION_DOWN
+demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_DOWN
+demoproject E/MyLinearLayout: onInterceptTouchEvent ACTION_DOWN
+demoproject E/MyButton: dispatchTouchEvent ACTION_DOWN
+demoproject E/MyButton: onTouchEvent ACTION_DOWN
 
-10-27 13:34:04.669 2106-2106/com.corevk.demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_MOVE
-10-27 13:34:04.669 2106-2106/com.corevk.demoproject E/MyLinearLayout: onInterceptTouchEvent ACTION_MOVE
-10-27 13:34:04.669 2106-2106/com.corevk.demoproject E/MyButton: dispatchTouchEvent ACTION_MOVE
-10-27 13:34:04.669 2106-2106/com.corevk.demoproject E/MyButton: onTouchEvent ACTION_MOVE
+demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_MOVE
+demoproject E/MyLinearLayout: onInterceptTouchEvent ACTION_MOVE
+demoproject E/MyButton: dispatchTouchEvent ACTION_MOVE
+demoproject E/MyButton: onTouchEvent ACTION_MOVE
 
-10-27 13:34:04.716 2106-2106/com.corevk.demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_UP
-10-27 13:34:04.716 2106-2106/com.corevk.demoproject E/MyLinearLayout: onInterceptTouchEvent ACTION_UP
-10-27 13:34:04.716 2106-2106/com.corevk.demoproject E/MyButton: dispatchTouchEvent ACTION_UP
-10-27 13:34:04.716 2106-2106/com.corevk.demoproject E/MyButton: onTouchEvent ACTION_UP
+demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_UP
+demoproject E/MyLinearLayout: onInterceptTouchEvent ACTION_UP
+demoproject E/MyButton: dispatchTouchEvent ACTION_UP
+demoproject E/MyButton: onTouchEvent ACTION_UP
 ```
 
 # 三、源码剖析
@@ -149,6 +149,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         ev.setTargetAccessibilityFocus(false);
     }
 
+    // 是否已经处理标志位
     boolean handled = false;
     
     // 检查是否被其他View覆盖

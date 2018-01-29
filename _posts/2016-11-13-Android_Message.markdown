@@ -65,22 +65,28 @@ private static boolean gCheckRecycle = true; // 该版本系统是否支持回�
 
 # 二、消息体获取
 
-从消息池中获得可复用消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取同一个空消息体导致使用紊乱。如果没有可复用的对象，新消息会被创建。
+从消息池中获得可复用消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取同一个空消息体导致使用紊乱。如果没有可复用的对象，会就地创建新的Message对象。
 
-当然我们可以手动创建一个消息对象，但是最好从`obtain()`中获取缓存好的空消息体，避免造成多余对象创建。
+当然我们可以手动创建一个消息对象，但是最好的方式还是从`obtain()`中获取缓存好的空消息体，避免创建多余对象。
 
 ```java
 public static Message obtain() {
     synchronized (sPoolSync) {
         if (sPool != null) {
+            // 取链头的缓存对象m
             Message m = sPool;
+            // 把sPool当头指针使用，指向m之后有效的缓存对象
             sPool = m.next;
+            // 置空缓存对象m的next指针
             m.next = null;
-            m.flags = 0; // 移除使用中标志
+            // 移除使用中标志
+            m.flags = 0;
+            // 缓存池缓存对象数量自减1
             sPoolSize--;
             return m;
         }
     }
+    // 如果缓存池是空的，就立即创建一个新的Message
     return new Message();
 }
 ```
@@ -96,6 +102,7 @@ public static Message obtain(Message orig) {
     m.obj = orig.obj;
     m.replyTo = orig.replyTo;
     m.sendingUid = orig.sendingUid;
+    // 深拷贝
     if (orig.data != null) {
         m.data = new Bundle(orig.data);
     }
@@ -173,6 +180,7 @@ public static Message obtain(Handler h, int what, int arg1, int arg2, Object obj
 
 ```java
 public static void updateCheckRecycle(int targetSdkVersion) {
+    // 低于Android 5.0不支持对象缓存
     if (targetSdkVersion < Build.VERSION_CODES.LOLLIPOP) {
         gCheckRecycle = false;
     }

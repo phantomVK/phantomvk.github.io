@@ -351,10 +351,12 @@ public final boolean runWithScissors(final Runnable r, long timeout) {
         throw new IllegalArgumentException("timeout must be non-negative");
     }
 
+    // Looper相同，立即执行Runnable
     if (Looper.myLooper() == mLooper) {
         r.run();
         return true;
     }
+    
     // 一个阻塞的队列
     BlockingRunnable br = new BlockingRunnable(r);
     return br.postAndWait(this, timeout);
@@ -385,14 +387,17 @@ private static final class BlockingRunnable implements Runnable {
     }
 
     public boolean postAndWait(Handler handler, long timeout) {
+        // 向Handler提交Runnable任务，提交失败返回false
         if (!handler.post(this)) {
             return false;
         }
 
         synchronized (this) {
             if (timeout > 0) {
+                // 截止时间
                 final long expirationTime = SystemClock.uptimeMillis() + timeout;
                 while (!mDone) {
+                    // 已经超过截止时间，有delay <= 0
                     long delay = expirationTime - SystemClock.uptimeMillis();
                     if (delay <= 0) {
                         return false; // timeout
