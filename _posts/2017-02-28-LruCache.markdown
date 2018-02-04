@@ -18,7 +18,7 @@ LruCache是Android提供的一个缓存工具类，根据最近最少使用算�
 public class LruCache<K, V>
 ```
 
-资源缓存除了Lru思想外，还有巧妙利用Java里4种对象引用类型完成内存回收。这4种类型分别是强、软、弱、虚。详情请自行阅读《深入理解Java虚拟机》。
+资源缓存除了`最近最少使用`思想外，还巧妙利用Java的4种对象引用类型完成内存回收。这4种类型分别是强、软、弱、虚。详情请自行阅读《深入理解Java虚拟机》。
 
 实现思想是每次被操作的item都会被移动到队列的首位。一段时间后，本来处于队列前方的item因为其他item的操作逐渐后退到队尾。如果队列空间足够，所有的item都不会被移除。否则，处于队尾最后的item会被优先移除，腾出空间容纳新的item。因此，使用热度高的资源得到有效缓存，长时间没有使用的资源会被新的资源取代，同时占用的内存空间也会被释放。
 
@@ -33,7 +33,7 @@ public class LruCache<K, V>
 private final LinkedHashMap<K, V> map;
 ```
 
-两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可以是元素保存数量的个数(针对Key)，也可能是键总容量体积(针对Value)。
+两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可以是元素保存数量的个数(针对Key)，也可能是值总体积(针对Value)。
 
 ```java
 private int size;
@@ -109,10 +109,8 @@ public final V get(K key) {
         missCount++; // 命中失败
     }
 
-    // 命中失败后可以尝试构建一个Value。构建过程可能比较长，因此当
-    // create()返回创建值的时候，原队列item的顺序可能早已发生改变。
-    // 若发现一个Hash值相同的item已经进入队列，该值会保留下来。而
-    // create()创建的对象被抛弃
+    // 命中失败后尝试构建一个Value。构建过程可能比较长且当create()返回值时，原队列的顺序可能已发生改变。
+    // 若发现一个Hash值相同的item已经进入队列，该值会保留下来。而create()创建的对象被抛弃
     V createdValue = create(key);
     if (createdValue == null) {
         return null;
@@ -120,12 +118,15 @@ public final V get(K key) {
 
     synchronized (this) {
         createCount++;
+        // 先用createdValue插入，并获得原位置旧值mapValue
         mapValue = map.put(key, createdValue);
 
+        // 如果mapValue不为空，证明原位置有值
         if (mapValue != null) {
-            // 由于冲突，createdValue的添加操作通过这种方式撤销
+            // 把mapValue又替换回去，刚刚添加进去的createdValue被退出来，相当于原列表没有任何修改
             map.put(key, mapValue);
         } else {
+            // 没有冲突，新值成功插入，把新对象的大小加到总大小上
             size += safeSizeOf(key, createdValue);
         }
     }
@@ -230,6 +231,8 @@ public final V remove(K key) {
 
 ### 4.5 值创建和释放
 
+#### 4.5.1 entryRemoved()
+
 entryRemoved目的是被重写。因为有的实例拥有独特的对象销毁逻辑，当这个实例被移除队列的时候，应该通过此方法完成所有的销毁操作。否则这个被移除的对象仅按照虚拟机垃圾回收策略进行回收。所以要确定item是否有特殊释放需要，若遗漏释放操作会造成严重内存泄漏问题。
 
 ```java
@@ -250,6 +253,8 @@ entryRemoved目的是被重写。因为有的实例拥有独特的对象销毁�
  */
 protected void entryRemoved(boolean evicted, K key, V oldValue, V newValue) {}
 ```
+
+#### 4.5.2 create()
 
 `create()`可以选择性在子类中重写。重写的结果是键值命中失败的时候提供自定义的创建功能，把新建item重新加入到队列中
 
@@ -294,10 +299,9 @@ private int safeSizeOf(K key, V value) {
 
 为此，一个折中的解决方案是根据图片内存占用情况，即使item依然保存在队列中，当内存占用超过设定值时，也要强制释放队列最近未使用的资源。被释放的图片在以后使用的时候再重新加载，用时间换取空间。
 
+返回一个元素大小默认值为1，表示一个元素占用一个单位。对于其他类型如图片，一个元素大小可能是图片体积在内存中的占用。一个条目的size在运行时一定不能被改变，否则可能会导致数量控制失效。
+
 ```java
-// 返回一个元素大小默认值为1，表示一个元素占用一个单位；
-// 对于其他类型如图片，一个元素大小可能是图片体积在内存中的占用；
-// 一个条目的size在运行时一定不能被改变，否则可能会导致数量控制失效。
 protected int sizeOf(K key, V value) {
     return 1;
 }
@@ -380,19 +384,6 @@ public synchronized final int evictionCount() {
  */
 public synchronized final Map<K, V> snapshot() {
     return new LinkedHashMap<K, V>(map);
-}
-```
-
-### 4.10 toString()
-
-显示队列最大容量、item命中次数、命中失败次数和命中比率统计等信息
-
-```java
-@Override public synchronized final String toString() {
-    int accesses = hitCount + missCount;
-    int hitPercent = accesses != 0 ? (100 * hitCount / accesses) : 0;
-    return String.format("LruCache[maxSize=%d,hits=%d,misses=%d,hitRate=%d%%]",
-            maxSize, hitCount, missCount, hitPercent);
 }
 ```
 

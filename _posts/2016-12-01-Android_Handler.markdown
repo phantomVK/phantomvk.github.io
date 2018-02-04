@@ -139,7 +139,7 @@ public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
 
 以上方法带`Delayed`可设置延迟时间，带`EmptyMessage`为创建空消息。共同点是都调用了`sendMessageDelayed()`，并返回这个调用的结果。
 
-`SystemClock.uptimeMillis()`是从开机到现在的毫秒数，不包括手机睡眠的时间。
+`SystemClock.uptimeMillis()`是从开机到现在的毫秒数，不包括手机睡眠的时间。个人估计使用`SystemClock.uptimeMillis()`是为了避免用户调整系统时间后影响`System.currentTimeMillis()`，导致消息分发时间点异常。
 
 `postAtTime()`重载方法调用了`sendMessageAtTime()`。
 

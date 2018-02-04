@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Retrofit2为所有请求添加Query参数"
+title:      "Retrofit2请求添加Header和Query参数"
 date:       2017-10-11
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -24,13 +24,17 @@ client.addInterceptor(new Interceptor() {
     
         Request request = chain.request();
         
+        // 添加Query参数
         HttpUrl httpUrl = request.url()
                 .newBuilder()
-                .addQueryParameter("query_name", "query_value")
-                .addQueryParameter("query_name", "query_value")
+                .addQueryParameter("QueryNameA", "queryValueA")
+                .addQueryParameter("QueryNameB", "queryValueB")
                 .build();
         
+        // 添加Header参数
         Request request = original.newBuilder()
+                .addHeader("HeaderKeyA", headerValueA)
+                .addHeader("HeaderKeyB", headerValueB)
                 .url(httpUrl)
                 .build();
         
