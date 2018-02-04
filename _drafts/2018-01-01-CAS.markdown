@@ -1,0 +1,44 @@
+---
+layout:     post
+title:      "Java CAS"
+date:       2017-01-01
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    true
+tags:
+    - tags
+---
+
+`jdk9/hotspot/src/share/vm/prims`
+
+unsafe.cpp Line 1198 
+
+```cpp
+static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
+    ......
+    
+    {CC "compareAndSetInt",   CC "(" OBJ "J""I""I"")Z",  FN_PTR(Unsafe_CompareAndSetInt)},
+    {CC "compareAndSetLong",  CC "(" OBJ "J""J""J"")Z",  FN_PTR(Unsafe_CompareAndSetLong)},
+    {CC "compareAndExchangeObject", CC "(" OBJ "J" OBJ "" OBJ ")" OBJ, FN_PTR(Unsafe_CompareAndExchangeObject)},
+    {CC "compareAndExchangeInt",  CC "(" OBJ "J""I""I"")I", FN_PTR(Unsafe_CompareAndExchangeInt)},
+    {CC "compareAndExchangeLong", CC "(" OBJ "J""J""J"")J", FN_PTR(Unsafe_CompareAndExchangeLong)},
+    ......
+}
+```
+
+
+`jdk9/hotspot/src/os_cpu/linux_x86/vm`
+
+atomic_linux_x86 Line 100
+
+```cpp
+inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     dest, jint     compare_value, cmpxchg_memory_order order) {
+  int mp = os::is_MP();
+  __asm__ volatile (LOCK_IF_MP(%4) "cmpxchgl %1,(%3)"
+                    : "=a" (exchange_value)
+                    : "r" (exchange_value), "a" (compare_value), "r" (dest), "r" (mp)
+                    : "cc", "memory");
+  return exchange_value;
+}
+```
+

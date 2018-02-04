@@ -56,6 +56,10 @@ private int missCount;    // 命中失败
 
 `maxSize`记录的是整个列表最大保存数。为避免严重的哈希冲突，`LinkedHashMap`哈希因子设定为0.75，且构造函数不能自定义该值。
 
+`LinkedHashMap`构造函数参数`accessOrder`为`true`时，`LinkedHashMap`会以访问顺序为序排列元素。否则以插入顺序为序排序元素。
+
+从下面的源码可知`LruCache`使用`LinkedHashMap`时`accessOrder`为`true`。
+
 ```java
 public LruCache(int maxSize) {
     if (maxSize <= 0) {
@@ -101,6 +105,7 @@ public final V get(K key) {
 
     V mapValue;
     synchronized (this) {
+        // 从LinkedHashMap中通过Key获取值
         mapValue = map.get(key);
         if (mapValue != null) {
             hitCount++;      // 命中对应值
@@ -136,6 +141,7 @@ public final V get(K key) {
         entryRemoved(false, key, createdValue, mapValue);
         return mapValue;
     } else {
+        // 创建的新值插入成功，且没有旧的值被替换，trimToSize()检查是否需要裁剪空间
         trimToSize(maxSize);
         return createdValue;
     }
