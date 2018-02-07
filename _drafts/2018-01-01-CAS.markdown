@@ -1,17 +1,17 @@
 ---
 layout:     post
-title:      "Java CAS"
-date:       2017-01-01
+title:      "Java CAS实现详解"
+date:       2017-02-08
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - tags
+    - Java
 ---
 
-`jdk9/hotspot/src/share/vm/prims`
+`jdk9/hotspot/src/share/vm/prims/unsafe.cpp` Line 1198 
 
-unsafe.cpp Line 1198 
+在JDK8的源码中该方法名为`compareAndSwapInt`，在JDK9则命名为`compareAndSetInt`
 
 ```cpp
 static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
@@ -26,10 +26,18 @@ static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
 }
 ```
 
+`Unsafe_CompareAndSetInt` Line 1031
 
-`jdk9/hotspot/src/os_cpu/linux_x86/vm`
+```cpp
+UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobject obj, jlong offset, jint e, jint x)) {
+  oop p = JNIHandles::resolve(obj);
+  jint* addr = (jint *)index_oop_from_field_offset_long(p, offset);
 
-atomic_linux_x86 Line 100
+  return (jint)(Atomic::cmpxchg(x, addr, e)) == e;
+} UNSAFE_END
+```
+
+`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86` Line 100
 
 ```cpp
 inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     dest, jint     compare_value, cmpxchg_memory_order order) {
@@ -41,4 +49,41 @@ inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     
   return exchange_value;
 }
 ```
+
+```cpp
+// Adding a lock prefix to an instruction on MP machine
+#define LOCK_IF_MP(mp) "cmp $0, " #mp "; je 1f; lock; 1: "
+```
+
+
+`jdk9/hotspot/src/share/vm/runtime` Line 206
+
+```cpp
+static int _processor_count;                // number of processors
+static int _initial_active_processor_count; // number of active processors during initialization.
+
+// Interface for detecting multiprocessor system
+  static inline bool is_MP() {
+    // During bootstrap if _processor_count is not yet initialized
+    // we claim to be MP as that is safest. If any platform has a
+    // stub generator that might be triggered in this phase and for
+    // which being declared MP when in fact not, is a problem - then
+    // the bootstrap routine for the stub generator needs to check
+    // the processor count directly and leave the bootstrap routine
+    // in place until called after initialization has ocurred.
+    return (_processor_count != 1) || AssumeMP;
+  }
+```
+
+## 参考链接
+
+[Java CAS 原理剖析 - 卡巴拉的树 - 掘金](https://juejin.im/post/5a73cbbff265da4e807783f5)
+
+[Assembly language je jump function - Stackoverflow](https://stackoverflow.com/questions/1582960/assembly-language-je-jump-function)
+
+[Working of __asm__ __volatile__ (“” : : : “memory”) - Stackoverflow](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)
+
+[JNI: converting unsigned int to jint - Stackoverflow](https://stackoverflow.com/questions/8012450/jni-converting-unsigned-int-to-jint)
+
+[CMPXCHG - Compare and Exchange](http://faydoc.tripod.com/cpu/cmpxchg.htm)
 

@@ -30,20 +30,16 @@ transient int size = 0;
 头指针
 
 ```java
-/**
- * Invariant: (first == null && last == null) ||
- *            (first.prev == null && first.item != null)
- */
+// Invariant: (first == null && last == null) ||
+//            (first.prev == null && first.item != null)
 transient Node<E> first;
 ```
 
 尾指针
 
 ```java
-/**
- * Invariant: (first == null && last == null) ||
- *            (last.next == null && last.item != null)
- */
+// Invariant: (first == null && last == null) ||
+//            (last.next == null && last.item != null)
 transient Node<E> last;
 ```
 

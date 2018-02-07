@@ -608,3 +608,10 @@ __修复方法:__
 invalidateOptionsMenu()
 ```
 
+## 八、避免使用android.media.ExifInterface
+
+Android Studio提示使用`android.support.media.ExifInterface`替换`android.media.ExifInterface`，但是直接修改没法找到对应包。
+
+须显式导入：`compile "com.android.support:exifinterface:27.0.2"`
+
+

@@ -11,7 +11,7 @@ tags:
 
 ## 安装mercurial
 
-在MacOS下实例，先通过`easy_install`安装`mercurial`
+在MacOS下示例，先通过`easy_install`安装`mercurial`
 
 ```bash
 $ sudo easy_install mercurial
