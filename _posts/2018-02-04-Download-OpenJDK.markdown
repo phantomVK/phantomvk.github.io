@@ -193,3 +193,5 @@ $ bash get_source.sh
             langtools:   no changes found
 ```
 
+如果下载的是JDK8u而不是JDK9，上述终端命令自行替换即可。
+

@@ -391,9 +391,7 @@ private boolean isElementIndex(int index) {
 private boolean isPositionIndex(int index) {
     return index >= 0 && index <= size;
 }
-```
 
-```java
 // 返回指定索引位置的非空节点
 Node<E> node(int index) {
     // 检查索引值，如果小于列表元素数量的一半，就从头部顺序遍历
@@ -409,9 +407,7 @@ Node<E> node(int index) {
         return x;
     }
 }
-```
 
-```java
 // 查找遇到的第一个与指定元素相同的节点的下标
 // 列表不包含该元素则返回-1
 public int indexOf(Object o) {
@@ -582,9 +578,7 @@ public Iterator<E> descendingIterator() {
     return new DescendingIterator();
 }
 
-/**
- * Adapter to provide descending iterators via ListItr.previous
- */
+// Adapter to provide descending iterators via ListItr.previous
 private class DescendingIterator implements Iterator<E> {
     private final ListItr itr = new ListItr(size());
     public boolean hasNext() {

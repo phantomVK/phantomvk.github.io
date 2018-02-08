@@ -11,7 +11,7 @@ tags:
 
 ## 前言
 
-这篇文章将深入介绍`CAS`在`JDK`中，填补[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)里面`Unsafe`和`CAS`内容的空缺。从高层调用开始，经历JDK、JNI和asm汇编，最终调用处理器CAS指令集，带你浏览整个实现流程。
+这篇文章将深入介绍`CAS`在`JDK`中实现的具体细节，填补[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)里面相关内容的空缺。从高层调用开始，经历JDK、JNI和asm汇编，最终调用处理器CAS指令集，带你浏览整个实现流程。
 
 阅读需扎实Java基本功，了解或能看懂JNI和C。汇编没看过也没有关系，文章参考链接附带本文涉及所有汇编知识点供查阅。
 
@@ -34,7 +34,7 @@ compare_and_swap (*p, oldval, newval):
 
 > 参考自[内联汇编 - 从头开始](https://www.ibm.com/developerworks/cn/aix/library/au-inline_assembly/index.html)，有删改
 
-## 二、、Unsafe
+## 二、Unsafe
 
 `compareAndSetInt`在Unsafe类中:
 
@@ -50,11 +50,11 @@ JDK9命名为`compareAndSetInt`
 public final native boolean compareAndSetInt(Object var1, long var2, int var4, int var5);
 ```
 
-本文用JDK9来介绍。如果你看JDK8也没关系，我特意检查了JDK8u源码，所有JVM源码文件路径通用，只是方法签名稍有差别，实现甚至方法所在行数基本一致。
+本文用JDK9来介绍。如果你看的是JDK8也没关系，我特意检查了JDK8u源码，所有JVM源码文件路径通用，只是方法签名稍有差别，实现甚至方法所在行数一致。
 
 进入正题，首先看该方法的原生实现，对应unsafe.cpp文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
 
-下面unsafe.cpp大概在尾部有个保存方法对应关系的静态数组：
+下面unsafe.cpp大概在尾段有个保存方法对应关系的静态数组：
 
 ```cpp
 static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
@@ -69,7 +69,7 @@ static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
 }
 ```
 
-从查找对应关系我们知道`compareAndSetInt`是1031行的`Unsafe_CompareAndSetInt`：
+从查找对应关系知道`compareAndSetInt`是`Unsafe_CompareAndSetInt`，位于相同文件的1031行：
 
 ```cpp
 UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobject obj, jlong offset, jint e, jint x)) {
@@ -80,14 +80,18 @@ UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobj
 } UNSAFE_END
 ```
 
-其执行流程：
+逻辑执行流程：
 
  - `obj`是`AtomicInteger`对象，通过 JNIHandles::resolve() 获取`obj`在内存中OOP实例`p`
- - 根据成员变量`value`反射后计算出的内存偏移值`offset`，在内存中取指针`addr`
+ - 根据成员变量`value`反射后计算出的内存偏移值`offset`去内存中取指针`addr`
  - 获得更新值`x`、指针`addr`、期待值`e`三个参数后，调用`Atomic::cmpxchg(x, addr, e)`
+ - 通过`Atomic::cmpxchg(x, addr, e)`实现CAS
 
-## 三、Atomic::cmpxchg
-在`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86`100行并调用asm汇编。
+## 三、CAS本体
+
+### 3.1 Atomic::cmpxchg
+ 
+`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86`第100行，并调用asm汇编。 __注意：形参order是JDK9中新加的，JDK8u没有该形参__
 
 ```cpp
 inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     dest, jint     compare_value, cmpxchg_memory_order order) {
@@ -100,22 +104,35 @@ inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     
 }
 ```
 
-`cmpxchg`方法签名：
+按顺序就是`%1`到`%4`，可知exchange_value是`%1`，dest是`%3`。`r`代表任意一个寄存器，`a`代表eax寄存器。
 
- - `exchange_value`对应更新值`x`
- - `dest`对应指针`addr`
- - `compare_value`对应期待值`e`
- - `order`是JDK9中新加的，JDK8u没有该形参
+> : "r" (exchange_value), "a" (compare_value), "r" (dest), "r" (mp)
 
-方法is_MP()实现在`jdk9/hotspot/src/share/vm/runtime/os.hpp`206行：
+经过初步了解，cmpxchgl就容易理解多了:
+
+> cmpxchgl %1,(%3)
+
+奇怪的是`%2`没有用上，不过思考可知cmpxchgl的意思是：
+
+> Compare and Exchange Long
+
+末尾的l表示操作数长度为4，这条指令有点复杂：它用到了一个隐含的操作数，即eax。在前面的输入操作数中，对应的%2没有在汇编模板里出现，但通过修饰符a把它存放到了eax寄存器，因此这里被cmpxchg指令隐含使用。
+
+指令cmpxchg比较eax(也就是compare_value)与dest的值。如果相等，那么将exchange_value的值赋值给dest；否则，将dest的值赋值给eax。
+
+> : "=a" (exchange_value)
+
+### 3.2 os::is_MP
+
+方法`is_MP()`实现在`jdk9/hotspot/src/share/vm/runtime/os.hpp`206行：
 
 ```c
 int mp = os::is_MP();
 ```
 
-`is_MP()`用于获取当前系统处理器核心数，如果`_processor_count`在引导过程尚未初始化，就默认假设其是多处理器以保证线程安全。
+用于获取当前系统处理器核心数，如果`_processor_count`在引导过程尚未初始化，就默认假设其是多处理器以保证线程安全。
 
-```cpp
+```
 static int _processor_count;                // number of processors
 static int _initial_active_processor_count; // number of active processors during initialization.
 
@@ -132,6 +149,8 @@ static inline bool is_MP() {
 }
 ```
 
+### 3.3 LOCK_IF_MP(mp)
+
 获取成功后把核心数保存在整形值`mp`中，实际起到布尔值的作用。为0意味系统是单处理器系统，大于0是多处理器系统，并作为实参调起宏定义`LOCK_IF_MP(mp)`：
 
 ```cpp
@@ -139,20 +158,26 @@ static inline bool is_MP() {
 #define LOCK_IF_MP(mp) "cmp $0, " #mp "; je 1f; lock; 1: "
 ```
 
-宏定义用`"cmp $0, " #mp "`检查 __核心是否为单核__：
+宏定义用`"cmp $0, " #mp "`检查核心是否为单核：
 
  - 是：跳到`1f`，执行CPU指令`cmpxchgl %1,(%3)`。`1f`的意思是`1after`，参看[参考链接-6](https://stackoverflow.com/questions/27353096/1b-and-1f-in-gnu-assembly);
  - 不是：则跳到`1f`前先给总线上锁`lock`，令物理处理器其他核心不能通过总线访存，保证指令操作的原子性。
 
-我还注意到一个结构：
+值得一提的是，如果我们对一个变量使用`volatile`修饰符，在汇编中也会增加`lock`的指令前缀，以此保证可见性和有序性。
+
+### 3.4 \_\_asm\_\_ volatile ("": : :"memory")
+
+还有一个结构：
 
 ```c
 __asm__ volatile ("": : :"memory")
 ```
 
-这个结构告诉编译器层添加一个内存障碍，详见[参考链接-3](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)：
+这个结构告诉编译器层添加一个内存屏障，禁止相关区域内的代码指令重排序。详见[参考链接-3](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)：
 
 > Creates a compiler level memory barrier forcing optimizer to not re-order memory accesses across the barrier.
+
+### 3.5 伪代码
 
 说了这么多还是不易理解，毕竟上述代码是C语言混编`asm`，翻译为伪代码：
 
@@ -174,7 +199,7 @@ private void isMultiProcessCAS(int _processor_count,
 }
 ```
 
-有人提议[参考链接-12](https://bugs.java.com/view_bug.do?bug_id=8185062)把`os::is_MP()`的`AssumeMP`永久设为`true`提升性能。且在2017-10-03的JDK10b13实现该提议，所以上述伪代码可以进一步演进为：
+有人提议[参考链接-12](https://bugs.java.com/view_bug.do?bug_id=8185062)把`os::is_MP()`的`AssumeMP`改为`true`提升性能。且在2017-10-03的JDK10b13实现了该提议，所以上述伪代码可以进一步演进为：
 
 ```java
 // @param _processor_count processor count
@@ -219,5 +244,7 @@ private void isMultiProcessCAS(int _processor_count,
 [11. 什么是桩代码（Stub）- 知乎](https://www.zhihu.com/question/24844900)
 
 [12. JDK-8185062 : Set AssumeMP to true and deprecate the flag](https://bugs.java.com/view_bug.do?bug_id=8185062)
+
+[13. Is x86 CMPXCHG atomic? - Stackoverflow](https://stackoverflow.com/questions/27837731/is-x86-cmpxchg-atomic)
 
 
