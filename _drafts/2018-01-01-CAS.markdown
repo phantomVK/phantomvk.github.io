@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Java CAS实现详解"
+title:      "Java CAS底层实现详解"
 date:       2017-02-08
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -9,9 +9,25 @@ tags:
     - Java
 ---
 
-`jdk9/hotspot/src/share/vm/prims/unsafe.cpp` Line 1198 
+## 前言
 
-在JDK8的源码中该方法名为`compareAndSwapInt`，在JDK9则命名为`compareAndSetInt`
+续[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)提到的`Unsafe`和`CAS`的知识，这篇文章深入介绍`CAS`在`JDK`中如何实现。
+
+文章知识点将从Java高层调用开始逐步深入分析，经历`JDK`、`JNI`、`C语言`，最终到`ASM汇编`调用处理器指令集。
+
+阅读需有扎实`Java`基本功，了解或能看懂`JNI`和`C`。而汇编没学习也没有关系，文章参考链接中附带了本文汇编所涉及所有知识点，不过需要较高的英语阅读水平。
+
+## 一、Unsafe
+
+
+在Java中，compareAndSetInt在Unsafe类中，是个原生方法。在JDK8的源码中该方法名为`compareAndSwapInt`，在JDK9则命名为`compareAndSetInt`。
+
+下面我们全部用JDK9作为前提。如果你看JDK8的源码也没关系，我也特意检查了一下JDK8u的源码，所有JVM文件的路径完全通用，只是方法签名稍有不用，实现甚至方法的对应行数也完全一样。
+
+
+我们直接看该方法的原生实现，该方法对应`unsafe.cpp`文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
+
+下面是个静态数组，从对应关系查找知道我们查找的`compareAndSetInt`对应到方法是`Unsafe_CompareAndSetInt`。
 
 ```cpp
 static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
@@ -26,7 +42,7 @@ static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
 }
 ```
 
-`Unsafe_CompareAndSetInt` Line 1031
+`Unsafe_CompareAndSetInt`实现在一个文件1031行：
 
 ```cpp
 UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobject obj, jlong offset, jint e, jint x)) {
@@ -36,6 +52,8 @@ UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobj
   return (jint)(Atomic::cmpxchg(x, addr, e)) == e;
 } UNSAFE_END
 ```
+
+## 二、Atomic::cmpxchg
 
 `jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86` Line 100
 
@@ -50,40 +68,116 @@ inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     
 }
 ```
 
+### je 
+
+jump equals
+
+
 ```cpp
 // Adding a lock prefix to an instruction on MP machine
 #define LOCK_IF_MP(mp) "cmp $0, " #mp "; je 1f; lock; 1: "
 ```
 
+https://stackoverflow.com/a/14983432/8750399
 
-`jdk9/hotspot/src/share/vm/runtime` Line 206
+> Creates a compiler level memory barrier forcing optimizer to not re-order memory accesses across the barrier.
+
+
+### is_MP
+
+
+
+
+`jdk9/hotspot/src/share/vm/runtime/os.hpp` Line 206
+
+is_MP()注释大意：如果_processor_count在引导过程中尚未初始化，我们要求其就是多处理器的，因为这种假设是最安全的。
 
 ```cpp
 static int _processor_count;                // number of processors
 static int _initial_active_processor_count; // number of active processors during initialization.
 
 // Interface for detecting multiprocessor system
-  static inline bool is_MP() {
-    // During bootstrap if _processor_count is not yet initialized
-    // we claim to be MP as that is safest. If any platform has a
-    // stub generator that might be triggered in this phase and for
-    // which being declared MP when in fact not, is a problem - then
-    // the bootstrap routine for the stub generator needs to check
-    // the processor count directly and leave the bootstrap routine
-    // in place until called after initialization has ocurred.
-    return (_processor_count != 1) || AssumeMP;
-  }
+static inline bool is_MP() {
+  // During bootstrap if _processor_count is not yet initialized
+  // we claim to be MP as that is safest. If any platform has a
+  // stub generator that might be triggered in this phase and for
+  // which being declared MP when in fact not, is a problem - then
+  // the bootstrap routine for the stub generator needs to check
+  // the processor count directly and leave the bootstrap routine
+  // in place until called after initialization has ocurred.
+  return (_processor_count != 1) || AssumeMP;
+}
 ```
+
+### 伪代码
+
+```java
+/**
+ * @param _processor_count processor count
+ * @param assumeMP         assume is multiprocessor when is not yet initialized
+ * @param compare_value    be comparing
+ * @param dest             set as new value if true
+ */
+private void isMultiProcessCAS(int _processor_count, boolean assumeMP,
+                               int compare_value, int dest) {                               
+    if (_processor_count != 1 || assumeMP) {
+        lock();
+    }
+    cmpxchgl(compare_value, dest);
+    // Should unlock after cmpxchgl(int, int)?
+}
+```
+
+在文末`参考链接12`中，已有人提议把`AssumeMP`永久设为`true`以提升性能，并在`2017-10-03`于`JDK10b13`实现，所以伪代码进一步演进成：
+
+```java
+/**
+ * @param _processor_count processor count
+ * @param compare_value    be comparing
+ * @param dest             set as new value if true
+ */
+private void isMultiProcessCAS(int _processor_count, int compare_value, int dest) {      
+    if (_processor_count != 1) {
+        lock();
+    }
+    cmpxchgl(compare_value, dest);
+    // Should unlock after cmpxchgl(int, int)?
+}
+```
+
+https://github.com/1184893257/simplelinux/blob/master/inlineasm.md
+
+
+    asm ( 汇编语句
+        : 输出操作数		// 非必需
+        : 输入操作数		// 非必需
+        : 其他被污染的寄存器	// 非必需
+        );
 
 ## 参考链接
 
-[Java CAS 原理剖析 - 卡巴拉的树 - 掘金](https://juejin.im/post/5a73cbbff265da4e807783f5)
+[1. Java CAS 原理剖析 - 卡巴拉的树 - 掘金](https://juejin.im/post/5a73cbbff265da4e807783f5)
 
-[Assembly language je jump function - Stackoverflow](https://stackoverflow.com/questions/1582960/assembly-language-je-jump-function)
+[2. Assembly language je jump function - Stackoverflow](https://stackoverflow.com/questions/1582960/assembly-language-je-jump-function)
 
-[Working of __asm__ __volatile__ (“” : : : “memory”) - Stackoverflow](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)
+[3. Working of __asm__ __volatile__ (“” : : : “memory”) - Stackoverflow](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)
 
-[JNI: converting unsigned int to jint - Stackoverflow](https://stackoverflow.com/questions/8012450/jni-converting-unsigned-int-to-jint)
+[4. JNI: converting unsigned int to jint - Stackoverflow](https://stackoverflow.com/questions/8012450/jni-converting-unsigned-int-to-jint)
 
-[CMPXCHG - Compare and Exchange](http://faydoc.tripod.com/cpu/cmpxchg.htm)
+[5. CMPXCHG - Compare and Exchange](http://faydoc.tripod.com/cpu/cmpxchg.htm)
+
+[6. 1b and 1f in GNU assembly - Stackoverflow](https://stackoverflow.com/questions/27353096/1b-and-1f-in-gnu-assembly)
+
+[7. cmp je/jg how they work in assembly - Stackoverflow](https://stackoverflow.com/questions/12665289/cmp-je-jg-how-they-work-in-assembly)
+
+[8. Intel x86 JUMP quick reference](http://www.unixwiz.net/techtips/x86-jumps.html)
+
+[9. 朴素linux: 内联汇编  - Github](https://github.com/1184893257/simplelinux/blob/master/inlineasm.md)
+
+[10. 内联汇编 - 从头开始 - IBM](https://www.ibm.com/developerworks/cn/aix/library/au-inline_assembly/index.html)
+
+[11. 什么是桩代码（Stub）- 知乎](https://www.zhihu.com/question/24844900)
+
+[12. JDK-8185062 : Set AssumeMP to true and deprecate the flag](https://bugs.java.com/view_bug.do?bug_id=8185062)
+
 
