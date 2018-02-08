@@ -11,14 +11,32 @@ tags:
 
 ## 前言
 
-这次深入介绍`CAS`在`JDK`中如何实现，填补[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)`Unsafe`和`CAS`内容的空缺。从高层调用经历JDK、JNI和asm汇编，最终调用处理器CAS指令集，带你浏览整个实现流程。
+这篇文章将深入介绍`CAS`在`JDK`中，填补[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)里面`Unsafe`和`CAS`内容的空缺。从高层调用开始，经历JDK、JNI和asm汇编，最终调用处理器CAS指令集，带你浏览整个实现流程。
 
 阅读需扎实Java基本功，了解或能看懂JNI和C。汇编没看过也没有关系，文章参考链接附带本文涉及所有汇编知识点供查阅。
 
-## 一、Unsafe
+## 一、什么是CAS
 
+多处理、多线程不可避免带来了更多的元素同步处理。要在多线程环境中构成同步原语（如信号量和互斥），我们经常会提到被称为比较和交换 (CAS) 的原子操作。
 
-在Java中，`compareAndSetInt`在Unsafe类中:
+CAS的伪代码：
+
+```
+compare_and_swap (*p, oldval, newval):
+      if (*p == oldval)
+          *p = newval;
+          success;
+      else
+         fail;
+```
+
+首先比较内存位置 p (*p) 的内容与已知值 oldval（这应该是当前线程中 *p 的值）。只有当它们是相同值时，才会将 newval 写入 *p。若其他线程之前已经修改了内存位置，那么比较操作会失败。
+
+> 参考自[内联汇编 - 从头开始](https://www.ibm.com/developerworks/cn/aix/library/au-inline_assembly/index.html)，有删改
+
+## 二、、Unsafe
+
+`compareAndSetInt`在Unsafe类中:
 
 JDK8该方法名为`compareAndSwapInt`
 
@@ -32,11 +50,11 @@ JDK9命名为`compareAndSetInt`
 public final native boolean compareAndSetInt(Object var1, long var2, int var4, int var5);
 ```
 
-本文用JDK9来介绍，如果你看JDK8也没关系，我特意检查了JDK8u源码，所有JVM源码文件路径通用，只是方法签名稍有差别，实现甚至方法所在行数基本一致。
+本文用JDK9来介绍。如果你看JDK8也没关系，我特意检查了JDK8u源码，所有JVM源码文件路径通用，只是方法签名稍有差别，实现甚至方法所在行数基本一致。
 
-直接看该方法的原生实现，对应unsafe.cpp文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
+进入正题，首先看该方法的原生实现，对应unsafe.cpp文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
 
-下面unsafe.cpp大概尾部有个静态数组，保存了多个方法：
+下面unsafe.cpp大概在尾部有个保存方法对应关系的静态数组：
 
 ```cpp
 static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
@@ -62,13 +80,13 @@ UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobj
 } UNSAFE_END
 ```
 
-`Unsafe_CompareAndSetInt`执行流程：
+其执行流程：
 
- - `obj`是调用的`AtomicInteger`对象，获取`obj`在内存中OOP实例`p`
- - 根据成员变量`value`反射后计算出的内存偏移值`offset`，去内存中获得对应指针`addr`
- - 获得变换值`x`、指针`addr`、原值`e`三个参数后，调用`Atomic::cmpxchg(x, addr, e)`
+ - `obj`是`AtomicInteger`对象，通过 JNIHandles::resolve() 获取`obj`在内存中OOP实例`p`
+ - 根据成员变量`value`反射后计算出的内存偏移值`offset`，在内存中取指针`addr`
+ - 获得更新值`x`、指针`addr`、期待值`e`三个参数后，调用`Atomic::cmpxchg(x, addr, e)`
 
-## 二、Atomic::cmpxchg
+## 三、Atomic::cmpxchg
 在`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86`100行并调用asm汇编。
 
 ```cpp
@@ -84,9 +102,9 @@ inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     
 
 `cmpxchg`方法签名：
 
- - `exchange_value`对应变换值`x`
+ - `exchange_value`对应更新值`x`
  - `dest`对应指针`addr`
- - `compare_value`对应原值`e`
+ - `compare_value`对应期待值`e`
  - `order`是JDK9中新加的，JDK8u没有该形参
 
 方法is_MP()实现在`jdk9/hotspot/src/share/vm/runtime/os.hpp`206行：
@@ -123,8 +141,8 @@ static inline bool is_MP() {
 
 宏定义用`"cmp $0, " #mp "`检查 __核心是否为单核__：
 
- - 是：跳到`1f`，执行CPU指令`cmpxchgl %1,(%3)`。`1f`的意思是`1after`，参看[参考链接6](https://stackoverflow.com/questions/27353096/1b-and-1f-in-gnu-assembly)
- - 不是：只比单核多一条指令，跳到`1f`前先给总线上锁`lock`，令物理处理器其他核心不能通过总线访存，保证指令操作的原子性
+ - 是：跳到`1f`，执行CPU指令`cmpxchgl %1,(%3)`。`1f`的意思是`1after`，参看[参考链接-6](https://stackoverflow.com/questions/27353096/1b-and-1f-in-gnu-assembly);
+ - 不是：则跳到`1f`前先给总线上锁`lock`，令物理处理器其他核心不能通过总线访存，保证指令操作的原子性。
 
 我还注意到一个结构：
 
@@ -132,7 +150,7 @@ static inline bool is_MP() {
 __asm__ volatile ("": : :"memory")
 ```
 
-这个结构告诉编译器层添加一个内存障碍，详见[参考链接3](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)：
+这个结构告诉编译器层添加一个内存障碍，详见[参考链接-3](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)：
 
 > Creates a compiler level memory barrier forcing optimizer to not re-order memory accesses across the barrier.
 
@@ -143,6 +161,7 @@ __asm__ volatile ("": : :"memory")
 // @param assumeMP         assume is multiprocessor when is not yet initialized
 // @param compare_value    be comparing
 // @param dest             set as new value if true
+@AsmVolatileMemory
 private void isMultiProcessCAS(int _processor_count,
                                boolean assumeMP,
                                int compare_value,
@@ -155,12 +174,13 @@ private void isMultiProcessCAS(int _processor_count,
 }
 ```
 
-[参考链接12](https://bugs.java.com/view_bug.do?bug_id=8185062)有人提议把`os::is_MP()`的`AssumeMP`永久设为`true`提升性能。且在2017-10-03的JDK10b13实现该提议，所以上述伪代码可以进一步演进为：
+有人提议[参考链接-12](https://bugs.java.com/view_bug.do?bug_id=8185062)把`os::is_MP()`的`AssumeMP`永久设为`true`提升性能。且在2017-10-03的JDK10b13实现该提议，所以上述伪代码可以进一步演进为：
 
 ```java
 // @param _processor_count processor count
 // @param compare_value    be comparing
 // @param dest             set as new value if true
+@AsmVolatileMemory
 private void isMultiProcessCAS(int _processor_count,
                                int compare_value,
                                int dest) {
@@ -174,7 +194,7 @@ private void isMultiProcessCAS(int _processor_count,
 
 到这里Java CAS底层实现全部讲解完毕。如果还有疑问，下面参考链接应该能给你所有需要的解答。
 
-## 三、参考链接
+## 四、参考链接
 
 [1. Java CAS 原理剖析 - 卡巴拉的树 - 掘金](https://juejin.im/post/5a73cbbff265da4e807783f5)
 
