@@ -11,23 +11,33 @@ tags:
 
 ## 前言
 
-续[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)提到的`Unsafe`和`CAS`的知识，这篇文章深入介绍`CAS`在`JDK`中如何实现。
+这次深入介绍`CAS`在`JDK`中如何实现，填补[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)没有详细说明的`Unsafe`和`CAS`。从高层调用起，经历`JDK`和`JNI`，最终到`asm`汇编调用处理器CAS指令集，带你浏览整个流程实现。
 
-文章知识点将从Java高层调用开始逐步深入分析，经历`JDK`、`JNI`、`C语言`，最终到`ASM汇编`调用处理器指令集。
-
-阅读需有扎实`Java`基本功，了解或能看懂`JNI`和`C`。而汇编没学习也没有关系，文章参考链接中附带了本文汇编所涉及所有知识点，不过需要较高的英语阅读水平。
+阅读需扎实`Java`基本功，了解或能看懂`JNI`和`C`。而汇编没学习也没有关系，文章参考链接附带本文涉及所有汇编知识点。
 
 ## 一、Unsafe
 
 
-在Java中，compareAndSetInt在Unsafe类中，是个原生方法。在JDK8的源码中该方法名为`compareAndSwapInt`，在JDK9则命名为`compareAndSetInt`。
+在Java中，`compareAndSetInt`在`Unsafe`类中:
 
-下面我们全部用JDK9作为前提。如果你看JDK8的源码也没关系，我也特意检查了一下JDK8u的源码，所有JVM文件的路径完全通用，只是方法签名稍有不用，实现甚至方法的对应行数也完全一样。
+JDK8该方法名为`compareAndSwapInt`
+
+```java
+public final native boolean compareAndSwapInt(Object var1, long var2, int var4, int var5);
+```
+
+JDK9命名为`compareAndSetInt`
+
+```
+public final native boolean compareAndSetInt(Object var1, long var2, int var4, int var5);
+```
+
+下面我们全部用JDK9作为前提。如果你看JDK8也没关系，我特意检查了一下JDK8u的源码，所有JVM源码文件路径通用，只是方法签名稍有差别，实现甚至方法所在行数基本一致。
 
 
 我们直接看该方法的原生实现，该方法对应`unsafe.cpp`文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
 
-下面是个静态数组，从对应关系查找知道我们查找的`compareAndSetInt`对应到方法是`Unsafe_CompareAndSetInt`。
+下面`unsafe.cpp`大概尾部有个静态数组，保存了多个方法：
 
 ```cpp
 static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
@@ -42,7 +52,7 @@ static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
 }
 ```
 
-`Unsafe_CompareAndSetInt`实现在一个文件1031行：
+从查找对应关系我们知道`compareAndSetInt`是1031行的`Unsafe_CompareAndSetInt`：
 
 ```cpp
 UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobject obj, jlong offset, jint e, jint x)) {
@@ -53,9 +63,15 @@ UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobj
 } UNSAFE_END
 ```
 
+`Unsafe_CompareAndSetInt`执行流程：
+
+ - `obj`是调用的`AtomicInteger`对象，获取`obj`在内存中OOP实例`p`
+ - 根据成员变量`value`反射后计算出的内存偏移值`offset`，去内存中获得对应指针`addr`
+ - 获得变换值`x`、指针`addr`、原值`e`三个参数后，调用`Atomic::cmpxchg(x, addr, e)`
+
 ## 二、Atomic::cmpxchg
 
-`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86` Line 100
+该方法在`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86`的100行。实际调用了asm汇编。
 
 ```cpp
 inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     dest, jint     compare_value, cmpxchg_memory_order order) {
@@ -68,29 +84,20 @@ inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     
 }
 ```
 
-### je 
+`cmpxchg`方法签名：
 
-jump equals
+ - `exchange_value`对应变换值`x`
+ - `dest`对应指针`addr`
+ - `compare_value`对应原值`e`
+ - `order`是JDK9中新加的，JDK8u没有该形参
 
+方法is_MP()实现在`jdk9/hotspot/src/share/vm/runtime/os.hpp`的206行：
 
-```cpp
-// Adding a lock prefix to an instruction on MP machine
-#define LOCK_IF_MP(mp) "cmp $0, " #mp "; je 1f; lock; 1: "
+```c
+int mp = os::is_MP();
 ```
 
-https://stackoverflow.com/a/14983432/8750399
-
-> Creates a compiler level memory barrier forcing optimizer to not re-order memory accesses across the barrier.
-
-
-### is_MP
-
-
-
-
-`jdk9/hotspot/src/share/vm/runtime/os.hpp` Line 206
-
-is_MP()注释大意：如果_processor_count在引导过程中尚未初始化，我们要求其就是多处理器的，因为这种假设是最安全的。
+`is_MP()`用于获取当前系统处理器核心数，如果`_processor_count`在引导过程尚未初始化，就默认假设其是多处理器以保证线程安全。
 
 ```cpp
 static int _processor_count;                // number of processors
@@ -109,7 +116,29 @@ static inline bool is_MP() {
 }
 ```
 
-### 伪代码
+获取成功后把核心数保存在整形值`mp`中，实际起到布尔值的作用，为0意味系统是单处理器系统，大于0是多处理器系统，并作为实参调起宏定义`LOCK_IF_MP(mp)`：
+
+```cpp
+// Adding a lock prefix to an instruction on MP machine
+#define LOCK_IF_MP(mp) "cmp $0, " #mp "; je 1f; lock; 1: "
+```
+
+宏定义用`"cmp $0, " #mp "`检查 __核心是否为单核__：
+
+ - 是：跳到`1f`，执行CPU指令`cmpxchgl %1,(%3)`。`1f`的意思是`1after`，参看[参考链接6](https://stackoverflow.com/questions/27353096/1b-and-1f-in-gnu-assembly)
+ - 不是：只比单核多一条指令，跳到`1f`前先给总线上锁`lock`，令物理处理器其他核心不能通过总线访存，保证指令操作的原子性
+
+我还注意到一个结构：
+
+```c
+__asm__ volatile ("": : :"memory")
+```
+
+这个结构告诉编译器层添加一个内存障碍，详见[参考链接3](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)：
+
+> Creates a compiler level memory barrier forcing optimizer to not re-order memory accesses across the barrier.
+
+说了这么多，还是不容易理解，毕竟上述代码是C语言混编`asm`，我理解后翻译为伪代码：
 
 ```java
 /**
@@ -118,17 +147,20 @@ static inline bool is_MP() {
  * @param compare_value    be comparing
  * @param dest             set as new value if true
  */
-private void isMultiProcessCAS(int _processor_count, boolean assumeMP,
-                               int compare_value, int dest) {                               
+private void isMultiProcessCAS(int _processor_count,
+                               boolean assumeMP,
+                               int compare_value,
+                               int dest) {
+                          
     if (_processor_count != 1 || assumeMP) {
         lock();
     }
     cmpxchgl(compare_value, dest);
-    // Should unlock after cmpxchgl(int, int)?
+    // Should unlock after cmpxchgl(int, int)???
 }
 ```
 
-在文末`参考链接12`中，已有人提议把`AssumeMP`永久设为`true`以提升性能，并在`2017-10-03`于`JDK10b13`实现，所以伪代码进一步演进成：
+在[参考链接12](https://bugs.java.com/view_bug.do?bug_id=8185062)中，已有人提议把`os::is_MP()`的`AssumeMP`永久设为`true`提升性能。且在`2017-10-03`于`JDK10b13`实现，所以上述伪代码可以进一步演进为：
 
 ```java
 /**
@@ -136,25 +168,21 @@ private void isMultiProcessCAS(int _processor_count, boolean assumeMP,
  * @param compare_value    be comparing
  * @param dest             set as new value if true
  */
-private void isMultiProcessCAS(int _processor_count, int compare_value, int dest) {      
+private void isMultiProcessCAS(int _processor_count,
+                               int compare_value,
+                               int dest) {
+
     if (_processor_count != 1) {
         lock();
     }
     cmpxchgl(compare_value, dest);
-    // Should unlock after cmpxchgl(int, int)?
+    // Should unlock after cmpxchgl(int, int)???
 }
 ```
 
-https://github.com/1184893257/simplelinux/blob/master/inlineasm.md
+到这里Java CAS底层实现全部讲解完毕。如果还有疑问，下面参考链接应该能给你所有需要的解答。
 
-
-    asm ( 汇编语句
-        : 输出操作数		// 非必需
-        : 输入操作数		// 非必需
-        : 其他被污染的寄存器	// 非必需
-        );
-
-## 参考链接
+## 四、参考链接
 
 [1. Java CAS 原理剖析 - 卡巴拉的树 - 掘金](https://juejin.im/post/5a73cbbff265da4e807783f5)
 
