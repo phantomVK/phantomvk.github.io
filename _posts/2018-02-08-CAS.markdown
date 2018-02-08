@@ -132,7 +132,7 @@ int mp = os::is_MP();
 
 用于获取当前系统处理器核心数，如果`_processor_count`在引导过程尚未初始化，就默认假设其是多处理器以保证线程安全。
 
-```c
+```
 static int _processor_count;                // number of processors
 static int _initial_active_processor_count; // number of active processors during initialization.
 
@@ -153,7 +153,7 @@ static inline bool is_MP() {
 
 获取成功后把核心数保存在整形值`mp`中，实际起到布尔值的作用。为0意味系统是单处理器系统，大于0是多处理器系统，并作为实参调起宏定义`LOCK_IF_MP(mp)`：
 
-```c
+```
 // Adding a lock prefix to an instruction on MP machine
 #define LOCK_IF_MP(mp) "cmp $0, " #mp "; je 1f; lock; 1: "
 ```
