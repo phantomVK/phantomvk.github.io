@@ -132,7 +132,7 @@ int mp = os::is_MP();
 
 用于获取当前系统处理器核心数，如果`_processor_count`在引导过程尚未初始化，就默认假设其是多处理器以保证线程安全。
 
-```
+```cpp
 static int _processor_count;                // number of processors
 static int _initial_active_processor_count; // number of active processors during initialization.
 
