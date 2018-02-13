@@ -13,13 +13,13 @@ tags:
 
 AtomicInteger基于CAS(Compare and Swap，比较并修改)的操作，主要实现乐观锁的思想。
 
-对于悲观锁来说，会假设线程并发竞争非常严重，每次修改数据，一定先100%确保自己获得锁并进入安全区，再安心修改目标值，进而出现线程在竞争锁的过程中消耗大量时间在等锁、加锁、解锁等操作上。（注：锁还可能涉及锁自旋、公平锁等知识点，而非简单暴力竞争）
+对悲观锁来说，它会假设线程并发竞争非常严重，每次修改数据先100%确保自己获得锁并进入安全区，再安心修改目标值，进而出现线程在竞争锁的过程中消耗大量时间在等锁、加锁、解锁等操作上。（注：锁还会涉及锁自旋、公平锁、锁队列等知识点）
 
-相比之下的乐观锁，会假设线程冲突不严重，先比较修改前的值是不是和自己的预期值一致，一致就修改并返回，不一致就放弃这次修改（CAS），并发起下一次尝试，不会把时间用在加锁和解锁上。
+相比之下的乐观锁，会假设线程冲突不严重，先比较修改前的值是不是和自己的预期值一致，一致就修改并返回，不一致就放弃这次修改并发起下一次尝试，不需要把时间用在加锁和解锁上。
 
 虽然乐观锁看起来比悲观锁好很多，不过乐观锁主要用在单个值（Int，Float，Double）的并发修改上，而不是悲观锁对一个对象甚至是一个代码块的操作。
 
-而CAS也有自己最合适的应用场景：如乐观锁对目标值修改写入次数远多于读取操作，那么CAS实际也会出现大量写竞争失败，并导致多次重试失效。
+而CAS也有自己最合适的应用场景：如乐观锁对目标值修改写入次数远多于读取操作，那CAS实际也会出现大量写竞争失败，造成可观的时间成本。
 
 说到CAS，需要了解的是：这个能力并非由操作系统或JVM提供，而是CPU原生支持的。在JDK源码中，有一段代码调用处理器CAS指令`"cmpxchgl %1,(%3)"`。如果CPU不能保证CAS能力，那这个CPU完全没有数据修改安全可言。
 
@@ -47,7 +47,7 @@ static {
 
 ## 四、数据成员
 
-`volatile`保证value值的有序性和可见性，而原子性一般由`synchronized`或`Lock`来支持。
+`volatile`保证value值的有序性和可见性，原子性由`synchronized`或`Lock`来保障。
 
 ```java
 private volatile int value;
@@ -95,7 +95,9 @@ public final int getAndSet(int newValue) {
 ```
 
 如果待修改的值和期待值相同，那就把待修改的值设置为update的值
-伪代码： `value == expect ? value = update; return isModified;`
+伪代码：
+
+> value == expect ? value = update; return isModified;
 
 ```java
 public final boolean compareAndSet(int expect, int update) {
@@ -117,9 +119,7 @@ public final boolean compareAndSet(int expect, int update) {
 public final boolean weakCompareAndSet(int expect, int update) {
     return unsafe.compareAndSwapInt(this, valueOffset, expect, update);
 }
-```
 
-```java
 // 先返回上一个值，然后再在原基础上自增1
 public final int getAndIncrement() {
     return unsafe.getAndAddInt(this, valueOffset, 1);
@@ -152,99 +152,7 @@ public final int addAndGet(int delta) {
 }
 ```
 
-## 七、Java8 Lambda支持
-
-`IntUnaryOperator -> This is a functional interface and can therefore be used as the assignment target for a lambda expression or method reference.`
-
-```java
-/**
- * Atomically updates the current value with the results of
- * applying the given function, returning the previous value. The
- * function should be side-effect-free, since it may be re-applied
- * when attempted updates fail due to contention among threads.
- *
- * @param updateFunction a side-effect-free function
- * @return the previous value
- * @since 1.8
- */
-public final int getAndUpdate(IntUnaryOperator updateFunction) {
-    int prev, next;
-    do {
-        prev = get();
-        next = updateFunction.applyAsInt(prev);
-    } while (!compareAndSet(prev, next));
-    return prev;
-}
-
-/**
- * Atomically updates the current value with the results of
- * applying the given function, returning the updated value. The
- * function should be side-effect-free, since it may be re-applied
- * when attempted updates fail due to contention among threads.
- *
- * @param updateFunction a side-effect-free function
- * @return the updated value
- * @since 1.8
- */
-public final int updateAndGet(IntUnaryOperator updateFunction) {
-    int prev, next;
-    do {
-        prev = get();
-        next = updateFunction.applyAsInt(prev);
-    } while (!compareAndSet(prev, next));
-    return next;
-}
-
-/**
- * Atomically updates the current value with the results of
- * applying the given function to the current and given values,
- * returning the previous value. The function should be
- * side-effect-free, since it may be re-applied when attempted
- * updates fail due to contention among threads.  The function
- * is applied with the current value as its first argument,
- * and the given update as the second argument.
- *
- * @param x the update value
- * @param accumulatorFunction a side-effect-free function of two arguments
- * @return the previous value
- * @since 1.8
- */
-public final int getAndAccumulate(int x,
-                                  IntBinaryOperator accumulatorFunction) {
-    int prev, next;
-    do {
-        prev = get();
-        next = accumulatorFunction.applyAsInt(prev, x);
-    } while (!compareAndSet(prev, next));
-    return prev;
-}
-
-/**
- * Atomically updates the current value with the results of
- * applying the given function to the current and given values,
- * returning the updated value. The function should be
- * side-effect-free, since it may be re-applied when attempted
- * updates fail due to contention among threads.  The function
- * is applied with the current value as its first argument,
- * and the given update as the second argument.
- *
- * @param x the update value
- * @param accumulatorFunction a side-effect-free function of two arguments
- * @return the updated value
- * @since 1.8
- */
-public final int accumulateAndGet(int x,
-                                  IntBinaryOperator accumulatorFunction) {
-    int prev, next;
-    do {
-        prev = get();
-        next = accumulatorFunction.applyAsInt(prev, x);
-    } while (!compareAndSet(prev, next));
-    return next;
-}
-```
-
-## 八、参考链接
+## 七、参考链接
 
 [https://docs.oracle.com/javase/8/docs/api/java/util/function/IntUnaryOperator.html](https://docs.oracle.com/javase/8/docs/api/java/util/function/IntUnaryOperator.html)
 

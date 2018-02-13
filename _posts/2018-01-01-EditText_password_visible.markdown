@@ -23,7 +23,7 @@ setTransformationMethod(PasswordTransformationMethod.getInstance());
 
 实现被点击图标的`OnClickListener`
 
-```kotlin
+```java
 icon.setOnClickListener {
     editText.apply {
         if (inputType == InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) {

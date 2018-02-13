@@ -11,9 +11,9 @@ tags:
 
 ## 前言
 
-这篇文章将深入介绍`CAS`在`JDK`中实现的具体细节，填补[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)里面相关内容的空缺。从高层调用开始，经历JDK、JNI和asm汇编，最终调用处理器CAS指令集，带你浏览整个实现流程。
+这篇文章将深入介绍`CAS`在`JDK`具体的实现方式，填补[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)中相关内容的空缺，主要从高层调用开始，经历JDK、JNI和asm汇编，最终调用处理器CAS指令集，带你浏览整个实现过程。
 
-阅读需扎实Java基本功，了解或能看懂JNI和C。汇编没看过也没有关系，文章参考链接附带本文涉及所有汇编知识点供查阅。
+阅读需扎实Java基本功，了解或能看懂JNI和C语言。汇编没看过也没有关系，文章参考链接附带本文涉及所有汇编知识点以供查阅。
 
 ## 一、什么是CAS
 
@@ -36,25 +36,23 @@ compare_and_swap (*p, oldval, newval):
 
 ## 二、Unsafe
 
-`compareAndSetInt`在Unsafe类中:
-
-JDK8该方法名为`compareAndSwapInt`
+JDK8该方法名为`compareAndSwapInt`，在Unsafe类中：
 
 ```java
 public final native boolean compareAndSwapInt(Object var1, long var2, int var4, int var5);
 ```
 
-JDK9命名为`compareAndSetInt`
+JDK9命名为`compareAndSetInt`，也在Unsafe类中：
 
 ```java
 public final native boolean compareAndSetInt(Object var1, long var2, int var4, int var5);
 ```
 
-本文用JDK9来介绍。如果你看的是JDK8也没关系，我特意检查了JDK8u源码，所有JVM源码文件路径通用，只是方法签名稍有差别，实现甚至方法所在行数一致。
+本文用JDK9来介绍。如果你看的是JDK8也没关系，我也稍微看了JDK8u的源码，两者JVM源码文件路径通用，实现或方法所在行数一致，只是方法签名稍有差别。
 
 进入正题，首先看该方法的原生实现，对应unsafe.cpp文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
 
-下面unsafe.cpp大概在尾段有个保存方法对应关系的静态数组：
+下面unsafe.cpp尾段有个保存方法对应关系的静态数组：
 
 ```cpp
 static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
@@ -91,10 +89,15 @@ UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobj
 
 ### 3.1 Atomic::cmpxchg
  
-`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86`第100行，并调用asm汇编。 __注意：形参order是JDK9中新加的，JDK8u没有该形参__
+`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86`第100行，并调用asm汇编。
+
+__注意：形参order是JDK9中新加的，JDK8u没有该形参__
 
 ```cpp
-inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     dest, jint     compare_value, cmpxchg_memory_order order) {
+inline jint Atomic::cmpxchg(jint exchange_value,
+                            volatile jint* dest,
+                            jint compare_value,
+                            cmpxchg_memory_order order) {
   int mp = os::is_MP();
   __asm__ volatile (LOCK_IF_MP(%4) "cmpxchgl %1,(%3)"
                     : "=a" (exchange_value)
@@ -104,7 +107,7 @@ inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     
 }
 ```
 
-按顺序就是`%1`到`%4`，可知exchange_value是`%1`，dest是`%3`。`r`代表任意一个寄存器，`a`代表eax寄存器。
+按顺序就是`%1`到`%4`，exchange_value是`%1`，dest是`%3`。`r`代表任意一个寄存器，`a`代表eax寄存器。
 
 > : "r" (exchange_value), "a" (compare_value), "r" (dest), "r" (mp)
 
@@ -112,11 +115,7 @@ inline jint     Atomic::cmpxchg    (jint     exchange_value, volatile jint*     
 
 > cmpxchgl %1,(%3)
 
-奇怪的是`%2`没有用上，不过思考可知cmpxchgl的意思是：
-
-> Compare and Exchange Long
-
-末尾的l表示操作数长度为4，这条指令有点复杂：它用到了一个隐含的操作数，即eax。在前面的输入操作数中，对应的%2没有在汇编模板里出现，但通过修饰符a把它存放到了eax寄存器，因此这里被cmpxchg指令隐含使用。
+奇怪的是`%2`没有用上，需要查证cmpxchgl的用法，它用到了一个隐含的操作数，即eax。在前面的输入操作数中，对应的%2没有在汇编模板里出现，但通过修饰符a把它存放到了eax寄存器，因此这里被cmpxchg指令隐含使用。
 
 指令cmpxchg比较eax(也就是compare_value)与dest的值。如果相等，那么将exchange_value的值赋值给dest；否则，将dest的值赋值给eax。
 
@@ -161,9 +160,9 @@ static inline bool is_MP() {
 宏定义用`"cmp $0, " #mp "`检查核心是否为单核：
 
  - 是：跳到`1f`，执行CPU指令`cmpxchgl %1,(%3)`。`1f`的意思是`1after`，参看[参考链接-6](https://stackoverflow.com/questions/27353096/1b-and-1f-in-gnu-assembly);
- - 不是：则跳到`1f`前先给总线上锁`lock`，令物理处理器其他核心不能通过总线访存，保证指令操作的原子性。
+ - 不是：则跳到`1f`前先通过`lock`给总线上锁，令物理处理器的其他核心不能通过总线访存，保证指令操作的原子性。
 
-值得一提的是，如果我们对一个变量使用`volatile`修饰符，在汇编中也会增加`lock`的指令前缀，以此保证可见性和有序性。
+值得一提的是，如果我们对一个变量使用`volatile`修饰符，汇编中也会增加`lock`指令前缀以保证该变量线程可见性和指令执行有序性。
 
 ### 3.4 \_\_asm\_\_ volatile ("": : :"memory")
 
@@ -173,13 +172,13 @@ static inline bool is_MP() {
 __asm__ volatile ("": : :"memory")
 ```
 
-这个结构告诉编译器层添加一个内存屏障，禁止相关区域内的代码指令重排序。详见[参考链接-3](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)：
+此结构告诉编译器添加一个内存屏障禁止相关区域内的操作指令重排序，但如何执行还会受到具体处理器的影响。详见[参考链接-3](https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory)：
 
 > Creates a compiler level memory barrier forcing optimizer to not re-order memory accesses across the barrier.
 
 ### 3.5 伪代码
 
-说了这么多还是不易理解，毕竟上述代码是C语言混编`asm`，翻译为伪代码：
+说了这么多还是不易理解，毕竟上述代码是C语言混编`asm`，翻译为`Java-like`伪代码：
 
 ```java
 // @param _processor_count processor count

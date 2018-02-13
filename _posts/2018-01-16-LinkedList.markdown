@@ -11,7 +11,7 @@ tags:
 
 ## 一、介绍
 
-Java常用的List实现有[ArrayList](http://phantomvk.coding.me/2017/02/19/Java_ArrayList/)和LinkedList。ArrayList通过数组实现，LinkedList通过链表实现。由于Java中没有指针的概念，所以通过一个对象保存下一对象引用的方式实现链表。
+Java常用的List实现有[ArrayList](http://phantomvk.coding.me/2017/02/19/Java_ArrayList/)和LinkedList。ArrayList通过数组实现，LinkedList通过链表实现。由于Java中没有指针的概念，所以需要用在一个对象里保存下一对象引用的方式实现链表。
 
 ```java
 public class LinkedList<E>
@@ -45,7 +45,7 @@ transient Node<E> last;
 
 ## 三、构造方法
 
-用指定集合构建列表，元素保存的顺序由集合的迭代器输出决定
+用指定集合构建列表，传入集合元素访问顺序由集合的迭代器决定：
 
 ```java
 public LinkedList(Collection<? extends E> c) {
@@ -58,7 +58,7 @@ public LinkedList(Collection<? extends E> c) {
 
 ### 4.1 头插法、尾插法、选择插入
 
-把元素作为第一个节点进入列表
+把元素作为第一个节点插入列表
 
 ```java
 private void linkFirst(E e) {
@@ -74,7 +74,7 @@ private void linkFirst(E e) {
 }
 ```
 
-把元素作为最后一个节点加入
+把元素作为最后一个节点插入
 
 ```java
 void linkLast(E e) {
@@ -106,16 +106,17 @@ public void addLast(E e) {
 }
 ```
 
-在一个非空节点之前插入元素：
+在一个非空节点之前插入元素
 
 ```java
 void linkBefore(E e, Node<E> succ) {
     // succ的前一个节点pred
     final Node<E> pred = succ.prev;
-    // 在pred和succ创建并插入一个新的节点
+    // 创建新节点newNode，分别设置其前后指针为pred和succ
     final Node<E> newNode = new Node<>(pred, e, succ);
     // 把succ向前方向的指针从指向pred改为指向newNode
     succ.prev = newNode;
+    // succ原前指针为null可推断succ是头结点，然后把新插入newNode作为头结点
     if (pred == null)
         first = newNode;
     else
@@ -134,20 +135,20 @@ private E unlinkFirst(Node<E> f) {
     // assert f == first && f != null;
     final E element = f.item;
     final Node<E> next = f.next;
-    f.item = null;
-    f.next = null; // 帮助GC
-    first = next;
-    if (next == null)
-        last = null;
+    f.item = null; // 移除f的负载
+    f.next = null; // 清除f对下一节点的引用
+    first = next;  // 修改头指针到f的下一个节点
+    if (next == null) // f的下一个节点为null可推断原链表有且仅有f一个节点
+        last = null; // 链表没有任何元素，尾指针置空
     else
-        next.prev = null;
+        next.prev = null; // 下一个节点的前指针置空，避免指向f节点造成内存泄漏
     size--;
     modCount++;
     return element;
 }
 ```
 
-解链接最后一个非空节点，私有方法
+解链接最后一个非空节点，私有方法，逻辑类似上述`unlinkFirst`
 
 ```java
 private E unlinkLast(Node<E> l) {
@@ -176,17 +177,17 @@ E unlink(Node<E> x) {
     final Node<E> prev = x.prev;
 
     if (prev == null) {
-        first = next;
+        first = next; // x是头结点，把下一节点成为头结点
     } else {
-        prev.next = next;
-        x.prev = null;
+        prev.next = next; // x是中间节点，把prev.next指向x下一节点
+        x.prev = null; // 清除x的前指针
     }
 
     if (next == null) {
-        last = prev;
+        last = prev; // x是尾节点，把倒数第二个节点设为尾节点
     } else {
-        next.prev = prev;
-        x.next = null;
+        next.prev = prev; // x是中间节点，把next.prev指向x上一节点
+        x.next = null; // 清除x的后指针
     }
 
     x.item = null;
@@ -246,24 +247,26 @@ public E removeLast() {
 
 ### 4.5 增删查改
 
+当列表中至少存在一个该对象时返回true，否则返回false
+
 ```java
-// 当列表中至少存在一个该对象时返回true，否则返回false
 public boolean contains(Object o) {
     return indexOf(o) != -1;
 }
+```
 
-// 返回列表元素的数量
-public int size() {
-    return size;
-}
+把指定元素附加到列表最后，和addLast()一样，尾插法
 
-// 把指定元素附加到列表最后，和addLast()一样，尾插法
+```java
 public boolean add(E e) {
     linkLast(e);
     return true;
 }
+```
 
-// 从列表中移除第一个与对象o相同且存在的元素。如果列表不存在该元素，列表数据不会修改。
+从列表中移除第一个与对象o相同且存在的元素。如果列表不存在该元素，列表数据不会修改。
+
+```java
 public boolean remove(Object o) {
     if (o == null) {
         for (Node<E> x = first; x != null; x = x.next) {
@@ -282,17 +285,19 @@ public boolean remove(Object o) {
     }
     return false;
 }
+```
 
-// 把集合中所有元素通过尾插法插入到列表中，插入的顺序由集合的迭代器决定。
-// 如果列表正在加入集合的元素，同时集合本身元素也在变化，那么导致的最终
-// 结果是不可预知的。
+把集合中所有元素通过尾插法插入到列表中，插入的顺序由集合迭代器决定。如果列表正在加入集合的元素，同时集合本身元素也在变化，那么导致的最终结果是不可预知的。
+
+```java
 public boolean addAll(Collection<? extends E> c) {
     return addAll(size, c);
 }
+```
 
-// 把集合中所有元素通过尾插法插入到列表中，插入的顺序由集合的迭代器决定。
-// 如果列表正在加入集合的元素，同时集合本身元素也在变化，那么导致的最终
-// 结果是不可预知的。
+把集合中所有元素通过尾插法插入到列表中，插入的顺序由集合的迭代器决定。如果列表正在加入集合的元素，同时集合本身元素也在变化，那导致最终结果是不可预知的。
+
+```java
 public boolean addAll(int index, Collection<? extends E> c) {
     checkPositionIndex(index);
 
@@ -331,8 +336,11 @@ public boolean addAll(int index, Collection<? extends E> c) {
     modCount++;
     return true;
 }
+```
 
-// 移除列表中所有元素，方法执行结束后列表为空
+移除列表中所有元素，方法执行结束后列表为空
+
+```java
 public void clear() {
     for (Node<E> x = first; x != null; ) {
         Node<E> next = x.next;
@@ -559,9 +567,9 @@ public boolean removeLastOccurrence(Object o) {
 
 ```java
 private static class Node<E> {
-    E item;
-    Node<E> next;
-    Node<E> prev;
+    E item; // 节点负载
+    Node<E> next; // 前指针
+    Node<E> prev; // 后指针
 
     Node(Node<E> prev, E element, Node<E> next) {
         this.item = element;
