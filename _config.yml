@@ -1,7 +1,7 @@
 # Site settings
 title: phantomVK
 SEOTitle: phantomVK 博客
-header-img: img/home.jpg
+header-img: img/bg/home.jpg
 email: phantomvk@163.com
 description: "Android开发者; 研究涵盖: Android Application & Framework, 爬虫, 机器学习, 数据挖掘, 应用架构; 常用Java、Kotlin、Go、Python等语言."
 keyword: "phantomVK, Android技术博客, Android源码, 机器学习, 数据挖掘, 应用架构"

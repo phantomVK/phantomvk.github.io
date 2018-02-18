@@ -3,7 +3,7 @@ layout:     post
 title:      "下载OpenJDK源码"
 date:       2018-02-04
 author:     "phantomVK"
-header-img: "img/post_bg.jpg"
+header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
     - Java
