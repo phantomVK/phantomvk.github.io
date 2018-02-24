@@ -6,71 +6,84 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
 tags:
-    - JVM
+    - Java
 ---
 
-方法是否被JVM进行JIT编译受到以下两个参数影响：
+Java方法执行一般会利用分层编译，先通过c1解释执行。方法执行编译等级逐渐提升，有机会通过JIT编译为特定平台汇编执行，以此获得最好的性能。
+
+方法执行除了达到一定热度外，是否JIT编译也受到以下两个参数影响：
 
 > -XX:+DontCompileHugeMethods
 
 > -XX:HugeMethodLimit=8000
 
-虚拟机默认不会编译巨型方法，也就是`-XX:+DontCompileHugeMethods`。因此通过`-XX:-DontCompileHugeMethods`来支持巨型方法编译。
+HotSpot默认不会编译巨型方法，也就是`-XX:+DontCompileHugeMethods`，`-XX:-DontCompileHugeMethods`可以支持巨型方法编译。
 
-判断方法是否为大对象由`-XX:HugeMethodLimit=8000`来决定，`8000`表示JIT编译字节码大小超过8000字节的方法就是巨型方法，且这个阈值在产品版HotSpot里无法调整。
+判断方法是否为大对象由`-XX:HugeMethodLimit=8000`来决定，`8000`表示JIT编译字节码大小超过8000字节的方法就是巨型方法，这个阈值在产品版HotSpot里无法调整。
 
-下面根据`JDK9`来看相关逻辑在`CompileTheWorld.java`，路径为
+`DontCompileHugeMethods`和`HugeMethodLimit`默认值在`jdk/jdk9/hotspot/src/share/vm/runtime/globals.hpp`
+
+```c
+product(bool, DontCompileHugeMethods, true,
+      "Do not compile methods > HugeMethodLimit")  
+
+develop(intx, HugeMethodLimit,  8000,                                     
+      "Don't compile methods larger than this if "                      
+      "+DontCompileHugeMethods") 
+```
+
+下面看`JDK9`的`CompileTheWorld.java`，路径为
 
 ```bash
 $ cd ./jdk9/hotspot/src/jdk.internal.vm.compiler/share/classes/org.graalvm.compiler.hotspot/src/org/graalvm/compiler/hotspot
 ```
 
-`canBeCompiled()`决定Java方法是否被JIT编译，代码在756行。这个方法返回Boolean来表示一个方法是否需要编译。
+源码`canBeCompiled() Line 756`决定Java方法是否能被JIT编译。
 
 ```java
 private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifiers) {
-    // 如果是抽象方法或原生方法，不能被编译
+    // 抽象方法或原生方法不编译
     if (Modifier.isAbstract(modifiers) || Modifier.isNative(modifiers)) {
         return false;
     }
+
     // 获取JVM配置参数
     GraalHotSpotVMConfig c = compiler.getGraalRuntime().getVMConfig();
-    // 如果c.dontCompileHugeMethods为true，根据c.hugeMethodLimit
-    // 判断该方法是否为巨型方法，因为该情况下巨型方法是不被编译的.
+    // 如果c.dontCompileHugeMethods为true，根据c.hugeMethodLimit判断该方法是否为巨型方法
     if (c.dontCompileHugeMethods && javaMethod.getCodeSize() > c.hugeMethodLimit) {
         println(verbose || methodFilters != null,
-                        String.format("CompileTheWorld (%d) : Skipping huge method %s (use -XX:-DontCompileHugeMethods or -XX:HugeMethodLimit=%d to include it)", classFileCounter,
+                        String.format("CompileTheWorld (%d) : Skipping huge method %s (use -XX:-DontCompileHugeMethods or -XX:HugeMethodLimit=%d to include it)",
+                                        classFileCounter,
                                         javaMethod.format("%H.%n(%p):%r"),
                                         javaMethod.getCodeSize()));
         return false;
     }
 
-    // dontinline标志开启也不会编译方法，可以通过Java注解实现
+    // dontinline标志开启不编译方法，用来排除可能有问题的目标方法
     // Allow use of -XX:CompileCommand=dontinline to exclude problematic methods
     if (!javaMethod.canBeInlined()) {
         return false;
     }
 
-    // 注解包含@Snippets也不编译
-    // Skip @Snippets for now
+    // 注解包含@Snippets不编译
     for (Annotation annotation : javaMethod.getAnnotations()) {
         if (annotation.annotationType().equals(Snippet.class)) {
             return false;
         }
     }
-    // 经过上面判断的方法可以被JIT编译
-    return true;
+
+    return true; // 经过判断可以被JIT编译
 }
 ```
 
 总的来说只要符合以下任一条件就不能被编译：
 
  1. 抽象方法或原生方法；
- 2. 根据方法字节码大小确认为巨型方法；
- 3. 有dontinline标志的方法；
- 4. 方法注解包含@Snippets；
+ 2. 巨型方法；
+ 3. 有`dontinline`标志的方法；
+ 4. 方法注解包含`@Snippets`；
 
-`canBeCompiled()`在在627行代码块中被调用。如果方法被判定可以被编译，方法会被送到`compileMethod()`等待编译。
+经过`canBeCompiled() Line 627`被判定可以被编译的方法送到`compileMethod() Line 725`等待编译。
 
 ```java
 // Are we compiling this class?
@@ -78,15 +91,15 @@ MetaAccessProvider metaAccess = JVMCI.getRuntime().getHostJVMCIBackend().getMeta
 if (classFileCounter >= startAt) {
     println("CompileTheWorld (%d) : %s", classFileCounter, className);
 
-    // Compile each constructor/method in the class.
-    // 这里开始循环遍历构造方法，并判断是否需要JIT编译
+    // 循环遍历构造方法，判断能否JIT编译
     for (Constructor<?> constructor : javaClass.getDeclaredConstructors()) {
         HotSpotResolvedJavaMethod javaMethod = (HotSpotResolvedJavaMethod) metaAccess.lookupJavaMethod(constructor);
         if (canBeCompiled(javaMethod, constructor.getModifiers())) {
             compileMethod(javaMethod);
         }
     }
-    // 这里开始循环遍历实例方法，并判断是否需要JIT编译
+
+    // 循环遍历实例方法，判断能否JIT编译
     for (Method method : javaClass.getDeclaredMethods()) {
         HotSpotResolvedJavaMethod javaMethod = (HotSpotResolvedJavaMethod) metaAccess.lookupJavaMethod(method);
         if (canBeCompiled(javaMethod, method.getModifiers())) {
@@ -103,7 +116,7 @@ if (classFileCounter >= startAt) {
 }
 ```
 
-实际方法编译在725行`compileMethod()`
+目标方法`compileMethod()`，编译完成后下次执行时新编译方法替换旧方式。
 
 ```java
 // Compiles a method and gathers some statistics.
@@ -138,16 +151,6 @@ private void compileMethod(HotSpotResolvedJavaMethod method, int counter) {
 }
 ```
 
-文中讨论的两个参数的默认值在`jdk/jdk9/hotspot/src/share/vm/runtime/globals.hpp`
-
-```c
-product(bool, DontCompileHugeMethods, true,
-      "Do not compile methods > HugeMethodLimit")  
-
-develop(intx, HugeMethodLimit,  8000,                                     
-      "Don't compile methods larger than this if "                      
-      "+DontCompileHugeMethods") 
-```
 
 ### 参考链接
 
