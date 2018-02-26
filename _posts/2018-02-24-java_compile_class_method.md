@@ -21,7 +21,7 @@ HotSpot默认不会编译巨型方法，也就是`-XX:+DontCompileHugeMethods`�
 
 判断方法是否为大对象由`-XX:HugeMethodLimit=8000`来决定，`8000`表示JIT编译字节码大小超过8000字节的方法就是巨型方法，这个阈值在产品版HotSpot里无法调整。
 
-`DontCompileHugeMethods`和`HugeMethodLimit`默认值在`jdk/jdk9/hotspot/src/share/vm/runtime/globals.hpp`
+`DontCompileHugeMethods`和`HugeMethodLimit`默认值在`/hotspot/src/share/vm/runtime/globals.hpp`
 
 ```c
 product(bool, DontCompileHugeMethods, true,
@@ -35,7 +35,7 @@ develop(intx, HugeMethodLimit,  8000,
 下面看`JDK9`的`CompileTheWorld.java`，路径为
 
 ```bash
-$ cd ./jdk9/hotspot/src/jdk.internal.vm.compiler/share/classes/org.graalvm.compiler.hotspot/src/org/graalvm/compiler/hotspot
+$ cd ./hotspot/src/jdk.internal.vm.compiler/share/classes/org.graalvm.compiler.hotspot/src/org/graalvm/compiler/hotspot
 ```
 
 源码`canBeCompiled() Line 756`决定Java方法是否能被JIT编译。
@@ -65,7 +65,7 @@ private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifier
         return false;
     }
 
-    // 注解包含@Snippets不编译
+    // 注解类型为Snippet.class不编译
     for (Annotation annotation : javaMethod.getAnnotations()) {
         if (annotation.annotationType().equals(Snippet.class)) {
             return false;
@@ -81,7 +81,7 @@ private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifier
  1. 抽象方法或原生方法；
  2. 巨型方法；
  3. 有`dontinline`标志的方法；
- 4. 方法注解包含`@Snippets`；
+ 4. 注解类型为Snippet.class`；
 
 经过`canBeCompiled() Line 627`被判定可以被编译的方法送到`compileMethod() Line 725`等待编译。
 
