@@ -81,7 +81,7 @@ private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifier
  1. 抽象方法或原生方法；
  2. 巨型方法；
  3. 有`dontinline`标志的方法；
- 4. 注解类型为Snippet.class`；
+ 4. 注解类型为Snippet.class；
 
 经过`canBeCompiled() Line 627`被判定可以被编译的方法送到`compileMethod() Line 725`等待编译。
 
