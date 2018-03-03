@@ -11,13 +11,13 @@ tags:
 
 ### 前言
 
-通过创建的View添加到ViewGroup成为可见视图。
+`inflate()`把传入的layout_res_id构建为实例，简化Android布局的开发难度。
 
 ```java
 val view = LayoutInflater.from(this).inflate(R.layout.layout, null)
 ```
 
-研究源码前简单了解频繁出现的`TAG`字符串：
+先了解源码中几个频繁出现的`TAG_*`字符串：
 
 ```java
 TAG_MERGE = "merge";
@@ -29,33 +29,35 @@ TAG_TAG = "tag";
 
 ### inflate
 
-inflate()是为指定的xml资源文件构建视图布局，通过指定的xml节点填充(构建)一个新视图布局，或抛出InflateException异常。
+`inflate()`为指定的xml资源文件构建视图布局，失败则抛出InflateException异常。
 
 ```java
-public View inflate(@LayoutRes int resource, @Nullable ViewGroup root, boolean attachToRoot) {
-    // 用Context获取Resources
+public View inflate(@LayoutRes int resource,
+                    @Nullable ViewGroup root,
+                    boolean attachToRoot) {
+    // 从Context获取Resources
     final Resources res = getContext().getResources();
-    // 创建Xml资源语义解析器
+    // 用Resources创建xml资源语义解析器
     final XmlResourceParser parser = res.getLayout(resource);
     try {
         // 返回创建的View
         return inflate(parser, root, attachToRoot);
     } finally {
-        // View填充完毕关闭该语义解析器
+        // 关闭该语义解析器
         parser.close();
     }
 }
 ```
 
-以下方法注释着重提到:
+下面这个方法的注释着重提到几点:
 
-1. 填充行为重度依赖编译过程预处理过的xml文件来提升性能；
-2. 运行时不可能用XmlPullParser去调用LayoutInflater方法处理普通xml；
-3. 原始xml文件指开发可见的布局文件，此类文件没有经过预处理。
+1. 填充行为重度依赖编译过程预处理过的xml文件，以此提升查找性能；
+2. 运行期不可能用`XmlPullParser`调用`inflate`方法处理普通xml；
+3. 普通xml文件指开发可见的xml，此类文件没有经过预处理，所以运行期不能处理。
 
 ```java
 public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean attachToRoot) {
-    // mConstructorArgs作为同步对象
+    // mConstructorArgs作为同步对象，相同LayoutInflate执行同步完成
     synchronized (mConstructorArgs) {
         Trace.traceBegin(Trace.TRACE_TAG_VIEW, "inflate");
         
@@ -64,7 +66,7 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
         final AttributeSet attrs = Xml.asAttributeSet(parser);
         // mConstructorArgs[0]临时保存为lastContext
         Context lastContext = (Context) mConstructorArgs[0];
-        // 用inflaterContext即mContext替换
+        // 用inflaterContext，即mContext赋值给mConstructorArgs[0]
         mConstructorArgs[0] = inflaterContext;
         View result = root;
 
@@ -78,7 +80,7 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
             }
             
             // 可能已找到START_TAG，也可能没有START_TAG而遇到END_DOCUMENT结束；
-            // 没有发现START_TAG意味着此xml的内容是非法的的，抛出异常终止填充流程。
+            // 没有发现START_TAG意味xml内容非法，抛出异常终止流程
             if (type != XmlPullParser.START_TAG) {
                 throw new InflateException(parser.getPositionDescription()
                         + ": No start tag found!");
@@ -98,7 +100,7 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
                 // 循环遍历子标签
                 rInflate(parser, root, inflaterContext, attrs, false);
             } else {
-                // 不是merge表明该标签是xml文件的根视图temp
+                // 不是merge表明该标签是xml文件的根元素，命名为temp
                 final View temp = createViewFromTag(root, name, inflaterContext, attrs);
 
                 ViewGroup.LayoutParams params = null;
@@ -108,7 +110,7 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
                     // 根据root构建temp的LayoutParams
                     params = root.generateLayoutParams(attrs);
                     if (!attachToRoot) {
-                        // attachToRoot为false，从root获得LayoutParams并设到根视图temp
+                        // attachToRoot为false，从root获得LayoutParams并设到根元素temp
                         temp.setLayoutParams(params);
                     }
                 }
@@ -116,12 +118,12 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
                 // 填充temp下所有子View.
                 rInflateChildren(parser, temp, attrs, true);
 
-                // 把xml构建出的View直接添加到root视图中
+                // xml构建的View添加到root中
                 if (root != null && attachToRoot) {
                     root.addView(temp, params);
                 }
 
-                // 如果构建的View不需要添加到root中，直接把构建View返回
+                // 如果temp不需要添加到root，则返回temp
                 if (root == null || !attachToRoot) {
                     result = temp;
                 }
@@ -144,7 +146,8 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
             Trace.traceEnd(Trace.TRACE_TAG_VIEW);
         }
         
-        // root非空且attachToRoot为true时构建的子view添加到root，并返回root
+        // root非空且attachToRoot为true时构建temp添加到root，返回root
+        // 否则返回temp，temp可能设置了有关root的LayoutParams
         return result;
     }
 }
@@ -152,17 +155,17 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
 
 ### rInflate
 
-深度递归xml布局初始化views，一并初始化这些views的子views，r原意为Recursive。
+r原意为Recursive，深度递归xml布局初始化view，一并初始化此view的子view。
 
 ```java
 void rInflate(XmlPullParser parser, View parent, Context context,
         AttributeSet attrs, boolean finishInflate) throws XmlPullParserException, IOException {
-    // 获取遍历深度
+    // 获取最大遍历深度
     final int depth = parser.getDepth();
     int type;
     boolean pendingRequestFocus = false;
 
-    // 没遇到views本身的END_TAG或遍历子views时没遇到END_DOCUMENT，就继续遍历
+    // 没遇到views本身的END_TAG或遍历子views时没遇到END_DOCUMENT就继续遍历
     while (((type = parser.next()) != XmlPullParser.END_TAG ||
             parser.getDepth() > depth) && type != XmlPullParser.END_DOCUMENT) {
 
@@ -172,7 +175,7 @@ void rInflate(XmlPullParser parser, View parent, Context context,
 
         final String name = parser.getName();
         
-        // TAG_REQUEST_FOCUS
+        // 此View设置了TAG_REQUEST_FOCUS
         if (TAG_REQUEST_FOCUS.equals(name)) {
             pendingRequestFocus = true;
             consumeChildElements(parser);
@@ -194,7 +197,7 @@ void rInflate(XmlPullParser parser, View parent, Context context,
             // 利用parent作为ViewGroup，构建出LayoutParams给子View使用
             final ViewGroup viewGroup = (ViewGroup) parent;
             final ViewGroup.LayoutParams params = viewGroup.generateLayoutParams(attrs);
-            // rInflateChildren()会调用rInflate()，本方法调用本方法
+            // rInflateChildren()会调用rInflate()，深度遍历初始化
             rInflateChildren(parser, view, attrs, true);
             // 构建成功的View添加到ViewGroup
             viewGroup.addView(view, params);
@@ -223,7 +226,7 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
         name = attrs.getAttributeValue(null, "class");
     }
 
-    // ignoreThemeAttr为false给context配置主题装饰器
+    // ignoreThemeAttr为false则给context配置主题装饰器
     if (!ignoreThemeAttr) {
         final TypedArray ta = context.obtainStyledAttributes(attrs, ATTRS_THEME);
         final int themeResId = ta.getResourceId(0, 0);
@@ -233,9 +236,7 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
         ta.recycle();
     }
     
-    // TAG_1995返回BlinkLayout，有上世纪Disco舞厅闪烁的灯光感，献上最喜欢的曲目：
-    //    Brother Louie - https://music.163.com/#/song?id=4175444 
-    //    Cheri cheri lady - https://music.163.com/#/song?id=21254900
+    // TAG_1995返回BlinkLayout，即上世纪Disco舞厅灯光的闪烁感
     if (name.equals(TAG_1995)) {
         // Let's party like it's 1995!
         return new BlinkLayout(context, attrs);
@@ -259,7 +260,7 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
             final Object lastContext = mConstructorArgs[0];
             mConstructorArgs[0] = context;
             try {
-                // 不包含符号'.'表示此视图是原生View，不是自定义View如 <com.phatomvk.custom.view />
+                // 不包含符号'.'表示原生View，不是自定义如 <com.phatomvk.custom.view />
                 // onCreateView()调用createView(name, prefix:"android.view.", attrs)
                 if (-1 == name.indexOf('.')) {
                     // 例：TextView全路径名为'android.view.TextView'
@@ -299,6 +300,7 @@ View最终通过其全路径名在`ClassLoader`中反射出对应的View.
 ```java
 public final View createView(String name, String prefix, AttributeSet attrs)
         throws ClassNotFoundException, InflateException {
+    // 全局静态HashMap缓存
     Constructor<? extends View> constructor = sConstructorMap.get(name);
     if (constructor != null && !verifyClassLoader(constructor)) {
         constructor = null;
@@ -308,11 +310,14 @@ public final View createView(String name, String prefix, AttributeSet attrs)
 
     try {
         Trace.traceBegin(Trace.TRACE_TAG_VIEW, name);
-
+        
+        // 该类没有缓存
         if (constructor == null) {
+            // 从ClassLoader中反射类
             clazz = mContext.getClassLoader().loadClass(
                     prefix != null ? (prefix + name) : name).asSubclass(View.class);
-
+                    
+            // 未经许可的类不能实例化，并抛出异常
             if (mFilter != null && clazz != null) {
                 // the specified class is not allowed to be inflated
                 boolean allowed = mFilter.onLoadClass(clazz);
@@ -320,13 +325,14 @@ public final View createView(String name, String prefix, AttributeSet attrs)
                     failNotAllowed(name, prefix, attrs);
                 }
             }
+
             // 获取反射类的构造方法
             constructor = clazz.getConstructor(mConstructorSignature);
             constructor.setAccessible(true);
             // 添加该类构造方法到缓存
             sConstructorMap.put(name, constructor);
         } else {
-            // If we have a filter, apply it to cached constructor
+            // 已经缓存的构造方法还要经过mFilter的检查
             if (mFilter != null) {
                 // Have we seen this name before?
                 Boolean allowedState = mFilterMap.get(name);
@@ -355,7 +361,7 @@ public final View createView(String name, String prefix, AttributeSet attrs)
         Object[] args = mConstructorArgs;
         args[1] = attrs;
         
-        // 创建类实例
+        // 创建类实例，args是自定义主题相关变量
         final View view = constructor.newInstance(args);
         // 类型是ViewStub
         if (view instanceof ViewStub) {
@@ -395,16 +401,14 @@ public final View createView(String name, String prefix, AttributeSet attrs)
 
 ### 总结
 
-从开始`LayoutInflater.inflate`填充布局，调用`rInflate`递归遍历子View，每个子View在`createViewFromTag`通过全限定名最终被`createView`反射出实例。
+从开始`LayoutInflater.inflate`填充布局，调用`rInflate`递归遍历子View，每个子View在`createViewFromTag`通过全限定名调用`createView`反射出实例，层层处理结束后返回构建完成的View。
 
 整个过程最耗时间部分有两个：
 
-- 读取并分析xml中标签的数据;
-- 通过类反射获得全路径名指定的View实例.
+- 读取并分析xml标签数据;
+- 类反射获得全路径名的View实例.
 
-一个布局层次越复杂，上述两个过程耗时越长。
+`Layout`层次越复杂，上述过程耗时越长。根据经验，相对简单的`Layout`要费2-4ms完成创建。每帧耗时不超过16ms的条件下通过指令动态构建布局，整个组件添加`Layout`个数不能超过6个，即`inflate()`次数不能大于6。
 
-根据经验，一个相对简单的`Layout`要费2-4ms完成创建。每帧耗时不超过16ms下读取指令动态构建布局的话，一个大布局内填充Layout数量不能超过6个，即inflate()次数不能大于6。
-
-所以，为了减少View的各种时间成本，最好的办法是减少布局层次，降低复杂度。这样，不仅inflate()能节省时间，布局测量、测绘等过程也能同步减少。
+为了减少`View`造成的时间成本，最好的办法是减少布局层次，降低复杂度。这样，不仅`inflate()`能节省时间，测量、布局、测绘等过程也能缩短。
 
