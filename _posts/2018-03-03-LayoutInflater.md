@@ -11,7 +11,7 @@ tags:
 
 ### 前言
 
-`inflate()`把传入的layout_res_id构建为实例，简化Android布局的开发难度。
+`inflate()`把传入的layout_res_id获得构建后的实例：
 
 ```java
 val view = LayoutInflater.from(this).inflate(R.layout.layout, null)
@@ -29,7 +29,7 @@ TAG_TAG = "tag";
 
 ### inflate
 
-`inflate()`为指定的xml资源文件构建视图布局，失败则抛出InflateException异常。
+`inflate()`为指定的xml资源文件构建视图布局
 
 ```java
 public View inflate(@LayoutRes int resource,
@@ -49,7 +49,7 @@ public View inflate(@LayoutRes int resource,
 }
 ```
 
-下面这个方法的注释着重提到几点:
+下方方法的注释着重提到几点:
 
 1. 填充行为重度依赖编译过程预处理过的xml文件，以此提升查找性能；
 2. 运行期不可能用`XmlPullParser`调用`inflate`方法处理普通xml；
@@ -57,7 +57,7 @@ public View inflate(@LayoutRes int resource,
 
 ```java
 public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean attachToRoot) {
-    // mConstructorArgs作为同步对象，相同LayoutInflate执行同步完成
+    // mConstructorArgs作为同步对象，LayoutInflate实例同步执行
     synchronized (mConstructorArgs) {
         Trace.traceBegin(Trace.TRACE_TAG_VIEW, "inflate");
         
@@ -80,7 +80,7 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
             }
             
             // 可能已找到START_TAG，也可能没有START_TAG而遇到END_DOCUMENT结束；
-            // 没有发现START_TAG意味xml内容非法，抛出异常终止流程
+            // 没有发现START_TAG意味xml内容非法，上层捕捉异常终止inflate
             if (type != XmlPullParser.START_TAG) {
                 throw new InflateException(parser.getPositionDescription()
                         + ": No start tag found!");
@@ -401,14 +401,17 @@ public final View createView(String name, String prefix, AttributeSet attrs)
 
 ### 总结
 
-从开始`LayoutInflater.inflate`填充布局，调用`rInflate`递归遍历子View，每个子View在`createViewFromTag`通过全限定名调用`createView`反射出实例，层层处理结束后返回构建完成的View。
-
 整个过程最耗时间部分有两个：
 
 - 读取并分析xml标签数据;
 - 类反射获得全路径名的View实例.
 
-`Layout`层次越复杂，上述过程耗时越长。根据经验，相对简单的`Layout`要费2-4ms完成创建。每帧耗时不超过16ms的条件下通过指令动态构建布局，整个组件添加`Layout`个数不能超过6个，即`inflate()`次数不能大于6。
+从开始`LayoutInflater.inflate`填充布局，调用`rInflate`递归遍历子View，每个子View在`createViewFromTag`通过全限定名调用`createView`反射实例，层层处理结束后返回构建完成的View。
 
-为了减少`View`造成的时间成本，最好的办法是减少布局层次，降低复杂度。这样，不仅`inflate()`能节省时间，测量、布局、测绘等过程也能缩短。
+最后总结`attachToRoot`:
+
+- `root`为null，`attachToRoot`设置值不起作用；
+- `root`不为null，`attachToRoot`为true，给加载的布局文件指定父布局root；
+- `root`不为null，`attachToRoot`为false，则设置布局文件最外层layout属性。当该view添加到父view时，这些layout属性起效；
+- 不设置`attachToRoot`参数且root不为null，`attachToRoot`参数默认为true。
 
