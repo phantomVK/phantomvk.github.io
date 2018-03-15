@@ -73,20 +73,6 @@ public class SparseArray<E> implements Cloneable {
         mSize = 0;
     }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public SparseArray<E> clone() {
-        SparseArray<E> clone = null;
-        try {
-            clone = (SparseArray<E>) super.clone();
-            clone.mKeys = mKeys.clone();
-            clone.mValues = mValues.clone();
-        } catch (CloneNotSupportedException cnse) {
-            /* ignore */
-        }
-        return clone;
-    }
-
     /**
      * Gets the Object mapped from the specified key, or <code>null</code>
      * if no such mapping has been made.
@@ -376,39 +362,6 @@ public class SparseArray<E> implements Cloneable {
         mKeys = GrowingArrayUtils.append(mKeys, mSize, key);
         mValues = GrowingArrayUtils.append(mValues, mSize, value);
         mSize++;
-    }
-
-    /**
-     * {@inheritDoc}
-     *
-     * <p>This implementation composes a string by iterating over its mappings. If
-     * this map contains itself as a value, the string "(this Map)"
-     * will appear in its place.
-     */
-    @Override
-    public String toString() {
-        if (size() <= 0) {
-            return "{}";
-        }
-
-        StringBuilder buffer = new StringBuilder(mSize * 28);
-        buffer.append('{');
-        for (int i=0; i<mSize; i++) {
-            if (i > 0) {
-                buffer.append(", ");
-            }
-            int key = keyAt(i);
-            buffer.append(key);
-            buffer.append('=');
-            Object value = valueAt(i);
-            if (value != this) {
-                buffer.append(value);
-            } else {
-                buffer.append("(this Map)");
-            }
-        }
-        buffer.append('}');
-        return buffer.toString();
     }
 }
 ```
