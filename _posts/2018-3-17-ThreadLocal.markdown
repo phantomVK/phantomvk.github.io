@@ -17,7 +17,7 @@ ThreadLocal提供线程局部变量，以静态私有数据成员的形式存放
 
 - __Entry[1]__ : Entry.key通过弱引用持有ThreadLocal实例；
 - __Entry[10]__ : GC没有强应用持有的ThreadLocal实例，令Entry.key为null，Entry.value继续等待清理；
-- __其他__ ：Entry没有被使用，或曾经使用但已回收，Entry恢复到初始状态。
+- __其他__ ：Entry没有被使用，或曾经使用但已回收，Entry处于初始状态。
 
 ## 二、示例
 
@@ -54,12 +54,16 @@ val threadLocal = object : ThreadLocal<Int>() {
 ```
 Thread[Thread-0,5,main]'s initial value is 0
 Thread[Thread-0,5,main]'s result is 45
+
 Thread[Thread-1,5,main]'s initial value is 0
 Thread[Thread-1,5,main]'s result is 45
+
 Thread[Thread-2,5,main]'s initial value is 0
 Thread[Thread-2,5,main]'s result is 45
+
 Thread[Thread-3,5,main]'s initial value is 0
 Thread[Thread-3,5,main]'s result is 45
+
 Thread[Thread-4,5,main]'s initial value is 0
 Thread[Thread-4,5,main]'s result is 45
 ```
@@ -68,13 +72,13 @@ Thread[Thread-4,5,main]'s result is 45
 
 ### 3.1 成员变量
 
-ThreadLocals依靠捆绑在每个线程的线性探针哈希表(ThreadLocalMap.Entry[])。ThreadLocal对象作为Hash的键，通过`threadLocalHashCode`来搜索。这是只用在ThreadLocalMaps的定制哈希值，即使在同一个线程内连续构建ThreadLocals也可以运行得相当好。
+ThreadLocals依靠捆绑在每个线程的线性探针哈希表(ThreadLocalMap.Entry[])。ThreadLocal对象作为Hash的键，通过`threadLocalHashCode`来搜索，且该值只用在ThreadLocalMaps的定制哈希值，即使在同一个线程内连续构建ThreadLocals也可以运行得相当好。
 
 ```java
 private final int threadLocalHashCode = nextHashCode();
 ```
 
-不同线程访问同一个ThreadLocal，这个ThreadLocal在不同ThreadLocalMap的hash值不是一样的。Hash值由静态的[AtomicInteger：Java源码系列(7)](https://phantomvk.github.io/2018/01/17/AtomicInteger/)提供，ThreadLocal创建新实例就会累加相同魔数`HASH_INCREMENT`。
+不同线程访问同一个ThreadLocal，Hash值由静态的[AtomicInteger：Java源码系列(7)](https://phantomvk.github.io/2018/01/17/AtomicInteger/)提供，ThreadLocal创建新实例就会累加相同魔数`HASH_INCREMENT`。
 
 ```java
 // 预计算下一实例的Hash值，从初始值0开始自动累加
@@ -309,7 +313,7 @@ private static int prevIndex(int i, int len) {
 
 ```java
 ThreadLocalMap(ThreadLocal<?> firstKey, Object firstValue) {
-    // Thread的ThreadLocalMap不存在，构造大小为16的table
+    // 构造大小为16的table
     table = new Entry[INITIAL_CAPACITY];
     // 计算ThreadLocal的Hash在上述长度的下标
     int i = firstKey.threadLocalHashCode & (INITIAL_CAPACITY - 1);
@@ -341,7 +345,7 @@ private Entry getEntry(ThreadLocal<?> key) {
 - e == null
 - e.get != key
 
- getEntry方法没有找到直接下标的key，就调用此方法继续向后查找，一遍清理一边查找，知道找到目标键或结果为null时退出。
+ getEntry方法没有找到直接下标的key，就调用此方法继续向后查找，一遍清理一边查找，直到找到目标键或遇到e == null时退出。
 
 ```java
 private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
@@ -394,7 +398,7 @@ private void set(ThreadLocal<?> key, Object value) {
             return;
         }
 
-        // k为空，顺便清理该entry
+        // k为空
         if (k == null) {
             replaceStaleEntry(key, value, i);
             return;
@@ -495,12 +499,11 @@ private void replaceStaleEntry(ThreadLocal<?> key, Object value,
             slotToExpunge = i;
     }
 
-    // If key not found, put new entry in stale slot
     // key没找到，创建新的Entry到位置staleSlot上
     tab[staleSlot].value = null;
     tab[staleSlot] = new Entry(key, value);
 
-    // If there are any other stale entries in run, expunge them
+    // 有任何废弃的entry就触发清理逻辑
     if (slotToExpunge != staleSlot)
         cleanSomeSlots(expungeStaleEntry(slotToExpunge), len);
 }
@@ -529,7 +532,7 @@ private int expungeStaleEntry(int staleSlot) {
          i = nextIndex(i, len)) {
         // 取Entry
         ThreadLocal<?> k = e.get();
-        // 如果key为null，则清空Entry的value并将其移出Entry[]
+        // 如果key为null，则清空Entry的value并将Entry移出Entry[]
         if (k == null) {
             e.value = null;
             tab[i] = null;
@@ -579,22 +582,19 @@ private boolean cleanSomeSlots(int i, int n) {
 
 ### 4.13 rehash()
 
-此方法会触发一次清理整个表废弃元素的操作expungeStaleEntries()。一般来说，经过全面清理后会腾出一谢新空间。然后检查现在是否需要扩容，看是否达到扩容阀值的3 / 4。注意：不是总空间的3 / 4。
-
-
+此方法会触发一次清理整个表废弃元素的操作expungeStaleEntries()。一般来说，经过全面清理后会腾出新空间，然后检查是否还需要扩容，即是否已达到扩容阀值的3 / 4。
 
 假设总容量是16：
 
 - 扩容阀值：16 * 2 / 3 = 10
-- 扩容阀值3 / 4 : 10 * 3 / 4 = 7
+- 扩容阀值的3 / 4 : 10 * 3 / 4 = 7
 
 ```java
 private void rehash() {
     // 先清空所有无效的Entry腾出空间
     expungeStaleEntries();
 
-    // Use lower threshold for doubling to avoid hysteresis
-    // 已用空间大于等于阀值的3/4，resize()扩容为原大小的2倍  
+    // 已用空间大于等于阀值3/4，resize()扩容为原来2倍，以此避免迟滞现象  
     if (size >= threshold - threshold / 4)
         resize();
 }
@@ -602,7 +602,7 @@ private void rehash() {
 
 ### 4.14 resize()
 
-table数组容量扩容为原大小2倍，因此也符合tableSize为2的幂大小的要求
+table数组容量扩容2倍，tableSize为2的幂大小的要求
 
 ```java
 private void resize() {
