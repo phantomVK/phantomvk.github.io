@@ -374,17 +374,6 @@ public HashMap(int initialCapacity, float loadFactor) {
 }
 
 /**
- * Constructs an empty <tt>HashMap</tt> with the specified initial
- * capacity and the default load factor (0.75).
- *
- * @param  initialCapacity the initial capacity.
- * @throws IllegalArgumentException if the initial capacity is negative.
- */
-public HashMap(int initialCapacity) {
-    this(initialCapacity, DEFAULT_LOAD_FACTOR);
-}
-
-/**
  * Constructs an empty <tt>HashMap</tt> with the default initial capacity
  * (16) and the default load factor (0.75).
  */
