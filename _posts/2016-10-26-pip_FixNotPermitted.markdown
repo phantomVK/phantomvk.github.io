@@ -10,13 +10,13 @@ tags:
 ---
 
 
-这段时间在弄机器学习的事情，然后看Macbook里面的Python库有点旧，就用pip更新一下。
+这段时间研究机器学习，然后发现Mac OS的Python库有点旧，就用pip更新一下：
 
 ```bash
 $ pip install --upgrade numpy
 ```
 
-结果抛出下面这个异常报告
+结果抛出下面异常：
 
 ```
 Exception:
@@ -42,13 +42,13 @@ Traceback (most recent call last):
 OSError: [Errno 1] Operation not permitted: '/tmp/pip-1_nHcH-uninstall/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/numpy-1.8.0rc1-py2.7.egg-info'
 ```
 
-Google后找到这个解决方案
+Google后找到解决方案：
 
 ```shell
 $ pip install --upgrade pip
 
 $ sudo pip install numpy --upgrade --ignore-installed
-$ sudo pip install scipy --upgrade --ignore-installed
+$ sudo pip install scipy --upgrade --ignore-installed
 $ sudo pip install scikit-learn --upgrade --ignore-installed
 ```
 

@@ -12,11 +12,11 @@ tags:
 
 # 前言
 
-上一篇文章 [Android View 事件分发源码剖析](http://phantomvk.coding.me/2016/10/18/Android_View/) 我们详细介绍了View事件分发的细节。接下来我们继续学习ViewGroup事件分发的内容。此次源码同样基于Android SDK 23，即Android 6.0。如果你看的是以前版本的源码，可能会有明显的不一样，请自行斟酌。
+上一篇文章 [Android View 事件分发源码剖析](http://phantomvk.coding.me/2016/10/18/Android_View/) 详细分析View事件分发的细节。接下来继续学习ViewGroup事件分发。此次源码同样基于Android SDK 23，即Android 6.0。不同Framework源码可能不一样，请自行斟酌。
 
 # 一、 代码构建
 
-继承LinearLayout类，重写**dispatchTouchEvent**、**onInterceptTouchEvent**、**onTouchEvent**三个方法。
+继承LinearLayout类重写**dispatchTouchEvent()**、**onInterceptTouchEvent()**、**onTouchEvent()**方法。
 
 ```java
 public class MyLinearLayout extends LinearLayout {
@@ -86,7 +86,7 @@ public class MyLinearLayout extends LinearLayout {
 }
 ```
 
-然后直接修改上次的xml布局文件，把`RelativeLayout`改为自定义的**com.corevk.demoproject.MyLinearLayout**。
+然后直接修改上次的xml布局文件，把RelativeLayout改为自定义ViewGroup:
 
 ```xml
 <com.corevk.demoproject.MyLinearLayout
@@ -104,14 +104,21 @@ public class MyLinearLayout extends LinearLayout {
 
 # 二、运行结果
 
-事件按照一定规律传递:
+事件按照以下规律传递:
 
 * MyLinearLayout: dispatchTouchEvent
 * MyLinearLayout: onInterceptTouchEvent
 * MyButton: dispatchTouchEvent
 * MyButton: onTouchEvent
 
-事件首先分发到`ViewGroup`中，然后`ViewGroup`分发到`View`。由于`View`是一个设置了`OnClickListener`的`Button`，所以`Button.onTouchEvent()`在父类中返回`true`终止分发。
+事件首先分发到ViewGroup：
+
+- ViewGroup.dispatchTouchEvent()收到事件，交给ViewGroup.onInterceptTouchEvent()；
+
+
+- 事件进入ViewGroup.onInterceptTouchEvent()，该方法返回false，事件继续下发；
+- 分发到子View.dispatchTouchEvent()，又传递到onTouchEvent.OnTouchListener消费，结束流程；
+- 如果OnTouchListener不拦截事件，则会给View.onTouch().OnClickListener消费.
 
 ```
 demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_DOWN
@@ -134,7 +141,7 @@ demoproject E/MyButton: onTouchEvent ACTION_UP
 
 ## 3.1 ViewGroup 
 
-### 3.1.1 dispatchTouchEvent
+#### 3.1.1 dispatchTouchEvent
 
 ```java
 @Override
@@ -165,26 +172,27 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
             resetTouchState(); // 重置触摸状态
         }
 
-        // 检查拦截器
+        // 是否已拦截标志位
         final boolean intercepted;
         
-        // 发生ACTION_DOWN事件或者已经发生ACTION_DOWN，进入此方法
+        // 发生ACTION_DOWN事件或者ACTION_DOWN的后续事件，进入此方法
         if (actionMasked == MotionEvent.ACTION_DOWN
                 || mFirstTouchTarget != null) {
             final boolean disallowIntercept = (mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0;
-            // 检查是否允许调用拦截器
+            // ViewGroup是否允许拦截事件
             if (!disallowIntercept) {
+                // ViewGroup自行拦截事件并发送到onInterceptTouchEvent(ev)
                 intercepted = onInterceptTouchEvent(ev);
                 ev.setAction(action); 
             } else {
+                // 不允许拦截
                 intercepted = false;
             }
         } else {
-            // 如果没有触摸targets，且这个操作不是down事件，这个viewgroup会继续拦截
+            // 没有FirstTouchTarget且不是down事件，ViewGroup继续拦截
             intercepted = true;
         }
 
-        // 如果已拦截或正在处理gesture，开始正常的事件分发
         if (intercepted || mFirstTouchTarget != null) {
             ev.setTargetAccessibilityFocus(false);
         }
@@ -198,7 +206,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         TouchTarget newTouchTarget = null;
         boolean alreadyDispatchedToNewTouchTarget = false;
         
-        // 没有取消且没有拦截就执行
+        // 之前不允许拦截事件，或onInterceptTouchEvent(ev)返回false
         if (!canceled && !intercepted) {
 
             // 把事件分发给的子视图，寻找能获取焦点的视图
@@ -216,8 +224,9 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                 removePointersFromTouchTargets(idBitsToAssign);
                 // 统计子视图数目
                 final int childrenCount = mChildrenCount;
-                // 新的触摸Target不为空且有子视图
+                // 新触摸Target为空且有子视图
                 if (newTouchTarget == null && childrenCount != 0) {
+                    // 当前x、y坐标
                     final float x = ev.getX(actionIndex);
                     final float y = ev.getY(actionIndex);
                     
@@ -228,10 +237,11 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                     final View[] children = mChildren;
                     
                     // 从最底层的父视图开始遍历找寻newTouchTarget
-                    // 如果已经存在找寻newTouchTarget，说明正在接收触摸事件，则跳出循环。
                     for (int i = childrenCount - 1; i >= 0; i--) {
+                        // child的索引
                         final int childIndex = customOrder
                                 ? getChildDrawingOrder(childrenCount, i) : i;
+                        // 从children列表获取索引的child
                         final View child = (preorderedList == null)
                                 ? children[childIndex] : preorderedList.get(childIndex);
 
@@ -276,6 +286,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                                     }
                                 }
                             } else {
+                                // 最近一个消费事件的childIndex
                                 mLastTouchDownIndex = childIndex;
                             }
                             // 获取TouchDown的坐标
@@ -358,7 +369,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 }
 ```
 
-### 3.1.3 onFilterTouchEventForSecurity
+#### 3.1.3 onFilterTouchEventForSecurity
 
 隐私策略过滤触摸事件返回状态值。true表示继续分发事件，而false表示该事件应该被过滤掉不再进行任何分发。
 
@@ -373,7 +384,7 @@ public boolean onFilterTouchEventForSecurity(MotionEvent event) {
 }
 ```
 
-### 3.1.3 requestDisallowInterceptTouchEvent
+#### 3.1.3 requestDisallowInterceptTouchEvent
 
 ```java
 public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
@@ -395,7 +406,7 @@ public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
 ```
 
 
-### 3.1.4 buildOrderedChildList()
+#### 3.1.4 buildOrderedChildList()
 
 建立一个视图组的列表，通过虚拟的Z轴来进行排序。
 
@@ -427,7 +438,7 @@ ArrayList<View> buildOrderedChildList() {
 }
 ```
 
-### 3.1.5 dispatchTransformedTouchEvent
+#### 3.1.5 dispatchTransformedTouchEvent
 
 ```java
 private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
@@ -511,9 +522,9 @@ private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
     return handled;
 }
 ```
-    
-    
-### 3.1.6 addTouchTarget
+
+
+#### 3.1.6 addTouchTarget
 
 调用该方法获取了TouchTarget。同时mFirstTouchTarget被赋予相同对象。
     
@@ -526,9 +537,9 @@ private TouchTarget addTouchTarget(View child, int pointerIdBits) {
 }
 ```
 
-## 3.2 ViewGroup - onInterceptTouchEvent
+## 3.2 ViewGroup.onInterceptTouchEvent()
 
-方法默认返回false，表示继续执行事件分发。如果该方法被重写并放回true，事件被拦截并不再分发。
+方法默认返回false，表示继续执行事件分发。如果该方法被重写并返回true，事件被拦截并不再分发。
 
 ```java
 public boolean onInterceptTouchEvent(MotionEvent ev) {

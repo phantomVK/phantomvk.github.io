@@ -15,15 +15,15 @@ __运行环境：`Ubuntu 16.04 LTS AMD64` 、`OpenJDK 9`、`Hadoop-1.2.1`、`Ope
 
 ## 一、JDK安装及配置
 
-### 安装JDK
+#### 1.1 安装JDK
 
-Hadoop依赖JDK，请确认系统已经安装JDK。安装参考 __[Ubuntu安装Oracle JDK8](http://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__ .
+Hadoop依赖JDK，请确认系统已经安装JDK，具体请参考 __[Ubuntu安装Oracle JDK8](http://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__ 
 
 ## 二、 Hadoop安装及配置
 
 ### 2.1 下载Hadoop
 
-一个版本不太高的Hadoop，通过`wget`下载[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)，然后解压到`/opt`
+一个不太新的Hadoop，通过`wget`下载[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)，然后解压到`/opt`
 
 ```bash
 $ cd /opt
@@ -115,13 +115,13 @@ $ vim mapred-site.xml
 $ vim /etc/profile
 ```
 
-增加下面配置：
+增加以下配置：
 
 ```
  export HADOOP_HOME=/opt/hadoop-1.2.1 
 ```
 
-然后在相同文件`PATH`变量中追加参数`$HADOOP_HOME/bin:`，保存退出后调用下列命令刷新`profile`
+相同文件`PATH`变量中追加参数`$HADOOP_HOME/bin:`，保存、退出、刷新`profile`
 
 ```bash
 $ source /etc/profile
@@ -129,7 +129,7 @@ $ source /etc/profile
 
 ### 2.3 初始化NameNode
 
-运行命令后会自动开始格式化，看见NameNode自动关闭即可
+运行命令后会自动开始格式化，最终NameNode会自动关闭
 
 ```bash
 $ hadoop namenode -format 
@@ -165,9 +165,9 @@ SHUTDOWN_MSG: Shutting down NameNode at mike-virtual-machine/127.0.1.1
 
 ## 三、 启动Hadoop服务
 
-### 3.1 启动
+#### 3.1 启动
 
-进入Hadoop目录下，通过脚本启动Hadoop
+进入Hadoop目录，通过脚本启动Hadoop
 
 ```bash
 $ cd /opt/hadoop-1.2.1/bin
@@ -207,9 +207,9 @@ $ jps
 
 ## 四、 疑难解答
 
-### 4.1 解决 /etc/profile 失效
+#### 4.1 解决 /etc/profile 失效
 
-在`~/.bashrc`添加环境变量
+在`~/.bashrc`文件添加环境变量
 
 ```bash
 $ cd ~
@@ -223,7 +223,7 @@ $ vim .bashrc
 $ source .bashrc
 ```
 
-### 4.2 找不到配置文件
+#### 4.2 找不到配置文件
 
 这个错误可能只在使用OpenJDK的时候才出现
 
@@ -241,11 +241,11 @@ $ ls -la conf
  lrwxrwxrwx 1 root root 3 6月  16 17:24 conf -$ lib
 ```
 
-### 4.3 HADOOP_HOME报deprecated
+#### 4.3 HADOOP_HOME is deprecated
 
 ```bash
 Warning: $HADOOP_HOME is deprecated
-``` 
+```
 
 在`~/.bash_profile`里增加一个环境变量抑制错误提示
 
@@ -253,7 +253,7 @@ Warning: $HADOOP_HOME is deprecated
 export HADOOP_HOME_WARN_SUPPRESS=1
 ```
 
-### 4.4 SSH无法连接
+#### 4.4 SSH无法连接
 
 没有安装`OpenSSH`服务导致
 
@@ -292,9 +292,9 @@ $ service sshd restart
 $ ssh localhost # 检查ssh服务
 ```
 
-### 4.5 安装dpkg报错
+#### 4.5 安装dpkg报错
 
-多个窗口同时使用`apt-get`会出现这个错误，不要同时使用就好了。
+多个窗口同时使用`apt-get`会出现这个错误，不要同时使用就好
 
 ```bash
 .....
@@ -302,7 +302,7 @@ $ ssh localhost # 检查ssh服务
 E:Sub-process /usr/bin/dpkg returned an error code(1)
 ```
 
-如果问题一直无法解决，可以尝试:
+如果问题无法解决，可以尝试:
 
 ```bash
 $ cd /var/lib/dpkg
