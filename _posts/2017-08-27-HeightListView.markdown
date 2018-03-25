@@ -82,7 +82,7 @@ public final class HeightListView extends ListView {
         };
     }
 
-    // Calculates the height of all sub items, includes divider height of each item.
+    // Calculates the height of all sub-items, includes divider height of each item.
     private void onItemsChanged() {
         int count = getAdapter().getCount();
         if (count == 0) return;

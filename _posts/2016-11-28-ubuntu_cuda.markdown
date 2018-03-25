@@ -136,7 +136,7 @@ $ sudo apt-get install freeglut3-dev
 
 ![img](/img/cuda.png)
 
-下载完成进入下载目录，创建一个临时文件，使用命令解压到临时文件中并安装。
+下载完成进入下载目录，创建一个临时文件，使用命令解压到临时文件并安装。
 
 ```bash
 $ sudo mkdir /opt/temp
@@ -144,7 +144,7 @@ $ sudo sh cuda_8.0.44_linux.run --tmpdir=/opt/temp/
 ```
 
 
-安装协议可以使用`q`跳过，显示第一个问题询问是否安装驱动。因为前面我们已经安装了驱动，所以我们不安装。
+安装协议可以使用`q`跳过，第一个问题询问是否安装驱动。因为我们已经安装驱动，所以选择不安装。
 
 ```bash
 ....
@@ -157,7 +157,7 @@ Install NVIDIA Accelerated Graphics Driver for Linux-x86_64 367.48?
 (y)es/(n)o/(q)uit: n
 ```
 
-有问题就选择`y`，询问路径就回车默认设置。
+问题选择`y`，询问路径回车默认设置。
 
 ```bash
 Install the CUDA 8.0 Toolkit?
@@ -182,20 +182,20 @@ Enter CUDA Samples Location
 Installing the CUDA Toolkit in /usr/local/cuda-8.0 ...
 ```
 
-在这里根据不同系统会有2个或4个文件缺失。我的缺了两个文件。
+这里根据不同系统会有2个或4个文件缺失，下面显示缺了两个文件。
 
 ```
 Missing recommended library: libXi.so
 Missing recommended library: libXmu.so
 ```
 
-使用apt补一下，参考自 [stackoverflow](http://stackoverflow.com/questions/22360771/missing-recommended-library-libglu-so)。
+使用apt补全文件，参考自 [stackoverflow](http://stackoverflow.com/questions/22360771/missing-recommended-library-libglu-so)。
 
 ```bash
 $ sudo apt-get install nvidia-modprobe freeglut3-dev libx11-dev libxmu-dev libxi-dev libglu1-mesa-dev
 ```
 
-安装完成要`重启系统`，然后再重新安装CUDA包。因为我在这里掉坑了，所谓我建议你们先看文章再尝试。正常的话就不会在显示文件缺失，然后安装成功。
+安装完成要`重启系统`再重新安装CUDA包，正常的话就不会显示文件缺失，继续安装成功。
 
 ```bash
 Installing the CUDA Samples in /home/textminer ...
@@ -227,7 +227,7 @@ Logfile is /opt/temp//cuda_install_2299.log
 ```
 
 
-安装完毕后声明一下环境变量，并将其写入到`~/.bashrc`的最后
+安装完毕后声明环境变量，并将其写入`~/.bashrc`最后
 
 ```
 export PATH=/usr/local/cuda-8.0/bin${PATH:+:${PATH}}export LD_LIBRARY_PATH=/usr/local/cuda-8.0/lib64${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}} 
@@ -259,7 +259,7 @@ Fri Nov 25 17:07:01 2016
 +-----------------------------------------------------------------------------+
 ```
 
-测试显卡带宽，使用之前先把文件用`make`编译一下！
+测试显卡带宽，使用之前先把文件用`make`编译
 
 ```bash
 mike@mike-P5Q-PRO:~/NVIDIA_CUDA-8.0_Samples/1_Utilities/bandwidthTest$ ./bandwidthTest 

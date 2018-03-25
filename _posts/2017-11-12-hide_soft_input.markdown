@@ -9,9 +9,9 @@ tags:
     - Android
 ---
 
-重写`dispatchTouchEvent`拦截点击事件，如果点击的区域不是`EditText`则隐藏键盘。
+重写`dispatchTouchEvent`拦截点击事件，点击区域不是`EditText`隐藏键盘
 
-```kotlin
+```java
 class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -17,7 +17,7 @@ tags:
 
 # 二、类签名
 
-`StringBuilder`继承`AbstractStringBuilder`，实现了`Serializable`和`CharSequence`接口。构造方法、字符串增删查改等都已经在`AbstractStringBuilder`父类中完成实现，`StringBuilder`只是在自己的方法中调用父类方法。
+`StringBuilder`继承`AbstractStringBuilder`，实现了`Serializable`和`CharSequence`接口。构造方法、字符串增删查改在`AbstractStringBuilder`父类中实现，`StringBuilder`只调用方法。
 
 ```java
 public final class StringBuilder
@@ -25,18 +25,9 @@ public final class StringBuilder
     implements java.io.Serializable, CharSequence
 ```
 
-`StringBuffer`同样继承自`AbstractStringBuilder`，在调用父类的过程中增加了`synchronized`代码块同步锁，仅此而已。这也是为什么`StringBuilder`和`StringBuffer`在API互相兼容、同步支持存在差异的原因。
+`StringBuffer`同样继承自`AbstractStringBuilder`，调用方法增加`synchronized`同步锁。这是`StringBuilder`和`StringBuffer`在API互相兼容、线程安全存在差异的原因。阅读`AbstractStringBuilder`才能了解可变字符串如何实现，仅看`StringBuffer`和`StringBuilder`没有太大帮助。
 
-只有阅读`AbstractStringBuilder`才能了解可变字符串是如何实现，仅看`StringBuffer`和`StringBuilder`没有太大帮助。`AbstractStringBuilder`源码将在`Java源码系列`后续篇章出现。
-
-# 三、数据成员
-
-
-```java
-static final long serialVersionUID = 4383685877147921099L;
-```
-
-# 四、构造方法
+# 三、构造方法
 
 可通过数值来初始化一个StringBuilder，或默认构造方法，或一个字符创来创建StringBuilder。默认构造方法的字符串长度是16，自定义字符串则会在原字符串尾加16个字符的缓冲长度。
 
@@ -60,9 +51,9 @@ public StringBuilder(CharSequence seq) {
 }
 ```
 
-# 五、方法
+# 四、方法
 
-### 5.1 添加
+### 4.1 添加
 
 尾添加对象，准确来说应该是obj.toString()或“null”
 
@@ -172,7 +163,7 @@ public StringBuilder appendCodePoint(int codePoint) {
 }
 ```
 
-### 5.2 删除
+### 4.2 删除
 
 删除指定下标或范围的字符，都可能抛出`StringIndexOutOfBoundsException`
 
@@ -191,11 +182,11 @@ public StringBuilder deleteCharAt(int index) {
 ```
 
 
-### 5.3 替换
+### 4.3 替换
 替换字符串
 
 ```java
-// 字符串超出边界异常
+
 @Override
 public StringBuilder replace(int start, int end, String str) {
     super.replace(start, end, str);
@@ -203,47 +194,41 @@ public StringBuilder replace(int start, int end, String str) {
 }
 ```
 
-### 5.4 插入
+### 4.4 插入
 
 插入字符串
 
 ```java
-// 字符串超出边界异常
 @Override
 public StringBuilder insert(int index, char[] str, int offset, int len) {
     super.insert(index, str, offset, len);
     return this;
 }
 
-// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, Object obj) {
         super.insert(offset, obj);
         return this;
 }
 
-// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, String str) {
     super.insert(offset, str);
     return this;
 }
 
-// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, char[] str) {
     super.insert(offset, str);
     return this;
 }
 
-// 超出边界异常
 @Override
 public StringBuilder insert(int dstOffset, CharSequence s) {
         super.insert(dstOffset, s);
         return this;
 }
 
-// 超出边界异常
 @Override
 public StringBuilder insert(int dstOffset, CharSequence s,
                             int start, int end)
@@ -252,42 +237,36 @@ public StringBuilder insert(int dstOffset, CharSequence s,
     return this;
 }
 
-// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, boolean b) {
     super.insert(offset, b);
     return this;
 }
 
-// 超出边界异常
 @Override
 public StringBuilder insert(int offset, char c) {
     super.insert(offset, c);
     return this;
 }
 
-// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, int i) {
     super.insert(offset, i);
     return this;
 }
 
-// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, long l) {
     super.insert(offset, l);
     return this;
 }
 
-// 超出边界异常
 @Override
 public StringBuilder insert(int offset, float f) {
     super.insert(offset, f);
     return this;
 }
 
-// 字符串超出边界异常
 @Override
 public StringBuilder insert(int offset, double d) {
     super.insert(offset, d);
@@ -295,7 +274,7 @@ public StringBuilder insert(int offset, double d) {
 }
 ```
 
-### 5.5 查找
+### 4.5 查找
 
 查找字符在字符串中的序号，可以指定字符串开始的下标
 
@@ -325,7 +304,7 @@ public int lastIndexOf(String str, int fromIndex) {
 }
 ```
 
-### 5.6 翻转
+### 4.6 翻转
 
 翻转字符串
 
@@ -336,7 +315,7 @@ public StringBuilder reverse() {
     return this;
 }
 ```
-### 5.7 toString
+### 4.7 toString
 
 `toString()`方法返回字符串的拷贝，而不是字符串数组本身
 
@@ -346,22 +325,3 @@ public String toString() {
     return new String(value, 0, count);
 }
 ```
-
-# 六、实现序列化
-
-```java
-private void writeObject(java.io.ObjectOutputStream s)
-    throws java.io.IOException {
-    s.defaultWriteObject();
-    s.writeInt(count);
-    s.writeObject(value);
-}
-
-private void readObject(java.io.ObjectInputStream s)
-    throws java.io.IOException, ClassNotFoundException {
-    s.defaultReadObject();
-    count = s.readInt();
-    value = (char[]) s.readObject();
-}
-```
-

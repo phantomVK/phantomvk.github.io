@@ -17,7 +17,6 @@ return mGson.fromJson(list, new TypeToken<ArrayList<HomeServerConfig>>(){}.getTy
 
 参考：
 
-<https://stackoverflow.com/questions/12384064/gson-convert-from-json-to-a-typed-arraylistt>
-
-<https://stackoverflow.com/questions/22271779/is-it-possible-to-use-gson-fromjson-to-get-arraylistarrayliststring>
+- <https://stackoverflow.com/questions/12384064/gson-convert-from-json-to-a-typed-arraylistt>
+- <https://stackoverflow.com/questions/22271779/is-it-possible-to-use-gson-fromjson-to-get-arraylistarrayliststring>
 

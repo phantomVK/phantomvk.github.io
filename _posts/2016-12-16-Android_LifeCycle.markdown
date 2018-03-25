@@ -15,7 +15,7 @@ tags:
 
 不过，这是个“特殊”的`Dialog`。一般`Dialog`弹出时，背景可见`MainActivity`依然是`onResume`，表明这个`Activity`的生命周期并没有因为这个`Dialog`的弹出而变化。
 
-但是，我们使用`Activity`实现一个`Dialog`时，由于是`MainActivity`启动`DialogActivity`，所以`MainActivity`生命周期必然会变化。
+但是，我们使用`Activity`实现`Dialog`时，由于是`MainActivity`启动`DialogActivity`，所以`MainActivity`生命周期必然会变化。
 
 
 __MainActivity.java代码__
@@ -136,7 +136,7 @@ __test_dialog.xml__
 
 __AndroidManifest.xml__
 
-注意!!! `DialogActivity`使用的主题是`@android:style/Theme.Dialog`，不然上面的代码就白瞎了
+注意： `DialogActivity`使用主题`@android:style/Theme.Dialog`，不然无法实现上述生命周期。
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -162,7 +162,7 @@ __AndroidManifest.xml__
 </manifest>
 ```
 
-下面是结果
+结果：
 
 ```java
 // MainActivity到可见可操作的三个周期变化
@@ -182,12 +182,8 @@ __AndroidManifest.xml__
 12-17 00:00:31.151 7477-7477/com.phantomvk.exampleapp I/System.out: onDestroy
 ```
 
-上面的代码已经成功重现`MainActivity`里`onPause` -> `onResume`。
+上述代码已经成功重现`onPause` -> `onResume`。
 
 运行截图如下
 
 ![img](/img/android/onPause_onResume.png)
-
-提醒一点，直接使用Dialog组件的MainActivity生命周期是不会变化的，这样应用更加高效且性能更好。这篇文章只是用来重现题目所说的目标，不是用于实践。
-
-

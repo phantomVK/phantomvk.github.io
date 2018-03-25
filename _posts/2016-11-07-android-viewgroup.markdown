@@ -537,7 +537,7 @@ private TouchTarget addTouchTarget(View child, int pointerIdBits) {
 }
 ```
 
-## 3.2 ViewGroup.onInterceptTouchEvent()
+## 3.2 onInterceptTouchEvent()
 
 方法默认返回false，表示继续执行事件分发。如果该方法被重写并返回true，事件被拦截并不再分发。
 
@@ -546,6 +546,51 @@ public boolean onInterceptTouchEvent(MotionEvent ev) {
     return false;
 }
 ```
+
+## 3.3 cancelAndClearTouchTargets() 
+
+```Java
+/**
+ * Cancels and clears all touch targets.
+ */
+    private void cancelAndClearTouchTargets(MotionEvent event) {
+        if (mFirstTouchTarget != null) {
+            boolean syntheticEvent = false;
+            if (event == null) {
+                final long now = SystemClock.uptimeMillis();
+                event = MotionEvent.obtain(now, now,
+                        MotionEvent.ACTION_CANCEL, 0.0f, 0.0f, 0);
+                event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+                syntheticEvent = true;
+            }
+
+            for (TouchTarget target = mFirstTouchTarget; target != null; target = target.next) {
+                resetCancelNextUpFlag(target.child);
+                dispatchTransformedTouchEvent(event, true, target.child, target.pointerIdBits);
+            }
+            clearTouchTargets();
+
+            if (syntheticEvent) {
+                event.recycle();
+            }
+        }
+    }
+```
+
+## 3.4 resetTouchState() 
+
+```java
+/**
+ * Resets all touch state in preparation for a new cycle.
+ */
+private void resetTouchState() {
+    clearTouchTargets();
+    resetCancelNextUpFlag(this);
+    mGroupFlags &= ~FLAG_DISALLOW_INTERCEPT;
+    mNestedScrollAxes = SCROLL_AXIS_NONE;
+}
+```
+
 
 
 

@@ -13,13 +13,11 @@ tags:
 
 ## 1.1 简介
 
-`RxJava`带来编码流畅性，`map`、`flatmap`、`filter`等通过链式操作，既避免回调地狱又解决线程频繁切换的问题。
-
-应用最多的场景如网络访问后回调主线程显示结果，如果界面已经退出，但是订阅没有解除，那`Activity`或`Fragment`的句柄会被`Observer`长期持有，最后导致内存泄漏。
+`RxJava`带来编码流畅性，`map`、`flatmap`、`filter`等通过链式操作，既避免回调地狱又解决线程频繁切换的问题。应用最多的场景如网络访问后回调主线程显示结果，如果界面已经退出但订阅没有解除，那`Activity`或`Fragment`句柄会被`Observer`长期持有导致内存泄漏。
 
 ## 1.2 传统方案
 
-传统解决办法是在构造`RxJava`时自己管理`Disposable`，在`onDestroy`中集中解除绑定，看例子：
+传统解决办法是构造`RxJava`时管理`Disposable`，`onDestroy`集中解除绑定：
 
 ```java
 private CompositeDisposable mCompositeDisposable = new CompositeDisposable();
@@ -29,15 +27,14 @@ protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
 
-    // 举个栗子
     Disposable disposable = Observable.just(1)
             .map(integer -> "Map to String: " + integer)
             .filter(s -> !s.isEmpty())
             .subscribeOn(Schedulers.io())
             .observeOn(AndroidSchedulers.mainThread())
-            .subscribe(s -> ToastUtils.show(this, s));
+            .subscribe(s -> Toast.show(this, s));
     
-    // 加到集合集中管理
+    // 集中管理
     mCompositeDisposable.add(disposable);
 }
 
@@ -45,18 +42,18 @@ protected void onCreate(@Nullable Bundle savedInstanceState) {
 protected void onDestroy() {
     super.onDestroy();
     
-    // 统一解除所有订阅
+    // 解除所有订阅
     if (mCompositeDisposable != null) {
         mCompositeDisposable.dispose();
     }
 }
 ```
 
-上述方案缺点是`boilerplate code(模板代码)`相当多，不够简洁。
+上述方案缺点模板代码多不简洁。
 
 ## 1.3 新办法
 
-为了避免写模板代码，那就引入`RxLifecycle`。代码里加一行`.compose(bindToLifecycle())`即可，剩下的工作交给`RxLifecycle`替我们管理。
+为了避免写模板代码引入`RxLifecycle`，代码增加`.compose(bindToLifecycle())`。
 
 ```java
 @Override
@@ -81,7 +78,7 @@ protected void onCreate(@Nullable Bundle savedInstanceState) {
 
 ## 2.1 类签名
 
-`RxAppCompatActivity`抽象类的父类是`AppCompatActivity`，并实现了`LifecycleProvider<ActivityEvent>`接口。
+`RxAppCompatActivity`抽象类的父类是`AppCompatActivity`，实现`LifecycleProvider<ActivityEvent>`接口。
 
 ```java
 public abstract class RxAppCompatActivity extends AppCompatActivity
@@ -100,28 +97,20 @@ private final BehaviorSubject<ActivityEvent> lifecycleSubject = BehaviorSubject.
 `LifecycleProvider`是`RxLifecycle`功能的抽象接口。`RxLifecycle`只对几个基本组件的实现了`LifecycleProvider`，没覆盖自定义组件的部分。所以我们通过实现这个接口，给自己的组件增加`RxLifecycle`的能力。
 
 ```java
-/**
- * activity 和 fragment lifecycle providers公共的基本接口
- */
+// activity 和 fragment lifecycle providers公共的基本接口
 public interface LifecycleProvider<E> {
-    /**
-     * @return lifecycle事件序列
-     */
+
+    // @return lifecycle事件序列
     @Nonnull
     @CheckReturnValue
     Observable<E> lifecycle();
 
-    /**
-     * 绑定一个源，直到一个特定的事件发生（该事件就是手动绑定需结束事件的生命周期）
-
-     */
+    // 绑定一个源，直到一个特定的事件发生（该事件就是手动绑定需结束事件的生命周期）
     @Nonnull
     @CheckReturnValue
     <T> LifecycleTransformer<T> bindUntilEvent(@Nonnull E event);
 
-    /**
-     * 绑定一个源，直到下一个合理的事件发生
-     */
+    // 绑定一个源，直到下一个合理的事件发生
     @Nonnull
     @CheckReturnValue
     <T> LifecycleTransformer<T> bindToLifecycle();
@@ -150,21 +139,10 @@ public final Observable<ActivityEvent> lifecycle() {
 `bindUntilEvent`和`bindToLifecycle`实现生命周期绑定
 
 ```java
-/**
- * Binds a source until a specific event occurs.
- *
- * @param event the event that triggers unsubscription
- * @return a reusable {@link LifecycleTransformer} which unsubscribes when the event triggers.
- */
 @Nonnull
 @CheckReturnValue
 <T> LifecycleTransformer<T> bindUntilEvent(@Nonnull E event);
 
-/**
- * Binds a source until the next reasonable event occurs.
- *
- * @return a reusable {@link LifecycleTransformer} which unsubscribes at the correct time.
- */
 @Nonnull
 @CheckReturnValue
 <T> LifecycleTransformer<T> bindToLifecycle();
@@ -223,13 +201,11 @@ protected void onCreate(@Nullable Bundle savedInstanceState) {
 ```
 
 ### 2.4.1 LifecycleTransformer
- 
+
 `LifecycleTransformer`类实现了多个接口，成员方法利用`takeUntil`的特性，当第二个Observable发射了一项数据或者终止时，丢弃原始Observable发射的任何数据。
 
 ```java
-/**
- * Transformer that continues a subscription until a second Observable emits an event.
- */
+// Transformer that continues a subscription until a second Observable emits an event.
 @ParametersAreNonnullByDefault
 public final class LifecycleTransformer<T> implements ObservableTransformer<T, T>,
                                                       FlowableTransformer<T, T>,
@@ -283,9 +259,7 @@ public class RxLifecycle {
         throw new AssertionError("No instances");
     }
 
-    /**
-     * 绑定给定的事件到lifecycle
-     */
+    // 绑定给定的事件到lifecycle
     @Nonnull
     @CheckReturnValue
     public static <T, R> LifecycleTransformer<T> bindUntilEvent(@Nonnull final Observable<R> lifecycle,
@@ -304,18 +278,14 @@ public class RxLifecycle {
         });
     }
 
-    /**
-     * 绑定给定源到lifecycle
-     */
+    // 绑定给定源到lifecycle
     @Nonnull
     @CheckReturnValue
     public static <T, R> LifecycleTransformer<T> bind(@Nonnull final Observable<R> lifecycle) {
         return new LifecycleTransformer<>(lifecycle);
     }
 
-    /**
-     * 绑定给定源到lifecycle
-     */
+    // 绑定给定源到lifecycle
     @Nonnull
     @CheckReturnValue
     public static <T, R> LifecycleTransformer<T> bind(@Nonnull Observable<R> lifecycle,
@@ -349,55 +319,17 @@ public class RxLifecycle {
 [官方文档](http://reactivex.io/RxJava/2.x/javadoc/)
 
 ```java
-/**
- * Represents an Observer and an Observable at the same time, allowing
- * multicasting events from a single source to multiple child Subscribers.
- * <p>All methods except the onSubscribe, onNext, onError and onComplete are thread-safe.
- * Use {@link #toSerialized()} to make these methods thread-safe as well.
- *
- * @param <T> the item value type
- */
 public abstract class Subject<T> extends Observable<T> implements Observer<T> {
-    /**
-     * Returns true if the subject has any Observers.
-     * <p>The method is thread-safe.
-     * @return true if the subject has any Observers
-     */
+
     public abstract boolean hasObservers();
 
-    /**
-     * Returns true if the subject has reached a terminal state through an error event.
-     * <p>The method is thread-safe.
-     * @return true if the subject has reached a terminal state through an error event
-     * @see #getThrowable()
-     * @see #hasComplete()
-     */
     public abstract boolean hasThrowable();
 
-    /**
-     * Returns true if the subject has reached a terminal state through a complete event.
-     * <p>The method is thread-safe.
-     * @return true if the subject has reached a terminal state through a complete event
-     * @see #hasThrowable()
-     */
     public abstract boolean hasComplete();
 
-    /**
-     * Returns the error that caused the Subject to terminate or null if the Subject
-     * hasn't terminated yet.
-     * <p>The method is thread-safe.
-     * @return the error that caused the Subject to terminate or null if the Subject
-     * hasn't terminated yet
-     */
     @Nullable
     public abstract Throwable getThrowable();
 
-    /**
-     * Wraps this Subject and serializes the calls to the onSubscribe, onNext, onError and
-     * onComplete methods, making them thread-safe.
-     * <p>The method is thread-safe.
-     * @return the wrapped and serialized subject
-     */
     @NonNull
     public final Subject<T> toSerialized() {
         if (this instanceof SerializedSubject) {
@@ -414,7 +346,6 @@ public abstract class Subject<T> extends Observable<T> implements Observer<T> {
 
 ```java
 public enum ActivityEvent {
-
     CREATE,
     START,
     RESUME,
@@ -428,7 +359,6 @@ public enum ActivityEvent {
 
 ```java
 public enum FragmentEvent {
-
     ATTACH,
     CREATE,
     CREATE_VIEW,

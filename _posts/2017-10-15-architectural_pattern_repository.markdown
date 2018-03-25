@@ -29,54 +29,38 @@ tags:
 
 产品开发过程要满足以下产品需求：
 
-1. 用`userId`即可把用户头像加载到`ImageView`中;
-2. 能指定加载来源的`filePath`，而不是仅根据`userId`;
-3. `userId`对应的`url`根据一定的逻辑拼接出来；
-4. 群头像有最多四个用户的个人头像，所以个人头像需要为群头像逻辑提供用户的`Bitmap`.
+1. 用userId即可把用户头像加载到ImageView中;
+2. 能指定加载来源的filePath，不仅根据userId;
+3. userId对应的url由指定规则拼接获得；
+4. 群头像由四个用户的个人头像拼接，个人头像为群头像提供Bitmap.
 
-根据上述的需求，可以整理出以下的抽象接口。这些接口虽然已经投入到生产环境中，但是不一定设计得非常科学，还在进一步演进，请酌情参考。
-
-方法具体能力在注释中已经写得很明确，不再复述。
+根据上述需求可以整理以下抽象接口，这些接口虽然已经投入到生产环境，但设计不一定合理，还在进一步演进，请酌情参考。方法具体能力在注释中已经写得很明确，不再复述。
 
 ```java
-/**
- * Global avatar loading repository interface.
- */
+// Global avatar loading repository interface.
 public interface IUserAvatarLoader {
 
-    /**
-     * Load avatar into ImageView if exists, else load the default drawable.
-     */
+    // Load avatar into ImageView if exists, else load the default drawable.
     void loadByUserId(Context context, String userId, ImageView view);
 
-    /**
-     * Load avatar into ImageView by local file path.
-     */
+    // Load avatar into ImageView by local file path.
     void loadByFilePath(Context context, String filePath, ImageView view);
 
-    /**
-     * Return a {@link Bitmap} instance according to specific image url and size.
-     */
+    // Return a {@link Bitmap} instance according to specific image url and size.
     Bitmap getBitmap(Context context, String imageUrl, int ImageSize) throws ExecutionException, InterruptedException;
 
-    /**
-     * Return the url requests of avatar.
-     */
+    // Return the url requests of avatar.
     String getUrl(String userId);
 }
 ```
 
 ## 三、具体实现
 
-定义抽象接口后，下一步是选择具体的图片加载框架。
+定义抽象接口后，下一步是选择具体的图片加载框架。常用的图片加载框架有`Picasso`和`Glide`。由于头像已经抽象为接口，具体实现对用户是无感的。
 
-常用的图片加载框架有`Picasso`和`Glide`等。由于头像已经抽象为接口，使用前者或后者对用户都是无感且透明的。
+如果将来决定迁移到其他图片加载框架，只需要在`UserAvatarLoader`层修改，所有调用点不需要任何改动。若更换实现时要修改抽象接口，想必在接口设计就存在设计遗漏甚至设计错误。因此，前期接口设计决定了后期实现难度和稳定性。
 
-如果将来决定迁移到其他图片加载框架，那只需要在`UserAvatarLoader`这一实现层来修改，所有调用点不需要任何修改。
-
-若更换实现时要修改抽象接口，想必在接口设计就存在设计遗漏甚至设计错误。因此，前期接口往往决定了后期实现难度和可用性。
-
-下面为项目中的实现：我们用的是`Glide`，其提供了合理的三级缓存功能，再配合`OkHttp`网络框架，能节省大量开发时间。
+用`Glide`提供三级缓存功能，再配合`OkHttp`网络框架，能节省大量开发时间。
 
 ```java
 public class UserAvatarLoader implements IUserAvatarLoader {
@@ -141,11 +125,7 @@ public final class ImageOptions {
 
 ## 四、构建工厂
 
-虽然实现已经完成，但是还差一步：就是调用点的整合。
-
-如果不通过一个工厂来提供调用点，那么使用时还是得各自构建对象。这样不仅消耗堆内存空间，也增加了GC的压力。以后更换具体的实现类还得一个一个手动更换。
-
-所以我们还要增加一层，对调用屏蔽构建方式：
+实现已经完成，还差一步调用点的整合。如果不通过工厂来提供调用点，使用时还是得各自构建对象。这样不仅消耗堆内存空间增加GC的压力，后期具体实现类还得逐个更换。所以还要增加一层，对调用屏蔽构建方式：
 
 ```java
 public class ImageLoaders {
@@ -164,19 +144,17 @@ public class ImageLoaders {
 }
 ```
 
-考虑到应用初次启动动就需要调用头像加载逻辑，都在主线程完成初始化，无谓懒加载什么了，静态变量初始化就够了。
+考虑到应用首次启动就要调用头像加载逻辑，主线程完成静态变量初始化且不考虑懒加载。
 
 ## 五、用法
 
-使用只要像下面调用，以后任何修改这行代码都不需要改变。
-
-用`userId`加载头像
+用userId加载头像：
 
 ```java
 ImageLoaders.userAvatarLoader().loadByUserId(context, userID, avatarView);
 ```
 
-由文件加载头像
+由文件加载头像：
 
 ```java
 ImageLoaders.userAvatarLoader().loadByFilePath(context, file.getAbsolutePath(), view)

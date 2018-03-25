@@ -55,13 +55,13 @@ compile 'com.android.support:design:25.1.0'
 
 三个参数分别作用：
 
-* 1.半透明状态栏设置为启用，没有的话就不会有沉浸式状态栏效果。这个参数从v19开始引入，之前版本里会提示不支持。
-* 2.为`NavigationView`提供半透明支持，通常是左抽屉。没有抽屉不需要这个参数。
-* 3.用来改变Toolbar标题文字的样色。
+* 半透明状态栏设置为启用，否则没有沉浸式状态栏效果，参数从v19开始引入；
+* 为`NavigationView`提供半透明支持，通常是左抽屉。没有抽屉不需要这个参数；
+* 用来改变Toolbar标题文字颜色；
 
 # 四、自定义ToolBar
 
-在`activity_main.xml`自定义ToolBar，`background`改变ToolBar的颜色。`fitsSystemWindows`是要系统把状态栏的动态和ToolBar相适应，状态栏的颜色会跟随ToolBar的融为一体。
+在`activity_main.xml`自定义ToolBar，`background`改变ToolBar的颜色。`fitsSystemWindows`是要系统把状态栏的动态和ToolBar相适应，状态栏会跟随ToolBar的颜色改变。
 
 ```xml
 <android.support.v7.widget.Toolbar
@@ -76,12 +76,12 @@ compile 'com.android.support:design:25.1.0'
 
 `fitSystemWindows`要点:
 
-* 只把`fitSystemWindows`放在Layout的根布局上，状态栏就和根布局背景颜色一样，不知道能不能说就是透明。
+* 只把`fitSystemWindows`放在Layout的根布局上，状态栏就和根布局背景颜色一样。
 * 同时在根布局和`ToolBar`上设置`fitSystemWindows`，效果跟随根布局，忽略`ToolBar`。
-* ToolBar的`layout_height`不能用`?attr/actionBarSize`，只能`wrap_content`。之前就是因为这个原因一直没有成功。
+* ToolBar的`layout_height`不能用`?attr/actionBarSize`，只能`wrap_content`。
 
 
-剩下就是在`MainActivity.java`里面实现了
+在`MainActivity.java`中进行初始化：
 
 ```java
 @Override

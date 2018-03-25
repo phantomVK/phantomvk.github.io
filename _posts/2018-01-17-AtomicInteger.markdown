@@ -104,18 +104,6 @@ public final boolean compareAndSet(int expect, int update) {
     return unsafe.compareAndSwapInt(this, valueOffset, expect, update);
 }
 
-/**
- * Atomically sets the value to the given updated value
- * if the current value {@code ==} the expected value.
- *
- * <p><a href="package-summary.html#weakCompareAndSet">May fail
- * spuriously and does not provide ordering guarantees</a>, so is
- * only rarely an appropriate alternative to {@code compareAndSet}.
- *
- * @param expect the expected value
- * @param update the new value
- * @return {@code true} if successful
- */
 public final boolean weakCompareAndSet(int expect, int update) {
     return unsafe.compareAndSwapInt(this, valueOffset, expect, update);
 }

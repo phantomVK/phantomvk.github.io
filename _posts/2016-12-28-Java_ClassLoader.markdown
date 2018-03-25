@@ -11,13 +11,13 @@ tags:
 
 # 类加载
 
-Java类通过编译生成对应.class文件，JVM根据实际情况把当前需要的类从.class动态加载到内存创建实例，ClassLoader就负责完成这个加载任务。有了ClassLoader，Java运行时系统不需要知道文件与文件系统的设置。
+Java类通过编译生成对应.class文件，JVM根据运行需要把所需类从.class动态加载到内存并创建实例，ClassLoader负责完成这个加载任务。有了ClassLoader，Java运行时系统不需要知道文件与文件系统的设置。
 
-正是因为Java类必须由某个类加载器装入到内存，我们也可以在运行时才指定需要的类文件。
+正是因为Java类必须由某个类加载器装入到内存，我们也可以在运行时才指定类文件。
 
 # Java中的三个默认类加载器
 
-除了Bootstrap ClassLoader，每个类装载器都有一个父装载器（parent class loader），且ExtClassLoader和AppClassLoader均继承ClassLoader类。
+除了Bootstrap ClassLoader，其他类装载器都有父装载器（parent class loader），且ExtClassLoader和AppClassLoader均继承ClassLoader类。
 
 * 引导（Bootstrap）类加载器。由原生代码（C++）编写，不继承自`java.lang.ClassLoader`。负责加载存储在`<JAVA_HOME>/jre/lib`目录中的核心Java库。
 
@@ -56,10 +56,10 @@ file:/Library/Java/JavaVirtualMachines/jdk1.8.0_101.jdk/Contents/Home/jre/classe
 ClassLoader通过双亲委托的方式来搜索类，而双亲委托是一种委派思想。当ClassLoader加载类的时候，ClassLoader会委托其父加载器去完成：
 
 * Bootstrap ClassLoader尝试加载该类；
-* 失败则把工作交给ExtClassLoader；
-* ExtClassLoader失败把工作交给AppClassLoader；
+* 加载失败把工作交给ExtClassLoader；
+* ExtClassLoader加载失败把工作交给AppClassLoader；
 
-如果三个默认类加载器都加载失败，工作只能还给发起工作的ClassLoader，由这个加载器自行选择加载类的文件系统或URL。如果所有加载器都无法加载这个类的话，JVM就抛出ClassNotFoundException异常。
+如果三个默认类加载器都加载失败，工作只能还给发起工作的ClassLoader，由这个加载器自行选择加载类文件系统或URL。如果所有加载器都无法加载这个类，JVM抛出ClassNotFoundException异常。
 
 如果按照这个加载步骤成功，类加载器会把这个类载入内存，初始化并返回实例。
 

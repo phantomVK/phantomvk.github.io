@@ -12,17 +12,17 @@ tags:
 
 ## 一、类签名
 
-LruCache是Android提供的一个缓存工具类，根据最近最少使用算法缓存item，避免因缓存item过多导致内存占用巨大，或内存释放不及时引起内存溢出。
+LruCache是Android提供的缓存工具类，根据最近最少使用算法缓存元素，避免因缓存过多导致内存占用过大，或内存释放不及时引起内存溢出。
 
 ```java
 public class LruCache<K, V>
 ```
 
-资源缓存除了`最近最少使用`思想外，还巧妙利用Java的4种对象引用类型完成内存回收。这4种类型分别是强、软、弱、虚。详情请自行阅读《深入理解Java虚拟机》。
+资源缓存除了最近最少使用外，还巧妙利用Java对象引用类型完成内存回收。这4种类型分别是强、软、弱、虚。
 
-实现思想是每次被操作的item都会被移动到队列的首位。一段时间后，本来处于队列前方的item因为其他item的操作逐渐后退到队尾。如果队列空间足够，所有的item都不会被移除。否则，处于队尾最后的item会被优先移除，腾出空间容纳新的item。因此，使用热度高的资源得到有效缓存，长时间没有使用的资源会被新的资源取代，同时占用的内存空间也会被释放。
+每次被操作的元素都会移动到队列首位，一段时间后，本来处于队列前方的元素因为其他元素的操作逐渐后退到队尾。如果队列空间足够，所有元素都不会移除。否则处于队尾的元素会优先移除，腾出空间容纳新元素。因此使用热度高的资源得到有效缓存，长时间没有使用的资源会被移除队列。
 
-为了使该类适合实际应用，开发中多定义子类继承`LruCache`，并按照需要重写父类的`create()`、`entryRemoved()`和`sizeOf()`等方法。
+为了使该类适合实际应用，开发中多定义子类继承`LruCache`，重写`create()`、`entryRemoved()`和`sizeOf()`等方法。
 
 ## 二、数据成员
 
@@ -33,14 +33,12 @@ public class LruCache<K, V>
 private final LinkedHashMap<K, V> map;
 ```
 
-两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可以是元素保存数量的个数(针对Key)，也可能是值总体积(针对Value)。
+两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可能是键的个数(针对Key)，也可能是值总体积(针对Value)。例如通过LruCache缓存图片，既可以通过限制图片数量，也可以限制缓存图片容量总大小实现内存管理。
 
 ```java
 private int size;
 private int maxSize;
 ```
-
-例如：通过LruCache缓存需要显示的图片，我们既可以通过限制图片数量，也可以选择限制已缓存图片总容量大小来实现内存管理。
 
 用来保存各种操作统计次数，注释标示的操作会修改对应统计的次数。如：添加一个元素就会给`putCount`增加一次计数。
 
@@ -54,11 +52,9 @@ private int missCount;    // 命中失败
 
 ## 三、构造方法
 
-`maxSize`记录的是整个列表最大保存数。为避免严重的哈希冲突，`LinkedHashMap`哈希因子设定为0.75，且构造函数不能自定义该值。
+`maxSize`记录整个列表最大保存数。为避免严重的哈希冲突，`LinkedHashMap`哈希因子设定为0.75且不能自定义。
 
-`LinkedHashMap`构造函数参数`accessOrder`为`true`时，`LinkedHashMap`会以访问顺序为序排列元素。否则以插入顺序为序排序元素。
-
-从下面的源码可知`LruCache`使用`LinkedHashMap`时`accessOrder`为`true`。
+`LinkedHashMap`构造函数参数`accessOrder`为`true`时，`LinkedHashMap`以访问顺序排列元素，否则以插入顺序排序元素。从源码可知`LruCache`使用`LinkedHashMap`时`accessOrder`为`true`。
 
 ```java
 public LruCache(int maxSize) {
@@ -72,9 +68,7 @@ public LruCache(int maxSize) {
 
 ## 四、成员方法
 
-`LruCache`作为一个二次封装`LinkedHashMap`类，在增删查改上提供非常有限但是实用的方法。
-
-由于关键操作都是线程安全的，可放心在多线程中操作同一个`LruCache`实例。
+`LruCache`作为一个二次封装`LinkedHashMap`类，在增删查改上提供非常有限但实用的方法。关键操作都是线程安全的，可放心在多线程中操作同一个`LruCache`实例。
 
 ### 4.1 修改容量
 
@@ -95,7 +89,7 @@ public void resize(int maxSize) {
 
 ### 4.2 添加、获取
 
-通过非空键取值，如果对应键命中就会把键返回，且把这个item移动到队列首位。若没有命中会根据`create()`方法做后续决定。
+通过非空键取值，如果对应键命中就会把值返回，且把这个元素移动到队列首位。没有命中会根据`create()`方法做后续决定。
 
 ```java
 public final V get(K key) {
@@ -114,8 +108,8 @@ public final V get(K key) {
         missCount++; // 命中失败
     }
 
-    // 命中失败后尝试构建一个Value。构建过程可能比较长且当create()返回值时，原队列的顺序可能已发生改变。
-    // 若发现一个Hash值相同的item已经进入队列，该值会保留下来。而create()创建的对象被抛弃
+    // 命中失败后尝试构建Value。构建过程可能比较长且当create()返回值时，原队列顺序可能已发生改变。
+    // 若发现一个Hash值相同的item已经进入队列，该值会保留下来并抛弃create()的对象
     V createdValue = create(key);
     if (createdValue == null) {
         return null;
@@ -239,47 +233,43 @@ public final V remove(K key) {
 
 #### 4.5.1 entryRemoved()
 
-entryRemoved目的是被重写。因为有的实例拥有独特的对象销毁逻辑，当这个实例被移除队列的时候，应该通过此方法完成所有的销毁操作。否则这个被移除的对象仅按照虚拟机垃圾回收策略进行回收。所以要确定item是否有特殊释放需要，若遗漏释放操作会造成严重内存泄漏问题。
+entryRemoved目的是被重写。因为有的实例拥有独特的对象回收逻辑，当实例被移出队列时，应该通过此方法完成销毁操作，否则这个被移除的对象按照虚拟机垃圾回收策略进行回收。所以要确定item是否有特殊释放需要，否则忽略释放操作会造成严重内存泄漏问题。
 
 ```java
-/**
- * Called for entries that have been evicted or removed. This method is
- * invoked when a value is evicted to make space, removed by a call to
- * {@link #remove}, or replaced by a call to {@link #put}. The default
- * implementation does nothing.
- *
- * <p>The method is called without synchronization: other threads may
- * access the cache while this method is executing.
- *
- * @param evicted true if the entry is being removed to make space, false
- *     if the removal was caused by a {@link #put} or {@link #remove}.
- * @param newValue the new value for {@code key}, if it exists. If non-null,
- *     this removal was caused by a {@link #put}. Otherwise it was caused by
- *     an eviction or a {@link #remove}.
- */
+// Called for entries that have been evicted or removed. This method is
+// invoked when a value is evicted to make space, removed by a call to
+// {@link #remove}, or replaced by a call to {@link #put}. The default
+// implementation does nothing.
+//
+// <p>The method is called without synchronization: other threads may
+// access the cache while this method is executing.
+//
+// @param evicted true if the entry is being removed to make space, false
+//     if the removal was caused by a {@link #put} or {@link #remove}.
+// @param newValue the new value for {@code key}, if it exists. If non-null,
+//     this removal was caused by a {@link #put}. Otherwise it was caused by
+//     an eviction or a {@link #remove}.
 protected void entryRemoved(boolean evicted, K key, V oldValue, V newValue) {}
 ```
 
 #### 4.5.2 create()
 
-`create()`可以选择性在子类中重写。重写的结果是键值命中失败的时候提供自定义的创建功能，把新建item重新加入到队列中
+在子类选择性重写此方法，目的是键值命中失败时提供自定义创建功能，把新建item加入队列
 
 ```java
-/**
- * Called after a cache miss to compute a value for the corresponding key.
- * Returns the computed value or null if no value can be computed. The
- * default implementation returns null.
- *
- * <p>The method is called without synchronization: other threads may
- * access the cache while this method is executing.
- *
- * <p>If a value for {@code key} exists in the cache when this method
- * returns, the created value will be released with {@link #entryRemoved}
- * and discarded. This can occur when multiple threads request the same key
- * at the same time (causing multiple values to be created), or when one
- * thread calls {@link #put} while another is creating a value for the same
- * key.
- */
+// Called after a cache miss to compute a value for the corresponding key.
+// Returns the computed value or null if no value can be computed. The
+// default implementation returns null.
+//
+// <p>The method is called without synchronization: other threads may
+// access the cache while this method is executing.
+//
+// <p>If a value for {@code key} exists in the cache when this method
+// returns, the created value will be released with {@link #entryRemoved}
+// and discarded. This can occur when multiple threads request the same key
+// at the same time (causing multiple values to be created), or when one
+// thread calls {@link #put} while another is creating a value for the same
+// key.
 protected V create(K key) {
     return null;
 }
@@ -301,11 +291,9 @@ private int safeSizeOf(K key, V value) {
 
 假设item中存放的是Bitmap对象，重写sizeof对象实现获取该对象的内存大小。为什么在已预设队列长度的情况下还要重写此方法？
 
-拿图片缓存为例：虽然我们可以控制图片在队列中缓存的数量，但却无法控制所有图片在内存中的占用。有可能出现的是队列才保存若干张图，每张图片却占用多达16M内存，以至于为数不多的图片却在占用了大量内存。
+拿图片缓存为例：虽然我们可以控制图片在队列中缓存的数量，但却无法控制所有图片在内存中的占用。可能出现队列保存若干张图，每张图片占用多达16M内存，以至于为数不多的图片占用大量内存。为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阀值，也要强制释放队列最近未使用资源，被释放的图片以后使用时再考虑重新加载。
 
-为此，一个折中的解决方案是根据图片内存占用情况，即使item依然保存在队列中，当内存占用超过设定值时，也要强制释放队列最近未使用的资源。被释放的图片在以后使用的时候再重新加载，用时间换取空间。
-
-返回一个元素大小默认值为1，表示一个元素占用一个单位。对于其他类型如图片，一个元素大小可能是图片体积在内存中的占用。一个条目的size在运行时一定不能被改变，否则可能会导致数量控制失效。
+元素大小返回默认值为1，表示元素占用一个单位。条目size在运行时不能改变，否则会导致数量控制失效。
 
 ```java
 protected int sizeOf(K key, V value) {
@@ -327,53 +315,39 @@ public final void evictAll() {
 获取队列统计和容量大小的数据
 
 ```java
-/**
- * 如果方法没有被重载，则方法返回的是已保存在缓存中元素的数量。
- * 对于其他缓存元素类型，此方法返回的是所有元素的体积的总大小
- */
+// 方法没有重载，返回缓存元素数量;
+// 对于其他类型元素，方法返回所有元素体积总大小.
 public synchronized final int size() {
     return size;
 }
 
-/**
- * 如果方法没有被重载，则方法返回的是保存在缓存中元素数量的最大值。
- * 对于其他缓存元素类型，此方法返回的是所有元素的体积的最大值
- */
+// 方法没有被重载，返回缓存元素数量最大值;
+// 对于其他类型元素，方法返回所有元素体积最大值.
 public synchronized final int maxSize() {
     return maxSize;
 }
 
-/**
- * 返回元素命中次数
- */
+// 元素命中次数
 public synchronized final int hitCount() {
     return hitCount;
 }
 
-/**
- * 返回元素命中失败null，或需创建新元素的次数
- */
+// 元素命中失败次数
 public synchronized final int missCount() {
     return missCount;
 }
 
-/**
- * 返回新元素被创建次数
- */
+// 新元素被创建次数
 public synchronized final int createCount() {
     return createCount;
 }
 
-/**
- * 返回元素存入次数
- */
+// 元素插入次数
 public synchronized final int putCount() {
     return putCount;
 }
 
-/**
- * 返回元素丢弃次数
- */
+// 元素丢弃次数
 public synchronized final int evictionCount() {
     return evictionCount;
 }
@@ -381,13 +355,11 @@ public synchronized final int evictionCount() {
 
 ### 4.9 队列快照
 
-返回当前队列的快照。值得注意的是，虽然这个快照是新的`LinkedHashMap`实例，但是键是浅拷贝的。
+返回队列快照
 
 ```java
-/**
- * Returns a copy of the current contents of the cache, ordered from least
- * recently accessed to most recently accessed.
- */
+// Returns a copy of the current contents of the cache, ordered from least
+// recently accessed to most recently accessed.
 public synchronized final Map<K, V> snapshot() {
     return new LinkedHashMap<K, V>(map);
 }

@@ -11,17 +11,17 @@ tags:
 
 ## 一、注意和准备
 
-### 1.1 注意事项
+#### 1.1 注意事项
 
 1. 使用无线网卡前请检查电源能否提供足够电压和电流；
 
-2. 使用最新系统：系统增加新网卡的支持，能免去编译驱动的麻烦；
+2. 使用最新系统：系统增加新网卡支持，免去编译驱动；
 
-3. 仅针对RaspberryPi 3B以下的设备，这些设备没有配备无线网卡；
+3. 仅针对RaspberryPi 3B以下设备，这些设备没有配备无线网卡；
 
-4. 请用有线ssh登入，设置过程中树莓派是需要重启无线网络。
+4. 请用有线ssh登入，设置过程中树莓派需要重启无线网络；
 
-### 1.2 硬件信息
+#### 1.2 硬件信息
 
 先看我使用的无线网卡：
 
@@ -33,11 +33,9 @@ Bus 001 Device 002: ID 0424:9514 Standard Microsystems Corp. SMC9514 Hub
 Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
 ```
 
-上面显示的`Ralink Technology, Corp. MT7601U Wireless Adapter`是我的无线网卡。在`Raspbian Stretch Lite 2017-09-07 Kernel 4.9`系统镜像中已经自带该网卡的驱动。
+上面显示的Ralink Technology, Corp. MT7601U Wireless Adapter是我的无线网卡，Raspbian Stretch Lite 2017-09-07 Kernel 4.9系统镜像中已提供该网卡的驱动。如果无线网卡在系统中无法识别，请自行编译安装驱动。
 
-如果你的无线网卡在系统中无法识别，请自行编译安装驱动。
-
-### 1.3 查看已经连接的网络
+#### 1.3 查看已经连接的网络
 
 使用`iwconfig`查看`wlan0`的详情：
 
@@ -57,11 +55,11 @@ wlan0     IEEE 802.11  ESSID:"NETGEAR76"
           Tx excessive retries:0  Invalid misc:32   Missed beacon:0
 ```
 
-上面已经显示了连接到`NETGEAR76`，连接频段和信号质量等等信息。
+上面已经显示了连接到`NETGEAR76`，连接频段和信号质量等信息。
 
 ## 二、配置无线网络
 
-### 2.1 扫描可见SSID
+#### 2.1 扫描可见SSID
 
 通过`sudo iwlist wlan0 scan`扫描附近可见的SSID，并截取两个无线路由器的信息。后者`NETGEAR76`是已经连接的，现用前者`MERCURY_4E1A`演示。
 
@@ -127,7 +125,7 @@ wlan0     Scan completed :
                     IE: Unknown: 46057208010000
 ```
 
-### 2.2 设置SSID和对应密码
+#### 2.2 设置SSID和对应密码
 
 使用命令`wpa_passphrase SSID 密码`生成SSID和对应的密码，复制内容备用：
 
@@ -146,9 +144,9 @@ network={
 pi@raspberrypi:~ $ wpa_passphrase MERCURY_4E1A blackcar > ~/wifi.conf
 ```
 
-### 2.3 修改wpa_supplicant.conf
+#### 2.3 修改wpa_supplicant.conf
 
-修改`wpa_supplicant.conf`需要管理员权限，请切换到`root`:
+修改`wpa_supplicant.conf`需要管理员权限，请切换到root：
 
 ```shell
 pi@raspberrypi:~ $ su
@@ -166,16 +164,16 @@ root@raspberrypi:/home/pi# nano /etc/wpa_supplicant/wpa_supplicant.conf
 ```shell
 root@raspberrypi:/home/pi# less wifi.conf >> /etc/wpa_supplicant/wpa_supplicant.conf
 ```
-### 2.4 配置文件
+#### 2.4 配置文件
 
-配置`/etc/network/interfaces`:
+配置`/etc/network/interfaces`：
 
 ```shell
 sudo nano /etc/network/interfaces
 ```
 
 
-下面是我的配置，同时支持`eth0`和`wlan0`。当网线和Wifi同时连接时会独立获得ip，`wlan0`的配置表示通过DHCP获取IP地址。
+下面配置同时支持`eth0`和`wlan0`。当网线和Wifi同时连接时会独立获得ip，`wlan0`的配置表示通过DHCP获取IP地址。
 
 ```
 # interfaces(5) file used by ifup(8) and ifdown(8)
@@ -199,16 +197,16 @@ pre-up wpa_supplicant -B w -D wext -i wlan0 -c /etc/wpa_supplicant/wpa_supplican
 post-down killall -q wpa_supplicant
 ```
 
-### 2.5 重启网络
+#### 2.5 重启网络
 
-设置完成后保存退出，并重启树莓派的的网络：
+设置完成后保存退出，并重启树莓派网络：
 
 ```shell
 sudo /etc/init.d/networking restart
 sudo ifup wlan0
 ```
 
-## 三、 查看连接后信息
+## 三、 查看连接信息
 
 连接成功后，用`iwconfig`查看信息
 

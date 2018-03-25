@@ -19,13 +19,13 @@ public class HashSet<E>
 
 ## 二、数据成员
 
-HashSet利用HahsMap来实现集合的特性。利用HahsMap存储key的哈希值去重，如果键key对应的值部非空，表明这个key存在。
+HashSet利用HahsMap实现集合特性。利用HahsMap存储key哈希值去重，如果key对应值非空表明key存在。
 
 ```java
 private transient HashMap<E,Object> map;
 ```
 
-一个常量对象，在HahsMap的value中起到占位的作用。
+常量对象，在HahsMap的value中起到占位作用。
 
 ```java
 private static final Object PRESENT = new Object();
@@ -50,7 +50,7 @@ public HashSet(Collection<? extends E> c) {
 }
 ```
 
-通过指定大小的容量值和负载因子来初始化一个内部HashMap.
+指定容量值和负载因子来初始化内部HashMap.
 
 ```java
 public HashSet(int initialCapacity, float loadFactor) {
@@ -58,7 +58,7 @@ public HashSet(int initialCapacity, float loadFactor) {
 }
 ```
 
-通过指定大小的容量值来初始化一个内部HashMap，负载因子默认值为0.75
+指定容量值初始化内部HashMap，负载因子默认值为0.75
 
 ```java
 public HashSet(int initialCapacity) {
@@ -66,7 +66,7 @@ public HashSet(int initialCapacity) {
 }
 ```
 
-这个构造函数使用LinkedHashMap，构造参数多了一个无用的布尔值，用于区分上面的构造方法。LinkedHashMap实现的HashMap是有序的。
+构造函数使用LinkedHashMap，构造参数多了一个布尔值，用于区分上面的构造方法。LinkedHashMap实现的HashMap是有序的。
 
 ```java
 HashSet(int initialCapacity, float loadFactor, boolean dummy) {

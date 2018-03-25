@@ -198,6 +198,7 @@ public void recycle() {
         }
         return;
     }
+    // 没有回收过，送去回收
     recycleUnchecked();
 }
 ```
@@ -218,7 +219,7 @@ void recycleUnchecked() {
     callback = null;
     data = null;
     
-    // 最多缓存49个空消息体
+    // 最多缓存50个空消息体
     synchronized (sPoolSync) {
         if (sPoolSize < MAX_POOL_SIZE) {
             next = sPool;
@@ -318,7 +319,7 @@ void markInUse() {
 ```
 
 # 七、Parcelable实现
- 
+
 实现Parcelable接口的方法`describeContents()`、`writeToParcel()`、`readFromParcel()`
 
 ```java
