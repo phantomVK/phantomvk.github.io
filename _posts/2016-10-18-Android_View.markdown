@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Android源码系列(1) -- View"
+title:      "Android源码系列(1) -- View事件分发"
 date:       2016-10-18
 author:     "phantomVK"
 header-img: "img/main_img.jpg"

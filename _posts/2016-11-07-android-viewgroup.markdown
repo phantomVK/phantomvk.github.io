@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Android源码系列(2) -- ViewGroup"
+title:      "Android源码系列(2) -- ViewGroup事件分发"
 date:       2016-11-07
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -179,7 +179,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         if (actionMasked == MotionEvent.ACTION_DOWN
                 || mFirstTouchTarget != null) {
             final boolean disallowIntercept = (mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0;
-            // ViewGroup是否允许拦截事件
+            // ViewGroup自身是否允许拦截事件
             if (!disallowIntercept) {
                 // ViewGroup自行拦截事件并发送到onInterceptTouchEvent(ev)
                 intercepted = onInterceptTouchEvent(ev);
@@ -189,7 +189,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                 intercepted = false;
             }
         } else {
-            // 没有FirstTouchTarget且不是down事件，ViewGroup继续拦截
+            // 没有FirstTouchTarget且不是down事件，ViewGroup拦截事件
             intercepted = true;
         }
 
@@ -213,6 +213,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
             View childWithAccessibilityFocus = ev.isTargetAccessibilityFocus()
                     ? findChildWithAccessibilityFocus() : null;
             
+            // ACTION_DOWN开始新的事件序列
             if (actionMasked == MotionEvent.ACTION_DOWN
                     || (split && actionMasked == MotionEvent.ACTION_POINTER_DOWN)
                     || actionMasked == MotionEvent.ACTION_HOVER_MOVE) {
@@ -245,7 +246,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                         final View child = (preorderedList == null)
                                 ? children[childIndex] : preorderedList.get(childIndex);
 
-                        // 若当前视图无法获取用户焦点，跳过本次循环
+                        // 若当前视图无法获取用户焦点，跳过
                         if (childWithAccessibilityFocus != null) {
                             if (childWithAccessibilityFocus != child) {
                                 continue;
@@ -254,15 +255,15 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                             i = childrenCount - 1;
                         }
                         
-                        // view不能接收坐标事件或者触摸坐标点不在view的范围内，跳过本次循环
+                        // view不能接收坐标事件或者触摸坐标点不在view的范围内，跳过
                         if (!canViewReceivePointerEvents(child)
                                 || !isTransformedTouchPointInView(x, y, child, null)) {
                             ev.setTargetAccessibilityFocus(false);
                             continue;
                         }
 
+                        // 找到子View，封装为TouchTarget
                         newTouchTarget = getTouchTarget(child);
-                        // 已经开始接收触摸事件，结束整个循环
                         if (newTouchTarget != null) {
                             // Child is already receiving touch within its bounds.
                             // Give it the new pointer in addition to the ones it is handling.
@@ -270,7 +271,6 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                             break;
                         }
                         
-                        // 重置取消下一个抬起标志位
                         resetCancelNextUpFlag(child);
                         
                         // 如果触摸位置在child的区域内，则把事件分发给对应的子View或ViewGroup
@@ -304,6 +304,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                     if (preorderedList != null) preorderedList.clear();
                 }
 
+                // 没有找到接收事件的View
                 if (newTouchTarget == null && mFirstTouchTarget != null) {
                     // 将mFirstTouchTarget链表最后的touchTarget赋给newTouchTarget
                     newTouchTarget = mFirstTouchTarget;
@@ -321,6 +322,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         handled = dispatchTransformedTouchEvent(ev, canceled, null,
                 TouchTarget.ALL_POINTER_IDS);
         } else {
+            // 有子View接收事件，则后续操作事件也分发给它
             TouchTarget predecessor = null;
             TouchTarget target = mFirstTouchTarget;
             while (target != null) {
@@ -371,7 +373,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 
 #### 3.1.3 onFilterTouchEventForSecurity
 
-隐私策略过滤触摸事件返回状态值。true表示继续分发事件，而false表示该事件应该被过滤掉不再进行任何分发。
+隐私策略过滤触摸事件返回状态值。true表示继续分发事件，false表示事件被过滤掉不再分发。
 
 ```java
 public boolean onFilterTouchEventForSecurity(MotionEvent event) {
@@ -452,8 +454,10 @@ private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
     if (cancel || oldAction == MotionEvent.ACTION_CANCEL) {
         event.setAction(MotionEvent.ACTION_CANCEL);
         if (child == null) {
+            // 传入View为空，调用父类dispatchTouchEvent()
             handled = super.dispatchTouchEvent(event);
         } else {
+            // 调用子View的dispatchTouchEvent()，事件进入到子View
             handled = child.dispatchTouchEvent(event);
         }
         event.setAction(oldAction);
@@ -537,7 +541,7 @@ private TouchTarget addTouchTarget(View child, int pointerIdBits) {
 }
 ```
 
-## 3.2 onInterceptTouchEvent()
+#### 3.1.7 onInterceptTouchEvent()
 
 方法默认返回false，表示继续执行事件分发。如果该方法被重写并返回true，事件被拦截并不再分发。
 
@@ -547,42 +551,38 @@ public boolean onInterceptTouchEvent(MotionEvent ev) {
 }
 ```
 
-## 3.3 cancelAndClearTouchTargets() 
+#### 3.1.8 cancelAndClearTouchTargets() 
+
+取消并移除所有触控目标
 
 ```Java
-/**
- * Cancels and clears all touch targets.
- */
-    private void cancelAndClearTouchTargets(MotionEvent event) {
-        if (mFirstTouchTarget != null) {
-            boolean syntheticEvent = false;
-            if (event == null) {
-                final long now = SystemClock.uptimeMillis();
-                event = MotionEvent.obtain(now, now,
-                        MotionEvent.ACTION_CANCEL, 0.0f, 0.0f, 0);
-                event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
-                syntheticEvent = true;
-            }
+private void cancelAndClearTouchTargets(MotionEvent event) {
+    if (mFirstTouchTarget != null) {
+        boolean syntheticEvent = false;
+        if (event == null) {
+            final long now = SystemClock.uptimeMillis();
+            event = MotionEvent.obtain(now, now,
+                    MotionEvent.ACTION_CANCEL, 0.0f, 0.0f, 0);
+            event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+            syntheticEvent = true;
+        }
 
-            for (TouchTarget target = mFirstTouchTarget; target != null; target = target.next) {
-                resetCancelNextUpFlag(target.child);
-                dispatchTransformedTouchEvent(event, true, target.child, target.pointerIdBits);
-            }
-            clearTouchTargets();
+        for (TouchTarget target = mFirstTouchTarget; target != null; target = target.next) {
+            resetCancelNextUpFlag(target.child);
+            dispatchTransformedTouchEvent(event, true, target.child, target.pointerIdBits);
+        }
+        clearTouchTargets();
 
-            if (syntheticEvent) {
-                event.recycle();
-            }
+        if (syntheticEvent) {
+            event.recycle();
         }
     }
+}
 ```
 
-## 3.4 resetTouchState() 
+#### 3.1.9 resetTouchState() 
 
 ```java
-/**
- * Resets all touch state in preparation for a new cycle.
- */
 private void resetTouchState() {
     clearTouchTargets();
     resetCancelNextUpFlag(this);
