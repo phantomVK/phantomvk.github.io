@@ -96,11 +96,22 @@ From Survivor和To Survivor名字是相对的。对象移出的Survivor区称为
 
 用于存放虚拟机加载的信息、常量、静态变量、即时编译器编译后的代码等数据。由于永久代存储的数据生命周期非常长，GC在这个区域消耗时间长且回收效果差，所以方法区GC频率很低。
 
+```
+With G1 collector, PermGen is collected only at a Full GC
+which is a stop-the-world (STW) GC. If
+G1 is running optimally then it does not do Full GCs. G1 invokes the Full GCs
+only when the PermGen is full or when the application does allocations faster
+than G1 can concurrently collect garbage.
+
+With CMS garbage collector, we can use option
+-XX:+CMSClassUnloadingEnabled to collect PermGen space in the CMS concurrent
+cycle. There is no equivalent option for G1. G1 only collects PermGen during the Full stop-the-world GCs.
+```
+
 不同回收策略对方法区的处理：
 
-* G1：只有在Full GC的时候方法区才会被清理。当方法区需要空间时，该空间无法扩展又没有内存空间可以回收，就会抛出OutOfMemory错误。
-
-* CMS：可以使用 -XX:+CMSClassUnloadingEnabled 参数，在CMS并行收集阶段回收PermGen空间。
+* G1：只在Full GC的时候方法区才会被清理。当方法区需要空间时，该空间无法扩展又没有内存空间可以回收，就会抛出OutOfMemory错误；
+* CMS：可以使用 -XX:+CMSClassUnloadingEnabled 参数，在CMS并行收集阶段回收PermGen空间.
 
 ### 2.6 常量池
 

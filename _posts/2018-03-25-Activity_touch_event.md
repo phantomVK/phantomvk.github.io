@@ -86,7 +86,7 @@ public abstract boolean superDispatchTouchEvent(MotionEvent event);
 ```
 
 #### 2.2 PhoneWindows.superDispatchTouchEvent()
-window的实现类是PhoneWindows，即调用PhoneWindows.superDispatchTouchEvent()，也就是调用mDecor.superDispatchTouchEvent(event)。而DecorView是保存在PhoneWindows内部的成员变量。
+window的实现类是PhoneWindows，即调用PhoneWindows.superDispatchTouchEvent()，也就是调用mDecor.superDispatchTouchEvent(event)。而DecorView是保存在PhoneWindows的成员变量。有很多文章提到DecorView是PhoneWindows内部类，但从Android27看来，DecorView是独立的类而不是一个内部类。
 
 ```java
 // This is the top-level view of the window, containing the window decor.
