@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - ArchitecturalPattern
+    - Architectural Pattern
 ---
 
 移动端开发中，经常遇到通用的数据加载：例如IM中个人头像加载。
