@@ -1,0 +1,372 @@
+---
+layout:     post
+title:      "Android源码系列(10) -- SparseArray"
+date:       2018-04-07
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    true
+tags:
+    - Android源码系列
+---
+
+### 一、前言
+
+SparseArrays<E>是Android原生提供，用于代替HashMap的数据结构。更准确地说，是SparseArrays<E>在一部分场景上代替HashMap<Integer, Object>，提供从int映射到Object<E>的能力，优点是具有高效的内存使用率。
+
+```java
+public class SparseArray<E> implements Cloneable
+```
+
+由于SparseArrays使用int作为键时，不像HashMap<Integer, Object>的键需从int装箱成Integer对象，避免装箱拆箱的性能损失。并且使用对内存更友好的数组而不是链表存储value，也省去了额外的Entry。
+
+用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，那时间消费在什么地方？
+
+根据类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的index找对应索引的值，时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于key保存在mKeys数组，value保存在mValues数组，任何一次增删键值对都有可能同时重建两个数组。
+
+对这种情况SparseArrays做了一定优化，如移除一个键值对只会把mValues对应位置Object替换为`DELETED`，等下一次同key插入新value时直接替换，或在数组扩容或回收空间时才处理失效空间。
+
+总结SparseArrays支持的应用场景：
+
+- 键值类型为<int, Object>。key本来是Integer就用HashMap；
+- 存储键值对量少，数百以内为佳；
+- 对存取时间不太敏感，但内存可用条件苛刻的场景；
+- 不在Java标准库中，仅在Android系统中提供；
+- 按照key升序输出value；
+- 本身不是线程安全，需自行保证；
+
+### 二、数据成员
+
+```java
+// 用于标记键对应Object已被删除的标志，起占位作用
+private static final Object DELETED = new Object();
+// 是否开启失效值处理的标志位，用于规整数组
+private boolean mGarbage = false;
+
+// 保存键的数组
+private int[] mKeys;
+// 保存值的数组，与键数组索引对应
+private Object[] mValues;
+// 已保存键值对数量
+private int mSize;
+```
+
+### 三、构造方法
+
+创建一个没有初始元素且初始化大小为10的SparseArray
+
+```java
+public SparseArray() {
+    this(10);
+}
+```
+指定初始化容量的SparseArray。当初始容量设置为0时，mKeys数组和mValues数组各使用一个轻量级空数组初始化，否则按照指定容量进行初始化。
+```java
+public SparseArray(int initialCapacity) {
+    if (initialCapacity == 0) {
+        mKeys = EmptyArray.INT;
+        mValues = EmptyArray.OBJECT;
+    } else {
+        mValues = ArrayUtils.newUnpaddedObjectArray(initialCapacity);
+        mKeys = new int[mValues.length];
+    }
+    // 没有存放任何键值对，所以mSize为0
+    mSize = 0;
+}
+```
+### 四、查询
+```java
+// 获取指定key的value，否则返回null
+public E get(int key) {
+    return get(key, null);
+}
+
+// 获取指定key的value，命失返回指定对象
+@SuppressWarnings("unchecked")
+public E get(int key, E valueIfKeyNotFound) {
+    // 在mKeys的mSize有效范围内二分查找key的数组下标i
+    int i = ContainerHelpers.binarySearch(mKeys, mSize, key);
+
+    if (i < 0 || mValues[i] == DELETED) {
+        // 没有对应的值或值已被移除，返回valueIfKeyNotFound
+        return valueIfKeyNotFound;
+    } else {
+        // 命中，显示类型转换并返回
+        return (E) mValues[i];
+    }
+}
+```
+### 五、移除
+```java
+// 移除key对应的value
+public void delete(int key) {
+    // 在mKeys的mSize有效范围内二分查找key的数组下标i
+    int i = ContainerHelpers.binarySearch(mKeys, mSize, key);
+    // i>=0表示key在mKeys中时存在的
+    if (i >= 0) {
+        // 还要检查key对用的value是否已删除
+        if (mValues[i] != DELETED) {
+            mValues[i] = DELETED;
+            mGarbage = true;
+        }
+    }
+}
+
+// 移除并返回指定key对应的value，若不存在返回null
+public E removeReturnOld(int key) {
+    int i = ContainerHelpers.binarySearch(mKeys, mSize, key);
+
+    if (i >= 0) {
+        if (mValues[i] != DELETED) {
+            final E old = (E) mValues[i];
+            mValues[i] = DELETED;
+            mGarbage = true;
+            return old;
+        }
+    }
+    return null;
+}
+
+// delete(key)的别名方法
+public void remove(int key) {
+    delete(key);
+}
+
+// 移除指定下标的value
+public void removeAt(int index) {
+    if (mValues[index] != DELETED) {
+        mValues[index] = DELETED;
+        mGarbage = true;
+    }
+}
+
+// 移除指定索引开始的连续数个值
+public void removeAtRange(int index, int size) {
+    final int end = Math.min(mSize, index + size);
+    for (int i = index; i < end; i++) {
+        removeAt(i);
+    }
+}
+
+// 清除所有键值对
+public void clear() {
+    int n = mSize;
+    Object[] values = mValues;
+    // 所有mValue的元素置null
+    for (int i = 0; i < n; i++) {
+        values[i] = null;
+    }
+    // 保存元素数量为0
+    mSize = 0;
+    mGarbage = false;
+}
+```
+### 六、增加
+```java
+// 在指定key的位置的value放入值，如果原位置已经存在vlaue，则直接替换
+public void put(int key, E value) {
+    // 在mKeys的mSize有效范围内二分查找key的数组下标i
+    int i = ContainerHelpers.binarySearch(mKeys, mSize, key);
+
+    // 直接用新value直接替换旧value，不管是否已被置为DELETE
+    if (i >= 0) {
+        mValues[i] = value;
+    } else {
+        //返回index是负数表明key不存在。对返i取反得到插入的位置i
+        // 例：i = ~i -> 2 = ~(-3)
+        i = ~i;
+
+        // i在没有越界，且i的value已被删除，则直接重用此空间
+        if (i < mSize && mValues[i] == DELETED) {
+            mKeys[i] = key;
+            mValues[i] = value;
+            return;
+        }
+
+        if (mGarbage && mSize >= mKeys.length) {
+            gc();
+
+            // 由于gc()可能会规整数组，需重新查找key可以插入的下标i
+            i = ~ContainerHelpers.binarySearch(mKeys, mSize, key);
+        }
+
+        //插入key，可能触发mKeys数组扩容
+        mKeys = GrowingArrayUtils.insert(mKeys, mSize, i, key);
+        //插入value，可能触发mValues数组扩容
+        mValues = GrowingArrayUtils.insert(mValues, mSize, i, value);
+        mSize++;
+    }
+}
+
+public void append(int key, E value) {
+    if (mSize != 0 && key <= mKeys[mSize - 1]) {
+        put(key, value);
+        return;
+    }
+
+    if (mGarbage && mSize >= mKeys.length) {
+        gc();
+    }
+
+    mKeys = GrowingArrayUtils.append(mKeys, mSize, key);
+    mValues = GrowingArrayUtils.append(mValues, mSize, value);
+    mSize++;
+}
+```
+### 七、其他
+
+```java
+// 返回当前保存的键值对数量
+public int size() {
+    if (mGarbage) {
+        gc();
+    }
+
+    return mSize;
+}
+
+// index范围在[0, size()-1]之内，返回index的key
+// index为0，返回mKeys最小key；
+// index为size()-1，返回mKeys最大key
+// 小于0或大于等于size()会出现未知结果
+public int keyAt(int index) {
+    if (mGarbage) {
+        gc();
+    }
+
+    return mKeys[index];
+}
+
+// index范围在[0, size()-1]之内，返回index下标在mValue的value；
+// index为0，返回mKeys最小key对应的value；
+// index为size()-1，返回mKeys最大key对应的value；
+// 小于0或大于等于size()会出现未知结果
+@SuppressWarnings("unchecked")
+public E valueAt(int index) {
+    // 清理废弃value
+    if (mGarbage) {
+        gc();
+    }
+
+    return (E) mValues[index];
+}
+
+// 返回key在mKeys中对应的索引值，不存在则返回负数
+public int indexOfKey(int key) {
+    if (mGarbage) {
+        gc();
+    }
+
+    return ContainerHelpers.binarySearch(mKeys, mSize, key);
+}
+
+// 返回指定value在mValues的索引值，不存在返回-1
+public int indexOfValue(E value) {
+    if (mGarbage) {
+        gc();
+    }
+
+    // 遍历所有mValues的value，并查找是否命中指定value
+    for (int i = 0; i < mSize; i++)
+        if (mValues[i] == value)
+            return i;
+    // 命失指定value返回-1
+    return -1;
+}
+
+// 清理已被标记为DELETE的value，并规整mKeys和mValues数组空间
+private void gc() {
+    int n = mSize;
+    int o = 0;
+    int[] keys = mKeys;
+    Object[] values = mValues;
+
+    // 规整数组空间，把后面有效的key-value向数组前面移动排列，不会引起数组大小变化
+    for (int i = 0; i < n; i++) {
+        Object val = values[i];
+
+        if (val != DELETED) {
+            if (i != o) {
+                keys[o] = keys[i];
+                values[o] = val;
+                values[i] = null;
+            }
+
+            o++;
+        }
+    }
+
+    // 已经清理数组空间，标记为false
+    mGarbage = false;
+    // 规整之后有效的键值对数量
+    mSize = o;
+}
+```
+
+### 八、修改
+
+index范围在[0, size()-1]之内，修改index下标在mValue的value。
+
+index为0，修改mKeys最小key对应的value。index为size()-1，修改mKeys最大key对应的value。
+
+小于0或大于等于size()会出现未知结果
+
+```java
+public void setValueAt(int index, E value) {
+    if (mGarbage) {
+        gc();
+    }
+
+    mValues[index] = value;
+}
+```
+
+### 九、ContainerHelpers
+
+```java
+class ContainerHelpers {
+
+    static int binarySearch(int[] array, int size, int value) {
+        // low：低位
+        int lo = 0;
+        // high: 高位
+        int hi = size - 1;
+        
+        // 二分法循环查找
+        while (lo <= hi) {
+            // 假设lo=0，hi=9，可知(lo + hi) >>> 1为4
+            // 向左位移等同乘2，向右位移等同除2，助记：左乘右除
+            final int mid = (lo + hi) >>> 1;
+            final int midVal = array[mid];
+
+            if (midVal < value) {
+                lo = mid + 1;
+            } else if (midVal > value) {
+                hi = mid - 1;
+            } else {
+                return mid;  // value命中
+            }
+        }
+        return ~lo;  // value不存在
+    }
+
+    static int binarySearch(long[] array, int size, long value) {
+        int lo = 0;
+        int hi = size - 1;
+
+        while (lo <= hi) {
+            final int mid = (lo + hi) >>> 1;
+            final long midVal = array[mid];
+
+            if (midVal < value) {
+                lo = mid + 1;
+            } else if (midVal > value) {
+                hi = mid - 1;
+            } else {
+                return mid;  // value命中
+            }
+        }
+        return ~lo;  // value不存在
+    }
+}
+```
+
