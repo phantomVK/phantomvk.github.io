@@ -11,28 +11,28 @@ tags:
 
 ### 一、前言
 
-SparseArrays<E>是Android原生提供，用于代替HashMap的数据结构。更准确地说，是SparseArrays<E>在一部分场景上代替HashMap<Integer, Object>，提供从int映射到Object<E>的能力，优点是具有高效的内存使用率。
+SparseArrays<E>由Android原生提供，用于代替HashMap的容器类。准确说是在一部分场景中能代替HashMap<Integer, Object>，提供从int映射到Object<E>的能力，优点是具有高效的内存使用率。
 
 ```java
 public class SparseArray<E> implements Cloneable
 ```
 
-由于SparseArrays使用int作为键时，不像HashMap<Integer, Object>的键需从int装箱成Integer对象，避免装箱拆箱的性能损失。并且使用对内存更友好的数组而不是链表存储value，也省去了额外的Entry。
+由于SparseArrays使用int作为键时，不像HashMap<Integer, Object>的键，需把int装箱为Integer对象，避免了装箱拆箱的性能损失。并使用对内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。
 
-用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，那时间消费在什么地方？
+用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但也在存取操作上需耗费相对更多时间。
 
-根据类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的index找对应索引的值，时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于key保存在mKeys数组，value保存在mValues数组，任何一次增删键值对都有可能同时重建两个数组。
+根据类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的index找对应索引的值，由此可推测时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于key保存在mKeys数组，value保存在mValues数组，任何一次增删键值对都有可能同时重建两个数组。
 
-对这种情况SparseArrays做了一定优化，如移除一个键值对只会把mValues对应位置Object替换为`DELETED`，等下一次同key插入新value时直接替换，或在数组扩容或回收空间时才处理失效空间。
+因此SparseArrays做了一定优化，如移除一个键值对时只会把mValues对应的Object标记为`DELETED`，等下一次同key插入新value时直接替换，且失效空间在数组扩容或回收空间时才处理。
 
-总结SparseArrays支持的应用场景：
+总结主要应用场景：
 
-- 键值类型为<int, Object>。key本来是Integer就用HashMap；
-- 存储键值对量少，数百以内为佳；
-- 对存取时间不太敏感，但内存可用条件苛刻的场景；
-- 不在Java标准库中，仅在Android系统中提供；
-- 按照key升序输出value；
-- 本身不是线程安全，需自行保证；
+- 类型为<int, Object>，若key原本是Integer就直接用HashMap；
+- 存储键值对量较少，数百以内为佳；
+- 对存取时间不太敏感，但内存可用条件苛刻的设备；
+- 不在Java标准库，仅在Android系统中提供；
+- 支持按照key升序输出value；
+- 非线程安全，需自行保证；
 
 ### 二、数据成员
 
@@ -44,7 +44,7 @@ private boolean mGarbage = false;
 
 // 保存键的数组
 private int[] mKeys;
-// 保存值的数组，与键数组索引对应
+// 保存值的数组，索引与键数组对应
 private Object[] mValues;
 // 已保存键值对数量
 private int mSize;
@@ -52,14 +52,14 @@ private int mSize;
 
 ### 三、构造方法
 
-创建一个没有初始元素且初始化大小为10的SparseArray
+创建一个没有初始元素且初始化大小为10的实例
 
 ```java
 public SparseArray() {
     this(10);
 }
 ```
-指定初始化容量的SparseArray。当初始容量设置为0时，mKeys数组和mValues数组各使用一个轻量级空数组初始化，否则按照指定容量进行初始化。
+指定初始化容量的构造方法。当初始容量设置为0时，mKeys数组和mValues数组各使用一个轻量级空数组初始化，否则按照指定容量进行初始化。
 ```java
 public SparseArray(int initialCapacity) {
     if (initialCapacity == 0) {
@@ -67,7 +67,7 @@ public SparseArray(int initialCapacity) {
         mValues = EmptyArray.OBJECT;
     } else {
         mValues = ArrayUtils.newUnpaddedObjectArray(initialCapacity);
-        mKeys = new int[mValues.length];
+        mKeys = new int[mValues.length]; // key类型为int[]
     }
     // 没有存放任何键值对，所以mSize为0
     mSize = 0;
@@ -90,20 +90,20 @@ public E get(int key, E valueIfKeyNotFound) {
         // 没有对应的值或值已被移除，返回valueIfKeyNotFound
         return valueIfKeyNotFound;
     } else {
-        // 命中，显示类型转换并返回
+        // 显式类型转换并返回
         return (E) mValues[i];
     }
 }
 ```
 ### 五、移除
 ```java
-// 移除key对应的value
+// 移除key对应value
 public void delete(int key) {
     // 在mKeys的mSize有效范围内二分查找key的数组下标i
     int i = ContainerHelpers.binarySearch(mKeys, mSize, key);
-    // i>=0表示key在mKeys中时存在的
+    // i>=0表示key存在
     if (i >= 0) {
-        // 还要检查key对用的value是否已删除
+        // 检查key对应value是否已被删除
         if (mValues[i] != DELETED) {
             mValues[i] = DELETED;
             mGarbage = true;
@@ -111,7 +111,7 @@ public void delete(int key) {
     }
 }
 
-// 移除并返回指定key对应的value，若不存在返回null
+// 移除并返回指定key对应value，若不存在返回null
 public E removeReturnOld(int key) {
     int i = ContainerHelpers.binarySearch(mKeys, mSize, key);
 
@@ -147,11 +147,11 @@ public void removeAtRange(int index, int size) {
     }
 }
 
-// 清除所有键值对
+// 清除集合
 public void clear() {
     int n = mSize;
     Object[] values = mValues;
-    // 所有mValue的元素置null
+    // 所有mValue置null
     for (int i = 0; i < n; i++) {
         values[i] = null;
     }
@@ -162,7 +162,7 @@ public void clear() {
 ```
 ### 六、增加
 ```java
-// 在指定key的位置的value放入值，如果原位置已经存在vlaue，则直接替换
+// 在指定key位置放入值，如果原位置已经存在vlaue，则直接替换
 public void put(int key, E value) {
     // 在mKeys的mSize有效范围内二分查找key的数组下标i
     int i = ContainerHelpers.binarySearch(mKeys, mSize, key);
@@ -175,7 +175,7 @@ public void put(int key, E value) {
         // 例：i = ~i -> 2 = ~(-3)
         i = ~i;
 
-        // i在没有越界，且i的value已被删除，则直接重用此空间
+        // i没有越界，且i的value已被删除，则直接重用此空间
         if (i < mSize && mValues[i] == DELETED) {
             mKeys[i] = key;
             mValues[i] = value;
@@ -189,9 +189,9 @@ public void put(int key, E value) {
             i = ~ContainerHelpers.binarySearch(mKeys, mSize, key);
         }
 
-        //插入key，可能触发mKeys数组扩容
+        //插入key，可触发mKeys数组扩容
         mKeys = GrowingArrayUtils.insert(mKeys, mSize, i, key);
-        //插入value，可能触发mValues数组扩容
+        //插入value，可触发mValues数组扩容
         mValues = GrowingArrayUtils.insert(mValues, mSize, i, value);
         mSize++;
     }

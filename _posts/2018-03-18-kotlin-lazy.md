@@ -15,14 +15,14 @@ Koltin的lazy懒加载主要有以下两种用法，根据具体实现看来只�
 
 用法一：
 
-```java
+```kotlin
 val strLazyOf by lazyOf("LazyString")
 ```
 
 
 用法二：
 
-```java
+```kotlin
 val strLazy by lazy { "LazyString" }
 ```
 
@@ -30,9 +30,9 @@ val strLazy by lazy { "LazyString" }
 
 `SynchronizedLazyImpl`和`InitializedLazyImpl`均实现Lazy接口
 
-```java
+```kotlin
 public interface Lazy<out T> {
-    // 从当前懒加载实例中获取需加载值。
+    // 从当前懒加载实例中获取需加载值
     // 一旦值被初始化，该值在懒加载实例剩余生命周期都不应被修改
     public val value: T
 
@@ -48,7 +48,7 @@ public interface Lazy<out T> {
 
 从实参value构造`InitializedLazyImpl`实例
 
-```java
+```kotlin
 public fun <T> lazyOf(value: T): Lazy<T> = InitializedLazyImpl(value)
 ```
 
@@ -56,7 +56,7 @@ public fun <T> lazyOf(value: T): Lazy<T> = InitializedLazyImpl(value)
 
 没有任何关于懒加载的逻辑
 
-```Java
+```kotlin
 private class InitializedLazyImpl<out T>(override val value: T) : Lazy<T>, Serializable {
 
     override fun isInitialized(): Boolean = true
@@ -71,7 +71,7 @@ private class InitializedLazyImpl<out T>(override val value: T) : Lazy<T>, Seria
 
 lazy线程安全，不需要在外层包加同步代码。
 
-```Java
+```kotlin
 @kotlin.jvm.JvmVersion
 public fun <T> lazy(initializer: () -> T): Lazy<T> = SynchronizedLazyImpl(initializer)
 ```
@@ -80,13 +80,13 @@ public fun <T> lazy(initializer: () -> T): Lazy<T> = SynchronizedLazyImpl(initia
 
 单例`UNINITIALIZED_VALUE`用于表示值未初始化
 
-```java
+```kotlin
 private object UNINITIALIZED_VALUE
 ```
 
 实现`Lazy<T>`和`Serializable`两个接口
 
-```Java
+```kotlin
 @JvmVersion
 private class SynchronizedLazyImpl<out T>(initializer: () -> T, lock: Any? = null) : Lazy<T>, Serializable {
     // 指定的初始值
