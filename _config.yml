@@ -59,8 +59,7 @@ kramdown:
 
 
 # Google Analytics
-# ga_track_id: ''            # Format: UA-xxxxxx-xx
-# ga_domain: 
+ga_track_id: 'UA-117584603-1'            # Format: UA-xxxxxx-xx
 
 
 
