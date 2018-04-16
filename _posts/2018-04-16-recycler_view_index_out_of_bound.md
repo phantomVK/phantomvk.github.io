@@ -11,35 +11,28 @@ tags:
 
 
 
-实际开发出现以下异常：
+实际开发RecyclerView的过程出现遇到异常：
 
 ```
-RecyclerView - java.lang.IndexOutOfBoundsException: Inconsistency detected. Invalid view holder adapter positionViewHolder
+java.lang.IndexOutOfBoundsException: Inconsistency detected. Invalid view holder adapter positionViewHolder
 ```
 
 继承并重写LinearLayoutManager.onLayoutChildren()方法
 
-```java
-public class WrappedLinearLayoutManager extends LinearLayoutManager {
+```kotlin
+class WrappedLinearLayoutManager : LinearLayoutManager {
 
-    public WrappedLinearLayoutManager(Context context) {
-        super(context);
-    }
+    constructor(context: Context) : super(context)
 
-    public WrappedLinearLayoutManager(Context context, int orientation, boolean reverseLayout) {
-        super(context, orientation, reverseLayout);
-    }
+    constructor(context: Context, orientation: Int, reverseLayout: Boolean) : super(context, orientation, reverseLayout)
 
-    public WrappedLinearLayoutManager(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
-        super(context, attrs, defStyleAttr, defStyleRes);
-    }
+    constructor(context: Context, attrs: AttributeSet, defStyleAttr: Int, defStyleRes: Int) : super(context, attrs, defStyleAttr, defStyleRes)
 
-    @Override
-    public void onLayoutChildren(RecyclerView.Recycler recycler, RecyclerView.State state) {
+    override fun onLayoutChildren(recycler: RecyclerView.Recycler?, state: RecyclerView.State) {
         try {
-            super.onLayoutChildren(recycler, state);
-        } catch (IndexOutOfBoundsException e) {
-            e.printStackTrace();
+            super.onLayoutChildren(recycler, state)
+        } catch (e: IndexOutOfBoundsException) {
+            e.printStackTrace()
         }
     }
 }
@@ -48,12 +41,12 @@ public class WrappedLinearLayoutManager extends LinearLayoutManager {
 使用WrappedLinearLayoutManager代替LinearLayoutManager即可
 
 ```kotlin
-val mAdapter = RecyclerViewAdapter(activity)
+val recyclerAdapter = RecyclerViewAdapter(activity)
 val manager = WrapContentLinearLayoutManager(context).apply { orientation = LinearLayoutManager.VERTICAL }
 
-val mRecyclerList = view.findViewById<RecyclerView>(R.id.recycler_view).apply {
+val recyclerView = view.findViewById<RecyclerView>(R.id.recycler_view).apply {
     layoutManager = manager
-    adapter = mAdapter
+    adapter = recyclerAdapter
 }
 ```
 
