@@ -11,7 +11,7 @@ tags:
 
 
 
-实际开发RecyclerView的过程出现遇到异常：
+使用RecyclerView过程中遇到异常：
 
 ```
 java.lang.IndexOutOfBoundsException: Inconsistency detected. Invalid view holder adapter positionViewHolder
@@ -38,7 +38,7 @@ class WrappedLinearLayoutManager : LinearLayoutManager {
 }
 ```
 
-使用WrappedLinearLayoutManager代替LinearLayoutManager即可
+调用时使用WrappedLinearLayoutManager代替LinearLayoutManager
 
 ```kotlin
 val recyclerAdapter = RecyclerViewAdapter(activity)
