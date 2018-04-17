@@ -25,5 +25,9 @@ Activity出现ClassCastException：
 
 怀疑是不是手机系统问题，但是查了两台不同品牌、不同系统版本的手机安装客户构建的安装包都出现崩溃，这也能排除手机偶然性。
 
-最后翻阅[Android LifecycleOwner](https://developer.android.com/topic/libraries/support-library/revisions.html#26-1-0)发现LifecycleOwner有版本要求，appSupport需要到26.1.0，SDK产品开发平台是27.0.2，一问客户的工程仅用26.0.2，开始开始完全没有意料到的是这个原因。
+最后翻阅[Android LifecycleOwner](https://developer.android.com/topic/libraries/support-library/revisions.html#26-1-0)发现LifecycleOwner有版本要求，appSupport需要到26.1.0，SDK产品开发平台是27.0.2。
+
+![错误日志](/img/images/LifecycleOwner_26.1.0.png)
+
+一问客户的工程仅用26.0.2，开始开始完全没有意料到的是这个原因。
 
