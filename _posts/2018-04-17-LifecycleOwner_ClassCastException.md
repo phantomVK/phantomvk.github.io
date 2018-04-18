@@ -29,5 +29,5 @@ Activity出现ClassCastException：
 
 ![错误日志](/img/images/LifecycleOwner_26.1.0.png)
 
-一问客户的工程仅用26.0.2，开始开始完全没有意料到的是这个原因。
+一问客户的工程仅用26.0.2，完全没有意料到。
 
