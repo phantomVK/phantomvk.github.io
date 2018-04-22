@@ -132,6 +132,8 @@
     })
 </script>
 
+{% if site.url contains 'localhost' %}
+{% else%}
 {% if site.ga_track_id %}
 <!-- Global site tag (gtag.js) - Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id={{ site.ga_track_id }}"></script>
@@ -142,6 +144,7 @@
 
   gtag('config', '{{ site.ga_track_id }}');
 </script>
+{% endif %}
 {% endif %}
 
 {% if site.ba_track_id %}
