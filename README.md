@@ -4,7 +4,7 @@ Jekyll主题来自[Hux Blog](https://github.com/Huxpro/huxpro.github.io)(Powered
 
 ## 使用方法
 
-### Fork or Clone
+### 一、Fork or Clone
 
 Fork工程到Github仓库或Clone到本地：
 
@@ -14,7 +14,7 @@ $ git clone https://github.com/phantomVK/phantomvk.github.io.git
 
 项目文件夹名修改形如`GithubUsername.github.io`。
 
-### 修改配置参数
+### 二、修改配置参数
 
 打开配置文件`_config.yml`，按照以下示例把`Jekyll_Templet`改为`Github username`。
 
@@ -30,7 +30,7 @@ keyword: ""
 #baseurl: "/"         # for example, '/blog' if your blog hosted on 'host/blog'
 ```
 
-### 文章编写
+### 三、文章编写
 
 `_draft`存有文章模板`2016-10-01-demo.markdown`：
 
@@ -48,9 +48,9 @@ tags:
 ---
 ```
 
-### 侧边栏
+### 四、侧边栏
 
-#### 头像和描述
+#### 1. 头像和描述
 
 用于配置是否打开侧边栏、自我描述和头像功能。
 
@@ -62,7 +62,7 @@ sidebar-avatar: /img/avatar.jpg      # use absolute URL, seeing it's used in bot
 ```
 
 
-#### 打赏二维码
+#### 2. 打赏二维码
 
 侧边栏添加二维码功能，如下设置支付二维码图片路径，图片分辨率建议`275*275`，格式`jpg`。
 
@@ -81,7 +81,7 @@ pay-tags-alipay: false
 ```
 
 
-#### 友情链接
+#### 3. 友情链接
 
 全部注释可关闭友情链接功能，已知关闭此功能将导致文章阅读区域滚动卡顿。
 
@@ -100,7 +100,7 @@ friends: [
 ```
 
 
-#### 链接
+#### 4. 链接
 
 仅需输入链接对应用户名：
 
@@ -115,11 +115,32 @@ RSS: false
 #linkedin_username:  firstname-lastname-idxxxx
 ```
 
-### 文章归档
+### 五、文章归档
 
 增加文章归档功能，自动按照月份归档文章，具体展示请参考[phantomVK - Archive](https://phantomvk.github.io/archives/)
 
 ![](./img/archive_img.jpg)
+
+### 六、Google analytics
+
+使用新版本Google analytics方法，同时排除本地服务器浏览的流量对GA的影响。
+
+```html
+{% if site.url contains 'localhost' %}
+{% else%}
+{% if site.ga_track_id %}
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id={{ site.ga_track_id }}"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', '{{ site.ga_track_id }}');
+</script>
+{% endif %}
+{% endif %}
+```
 
 # License
 
