@@ -665,27 +665,5 @@ final class LinkedEntrySet extends AbstractSet<Map.Entry<K,V>> {
             throw new ConcurrentModificationException();
     }
 }
-
-// Map overrides
-
-public void forEach(BiConsumer<? super K, ? super V> action) {
-    if (action == null)
-        throw new NullPointerException();
-    int mc = modCount;
-    for (LinkedHashMap.Entry<K,V> e = head; e != null; e = e.after)
-        action.accept(e.key, e.value);
-    if (modCount != mc)
-        throw new ConcurrentModificationException();
-}
-
-public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
-    if (function == null)
-        throw new NullPointerException();
-    int mc = modCount;
-    for (LinkedHashMap.Entry<K,V> e = head; e != null; e = e.after)
-        e.value = function.apply(e.key, e.value);
-    if (modCount != mc)
-        throw new ConcurrentModificationException();
-}
 ```
 
