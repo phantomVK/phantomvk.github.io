@@ -14,17 +14,17 @@ tags:
 
 在`关于手机`里面多次点击下方的`版本号`开启`开发者选项`：
 
-![关于手机](/img/mz_log/mz1.jpeg)
+![关于手机](/img/android/mz_log/mz1.jpeg)
 
 `开发者选项`在`辅助功能`中：
 
-![辅助功能](/img/mz_log/mz2.jpeg)
+![辅助功能](/img/android/mz_log/mz2.jpeg)
 
 然后拉到`开发者选项`最下面点击`性能优化`：
 
-![性能优化](/img/mz_log/mz3.jpeg)
+![性能优化](/img/android/mz_log/mz3.jpeg)
 
 修改`高级日志输出`级别：
 
-![高级日志输出](/img/mz_log/mz4.jpeg)
+![高级日志输出](/img/android/mz_log/mz4.jpeg)
 

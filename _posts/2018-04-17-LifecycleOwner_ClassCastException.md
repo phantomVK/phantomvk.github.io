@@ -15,11 +15,11 @@ tags:
 
 Activity出现ClassCastException：
 
-![错误日志](/img/images/LifecycleOwner_CCE_0.jpg)
+![错误日志](/img/android/LifecycleOwner_CCE_0.jpg)
 
 带Fragment的Activity出现ClassCastException：
 
-![错误日志](/img/images/LifecycleOwner_CCE_1.png)
+![错误日志](/img/android/LifecycleOwner_CCE_1.png)
 
 由于BaseFragment是自行封装的，开始以为父类RxFragment继承的Fragment类不够新，追查RxFragment的源码用app.v4.Fragment。
 
@@ -27,7 +27,7 @@ Activity出现ClassCastException：
 
 最后翻阅[Android LifecycleOwner](https://developer.android.com/topic/libraries/support-library/revisions.html#26-1-0)发现LifecycleOwner有版本要求，appSupport需要到26.1.0，SDK产品开发平台是27.0.2。
 
-![错误日志](/img/images/LifecycleOwner_26.1.0.png)
+![错误日志](/img/android/LifecycleOwner_26.1.0.png)
 
 一问客户的工程仅用26.0.2，完全没有意料到。
 
