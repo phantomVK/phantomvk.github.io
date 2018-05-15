@@ -13,7 +13,7 @@ tags:
 
 ## 原文
 
-[RCF 2616: Hypertext Transfer Protocol -- HTTP/1.1](https://tools.ietf.org/html/rfc2616)
+[RCF 2616: Hypertext Transfer Protocol -- HTTP/1.1](https://tools.ietf.org/html/rfc2616#section-8.1.1)
 
 ```
 Persistent HTTP connections have a number of advantages:
