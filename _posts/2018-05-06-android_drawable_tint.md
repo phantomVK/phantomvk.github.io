@@ -4,7 +4,7 @@ title:      "Android Drawable tint方法"
 date:       2018-05-06
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    true
+catalog:    false
 tags:
     - Android
 ---
@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Origin black
+        // black, Original
         val drawable = ContextCompat.getDrawable(this, R.drawable.ic_close)?.mutate()
         image.setImageDrawable(drawable)
 
@@ -64,7 +64,8 @@ class MainActivity : AppCompatActivity() {
 #### R.layout.activity_main
 
 ```xml
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -92,4 +93,4 @@ class MainActivity : AppCompatActivity() {
 
 ### 运行效果
 
-![错误日志](/img/android/android_drawable_tint.jpg)
+![运行效果](/img/android/android_drawable_tint.jpg)

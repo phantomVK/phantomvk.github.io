@@ -9,9 +9,9 @@ tags:
     - Android
 ---
 
-### 方案A：
+### 方案A (推荐)：
 
-获取带主题属性的drawable，主题配置来自当前Activity
+获取带主题属性的drawable，主题配置来自当前Activity:
 
 ```java
 ContextCompat.getDrawable(getActivity(), R.drawable.name);
@@ -19,7 +19,7 @@ ContextCompat.getDrawable(getActivity(), R.drawable.name);
 
 ### 方案B：
 
-获取不带主题属性的drawable
+获取不带主题属性的drawable:
 
 ```java
 ResourcesCompat.getDrawable(getResources(), R.drawable.name, null);
@@ -27,7 +27,7 @@ ResourcesCompat.getDrawable(getResources(), R.drawable.name, null);
 
 ### 方案C：
 
-获取带自定义主题属性的drawable
+获取带自定义主题属性的drawable:
 
 ```java
 ResourcesCompat.getDrawable(getResources(), R.drawable.name, anotherTheme);
