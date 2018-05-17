@@ -19,7 +19,7 @@ public class SparseArray<E> implements Cloneable
 
 由于SparseArrays使用int作为键时，不像HashMap<Integer, Object>的键，需把int装箱为Integer对象，避免了装箱拆箱的性能损失。并使用对内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。
 
-用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但也在存取操作上需耗费相对更多时间。
+用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但在存取操作上需耗费相对更多时间。
 
 根据类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的index找对应索引的值，由此可推测时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于key保存在mKeys数组，value保存在mValues数组，任何一次增删键值对都有可能同时重建两个数组。
 
