@@ -19,7 +19,7 @@ java.lang.IndexOutOfBoundsException: Inconsistency detected. Invalid view holder
 
 继承并重写LinearLayoutManager.onLayoutChildren()方法
 
-```kotlin
+```java
 class WrappedLinearLayoutManager : LinearLayoutManager {
 
     constructor(context: Context) : super(context)
@@ -40,7 +40,7 @@ class WrappedLinearLayoutManager : LinearLayoutManager {
 
 调用时使用WrappedLinearLayoutManager代替LinearLayoutManager
 
-```kotlin
+```java
 val recyclerAdapter = RecyclerViewAdapter(activity)
 val manager = WrapContentLinearLayoutManager(context).apply { orientation = LinearLayoutManager.VERTICAL }
 

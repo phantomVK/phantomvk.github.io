@@ -23,7 +23,7 @@ Hadoop依赖JDK，请确认系统已经安装JDK，具体请参考 __[Ubuntu安�
 
 ### 2.1 下载Hadoop
 
-一个不太新的Hadoop，通过`wget`下载[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)，然后解压到`/opt`
+通过`wget`在[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)下载Hadoop，然后解压到`/opt`
 
 ```bash
 $ cd /opt
@@ -121,7 +121,7 @@ $ vim /etc/profile
  export HADOOP_HOME=/opt/hadoop-1.2.1 
 ```
 
-相同文件`PATH`变量中追加参数`$HADOOP_HOME/bin:`，保存、退出、刷新`profile`
+相同文件`PATH`变量中追加参数`$HADOOP_HOME/bin:`，保存、退出并刷新`profile`
 
 ```bash
 $ source /etc/profile
@@ -294,7 +294,7 @@ $ ssh localhost # 检查ssh服务
 
 #### 4.5 安装dpkg报错
 
-多个窗口同时使用`apt-get`会出现这个错误，不要同时使用就好
+多个窗口同时使用`apt-get`会出现此错误，避免同时使用多个窗口
 
 ```bash
 .....

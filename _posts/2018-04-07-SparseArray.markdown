@@ -17,18 +17,18 @@ SparseArrays<E>由Android原生提供，用于代替HashMap的容器类。准确
 public class SparseArray<E> implements Cloneable
 ```
 
-由于SparseArrays使用int作为键时，不像HashMap<Integer, Object>的键，需把int装箱为Integer对象，避免了装箱拆箱的性能损失。并使用对内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。
+由于SparseArrays使用int作为键时，不像HashMap<Integer, Object>的键把int装箱为Integer，避免装箱、拆箱的性能损失。并使用对内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。
 
 用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但在存取操作上需耗费相对更多时间。
 
-根据类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的index找对应索引的值，由此可推测时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于key保存在mKeys数组，value保存在mValues数组，任何一次增删键值对都有可能同时重建两个数组。
+根据类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的index找对应索引的值，由此可推测时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于key保存在mKeys数组，value保存在mValues数组，任何一次增删键值对都有可能重建两个数组。
 
 因此SparseArrays做了一定优化，如移除一个键值对时只会把mValues对应的Object标记为`DELETED`，等下一次同key插入新value时直接替换，且失效空间在数组扩容或回收空间时才处理。
 
 总结主要应用场景：
 
-- 类型为<int, Object>，若key原本是Integer就直接用HashMap；
-- 存储键值对量较少，数百以内为佳；
+- 类型为<int, Object>，若key是Integer建议直接用HashMap；
+- 存储键值对量较少，避免查询带来的性能问题；
 - 对存取时间不太敏感，但内存可用条件苛刻的设备；
 - 不在Java标准库，仅在Android系统中提供；
 - 支持按照key升序输出value；
@@ -42,11 +42,11 @@ private static final Object DELETED = new Object();
 // 是否开启失效值处理的标志位，用于规整数组
 private boolean mGarbage = false;
 
-// 保存键的数组
+// 保存键的整形数组
 private int[] mKeys;
 // 保存值的数组，索引与键数组对应
 private Object[] mValues;
-// 已保存键值对数量
+// 数组容量
 private int mSize;
 ```
 
@@ -155,7 +155,7 @@ public void clear() {
     for (int i = 0; i < n; i++) {
         values[i] = null;
     }
-    // 保存元素数量为0
+    // 数组容量置0
     mSize = 0;
     mGarbage = false;
 }

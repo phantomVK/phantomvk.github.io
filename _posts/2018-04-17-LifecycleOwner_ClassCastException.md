@@ -11,7 +11,7 @@ tags:
 
 
 
-对客户集成SDK提供技术支持的时候，客户源码工程编译没有报错，但运行过程SDK出现Fragment没法转型为LifecycleOwner异常并导致Crash。推测可知运行时Fragment没有实现LifecycleOwner接口，向上转型失败了。
+对客户集成SDK提供技术支持的时候，客户源码工程编译没有报错，但运行过程SDK出现Fragment没法转型为LifecycleOwner的异常并导致Crash。推测可知运行时Fragment没有实现LifecycleOwner接口，向上转型失败了。
 
 Activity出现ClassCastException：
 
