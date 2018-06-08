@@ -614,8 +614,7 @@ private final class UnsetPressedState implements Runnable {
 
 # 五、参考资料
 
-[InputEventConsistencyVerifier](http://developer.oesf.biz/em/developer/reference/eggplant/android/view/InputEventConsistencyVerifier.html)
-
-[TouchDelegate](https://developer.android.com/reference/android/view/TouchDelegate.html)
+* [InputEventConsistencyVerifier](http://developer.oesf.biz/em/developer/reference/eggplant/android/view/InputEventConsistencyVerifier.html)
+* [TouchDelegate](https://developer.android.com/reference/android/view/TouchDelegate.html)
 
 

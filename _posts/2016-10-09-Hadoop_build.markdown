@@ -17,13 +17,13 @@ __运行环境：`Ubuntu 16.04 LTS AMD64` 、`OpenJDK 9`、`Hadoop-1.2.1`、`Ope
 
 #### 1.1 安装JDK
 
-Hadoop依赖JDK，请确认系统已经安装JDK，具体请参考 __[Ubuntu安装Oracle JDK8](http://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__ 
+Hadoop依赖JDK，请确认系统已经安装JDK，具体请参考文章:  __[Ubuntu安装Oracle JDK8](http://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__ 
 
 ## 二、 Hadoop安装及配置
 
 ### 2.1 下载Hadoop
 
-通过`wget`在[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)下载Hadoop，然后解压到`/opt`
+通过`wget`在[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)下载Hadoop并解压到`/opt`
 
 ```bash
 $ cd /opt
