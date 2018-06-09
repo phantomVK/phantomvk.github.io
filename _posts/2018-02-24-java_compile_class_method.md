@@ -17,7 +17,7 @@ Java方法执行一般会利用分层编译，先通过c1解释执行。方法�
 
 > -XX:HugeMethodLimit=8000
 
-HotSpot默认不会编译巨型方法，也就是`-XX:+DontCompileHugeMethods`，`-XX:-DontCompileHugeMethods`可以支持巨型方法编译。
+HotSpot默认不会编译巨型方法，也就是`-XX:+DontCompileHugeMethods`。通过修改参数为`-XX:-DontCompileHugeMethods`开启巨型方法编译。
 
 判断方法是否为大对象由`-XX:HugeMethodLimit=8000`来决定，`8000`表示JIT编译字节码大小超过8000字节的方法就是巨型方法，这个阈值在产品版HotSpot里无法调整。
 
