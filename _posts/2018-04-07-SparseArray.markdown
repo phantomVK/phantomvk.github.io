@@ -11,28 +11,28 @@ tags:
 
 ### 一、前言
 
-SparseArrays<E>由Android原生提供，用于代替HashMap的容器类。准确说是在一部分场景中能代替HashMap<Integer, Object>，提供从int映射到Object<E>的能力，优点是具有高效的内存使用率。
+SparseArrays<E>由Android原生提供的稀疏数组，用于代替HashMap的容器类。准确说是在一部分场景中能代替HashMap<Integer, Object>，提供从int映射到Object<E>的能力，优点是具有高效的内存利用率。
 
 ```java
 public class SparseArray<E> implements Cloneable
 ```
 
-由于SparseArrays使用int作为键时，不像HashMap<Integer, Object>的键把int装箱为Integer，避免装箱、拆箱的性能损失。并使用对内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。
+SparseArrays使用基本类型int作为键，不像HashMap<Integer, Object>的键需把int装箱为Integer，避免了装箱、拆箱的性能损失。并使用内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。
 
 用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但在存取操作上需耗费相对更多时间。
 
-根据类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的index找对应索引的值，由此可推测时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于key保存在mKeys数组，value保存在mValues数组，任何一次增删键值对都有可能重建两个数组。
+从类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的index找对应索引的值，由此可推测时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于key保存在mKeys数组，value保存在mValues数组，任何一次增删键值对都有可能重建两个数组。
 
-因此SparseArrays做了一定优化，如移除一个键值对时只会把mValues对应的Object标记为`DELETED`，等下一次同key插入新value时直接替换，且失效空间在数组扩容或回收空间时才处理。
+不过，SparseArrays做了一定优化，如移除一个键值对时只会把mValues对应的Object标记为`DELETED`，等下一次同key插入新value时直接替换，且失效空间在数组扩容或回收空间时才处理。
 
 总结主要应用场景：
 
 - 类型为<int, Object>，若key是Integer建议直接用HashMap；
-- 存储键值对量较少，避免查询带来的性能问题；
+- 存储键值对量较少，避免出现查询带来的性能问题；
 - 对存取时间不太敏感，但内存可用条件苛刻的设备；
 - 不在Java标准库，仅在Android系统中提供；
 - 支持按照key升序输出value；
-- 非线程安全，需自行保证；
+- 非线程安全，或自行保证；
 
 ### 二、数据成员
 
@@ -160,7 +160,7 @@ public void clear() {
     mGarbage = false;
 }
 ```
-### 六、增加
+### 六、插入
 ```java
 // 在指定key位置放入值，如果原位置已经存在vlaue，则直接替换
 public void put(int key, E value) {
@@ -320,7 +320,7 @@ public void setValueAt(int index, E value) {
 }
 ```
 
-### 九、ContainerHelpers
+### 九、ContainerHelpers类
 
 ```java
 class ContainerHelpers {

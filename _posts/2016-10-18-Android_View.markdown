@@ -89,7 +89,7 @@ public class MyButton extends Button {
 
 #### 1.3 MainActivity
 
-绑定按钮并给按钮设置一个监听器`OnTouchListener`。后面我会说明这个监听器的用途。
+绑定按钮并给按钮设置一个监听器`OnTouchListener`，下文会说明这个监听器的用途。
 
 ```java
 public class MainActivity extends AppCompatActivity {
@@ -407,8 +407,8 @@ private void checkForLongClick(int delayOffset) {
         if (mPendingCheckForLongPress == null) {
             mPendingCheckForLongPress = new CheckForLongPress();
         }
-     
-        // 可能是多点触控数
+
+        // View重新attach到Window的次数
         mPendingCheckForLongPress.rememberWindowAttachCount();
         
         // 减去Prepress已经延迟的100ms
@@ -436,7 +436,7 @@ private final class CheckForLongPress implements Runnable {
         }
     }
     
-    // 疑似记录长按过程多点触控是否变化
+    // View重新attach到Window的次数
     public void rememberWindowAttachCount() {
         mOriginalWindowAttachCount = mWindowAttachCount;
     }
