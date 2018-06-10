@@ -89,7 +89,7 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
             // 有START_TAG则解析根布局名
             final String name = parser.getName();
             
-            // merge只能在根布局和attachToRoot为true时使用
+            // merge只能在根布局非空且attachToRoot为true时使用
             // 否则抛出异常：<merge /> can be used only with a valid ViewGroup root and attachToRoot=true
             if (TAG_MERGE.equals(name)) {
                 if (root == null || !attachToRoot) {
@@ -262,6 +262,7 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
             try {
                 // 不包含符号'.'表示原生View，不是自定义如 <com.phatomvk.custom.view />
                 // onCreateView()调用createView(name, prefix:"android.view.", attrs)
+                // 示例：android.support.v7.widget.RecyclerView不会添加前缀
                 if (-1 == name.indexOf('.')) {
                     // 例：TextView全路径名为'android.view.TextView'
                     view = onCreateView(parent, name, attrs);
@@ -298,9 +299,12 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
 View最终通过其全路径名在`ClassLoader`中反射出对应的View.
 
 ```java
+// 全局静态HashMap缓存，缓存View的构造方法
+private static final HashMap<String, Constructor<? extends View>> sConstructorMap =
+        new HashMap<String, Constructor<? extends View>>();
+
 public final View createView(String name, String prefix, AttributeSet attrs)
         throws ClassNotFoundException, InflateException {
-    // 全局静态HashMap缓存
     Constructor<? extends View> constructor = sConstructorMap.get(name);
     if (constructor != null && !verifyClassLoader(constructor)) {
         constructor = null;
@@ -396,6 +400,28 @@ public final View createView(String name, String prefix, AttributeSet attrs)
     } finally {
         Trace.traceEnd(Trace.TRACE_TAG_VIEW);
     }
+}
+```
+
+### verifyClassLoader
+
+```java
+private final boolean verifyClassLoader(Constructor<? extends View> constructor) {
+    final ClassLoader constructorLoader = constructor.getDeclaringClass().getClassLoader();
+    if (constructorLoader == BOOT_CLASS_LOADER) {
+        // fast path for boot class loader (most common case?) - always ok
+        return true;
+    }
+    // in all normal cases (no dynamic code loading), we will exit the following loop on the
+    // first iteration (i.e. when the declaring classloader is the contexts class loader).
+    ClassLoader cl = mContext.getClassLoader();
+    do {
+        if (constructorLoader == cl) {
+            return true;
+        }
+        cl = cl.getParent();
+    } while (cl != null);
+    return false;
 }
 ```
 
