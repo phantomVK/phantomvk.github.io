@@ -31,7 +31,7 @@ com.android.build.api.transform.TransformException: com.android.builder.packagin
 packagingOptions {  
     exclude 'META-INF/rxjava.properties'
 } 
-``` 
+```
 
 
 
@@ -42,11 +42,10 @@ implementation 'com.squareup.retrofit2:adapter-rxjava2:1.0.0'
 ```
 
 
-参考： 
+参考链接： 
 
-<http://blog.csdn.net/bingducaijun/article/details/53584449>
-
-<http://winkyqin.com/2017/01/21/Android%E5%B8%B8%E8%A7%81%E5%BC%82%E5%B8%B8%E8%A7%A3%E5%86%B3/2017-02-07/>
+* <http://blog.csdn.net/bingducaijun/article/details/53584449>
+* <http://winkyqin.com/2017/01/21/Android%E5%B8%B8%E8%A7%81%E5%BC%82%E5%B8%B8%E8%A7%A3%E5%86%B3/2017-02-07/>
 
 
 

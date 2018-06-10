@@ -13,7 +13,7 @@ tags:
 
 ## 一、类签名
 
-源码版本为JDK8，支持`随机存储`、`克隆`、`序列化`
+源码版本为JDK8，ArrayList实现了`随机存储`、`克隆`、`序列化`接口
 
 ```java
 public class ArrayList<E> extends AbstractList<E>

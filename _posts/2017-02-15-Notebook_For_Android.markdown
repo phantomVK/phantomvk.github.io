@@ -190,9 +190,12 @@ private NavigationView navView;
 private Toolbar toolBar;
 
 // 在onCreate()中初始化
-navView.setNavigationItemSelectedListener(this); // NavigationView.OnNavigationItemSelectedListener 
-mToggle = new SmoothDrawerToggle(this, drawerLayout, toolBar); // Activity.Context, 设置该抽屉xml的ID, toolBar用于抽屉开闭图标 
-drawerLayout.addDrawerListener(mToggle); // 给抽屉加入自定义的Listener
+navView.setNavigationItemSelectedListener(this);
+// NavigationView.OnNavigationItemSelectedListener 
+mToggle = new SmoothDrawerToggle(this, drawerLayout, toolBar);
+// Activity.Context, 设置该抽屉xml的ID, toolBar用于抽屉开闭图标 
+drawerLayout.addDrawerListener(mToggle);
+// 给抽屉加入自定义的Listener
 mToggle.syncState();
 ```
 ### 2.3 箭头颜色
@@ -584,7 +587,7 @@ public void onActivityResult(int requestCode, int resultCode, Intent data) {
     <solid android:color="#cecece" />
     <!-- 设置进度条的四个角为弧形的半径 -->
     <corners android:radius="90dp" />
-    <!-- padding：边界的间隔-->
+    <!-- padding：边界的间隔 -->
     <padding
         android:bottom="1dp"
         android:left="1dp"
@@ -610,8 +613,6 @@ invalidateOptionsMenu()
 
 ## 八、避免使用android.media.ExifInterface
 
-Android Studio提示使用`android.support.media.ExifInterface`替换`android.media.ExifInterface`，但是直接修改没法找到对应包。
-
-须显式导入：`compile "com.android.support:exifinterface:27.0.2"`
+Android Studio提示使用`android.support.media.ExifInterface`替换`android.media.ExifInterface`，但是直接修改没法找到对应包，需要导入：`compile "com.android.support:exifinterface:27.0.2"`
 
 

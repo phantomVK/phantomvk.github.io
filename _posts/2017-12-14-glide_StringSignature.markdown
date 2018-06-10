@@ -100,5 +100,5 @@ public final class ObjectKey implements Key {
 
 ## 四、参考链接
 
-[StringSignature class not found #2692](https://github.com/bumptech/glide/issues/2692)
+* [StringSignature class not found #2692](https://github.com/bumptech/glide/issues/2692)
 

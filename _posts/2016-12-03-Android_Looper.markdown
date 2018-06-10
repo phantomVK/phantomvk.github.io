@@ -84,8 +84,8 @@ public static void loop() {
     // 循环遍历，从消息队列去消息
     for (;;) {
         // 如果队列没有消息，会阻塞并等待有效消息
-        // 队列返回null表明消息队列已经关闭，退出loop()的死循环
         Message msg = queue.next();
+        // 队列返回null表明消息队列已经关闭，退出loop()的死循环
         if (msg == null) {
             return; // 消息队列关闭，Looper退出
         }

@@ -40,5 +40,5 @@ $ cat android | sed -e 's/com.android.sdkmanager.Main/com.android.sdklib.build.A
 $ chmod a+x apkbuilder
 ```
 
-参考来源：http://stackoverflow.com/questions/19273237/android-build-fails-no-such-file-or-directory-apkbuilder
+参考来源：[android-build-fails-no-such-file-or-directory-apkbuilder](http://stackoverflow.com/questions/19273237/android-build-fails-no-such-file-or-directory-apkbuilder)
 

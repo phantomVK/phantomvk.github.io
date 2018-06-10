@@ -15,22 +15,22 @@ Handler有两个主要用法：
 
  * 计划在将来某个时间点处理Message和Runnable
  * 在不同线程里将一个动作加入Handler所对应的队列去执行
- 
+
 # 二、成员变量
 
-Handler有4个不可变成员变量：消息队列`mQueue`、消息队列所属`mLooper`、可选Handler回调`mCallback`、可选异步标志`mAsynchronous`
+Handler有4个不可变成员变量：
 
 ```java
-final MessageQueue mQueue;
-final Looper mLooper;
-final Callback mCallback;
-final boolean mAsynchronous;
+final MessageQueue mQueue;   // 消息队列
+final Looper mLooper;        //消息队列所属Looper
+final Callback mCallback;    // 可选Handler回调
+final boolean mAsynchronous; // 可选异步标志
 ```
 
 
 # 三、构造方法
 
-如果线程已经开启Looper，Handler可以使用下面的构造方法。
+如果线程已经开启Looper，Handler可以使用下列构造方法。
 
 ```java
 public Handler() {
@@ -47,6 +47,7 @@ public Handler(boolean async) {
 
 public Handler(Callback callback, boolean async) {
     // 判断是否匿名类、本地类、成员类，判断修饰符是否static，避免内存泄漏
+    // 只要是静态内部类，就不会持有外部类引用从而造成内存泄漏
     if (FIND_POTENTIAL_LEAKS) {
         final Class<? extends Handler> klass = getClass();
         if ((klass.isAnonymousClass() || klass.isMemberClass() || klass.isLocalClass()) &&
@@ -89,7 +90,7 @@ public Handler(Looper looper, Callback callback, boolean async) {
 
 # 四、封装
 
-作用是把`r`赋值给`msg.callback`，把`token`赋值给`m.obj`。因为下一个代码块就使用到这个方法，所以拿到前面先说。
+作用是把`r`封装到`msg.callback`，把`token`赋值给`m.obj`。
 
 ```java
 private static Message getPostMessage(Runnable r) {
@@ -109,7 +110,7 @@ private static Message getPostMessage(Runnable r, Object token) {
 
 # 五、消息发送
 
-方法封装形参`Runnable`，方法名组成是 `post()`
+方法封装形参`Runnable`，方法名组成是 `post()`：
 
 ```java
 public final boolean post(Runnable r) {
@@ -122,7 +123,7 @@ public final boolean postDelayed(Runnable r, long delayMillis) {
 }
 ```
 
-方法形参是`msg`或`msg.what`，方法名组成是 `sendMessage()`。没有方法形参既有`Runnable`，又有`msg`
+方法形参是`msg`或`msg.what`，方法名组成是 `sendMessage()`：
 
 ```java
 public final boolean sendMessage(Message msg) {
@@ -191,11 +192,11 @@ public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
 
 消息默认放在消息队列的队尾处，返回`true`代表成功进入队列，不代表消息会被调度。
 
-一般情况下，消息队列都会等待所有消息完成才退出。但如果手动关闭消息队列，那滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
+一般情况下消息队列都会等待所有消息完成才退出。如果手动关闭消息队列，滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
 
 ```java
 private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
-    msg.target = this;
+    msg.target = this; // `this` is a Handler.
     if (mAsynchronous) {
         msg.setAsynchronous(true);
     }
@@ -226,18 +227,21 @@ public final boolean sendMessageAtFrontOfQueue(Message msg) {
 
 ### 6.1 消息调度
 
-当消息到达预定执行时间，消息所在的Looper就会调用`msg.target.dispatchMessage(msg)`，也就是下面方法
+当消息到达预定执行时间，消息所在Looper会调用`msg.target.dispatchMessage(msg)`：
 
 ```java
 public void dispatchMessage(Message msg) {
     if (msg.callback != null) {
+        // 由Message.callback消费事件；
         handleCallback(msg);
     } else {
+        // 由Handler.mCallback消费事件；
         if (mCallback != null) {
             if (mCallback.handleMessage(msg)) {
                 return;
             }
         }
+        // 事件没被消费，交给Handler.handleMessage(msg).
         handleMessage(msg);
     }
 }
@@ -245,7 +249,7 @@ public void dispatchMessage(Message msg) {
 
 ### 6.2 消息回调
 
-(1) 首先`dispatchMessage(msg)`尝试执行消息体的`msg.callback`。不过由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空而跳过。
+(1) `dispatchMessage(msg)`首先尝试执行消息体的`msg.callback`。由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空并跳过。
 
 ```java
 private static void handleCallback(Message message) {
@@ -253,7 +257,7 @@ private static void handleCallback(Message message) {
 }
 ```
 
-(2) `msg.callback`不行就看看Handler自己有没有`mCallback`。
+(2) `msg.callback`不行就看看Handler自己有没有`mCallback`
 
 ```java
 public interface Callback {
@@ -261,7 +265,7 @@ public interface Callback {
 }
 ```
 
-例子: 创建Handler时可以实现这个回调，支持操作主线程UI
+例子: 创建Handler时可以实现这个回调，支持操作主线程
 
 ```java
 Handler handler = new Handler(new Handler.Callback() {
@@ -273,17 +277,20 @@ Handler handler = new Handler(new Handler.Callback() {
 });
 ```
 
-(3) 如果上两个回调都不存在，就只能寄托于我们自己重载的方法
+(3) 如果上两个回调都不存在，最终交给Handler类的handleMessage(Message msg)方法：
 
 ```java
 @Override
 public void handleMessage(Message msg) {
     super.handleMessage(msg);
-    switch(msg.what){
+
+    int what = msg.what;
+    switch(what){
         case START_ACTIVITY:
             Intent intent = new Intent(Activity.this, MainActivity.class);
             Activity.this.startActivity(intent);
             break;
+
         case TOAST_SHORT_SHOW:
             Toast.makeText(Activity.this, "Toast", Toast.LENGTH_SHORT).show();
             break;
@@ -293,7 +300,9 @@ public void handleMessage(Message msg) {
 
 # 七、移除消息
 
-根据消息身份`what`、消息`Runnable`或`msg.obj`移除队列中对应的消息。例如发送`msg`，用同一个`msg.what`作为参数。所有方法最终调用`MessageQueue.removeMessages`，具体在`MessageQueue`的源码阅读里面说。
+根据消息身份`what`、消息`Runnable`或`msg.obj`移除队列中对应的消息。
+
+例如发送`msg`，用同一个`msg.what`作为参数。所有方法最终调用`MessageQueue.removeMessages`，具体在`MessageQueue`的源码阅读里面说。
 
 ```java
 public final void removeCallbacks(Runnable r) {

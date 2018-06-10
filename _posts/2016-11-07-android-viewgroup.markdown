@@ -89,36 +89,37 @@ public class MyLinearLayout extends LinearLayout {
 然后直接修改上次的xml布局文件，把RelativeLayout改为自定义ViewGroup:
 
 ```xml
-<com.corevk.demoproject.MyLinearLayout
+<com.phantomvk.demoproject.MyLinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <com.corevk.demoproject.MyButton
+    <com.phantomvk.demoproject.MyButton
         android:id="@+id/MyButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="CLICK ME"/>
-</com.corevk.demoproject.MyLinearLayout>
+
+</com.phantomvk.demoproject.MyLinearLayout>
 ```
 
 # 二、运行结果
 
-事件按照以下规律传递:
+事件按照以下顺序传递:
 
 * MyLinearLayout: dispatchTouchEvent
 * MyLinearLayout: onInterceptTouchEvent
 * MyButton: dispatchTouchEvent
 * MyButton: onTouchEvent
 
-事件首先分发到ViewGroup：
+事件分发流程：
 
-- ViewGroup.dispatchTouchEvent()收到事件，交给ViewGroup.onInterceptTouchEvent()；
+- `ViewGroup.dispatchTouchEvent()`交给`ViewGroup.onInterceptTouchEvent()`；
 
 
-- 事件进入ViewGroup.onInterceptTouchEvent()，该方法返回false，事件继续下发；
-- 分发到子View.dispatchTouchEvent()，又传递到onTouchEvent.OnTouchListener消费，结束流程；
-- 如果OnTouchListener不拦截事件，则会给View.onTouch().OnClickListener消费.
+- 事件进入`ViewGroup.onInterceptTouchEvent()`，该方法返回`false`继续下发；
+- 分发给子View的`dispatchTouchEvent()`，传递到`onTouchEvent.OnTouchListener`消费；
+- 如果`OnTouchListener`不拦截事件，则交给`View.onTouch().OnClickListener`消费.
 
 ```
 demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_DOWN
@@ -139,9 +140,7 @@ demoproject E/MyButton: onTouchEvent ACTION_UP
 
 # 三、源码剖析
 
-## 3.1 ViewGroup 
-
-#### 3.1.1 dispatchTouchEvent
+#### 3.1 dispatchTouchEvent
 
 ```java
 @Override
@@ -371,7 +370,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 }
 ```
 
-#### 3.1.3 onFilterTouchEventForSecurity
+#### 3.2 onFilterTouchEventForSecurity
 
 隐私策略过滤触摸事件返回状态值。true表示继续分发事件，false表示事件被过滤掉不再分发。
 
@@ -386,7 +385,7 @@ public boolean onFilterTouchEventForSecurity(MotionEvent event) {
 }
 ```
 
-#### 3.1.3 requestDisallowInterceptTouchEvent
+#### 3.3 requestDisallowInterceptTouchEvent
 
 ```java
 public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
@@ -408,7 +407,7 @@ public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
 ```
 
 
-#### 3.1.4 buildOrderedChildList()
+#### 3.4 buildOrderedChildList()
 
 建立一个视图组的列表，通过虚拟的Z轴来进行排序。
 
@@ -440,7 +439,7 @@ ArrayList<View> buildOrderedChildList() {
 }
 ```
 
-#### 3.1.5 dispatchTransformedTouchEvent
+#### 3.5 dispatchTransformedTouchEvent
 
 ```java
 private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
@@ -528,7 +527,7 @@ private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
 ```
 
 
-#### 3.1.6 addTouchTarget
+#### 3.6 addTouchTarget
 
 调用该方法获取了TouchTarget。同时mFirstTouchTarget被赋予相同对象。
     
@@ -541,7 +540,7 @@ private TouchTarget addTouchTarget(View child, int pointerIdBits) {
 }
 ```
 
-#### 3.1.7 onInterceptTouchEvent()
+#### 3.7 onInterceptTouchEvent()
 
 方法默认返回false，表示继续执行事件分发。如果该方法被重写并返回true，事件被拦截并不再分发。
 
@@ -551,7 +550,7 @@ public boolean onInterceptTouchEvent(MotionEvent ev) {
 }
 ```
 
-#### 3.1.8 cancelAndClearTouchTargets() 
+#### 3.8 cancelAndClearTouchTargets() 
 
 取消并移除所有触控目标
 
@@ -580,7 +579,7 @@ private void cancelAndClearTouchTargets(MotionEvent event) {
 }
 ```
 
-#### 3.1.9 resetTouchState() 
+#### 3.9 resetTouchState() 
 
 ```java
 private void resetTouchState() {

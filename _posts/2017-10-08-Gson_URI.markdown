@@ -38,5 +38,7 @@ Gson mGson = new GsonBuilder()
         .create();
 ```
 
-参考：https://stackoverflow.com/questions/22533432/create-object-from-gson-string-doesnt-work>
+参考链接：
+
+* [create-object-from-gson-string-doesnt-work](https://stackoverflow.com/questions/22533432/create-object-from-gson-string-doesnt-work)
 

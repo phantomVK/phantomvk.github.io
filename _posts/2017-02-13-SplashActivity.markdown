@@ -21,12 +21,10 @@ public final class SplashActivity extends Activity {
 
     private SplashHandler mHandler;
 
-    /**
-     * 软件启动是否展示闪屏页，startSplash:
-     *     true  :  跳过闪屏页
-     *     false :  不跳过闪屏（default）
-     * 建议在App设置中控制此SharedPrefs变量，参考Bilibili Android客户端
-     */
+    // 软件启动是否展示闪屏页，startSplash:
+    //     true  :  跳过闪屏页
+    //     false :  不跳过闪屏（default）
+    // 建议在App设置中控制此SharedPrefs变量
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,10 +55,8 @@ public final class SplashActivity extends Activity {
         }
     }
 
-    /**
-     * 点击闪屏任一个位置直接跳过闪屏页
-     * 一般在实机测试时不等待闪屏点击跳过
-     */
+    // 点击闪屏任一个位置直接跳过闪屏页
+    // 一般在实机测试时不等待闪屏点击跳过
     @Override
     public boolean onTouchEvent(MotionEvent event) {
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
