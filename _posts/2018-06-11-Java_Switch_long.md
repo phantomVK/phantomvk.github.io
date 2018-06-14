@@ -64,9 +64,11 @@ in a switch.
 
 1. 上文明确指出JVM的`tableswitch`和`lookupswitch`指令只能操作int数据:
 
-   __The Java Virtual Machine's tableswitch and lookupswitch instructions operate only on int data.__
+   __"The Java Virtual Machine's tableswitch and lookupswitch instructions operate only on int data."__
 
-2. 同时表明在`switch`中执行`byte`、`char`、`short`会隐式向上转型为基本类型`int`
+2. 同时表明在`switch`中执行`byte`、`char`、`short`会隐式向上转型为基本类型`int`:
+  
+   __"Because operations on byte, char, or short values are internally promoted to int, a switch whose expression evaluates to one of those types is compiled as though it evaluated to type int."__
 
 ### 参考链接
 
