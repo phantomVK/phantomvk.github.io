@@ -294,7 +294,9 @@ static class Node<K,V> implements Map.Entry<K,V> {
         return false;
     }
 }
+```
 
+```java
 /* ---------------- Static utilities -------------- */
 
 /**
@@ -468,7 +470,9 @@ public HashMap(Map<? extends K, ? extends V> m) {
     this.loadFactor = DEFAULT_LOAD_FACTOR;
     putMapEntries(m, false);
 }
+```
 
+```java
 /**
  * Implements Map.putAll and Map constructor.
  *
@@ -1826,7 +1830,9 @@ void internalWriteEntries(java.io.ObjectOutputStream s) throws IOException {
         }
     }
 }
+```
 
+```java
 /* ------------------------------------------------------------ */
 // Tree bins
 
