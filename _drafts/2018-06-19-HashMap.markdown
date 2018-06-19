@@ -1,14 +1,15 @@
 ---
 layout:     post
 title:      "Java源码系列 -- HashMap源码剖析"
-subtitle:   "JDK10"
-date:       2018-02-20
+date:       2018-06-19
 author:     "phantomVK"
-header-img: "img/post_bg.jpg"
+header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
     - Java源码系列
 ---
+
+## 类签名
 
 ```java
 /**
@@ -99,24 +100,16 @@ tags:
  * @param <K> the type of keys maintained by this map
  * @param <V> the type of mapped values
  *
- * @author  Doug Lea
- * @author  Josh Bloch
- * @author  Arthur van Hoff
- * @author  Neal Gafter
- * @see     Object#hashCode()
- * @see     Collection
- * @see     Map
- * @see     TreeMap
- * @see     Hashtable
- * @since   1.2
  */
 public class HashMap<K,V> extends AbstractMap<K,V>
     implements Map<K,V>, Cloneable, Serializable
 ```
 
-```java
-private static final long serialVersionUID = 362498820763181265L;
+![HashMap_UML](/img/java/HashMap_UML.png)
 
+
+## 常量成员
+```java
 /*
  * Implementation notes.
  *
@@ -207,21 +200,13 @@ private static final long serialVersionUID = 362498820763181265L;
  * avoid aliasing errors amid all of the twisty pointer operations.
  */
 
-/**
- * The default initial capacity - MUST be a power of two.
- */
-static final int DEFAULT_INITIAL_CAPACITY = 1 << 4; // aka 16
+// HashMap默认初始化大小为16
+static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;
 
-/**
- * The maximum capacity, used if a higher value is implicitly specified
- * by either of the constructors with arguments.
- * MUST be a power of two <= 1<<30.
- */
+// HashMap最大容量
 static final int MAXIMUM_CAPACITY = 1 << 30;
 
-/**
- * The load factor used when none specified in constructor.
- */
+// 未在构造方法中指定负载因子时使用的默认值
 static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
 /**
@@ -250,16 +235,18 @@ static final int UNTREEIFY_THRESHOLD = 6;
 static final int MIN_TREEIFY_CAPACITY = 64;
 ```
 
+## 桶节点
+
 ```java
 /**
  * Basic hash bin node, used for most entries.  (See below for
  * TreeNode subclass, and in LinkedHashMap for its Entry subclass.)
  */
 static class Node<K,V> implements Map.Entry<K,V> {
-    final int hash;
-    final K key;
-    V value;
-    Node<K,V> next;
+    final int hash; // Node的Hash值
+    final K key;    // 保存的键
+    V value;        // 保存的值
+    Node<K,V> next; // 下一个节点的引用
 
     Node(int hash, K key, V value, Node<K,V> next) {
         this.hash = hash;
@@ -296,6 +283,8 @@ static class Node<K,V> implements Map.Entry<K,V> {
 }
 ```
 
+![HashMap_Node_UML](/img/java/HashMap_Node_UML.png)
+
 ```java
 /* ---------------- Static utilities -------------- */
 
@@ -321,39 +310,6 @@ static final int hash(Object key) {
 }
 
 /**
- * Returns x's Class if it is of the form "class C implements
- * Comparable<C>", else null.
- */
-static Class<?> comparableClassFor(Object x) {
-    if (x instanceof Comparable) {
-        Class<?> c; Type[] ts, as; ParameterizedType p;
-        if ((c = x.getClass()) == String.class) // bypass checks
-            return c;
-        if ((ts = c.getGenericInterfaces()) != null) {
-            for (Type t : ts) {
-                if ((t instanceof ParameterizedType) &&
-                    ((p = (ParameterizedType) t).getRawType() ==
-                     Comparable.class) &&
-                    (as = p.getActualTypeArguments()) != null &&
-                    as.length == 1 && as[0] == c) // type arg is c
-                    return c;
-            }
-        }
-    }
-    return null;
-}
-
-/**
- * Returns k.compareTo(x) if x matches kc (k's screened comparable
- * class), else 0.
- */
-@SuppressWarnings({"rawtypes","unchecked"}) // for cast to Comparable
-static int compareComparables(Class<?> kc, Object k, Object x) {
-    return (x == null || x.getClass() != kc ? 0 :
-            ((Comparable)k).compareTo(x));
-}
-
-/**
  * Returns a power of two size for the given target capacity.
  */
 static final int tableSizeFor(int cap) {
@@ -365,9 +321,12 @@ static final int tableSizeFor(int cap) {
     n |= n >>> 16;
     return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
 }
+```
 
-/* ---------------- Fields -------------- */
 
+## 数据成员
+
+```java
 /**
  * The table, initialized on first use, and resized as
  * necessary. When allocated, length is always a power of two.
@@ -382,9 +341,7 @@ transient Node<K,V>[] table;
  */
 transient Set<Map.Entry<K,V>> entrySet;
 
-/**
- * The number of key-value mappings contained in this map.
- */
+// HashMap以保存键值对数量
 transient int size;
 
 /**
@@ -405,26 +362,18 @@ transient int modCount;
 // Additionally, if the table array has not been allocated, this
 // field holds the initial array capacity, or zero signifying
 // DEFAULT_INITIAL_CAPACITY.)
+
+// 	下次个扩容的阀值，threshold = capacity * load factor.
 int threshold;
 
-/**
- * The load factor for the hash table.
- *
- * @serial
- */
+// 负载因子
 final float loadFactor;
+```
 
-/* ---------------- Public operations -------------- */
+## 构造方法
 
-/**
- * Constructs an empty {@code HashMap} with the specified initial
- * capacity and load factor.
- *
- * @param  initialCapacity the initial capacity
- * @param  loadFactor      the load factor
- * @throws IllegalArgumentException if the initial capacity is negative
- *         or the load factor is nonpositive
- */
+```java
+// 指定初始容量值和负载因子值
 public HashMap(int initialCapacity, float loadFactor) {
     if (initialCapacity < 0)
         throw new IllegalArgumentException("Illegal initial capacity: " +
@@ -438,34 +387,18 @@ public HashMap(int initialCapacity, float loadFactor) {
     this.threshold = tableSizeFor(initialCapacity);
 }
 
-/**
- * Constructs an empty {@code HashMap} with the specified initial
- * capacity and the default load factor (0.75).
- *
- * @param  initialCapacity the initial capacity.
- * @throws IllegalArgumentException if the initial capacity is negative.
- */
+// 指定初始容量值，并使用默认负载因子值0.75。注意，初始容量值只能为非负数。
 public HashMap(int initialCapacity) {
     this(initialCapacity, DEFAULT_LOAD_FACTOR);
 }
 
-/**
- * Constructs an empty {@code HashMap} with the default initial capacity
- * (16) and the default load factor (0.75).
- */
+// 构造空的HashMap，默认初始容量为16，默认负载因子为0.75。其他参数使用默认值
 public HashMap() {
-    this.loadFactor = DEFAULT_LOAD_FACTOR; // all other fields defaulted
+    this.loadFactor = DEFAULT_LOAD_FACTOR;
 }
 
-/**
- * Constructs a new {@code HashMap} with the same mappings as the
- * specified {@code Map}.  The {@code HashMap} is created with
- * default load factor (0.75) and an initial capacity sufficient to
- * hold the mappings in the specified {@code Map}.
- *
- * @param   m the map whose mappings are to be placed in this map
- * @throws  NullPointerException if the specified map is null
- */
+// 通过给定Map创建新的HashMap。负载因子默认为0.75，容量值为足够保存m中键值对大小；
+// 若m为null会抛出NullPointerException
 public HashMap(Map<? extends K, ? extends V> m) {
     this.loadFactor = DEFAULT_LOAD_FACTOR;
     putMapEntries(m, false);
@@ -501,24 +434,6 @@ final void putMapEntries(Map<? extends K, ? extends V> m, boolean evict) {
 }
 
 /**
- * Returns the number of key-value mappings in this map.
- *
- * @return the number of key-value mappings in this map
- */
-public int size() {
-    return size;
-}
-
-/**
- * Returns {@code true} if this map contains no key-value mappings.
- *
- * @return {@code true} if this map contains no key-value mappings
- */
-public boolean isEmpty() {
-    return size == 0;
-}
-
-/**
  * Returns the value to which the specified key is mapped,
  * or {@code null} if this map contains no mapping for the key.
  *
@@ -535,6 +450,7 @@ public boolean isEmpty() {
  *
  * @see #put(Object, Object)
  */
+// 返回key对应的value，若key内有对应映射，则返回null
 public V get(Object key) {
     Node<K,V> e;
     return (e = getNode(hash(key), key)) == null ? null : e.value;
@@ -1032,740 +948,10 @@ final class EntrySet extends AbstractSet<Map.Entry<K,V>> {
     }
 }
 
-// Overrides of JDK8 Map extension methods
-
-@Override
-public V getOrDefault(Object key, V defaultValue) {
-    Node<K,V> e;
-    return (e = getNode(hash(key), key)) == null ? defaultValue : e.value;
-}
-
-@Override
-public V putIfAbsent(K key, V value) {
-    return putVal(hash(key), key, value, true, true);
-}
-
-@Override
-public boolean remove(Object key, Object value) {
-    return removeNode(hash(key), key, value, true, true) != null;
-}
-
-@Override
-public boolean replace(K key, V oldValue, V newValue) {
-    Node<K,V> e; V v;
-    if ((e = getNode(hash(key), key)) != null &&
-        ((v = e.value) == oldValue || (v != null && v.equals(oldValue)))) {
-        e.value = newValue;
-        afterNodeAccess(e);
-        return true;
-    }
-    return false;
-}
-
-@Override
-public V replace(K key, V value) {
-    Node<K,V> e;
-    if ((e = getNode(hash(key), key)) != null) {
-        V oldValue = e.value;
-        e.value = value;
-        afterNodeAccess(e);
-        return oldValue;
-    }
-    return null;
-}
-
-/**
- * {@inheritDoc}
- *
- * <p>This method will, on a best-effort basis, throw a
- * {@link ConcurrentModificationException} if it is detected that the
- * mapping function modifies this map during computation.
- *
- * @throws ConcurrentModificationException if it is detected that the
- * mapping function modified this map
- */
-@Override
-public V computeIfAbsent(K key,
-                         Function<? super K, ? extends V> mappingFunction) {
-    if (mappingFunction == null)
-        throw new NullPointerException();
-    int hash = hash(key);
-    Node<K,V>[] tab; Node<K,V> first; int n, i;
-    int binCount = 0;
-    TreeNode<K,V> t = null;
-    Node<K,V> old = null;
-    if (size > threshold || (tab = table) == null ||
-        (n = tab.length) == 0)
-        n = (tab = resize()).length;
-    if ((first = tab[i = (n - 1) & hash]) != null) {
-        if (first instanceof TreeNode)
-            old = (t = (TreeNode<K,V>)first).getTreeNode(hash, key);
-        else {
-            Node<K,V> e = first; K k;
-            do {
-                if (e.hash == hash &&
-                    ((k = e.key) == key || (key != null && key.equals(k)))) {
-                    old = e;
-                    break;
-                }
-                ++binCount;
-            } while ((e = e.next) != null);
-        }
-        V oldValue;
-        if (old != null && (oldValue = old.value) != null) {
-            afterNodeAccess(old);
-            return oldValue;
-        }
-    }
-    int mc = modCount;
-    V v = mappingFunction.apply(key);
-    if (mc != modCount) { throw new ConcurrentModificationException(); }
-    if (v == null) {
-        return null;
-    } else if (old != null) {
-        old.value = v;
-        afterNodeAccess(old);
-        return v;
-    }
-    else if (t != null)
-        t.putTreeVal(this, tab, hash, key, v);
-    else {
-        tab[i] = newNode(hash, key, v, first);
-        if (binCount >= TREEIFY_THRESHOLD - 1)
-            treeifyBin(tab, hash);
-    }
-    modCount = mc + 1;
-    ++size;
-    afterNodeInsertion(true);
-    return v;
-}
-
-/**
- * {@inheritDoc}
- *
- * <p>This method will, on a best-effort basis, throw a
- * {@link ConcurrentModificationException} if it is detected that the
- * remapping function modifies this map during computation.
- *
- * @throws ConcurrentModificationException if it is detected that the
- * remapping function modified this map
- */
-@Override
-public V computeIfPresent(K key,
-                          BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-    if (remappingFunction == null)
-        throw new NullPointerException();
-    Node<K,V> e; V oldValue;
-    int hash = hash(key);
-    if ((e = getNode(hash, key)) != null &&
-        (oldValue = e.value) != null) {
-        int mc = modCount;
-        V v = remappingFunction.apply(key, oldValue);
-        if (mc != modCount) { throw new ConcurrentModificationException(); }
-        if (v != null) {
-            e.value = v;
-            afterNodeAccess(e);
-            return v;
-        }
-        else
-            removeNode(hash, key, null, false, true);
-    }
-    return null;
-}
-
-/**
- * {@inheritDoc}
- *
- * <p>This method will, on a best-effort basis, throw a
- * {@link ConcurrentModificationException} if it is detected that the
- * remapping function modifies this map during computation.
- *
- * @throws ConcurrentModificationException if it is detected that the
- * remapping function modified this map
- */
-@Override
-public V compute(K key,
-                 BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
-    if (remappingFunction == null)
-        throw new NullPointerException();
-    int hash = hash(key);
-    Node<K,V>[] tab; Node<K,V> first; int n, i;
-    int binCount = 0;
-    TreeNode<K,V> t = null;
-    Node<K,V> old = null;
-    if (size > threshold || (tab = table) == null ||
-        (n = tab.length) == 0)
-        n = (tab = resize()).length;
-    if ((first = tab[i = (n - 1) & hash]) != null) {
-        if (first instanceof TreeNode)
-            old = (t = (TreeNode<K,V>)first).getTreeNode(hash, key);
-        else {
-            Node<K,V> e = first; K k;
-            do {
-                if (e.hash == hash &&
-                    ((k = e.key) == key || (key != null && key.equals(k)))) {
-                    old = e;
-                    break;
-                }
-                ++binCount;
-            } while ((e = e.next) != null);
-        }
-    }
-    V oldValue = (old == null) ? null : old.value;
-    int mc = modCount;
-    V v = remappingFunction.apply(key, oldValue);
-    if (mc != modCount) { throw new ConcurrentModificationException(); }
-    if (old != null) {
-        if (v != null) {
-            old.value = v;
-            afterNodeAccess(old);
-        }
-        else
-            removeNode(hash, key, null, false, true);
-    }
-    else if (v != null) {
-        if (t != null)
-            t.putTreeVal(this, tab, hash, key, v);
-        else {
-            tab[i] = newNode(hash, key, v, first);
-            if (binCount >= TREEIFY_THRESHOLD - 1)
-                treeifyBin(tab, hash);
-        }
-        modCount = mc + 1;
-        ++size;
-        afterNodeInsertion(true);
-    }
-    return v;
-}
-
-/**
- * {@inheritDoc}
- *
- * <p>This method will, on a best-effort basis, throw a
- * {@link ConcurrentModificationException} if it is detected that the
- * remapping function modifies this map during computation.
- *
- * @throws ConcurrentModificationException if it is detected that the
- * remapping function modified this map
- */
-@Override
-public V merge(K key, V value,
-               BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
-    if (value == null)
-        throw new NullPointerException();
-    if (remappingFunction == null)
-        throw new NullPointerException();
-    int hash = hash(key);
-    Node<K,V>[] tab; Node<K,V> first; int n, i;
-    int binCount = 0;
-    TreeNode<K,V> t = null;
-    Node<K,V> old = null;
-    if (size > threshold || (tab = table) == null ||
-        (n = tab.length) == 0)
-        n = (tab = resize()).length;
-    if ((first = tab[i = (n - 1) & hash]) != null) {
-        if (first instanceof TreeNode)
-            old = (t = (TreeNode<K,V>)first).getTreeNode(hash, key);
-        else {
-            Node<K,V> e = first; K k;
-            do {
-                if (e.hash == hash &&
-                    ((k = e.key) == key || (key != null && key.equals(k)))) {
-                    old = e;
-                    break;
-                }
-                ++binCount;
-            } while ((e = e.next) != null);
-        }
-    }
-    if (old != null) {
-        V v;
-        if (old.value != null) {
-            int mc = modCount;
-            v = remappingFunction.apply(old.value, value);
-            if (mc != modCount) {
-                throw new ConcurrentModificationException();
-            }
-        } else {
-            v = value;
-        }
-        if (v != null) {
-            old.value = v;
-            afterNodeAccess(old);
-        }
-        else
-            removeNode(hash, key, null, false, true);
-        return v;
-    }
-    if (value != null) {
-        if (t != null)
-            t.putTreeVal(this, tab, hash, key, value);
-        else {
-            tab[i] = newNode(hash, key, value, first);
-            if (binCount >= TREEIFY_THRESHOLD - 1)
-                treeifyBin(tab, hash);
-        }
-        ++modCount;
-        ++size;
-        afterNodeInsertion(true);
-    }
-    return value;
-}
-
-@Override
-public void forEach(BiConsumer<? super K, ? super V> action) {
-    Node<K,V>[] tab;
-    if (action == null)
-        throw new NullPointerException();
-    if (size > 0 && (tab = table) != null) {
-        int mc = modCount;
-        for (Node<K,V> e : tab) {
-            for (; e != null; e = e.next)
-                action.accept(e.key, e.value);
-        }
-        if (modCount != mc)
-            throw new ConcurrentModificationException();
-    }
-}
-
-@Override
-public void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
-    Node<K,V>[] tab;
-    if (function == null)
-        throw new NullPointerException();
-    if (size > 0 && (tab = table) != null) {
-        int mc = modCount;
-        for (Node<K,V> e : tab) {
-            for (; e != null; e = e.next) {
-                e.value = function.apply(e.key, e.value);
-            }
-        }
-        if (modCount != mc)
-            throw new ConcurrentModificationException();
-    }
-}
-
-/* ------------------------------------------------------------ */
-// Cloning and serialization
-
-/**
- * Returns a shallow copy of this {@code HashMap} instance: the keys and
- * values themselves are not cloned.
- *
- * @return a shallow copy of this map
- */
-@SuppressWarnings("unchecked")
-@Override
-public Object clone() {
-    HashMap<K,V> result;
-    try {
-        result = (HashMap<K,V>)super.clone();
-    } catch (CloneNotSupportedException e) {
-        // this shouldn't happen, since we are Cloneable
-        throw new InternalError(e);
-    }
-    result.reinitialize();
-    result.putMapEntries(this, false);
-    return result;
-}
-
-// These methods are also used when serializing HashSets
-final float loadFactor() { return loadFactor; }
 final int capacity() {
     return (table != null) ? table.length :
         (threshold > 0) ? threshold :
         DEFAULT_INITIAL_CAPACITY;
-}
-
-/**
- * Saves this map to a stream (that is, serializes it).
- *
- * @param s the stream
- * @throws IOException if an I/O error occurs
- * @serialData The <i>capacity</i> of the HashMap (the length of the
- *             bucket array) is emitted (int), followed by the
- *             <i>size</i> (an int, the number of key-value
- *             mappings), followed by the key (Object) and value (Object)
- *             for each key-value mapping.  The key-value mappings are
- *             emitted in no particular order.
- */
-private void writeObject(java.io.ObjectOutputStream s)
-    throws IOException {
-    int buckets = capacity();
-    // Write out the threshold, loadfactor, and any hidden stuff
-    s.defaultWriteObject();
-    s.writeInt(buckets);
-    s.writeInt(size);
-    internalWriteEntries(s);
-}
-
-/**
- * Reconstitutes this map from a stream (that is, deserializes it).
- * @param s the stream
- * @throws ClassNotFoundException if the class of a serialized object
- *         could not be found
- * @throws IOException if an I/O error occurs
- */
-private void readObject(java.io.ObjectInputStream s)
-    throws IOException, ClassNotFoundException {
-    // Read in the threshold (ignored), loadfactor, and any hidden stuff
-    s.defaultReadObject();
-    reinitialize();
-    if (loadFactor <= 0 || Float.isNaN(loadFactor))
-        throw new InvalidObjectException("Illegal load factor: " +
-                                         loadFactor);
-    s.readInt();                // Read and ignore number of buckets
-    int mappings = s.readInt(); // Read number of mappings (size)
-    if (mappings < 0)
-        throw new InvalidObjectException("Illegal mappings count: " +
-                                         mappings);
-    else if (mappings > 0) { // (if zero, use defaults)
-        // Size the table using given load factor only if within
-        // range of 0.25...4.0
-        float lf = Math.min(Math.max(0.25f, loadFactor), 4.0f);
-        float fc = (float)mappings / lf + 1.0f;
-        int cap = ((fc < DEFAULT_INITIAL_CAPACITY) ?
-                   DEFAULT_INITIAL_CAPACITY :
-                   (fc >= MAXIMUM_CAPACITY) ?
-                   MAXIMUM_CAPACITY :
-                   tableSizeFor((int)fc));
-        float ft = (float)cap * lf;
-        threshold = ((cap < MAXIMUM_CAPACITY && ft < MAXIMUM_CAPACITY) ?
-                     (int)ft : Integer.MAX_VALUE);
-
-        // Check Map.Entry[].class since it's the nearest public type to
-        // what we're actually creating.
-        SharedSecrets.getJavaObjectInputStreamAccess().checkArray(s, Map.Entry[].class, cap);
-        @SuppressWarnings({"rawtypes","unchecked"})
-        Node<K,V>[] tab = (Node<K,V>[])new Node[cap];
-        table = tab;
-
-        // Read the keys and values, and put the mappings in the HashMap
-        for (int i = 0; i < mappings; i++) {
-            @SuppressWarnings("unchecked")
-                K key = (K) s.readObject();
-            @SuppressWarnings("unchecked")
-                V value = (V) s.readObject();
-            putVal(hash(key), key, value, false, false);
-        }
-    }
-}
-
-/* ------------------------------------------------------------ */
-// iterators
-
-abstract class HashIterator {
-    Node<K,V> next;        // next entry to return
-    Node<K,V> current;     // current entry
-    int expectedModCount;  // for fast-fail
-    int index;             // current slot
-
-    HashIterator() {
-        expectedModCount = modCount;
-        Node<K,V>[] t = table;
-        current = next = null;
-        index = 0;
-        if (t != null && size > 0) { // advance to first entry
-            do {} while (index < t.length && (next = t[index++]) == null);
-        }
-    }
-
-    public final boolean hasNext() {
-        return next != null;
-    }
-
-    final Node<K,V> nextNode() {
-        Node<K,V>[] t;
-        Node<K,V> e = next;
-        if (modCount != expectedModCount)
-            throw new ConcurrentModificationException();
-        if (e == null)
-            throw new NoSuchElementException();
-        if ((next = (current = e).next) == null && (t = table) != null) {
-            do {} while (index < t.length && (next = t[index++]) == null);
-        }
-        return e;
-    }
-
-    public final void remove() {
-        Node<K,V> p = current;
-        if (p == null)
-            throw new IllegalStateException();
-        if (modCount != expectedModCount)
-            throw new ConcurrentModificationException();
-        current = null;
-        removeNode(p.hash, p.key, null, false, false);
-        expectedModCount = modCount;
-    }
-}
-
-final class KeyIterator extends HashIterator
-    implements Iterator<K> {
-    public final K next() { return nextNode().key; }
-}
-
-final class ValueIterator extends HashIterator
-    implements Iterator<V> {
-    public final V next() { return nextNode().value; }
-}
-
-final class EntryIterator extends HashIterator
-    implements Iterator<Map.Entry<K,V>> {
-    public final Map.Entry<K,V> next() { return nextNode(); }
-}
-
-/* ------------------------------------------------------------ */
-// spliterators
-
-static class HashMapSpliterator<K,V> {
-    final HashMap<K,V> map;
-    Node<K,V> current;          // current node
-    int index;                  // current index, modified on advance/split
-    int fence;                  // one past last index
-    int est;                    // size estimate
-    int expectedModCount;       // for comodification checks
-
-    HashMapSpliterator(HashMap<K,V> m, int origin,
-                       int fence, int est,
-                       int expectedModCount) {
-        this.map = m;
-        this.index = origin;
-        this.fence = fence;
-        this.est = est;
-        this.expectedModCount = expectedModCount;
-    }
-
-    final int getFence() { // initialize fence and size on first use
-        int hi;
-        if ((hi = fence) < 0) {
-            HashMap<K,V> m = map;
-            est = m.size;
-            expectedModCount = m.modCount;
-            Node<K,V>[] tab = m.table;
-            hi = fence = (tab == null) ? 0 : tab.length;
-        }
-        return hi;
-    }
-
-    public final long estimateSize() {
-        getFence(); // force init
-        return (long) est;
-    }
-}
-
-static final class KeySpliterator<K,V>
-    extends HashMapSpliterator<K,V>
-    implements Spliterator<K> {
-    KeySpliterator(HashMap<K,V> m, int origin, int fence, int est,
-                   int expectedModCount) {
-        super(m, origin, fence, est, expectedModCount);
-    }
-
-    public KeySpliterator<K,V> trySplit() {
-        int hi = getFence(), lo = index, mid = (lo + hi) >>> 1;
-        return (lo >= mid || current != null) ? null :
-            new KeySpliterator<>(map, lo, index = mid, est >>>= 1,
-                                    expectedModCount);
-    }
-
-    public void forEachRemaining(Consumer<? super K> action) {
-        int i, hi, mc;
-        if (action == null)
-            throw new NullPointerException();
-        HashMap<K,V> m = map;
-        Node<K,V>[] tab = m.table;
-        if ((hi = fence) < 0) {
-            mc = expectedModCount = m.modCount;
-            hi = fence = (tab == null) ? 0 : tab.length;
-        }
-        else
-            mc = expectedModCount;
-        if (tab != null && tab.length >= hi &&
-            (i = index) >= 0 && (i < (index = hi) || current != null)) {
-            Node<K,V> p = current;
-            current = null;
-            do {
-                if (p == null)
-                    p = tab[i++];
-                else {
-                    action.accept(p.key);
-                    p = p.next;
-                }
-            } while (p != null || i < hi);
-            if (m.modCount != mc)
-                throw new ConcurrentModificationException();
-        }
-    }
-
-    public boolean tryAdvance(Consumer<? super K> action) {
-        int hi;
-        if (action == null)
-            throw new NullPointerException();
-        Node<K,V>[] tab = map.table;
-        if (tab != null && tab.length >= (hi = getFence()) && index >= 0) {
-            while (current != null || index < hi) {
-                if (current == null)
-                    current = tab[index++];
-                else {
-                    K k = current.key;
-                    current = current.next;
-                    action.accept(k);
-                    if (map.modCount != expectedModCount)
-                        throw new ConcurrentModificationException();
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    public int characteristics() {
-        return (fence < 0 || est == map.size ? Spliterator.SIZED : 0) |
-            Spliterator.DISTINCT;
-    }
-}
-
-static final class ValueSpliterator<K,V>
-    extends HashMapSpliterator<K,V>
-    implements Spliterator<V> {
-    ValueSpliterator(HashMap<K,V> m, int origin, int fence, int est,
-                     int expectedModCount) {
-        super(m, origin, fence, est, expectedModCount);
-    }
-
-    public ValueSpliterator<K,V> trySplit() {
-        int hi = getFence(), lo = index, mid = (lo + hi) >>> 1;
-        return (lo >= mid || current != null) ? null :
-            new ValueSpliterator<>(map, lo, index = mid, est >>>= 1,
-                                      expectedModCount);
-    }
-
-    public void forEachRemaining(Consumer<? super V> action) {
-        int i, hi, mc;
-        if (action == null)
-            throw new NullPointerException();
-        HashMap<K,V> m = map;
-        Node<K,V>[] tab = m.table;
-        if ((hi = fence) < 0) {
-            mc = expectedModCount = m.modCount;
-            hi = fence = (tab == null) ? 0 : tab.length;
-        }
-        else
-            mc = expectedModCount;
-        if (tab != null && tab.length >= hi &&
-            (i = index) >= 0 && (i < (index = hi) || current != null)) {
-            Node<K,V> p = current;
-            current = null;
-            do {
-                if (p == null)
-                    p = tab[i++];
-                else {
-                    action.accept(p.value);
-                    p = p.next;
-                }
-            } while (p != null || i < hi);
-            if (m.modCount != mc)
-                throw new ConcurrentModificationException();
-        }
-    }
-
-    public boolean tryAdvance(Consumer<? super V> action) {
-        int hi;
-        if (action == null)
-            throw new NullPointerException();
-        Node<K,V>[] tab = map.table;
-        if (tab != null && tab.length >= (hi = getFence()) && index >= 0) {
-            while (current != null || index < hi) {
-                if (current == null)
-                    current = tab[index++];
-                else {
-                    V v = current.value;
-                    current = current.next;
-                    action.accept(v);
-                    if (map.modCount != expectedModCount)
-                        throw new ConcurrentModificationException();
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    public int characteristics() {
-        return (fence < 0 || est == map.size ? Spliterator.SIZED : 0);
-    }
-}
-
-static final class EntrySpliterator<K,V>
-    extends HashMapSpliterator<K,V>
-    implements Spliterator<Map.Entry<K,V>> {
-    EntrySpliterator(HashMap<K,V> m, int origin, int fence, int est,
-                     int expectedModCount) {
-        super(m, origin, fence, est, expectedModCount);
-    }
-
-    public EntrySpliterator<K,V> trySplit() {
-        int hi = getFence(), lo = index, mid = (lo + hi) >>> 1;
-        return (lo >= mid || current != null) ? null :
-            new EntrySpliterator<>(map, lo, index = mid, est >>>= 1,
-                                      expectedModCount);
-    }
-
-    public void forEachRemaining(Consumer<? super Map.Entry<K,V>> action) {
-        int i, hi, mc;
-        if (action == null)
-            throw new NullPointerException();
-        HashMap<K,V> m = map;
-        Node<K,V>[] tab = m.table;
-        if ((hi = fence) < 0) {
-            mc = expectedModCount = m.modCount;
-            hi = fence = (tab == null) ? 0 : tab.length;
-        }
-        else
-            mc = expectedModCount;
-        if (tab != null && tab.length >= hi &&
-            (i = index) >= 0 && (i < (index = hi) || current != null)) {
-            Node<K,V> p = current;
-            current = null;
-            do {
-                if (p == null)
-                    p = tab[i++];
-                else {
-                    action.accept(p);
-                    p = p.next;
-                }
-            } while (p != null || i < hi);
-            if (m.modCount != mc)
-                throw new ConcurrentModificationException();
-        }
-    }
-
-    public boolean tryAdvance(Consumer<? super Map.Entry<K,V>> action) {
-        int hi;
-        if (action == null)
-            throw new NullPointerException();
-        Node<K,V>[] tab = map.table;
-        if (tab != null && tab.length >= (hi = getFence()) && index >= 0) {
-            while (current != null || index < hi) {
-                if (current == null)
-                    current = tab[index++];
-                else {
-                    Node<K,V> e = current;
-                    current = current.next;
-                    action.accept(e);
-                    if (map.modCount != expectedModCount)
-                        throw new ConcurrentModificationException();
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    public int characteristics() {
-        return (fence < 0 || est == map.size ? Spliterator.SIZED : 0) |
-            Spliterator.DISTINCT;
-    }
 }
 
 /* ------------------------------------------------------------ */
