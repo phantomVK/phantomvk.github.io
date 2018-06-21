@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Java源码系列 -- HashMap源码剖析"
+title:      "Java源码系列(9) -- HashMap"
 date:       2018-06-19
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -9,18 +9,16 @@ tags:
     - Java源码系列
 ---
 
-## 类签名
+## 一、摘要
+
+每当需要一个容器保存键值对时，大家都会毫不犹豫想起HashMap。JDK7在多线程中操作HashMap导致死循环的缺陷被逐渐人遗忘，同时对JDK8的HashMap更为熟悉。在JDK8中，HashMap引入红黑树、优化哈希算法等调整，性能相比JDK7有进一步提升。本文基于JDK10的HashMap进行介绍，与JDK8版本无异。
+
+## 二、类签名
+
+假设键值对能正确分散到不用桶中，那么get和put的时间消耗可近似认为一个常量。而HashMap的遍历性能取决于哈希桶与Node节点数量的综合，因为要变量两个所有元素。所以不宜把capacity值设置得过高，或把负载因子load-factor设置得过低。
 
 ```java
 /**
- * Hash table based implementation of the {@code Map} interface.  This
- * implementation provides all of the optional map operations, and permits
- * {@code null} values and the {@code null} key.  (The {@code HashMap}
- * class is roughly equivalent to {@code Hashtable}, except that it is
- * unsynchronized and permits nulls.)  This class makes no guarantees as to
- * the order of the map; in particular, it does not guarantee that the order
- * will remain constant over time.
- *
  * <p>This implementation provides constant-time performance for the basic
  * operations ({@code get} and {@code put}), assuming the hash function
  * disperses the elements properly among the buckets.  Iteration over
@@ -92,23 +90,37 @@ tags:
  * Therefore, it would be wrong to write a program that depended on this
  * exception for its correctness: <i>the fail-fast behavior of iterators
  * should be used only to detect bugs.</i>
- *
- * <p>This class is a member of the
- * <a href="{@docRoot}/java/util/package-summary.html#CollectionsFramework">
- * Java Collections Framework</a>.
- *
- * @param <K> the type of keys maintained by this map
- * @param <V> the type of mapped values
- *
  */
 public class HashMap<K,V> extends AbstractMap<K,V>
     implements Map<K,V>, Cloneable, Serializable
 ```
 
+在HashMap的类注释中，有不可忽略的几个技术点： 
+
+- 实现Map<K,V>接口，支持其所有操作；
+- HashMap支持键和值均为null；
+- HashMap线程不安全；
+
+与HashMap一并谈论较多的是HashTable。HashTable出现在JDK早期，后来逐渐被建议适用HashMap替代。虽然现在基本不会使用，但是并不妨碍对两者进行横向比较。
+
+常见对比：
+- HashTable不支持键或值为null，而HashMap支持；
+- HashTable线程安全，与ConcurrentHashMap均适用多线程操作；
+- 均实现Map<K,V>接口，具有基本相当的Map操作能力；
+- 均不保证元素写入与读取的元素顺序一致；
+
 ![HashMap_UML](/img/java/HashMap_UML.png)
 
+上文提到，HashMap本身不是线程安全的，所以可通过
+```java
+Map m = Collections.synchronizedMap(new HashMap(...));
+```
+包装实例，或直接使用ConcurrentHashMap类保证线程安全。
 
-## 常量成员
+如果在创建HashMap之前就能预知将来可能存放键值对最大数量，也可通过直接指定初始容量来避免HashMap不断存入元素过程中引起的扩容操作。
+
+
+## 三、常量成员
 ```java
 /*
  * Implementation notes.
@@ -209,21 +221,10 @@ static final int MAXIMUM_CAPACITY = 1 << 30;
 // 未在构造方法中指定负载因子时使用的默认值
 static final float DEFAULT_LOAD_FACTOR = 0.75f;
 
-/**
- * The bin count threshold for using a tree rather than list for a
- * bin.  Bins are converted to trees when adding an element to a
- * bin with at least this many nodes. The value must be greater
- * than 2 and should be at least 8 to mesh with assumptions in
- * tree removal about conversion back to plain bins upon
- * shrinkage.
- */
+// 从链表转换为红黑树的阀值
 static final int TREEIFY_THRESHOLD = 8;
 
-/**
- * The bin count threshold for untreeifying a (split) bin during a
- * resize operation. Should be less than TREEIFY_THRESHOLD, and at
- * most 6 to mesh with shrinkage detection under removal.
- */
+// 从红黑树转换为链表的阀值
 static final int UNTREEIFY_THRESHOLD = 6;
 
 /**
@@ -232,16 +233,19 @@ static final int UNTREEIFY_THRESHOLD = 6;
  * Should be at least 4 * TREEIFY_THRESHOLD to avoid conflicts
  * between resizing and treeification thresholds.
  */
+// 整个哈希表容量超过此值，链表长度超过TREEIFY_THRESHOLD才树化
 static final int MIN_TREEIFY_CAPACITY = 64;
 ```
 
-## 桶节点
+## 四、桶节点
+
+HashMap中有Node<K,V>[] table的数据成员，里面保存的就是Node<K,V>。Node<K,V>是HashMap的内部类，实现Map.Entry<K,V>接口。里面包含key和value，结合两者成为键值对。
+
+哈希冲突解决方法常用有两种：开放地址法和拉链法。
+
+节点字段Node<K,V> next保存下一个节点的引用，由此推断出HashMap用拉链法解除哈希冲突问题。
 
 ```java
-/**
- * Basic hash bin node, used for most entries.  (See below for
- * TreeNode subclass, and in LinkedHashMap for its Entry subclass.)
- */
 static class Node<K,V> implements Map.Entry<K,V> {
     final int hash; // Node的Hash值
     final K key;    // 保存的键
@@ -262,7 +266,8 @@ static class Node<K,V> implements Map.Entry<K,V> {
     public final int hashCode() {
         return Objects.hashCode(key) ^ Objects.hashCode(value);
     }
-
+    
+    // 存入新value后会把旧值oldValue返回
     public final V setValue(V newValue) {
         V oldValue = value;
         value = newValue;
@@ -270,10 +275,13 @@ static class Node<K,V> implements Map.Entry<K,V> {
     }
 
     public final boolean equals(Object o) {
+        // 同一个对象
         if (o == this)
             return true;
+        // 检查对象o是否为Map.Entry的子类
         if (o instanceof Map.Entry) {
             Map.Entry<?,?> e = (Map.Entry<?,?>)o;
+            // 另一个Node的key-value与此Node的一直也算相同
             if (Objects.equals(key, e.getKey()) &&
                 Objects.equals(value, e.getValue()))
                 return true;
@@ -285,9 +293,15 @@ static class Node<K,V> implements Map.Entry<K,V> {
 
 ![HashMap_Node_UML](/img/java/HashMap_Node_UML.png)
 
-```java
-/* ---------------- Static utilities -------------- */
 
+
+### 4.1 哈希桶索引计算
+
+通常判断Hash算法是否高效的方式是看元素是否均匀分放到不同桶中，最好是一个桶存放一个键值对。存放更多的元素是，也希望每个桶中存放的元素数量一致。如果哈希算法不佳，导致一个桶中存放的元素数量特别多，会严重影响存取性能。
+
+换个角度，由于HashMap为了减低碰撞几率，会给HashMap设置一个负载因子 load factor（默认值0.75）。假设用默认桶数量capacity（初始值16），通过threshold = capacity * load factor 计算式可以当键值对数量超过12就会触发桶数量扩容的逻辑。所以，通过单纯使用大量的桶，即使使用不经优化的哈希算法，也能把元素相对均匀地放在不同桶中。这是空间换时间的一种折中。
+
+```java
 /**
  * Computes key.hashCode() and spreads (XORs) higher bits of hash
  * to lower.  Because the table uses power-of-two masking, sets of
@@ -308,10 +322,23 @@ static final int hash(Object key) {
     int h;
     return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
 }
+```
 
-/**
- * Returns a power of two size for the given target capacity.
- */
+JDK中的HashMap，经过长期验证和修改，已经能很好地在空间和时间两者间取得平衡。以前，当桶数量较少时，连续的数值经过哈希运算，很容易被分配到相同的桶中导致哈希碰撞。从JDK8开始，把哈希高16位与低16位进行亦或运算。在不舍弃性能的前提下，充分利用有限的条件，尽量把元素分配到不用的桶中。
+
+![HashMap_bit_hashCode](/img/java/HashMap_bit_hashCode.png)
+
+这种方式有些好处：
+
+* 满足速度、功效、位分散质量等条件；
+* 避免使用%操作的同时，让位运算发挥更好的效果；
+* 避免性能损耗，开销较低
+
+### 4.2 计算哈希表大小
+
+通过给定数值计算得相等或更大并符合2^n数值，最终结果不大于MAXIMUM_CAPACITY
+
+```java
 static final int tableSizeFor(int cap) {
     int n = cap - 1;
     n |= n >>> 1;
@@ -323,54 +350,28 @@ static final int tableSizeFor(int cap) {
 }
 ```
 
+![HashMap_tableSizeFor](/img/java/HashMap_tableSizeFor.png)
 
-## 数据成员
+## 五、数据成员
 
 ```java
-/**
- * The table, initialized on first use, and resized as
- * necessary. When allocated, length is always a power of two.
- * (We also tolerate length zero in some operations to allow
- * bootstrapping mechanics that are currently not needed.)
- */
+// Hash表，长度为2的n次幂；
 transient Node<K,V>[] table;
-
-/**
- * Holds cached entrySet(). Note that AbstractMap fields are used
- * for keySet() and values().
- */
-transient Set<Map.Entry<K,V>> entrySet;
 
 // HashMap以保存键值对数量
 transient int size;
 
-/**
- * The number of times this HashMap has been structurally modified
- * Structural modifications are those that change the number of mappings in
- * the HashMap or otherwise modify its internal structure (e.g.,
- * rehash).  This field is used to make iterators on Collection-views of
- * the HashMap fail-fast.  (See ConcurrentModificationException).
- */
+// HashMap结构性或键值对数量变化总次数。用在'快速失败'，详情参阅ConcurrentModificationException
 transient int modCount;
 
-/**
- * The next size value at which to resize (capacity * load factor).
- *
- * @serial
- */
-// (The javadoc description is true upon serialization.
-// Additionally, if the table array has not been allocated, this
-// field holds the initial array capacity, or zero signifying
-// DEFAULT_INITIAL_CAPACITY.)
-
-// 	下次个扩容的阀值，threshold = capacity * load factor.
+// 	下次HashMap扩容阀值: threshold = capacity * load factor.
 int threshold;
 
-// 负载因子
+// 负载因子值
 final float loadFactor;
 ```
 
-## 构造方法
+## 六、构造方法
 
 ```java
 // 指定初始容量值和负载因子值
@@ -483,30 +484,12 @@ final Node<K,V> getNode(int hash, Object key) {
     return null;
 }
 
-/**
- * Returns {@code true} if this map contains a mapping for the
- * specified key.
- *
- * @param   key   The key whose presence in this map is to be tested
- * @return {@code true} if this map contains a mapping for the specified
- * key.
- */
+// 查询是否包含该键对应的值
 public boolean containsKey(Object key) {
     return getNode(hash(key), key) != null;
 }
 
-/**
- * Associates the specified value with the specified key in this map.
- * If the map previously contained a mapping for the key, the old
- * value is replaced.
- *
- * @param key key with which the specified value is to be associated
- * @param value value to be associated with the specified key
- * @return the previous value associated with {@code key}, or
- *         {@code null} if there was no mapping for {@code key}.
- *         (A {@code null} return can also indicate that the map
- *         previously associated {@code null} with {@code key}.)
- */
+// 存入键值对，若此前已存在一个键值对，会返回上一个值，否则返回null
 public V put(K key, V value) {
     return putVal(hash(key), key, value, false, true);
 }
@@ -754,6 +737,7 @@ final Node<K,V> removeNode(int hash, Object key, Object value,
  * Removes all of the mappings from this map.
  * The map will be empty after this call returns.
  */
+// 把数组所有索引内元素置为null
 public void clear() {
     Node<K,V>[] tab;
     modCount++;
@@ -786,232 +770,634 @@ public boolean containsValue(Object value) {
     return false;
 }
 
-/**
- * Returns a {@link Set} view of the keys contained in this map.
- * The set is backed by the map, so changes to the map are
- * reflected in the set, and vice-versa.  If the map is modified
- * while an iteration over the set is in progress (except through
- * the iterator's own {@code remove} operation), the results of
- * the iteration are undefined.  The set supports element removal,
- * which removes the corresponding mapping from the map, via the
- * {@code Iterator.remove}, {@code Set.remove},
- * {@code removeAll}, {@code retainAll}, and {@code clear}
- * operations.  It does not support the {@code add} or {@code addAll}
- * operations.
- *
- * @return a set view of the keys contained in this map
- */
-public Set<K> keySet() {
-    Set<K> ks = keySet;
-    if (ks == null) {
-        ks = new KeySet();
-        keySet = ks;
-    }
-    return ks;
-}
-
-final class KeySet extends AbstractSet<K> {
-    public final int size()                 { return size; }
-    public final void clear()               { HashMap.this.clear(); }
-    public final Iterator<K> iterator()     { return new KeyIterator(); }
-    public final boolean contains(Object o) { return containsKey(o); }
-    public final boolean remove(Object key) {
-        return removeNode(hash(key), key, null, false, true) != null;
-    }
-    public final Spliterator<K> spliterator() {
-        return new KeySpliterator<>(HashMap.this, 0, -1, 0, 0);
-    }
-    public final void forEach(Consumer<? super K> action) {
-        Node<K,V>[] tab;
-        if (action == null)
-            throw new NullPointerException();
-        if (size > 0 && (tab = table) != null) {
-            int mc = modCount;
-            for (Node<K,V> e : tab) {
-                for (; e != null; e = e.next)
-                    action.accept(e.key);
-            }
-            if (modCount != mc)
-                throw new ConcurrentModificationException();
-        }
-    }
-}
-
-/**
- * Returns a {@link Collection} view of the values contained in this map.
- * The collection is backed by the map, so changes to the map are
- * reflected in the collection, and vice-versa.  If the map is
- * modified while an iteration over the collection is in progress
- * (except through the iterator's own {@code remove} operation),
- * the results of the iteration are undefined.  The collection
- * supports element removal, which removes the corresponding
- * mapping from the map, via the {@code Iterator.remove},
- * {@code Collection.remove}, {@code removeAll},
- * {@code retainAll} and {@code clear} operations.  It does not
- * support the {@code add} or {@code addAll} operations.
- *
- * @return a view of the values contained in this map
- */
-public Collection<V> values() {
-    Collection<V> vs = values;
-    if (vs == null) {
-        vs = new Values();
-        values = vs;
-    }
-    return vs;
-}
-
-final class Values extends AbstractCollection<V> {
-    public final int size()                 { return size; }
-    public final void clear()               { HashMap.this.clear(); }
-    public final Iterator<V> iterator()     { return new ValueIterator(); }
-    public final boolean contains(Object o) { return containsValue(o); }
-    public final Spliterator<V> spliterator() {
-        return new ValueSpliterator<>(HashMap.this, 0, -1, 0, 0);
-    }
-    public final void forEach(Consumer<? super V> action) {
-        Node<K,V>[] tab;
-        if (action == null)
-            throw new NullPointerException();
-        if (size > 0 && (tab = table) != null) {
-            int mc = modCount;
-            for (Node<K,V> e : tab) {
-                for (; e != null; e = e.next)
-                    action.accept(e.value);
-            }
-            if (modCount != mc)
-                throw new ConcurrentModificationException();
-        }
-    }
-}
-
-/**
- * Returns a {@link Set} view of the mappings contained in this map.
- * The set is backed by the map, so changes to the map are
- * reflected in the set, and vice-versa.  If the map is modified
- * while an iteration over the set is in progress (except through
- * the iterator's own {@code remove} operation, or through the
- * {@code setValue} operation on a map entry returned by the
- * iterator) the results of the iteration are undefined.  The set
- * supports element removal, which removes the corresponding
- * mapping from the map, via the {@code Iterator.remove},
- * {@code Set.remove}, {@code removeAll}, {@code retainAll} and
- * {@code clear} operations.  It does not support the
- * {@code add} or {@code addAll} operations.
- *
- * @return a set view of the mappings contained in this map
- */
-public Set<Map.Entry<K,V>> entrySet() {
-    Set<Map.Entry<K,V>> es;
-    return (es = entrySet) == null ? (entrySet = new EntrySet()) : es;
-}
-
-final class EntrySet extends AbstractSet<Map.Entry<K,V>> {
-    public final int size()                 { return size; }
-    public final void clear()               { HashMap.this.clear(); }
-    public final Iterator<Map.Entry<K,V>> iterator() {
-        return new EntryIterator();
-    }
-    public final boolean contains(Object o) {
-        if (!(o instanceof Map.Entry))
-            return false;
-        Map.Entry<?,?> e = (Map.Entry<?,?>) o;
-        Object key = e.getKey();
-        Node<K,V> candidate = getNode(hash(key), key);
-        return candidate != null && candidate.equals(e);
-    }
-    public final boolean remove(Object o) {
-        if (o instanceof Map.Entry) {
-            Map.Entry<?,?> e = (Map.Entry<?,?>) o;
-            Object key = e.getKey();
-            Object value = e.getValue();
-            return removeNode(hash(key), key, value, true, true) != null;
-        }
-        return false;
-    }
-    public final Spliterator<Map.Entry<K,V>> spliterator() {
-        return new EntrySpliterator<>(HashMap.this, 0, -1, 0, 0);
-    }
-    public final void forEach(Consumer<? super Map.Entry<K,V>> action) {
-        Node<K,V>[] tab;
-        if (action == null)
-            throw new NullPointerException();
-        if (size > 0 && (tab = table) != null) {
-            int mc = modCount;
-            for (Node<K,V> e : tab) {
-                for (; e != null; e = e.next)
-                    action.accept(e);
-            }
-            if (modCount != mc)
-                throw new ConcurrentModificationException();
-        }
-    }
-}
-
 final int capacity() {
     return (table != null) ? table.length :
         (threshold > 0) ? threshold :
         DEFAULT_INITIAL_CAPACITY;
 }
+```
 
-/* ------------------------------------------------------------ */
-// LinkedHashMap support
+## 七、红黑树节点
 
 
-/*
- * The following package-protected methods are designed to be
- * overridden by LinkedHashMap, but not by any other subclass.
- * Nearly all other internal methods are also package-protected
- * but are declared final, so can be used by LinkedHashMap, view
- * classes, and HashSet.
+![HashMap_TreeNode_UML](/img/java/HashMap_TreeNode_UML.png)
+
+```java
+/**
+ * Entry for Tree bins. Extends LinkedHashMap.Entry (which in turn
+ * extends Node) so can be used as extension of either regular or
+ * linked node.
  */
+static final class TreeNode<K,V> extends LinkedHashMap.Entry<K,V>
+```
 
-// Create a regular (non-tree) node
-Node<K,V> newNode(int hash, K key, V value, Node<K,V> next) {
-    return new Node<>(hash, key, value, next);
+### 7.1 节点数据成员
+```java
+TreeNode<K,V> parent;  // red-black tree links
+TreeNode<K,V> left;
+TreeNode<K,V> right;
+TreeNode<K,V> prev;    // needed to unlink next upon deletion
+boolean red;
+
+// 构造方法
+TreeNode(int hash, K key, V val, Node<K,V> next) {
+    super(hash, key, val, next);
 }
+```
 
-// For conversion from TreeNodes to plain nodes
-Node<K,V> replacementNode(Node<K,V> p, Node<K,V> next) {
-    return new Node<>(p.hash, p.key, p.value, next);
+### 7.2 获取根节点
+
+```java
+/**
+ * Returns root of tree containing this node.
+ */
+final TreeNode<K,V> root() {
+    for (TreeNode<K,V> r = this, p;;) {
+        if ((p = r.parent) == null)
+            return r;
+        r = p;
+    }
 }
+```
 
-// Create a tree bin node
-TreeNode<K,V> newTreeNode(int hash, K key, V value, Node<K,V> next) {
-    return new TreeNode<>(hash, key, value, next);
+### 7.3 移动根节点
+
+```java
+/**
+ * Ensures that the given root is the first node of its bin.
+ */
+static <K,V> void moveRootToFront(Node<K,V>[] tab, TreeNode<K,V> root) {
+    int n;
+    if (root != null && tab != null && (n = tab.length) > 0) {
+        int index = (n - 1) & root.hash;
+        TreeNode<K,V> first = (TreeNode<K,V>)tab[index];
+        if (root != first) {
+            Node<K,V> rn;
+            tab[index] = root;
+            TreeNode<K,V> rp = root.prev;
+            if ((rn = root.next) != null)
+                ((TreeNode<K,V>)rn).prev = rp;
+            if (rp != null)
+                rp.next = rn;
+            if (first != null)
+                first.prev = root;
+            root.next = first;
+            root.prev = null;
+        }
+        assert checkInvariants(root);
+    }
 }
+```
 
-// For treeifyBin
-TreeNode<K,V> replacementTreeNode(Node<K,V> p, Node<K,V> next) {
-    return new TreeNode<>(p.hash, p.key, p.value, next);
+
+### 7.4 查找节点
+
+```java
+/**
+ * Finds the node starting at root p with the given hash and key.
+ * The kc argument caches comparableClassFor(key) upon first use
+ * comparing keys.
+ */
+final TreeNode<K,V> find(int h, Object k, Class<?> kc) {
+    TreeNode<K,V> p = this;
+    do {
+        int ph, dir; K pk;
+        TreeNode<K,V> pl = p.left, pr = p.right, q;
+        if ((ph = p.hash) > h)
+            p = pl;
+        else if (ph < h)
+            p = pr;
+        else if ((pk = p.key) == k || (k != null && k.equals(pk)))
+            return p;
+        else if (pl == null)
+            p = pr;
+        else if (pr == null)
+            p = pl;
+        else if ((kc != null ||
+                  (kc = comparableClassFor(k)) != null) &&
+                 (dir = compareComparables(kc, k, pk)) != 0)
+            p = (dir < 0) ? pl : pr;
+        else if ((q = pr.find(h, k, kc)) != null)
+            return q;
+        else
+            p = pl;
+    } while (p != null);
+    return null;
 }
 
 /**
- * Reset to initial default state.  Called by clone and readObject.
+ * Calls find for root node.
  */
-void reinitialize() {
-    table = null;
-    entrySet = null;
-    keySet = null;
-    values = null;
-    modCount = 0;
-    threshold = 0;
-    size = 0;
+final TreeNode<K,V> getTreeNode(int h, Object k) {
+    return ((parent != null) ? root() : this).find(h, k, null);
 }
 
-// Callbacks to allow LinkedHashMap post-actions
-void afterNodeAccess(Node<K,V> p) { }
-void afterNodeInsertion(boolean evict) { }
-void afterNodeRemoval(Node<K,V> p) { }
+/**
+ * Tie-breaking utility for ordering insertions when equal
+ * hashCodes and non-comparable. We don't require a total
+ * order, just a consistent insertion rule to maintain
+ * equivalence across rebalancings. Tie-breaking further than
+ * necessary simplifies testing a bit.
+ */
+static int tieBreakOrder(Object a, Object b) {
+    int d;
+    if (a == null || b == null ||
+        (d = a.getClass().getName().
+         compareTo(b.getClass().getName())) == 0)
+        d = (System.identityHashCode(a) <= System.identityHashCode(b) ?
+             -1 : 1);
+    return d;
+}
 
-// Called only from writeObject, to ensure compatible ordering.
-void internalWriteEntries(java.io.ObjectOutputStream s) throws IOException {
-    Node<K,V>[] tab;
-    if (size > 0 && (tab = table) != null) {
-        for (Node<K,V> e : tab) {
-            for (; e != null; e = e.next) {
-                s.writeObject(e.key);
-                s.writeObject(e.value);
+/**
+ * Forms tree of the nodes linked from this node.
+ */
+final void treeify(Node<K,V>[] tab) {
+    TreeNode<K,V> root = null;
+    for (TreeNode<K,V> x = this, next; x != null; x = next) {
+        next = (TreeNode<K,V>)x.next;
+        x.left = x.right = null;
+        if (root == null) {
+            x.parent = null;
+            x.red = false;
+            root = x;
+        }
+        else {
+            K k = x.key;
+            int h = x.hash;
+            Class<?> kc = null;
+            for (TreeNode<K,V> p = root;;) {
+                int dir, ph;
+                K pk = p.key;
+                if ((ph = p.hash) > h)
+                    dir = -1;
+                else if (ph < h)
+                    dir = 1;
+                else if ((kc == null &&
+                          (kc = comparableClassFor(k)) == null) ||
+                         (dir = compareComparables(kc, k, pk)) == 0)
+                    dir = tieBreakOrder(k, pk);
+
+                TreeNode<K,V> xp = p;
+                if ((p = (dir <= 0) ? p.left : p.right) == null) {
+                    x.parent = xp;
+                    if (dir <= 0)
+                        xp.left = x;
+                    else
+                        xp.right = x;
+                    root = balanceInsertion(root, x);
+                    break;
+                }
+            }
+        }
+    }
+    moveRootToFront(tab, root);
+}
+```
+
+### 去树化
+
+```java
+/**
+ * Returns a list of non-TreeNodes replacing those linked from
+ * this node.
+ */
+final Node<K,V> untreeify(HashMap<K,V> map) {
+    Node<K,V> hd = null, tl = null;
+    for (Node<K,V> q = this; q != null; q = q.next) {
+        Node<K,V> p = map.replacementNode(q, null);
+        if (tl == null)
+            hd = p;
+        else
+            tl.next = p;
+        tl = p;
+    }
+    return hd;
+}
+```
+
+### 插入树节点
+
+```java
+/**
+ * Tree version of putVal.
+ */
+final TreeNode<K,V> putTreeVal(HashMap<K,V> map, Node<K,V>[] tab,
+                               int h, K k, V v) {
+    Class<?> kc = null;
+    boolean searched = false;
+    TreeNode<K,V> root = (parent != null) ? root() : this;
+    for (TreeNode<K,V> p = root;;) {
+        int dir, ph; K pk;
+        if ((ph = p.hash) > h)
+            dir = -1;
+        else if (ph < h)
+            dir = 1;
+        else if ((pk = p.key) == k || (k != null && k.equals(pk)))
+            return p;
+        else if ((kc == null &&
+                  (kc = comparableClassFor(k)) == null) ||
+                 (dir = compareComparables(kc, k, pk)) == 0) {
+            if (!searched) {
+                TreeNode<K,V> q, ch;
+                searched = true;
+                if (((ch = p.left) != null &&
+                     (q = ch.find(h, k, kc)) != null) ||
+                    ((ch = p.right) != null &&
+                     (q = ch.find(h, k, kc)) != null))
+                    return q;
+            }
+            dir = tieBreakOrder(k, pk);
+        }
+
+        TreeNode<K,V> xp = p;
+        if ((p = (dir <= 0) ? p.left : p.right) == null) {
+            Node<K,V> xpn = xp.next;
+            TreeNode<K,V> x = map.newTreeNode(h, k, v, xpn);
+            if (dir <= 0)
+                xp.left = x;
+            else
+                xp.right = x;
+            xp.next = x;
+            x.parent = x.prev = xp;
+            if (xpn != null)
+                ((TreeNode<K,V>)xpn).prev = x;
+            moveRootToFront(tab, balanceInsertion(root, x));
+            return null;
+        }
+    }
+}
+```
+
+### 移除树节点
+
+```java
+/**
+ * Removes the given node, that must be present before this call.
+ * This is messier than typical red-black deletion code because we
+ * cannot swap the contents of an interior node with a leaf
+ * successor that is pinned by "next" pointers that are accessible
+ * independently during traversal. So instead we swap the tree
+ * linkages. If the current tree appears to have too few nodes,
+ * the bin is converted back to a plain bin. (The test triggers
+ * somewhere between 2 and 6 nodes, depending on tree structure).
+ */
+final void removeTreeNode(HashMap<K,V> map, Node<K,V>[] tab,
+                          boolean movable) {
+    int n;
+    if (tab == null || (n = tab.length) == 0)
+        return;
+    int index = (n - 1) & hash;
+    TreeNode<K,V> first = (TreeNode<K,V>)tab[index], root = first, rl;
+    TreeNode<K,V> succ = (TreeNode<K,V>)next, pred = prev;
+    if (pred == null)
+        tab[index] = first = succ;
+    else
+        pred.next = succ;
+    if (succ != null)
+        succ.prev = pred;
+    if (first == null)
+        return;
+    if (root.parent != null)
+        root = root.root();
+    if (root == null
+        || (movable
+            && (root.right == null
+                || (rl = root.left) == null
+                || rl.left == null))) {
+        tab[index] = first.untreeify(map);  // too small
+        return;
+    }
+    TreeNode<K,V> p = this, pl = left, pr = right, replacement;
+    if (pl != null && pr != null) {
+        TreeNode<K,V> s = pr, sl;
+        while ((sl = s.left) != null) // find successor
+            s = sl;
+        boolean c = s.red; s.red = p.red; p.red = c; // swap colors
+        TreeNode<K,V> sr = s.right;
+        TreeNode<K,V> pp = p.parent;
+        if (s == pr) { // p was s's direct parent
+            p.parent = s;
+            s.right = p;
+        }
+        else {
+            TreeNode<K,V> sp = s.parent;
+            if ((p.parent = sp) != null) {
+                if (s == sp.left)
+                    sp.left = p;
+                else
+                    sp.right = p;
+            }
+            if ((s.right = pr) != null)
+                pr.parent = s;
+        }
+        p.left = null;
+        if ((p.right = sr) != null)
+            sr.parent = p;
+        if ((s.left = pl) != null)
+            pl.parent = s;
+        if ((s.parent = pp) == null)
+            root = s;
+        else if (p == pp.left)
+            pp.left = s;
+        else
+            pp.right = s;
+        if (sr != null)
+            replacement = sr;
+        else
+            replacement = p;
+    }
+    else if (pl != null)
+        replacement = pl;
+    else if (pr != null)
+        replacement = pr;
+    else
+        replacement = p;
+    if (replacement != p) {
+        TreeNode<K,V> pp = replacement.parent = p.parent;
+        if (pp == null)
+            root = replacement;
+        else if (p == pp.left)
+            pp.left = replacement;
+        else
+            pp.right = replacement;
+        p.left = p.right = p.parent = null;
+    }
+
+    TreeNode<K,V> r = p.red ? root : balanceDeletion(root, replacement);
+
+    if (replacement == p) {  // detach
+        TreeNode<K,V> pp = p.parent;
+        p.parent = null;
+        if (pp != null) {
+            if (p == pp.left)
+                pp.left = null;
+            else if (p == pp.right)
+                pp.right = null;
+        }
+    }
+    if (movable)
+        moveRootToFront(tab, r);
+}
+```
+
+### 分割
+
+```java
+/**
+ * Splits nodes in a tree bin into lower and upper tree bins,
+ * or untreeifies if now too small. Called only from resize;
+ * see above discussion about split bits and indices.
+ *
+ * @param map the map
+ * @param tab the table for recording bin heads
+ * @param index the index of the table being split
+ * @param bit the bit of hash to split on
+ */
+final void split(HashMap<K,V> map, Node<K,V>[] tab, int index, int bit) {
+    TreeNode<K,V> b = this;
+    // Relink into lo and hi lists, preserving order
+    TreeNode<K,V> loHead = null, loTail = null;
+    TreeNode<K,V> hiHead = null, hiTail = null;
+    int lc = 0, hc = 0;
+    for (TreeNode<K,V> e = b, next; e != null; e = next) {
+        next = (TreeNode<K,V>)e.next;
+        e.next = null;
+        if ((e.hash & bit) == 0) {
+            if ((e.prev = loTail) == null)
+                loHead = e;
+            else
+                loTail.next = e;
+            loTail = e;
+            ++lc;
+        }
+        else {
+            if ((e.prev = hiTail) == null)
+                hiHead = e;
+            else
+                hiTail.next = e;
+            hiTail = e;
+            ++hc;
+        }
+    }
+
+    if (loHead != null) {
+        if (lc <= UNTREEIFY_THRESHOLD)
+            tab[index] = loHead.untreeify(map);
+        else {
+            tab[index] = loHead;
+            if (hiHead != null) // (else is already treeified)
+                loHead.treeify(tab);
+        }
+    }
+    if (hiHead != null) {
+        if (hc <= UNTREEIFY_THRESHOLD)
+            tab[index + bit] = hiHead.untreeify(map);
+        else {
+            tab[index + bit] = hiHead;
+            if (loHead != null)
+                hiHead.treeify(tab);
+        }
+    }
+}
+```
+
+### 翻转左子树
+
+```java
+/* ------------------------------------------------------------ */
+// Red-black tree methods, all adapted from CLR
+static <K,V> TreeNode<K,V> rotateLeft(TreeNode<K,V> root,
+                                      TreeNode<K,V> p) {
+    TreeNode<K,V> r, pp, rl;
+    if (p != null && (r = p.right) != null) {
+        if ((rl = p.right = r.left) != null)
+            rl.parent = p;
+        if ((pp = r.parent = p.parent) == null)
+            (root = r).red = false;
+        else if (pp.left == p)
+            pp.left = r;
+        else
+            pp.right = r;
+        r.left = p;
+        p.parent = r;
+    }
+    return root;
+}
+```
+
+### 翻转右子树
+
+```java
+static <K,V> TreeNode<K,V> rotateRight(TreeNode<K,V> root,
+                                       TreeNode<K,V> p) {
+    TreeNode<K,V> l, pp, lr;
+    if (p != null && (l = p.left) != null) {
+        if ((lr = p.left = l.right) != null)
+            lr.parent = p;
+        if ((pp = l.parent = p.parent) == null)
+            (root = l).red = false;
+        else if (pp.right == p)
+            pp.right = l;
+        else
+            pp.left = l;
+        l.right = p;
+        p.parent = l;
+    }
+    return root;
+}
+```
+
+### 平衡插入
+
+```java
+static <K,V> TreeNode<K,V> balanceInsertion(TreeNode<K,V> root,
+                                            TreeNode<K,V> x) {
+    x.red = true;
+    for (TreeNode<K,V> xp, xpp, xppl, xppr;;) {
+        if ((xp = x.parent) == null) {
+            x.red = false;
+            return x;
+        }
+        else if (!xp.red || (xpp = xp.parent) == null)
+            return root;
+        if (xp == (xppl = xpp.left)) {
+            if ((xppr = xpp.right) != null && xppr.red) {
+                xppr.red = false;
+                xp.red = false;
+                xpp.red = true;
+                x = xpp;
+            }
+            else {
+                if (x == xp.right) {
+                    root = rotateLeft(root, x = xp);
+                    xpp = (xp = x.parent) == null ? null : xp.parent;
+                }
+                if (xp != null) {
+                    xp.red = false;
+                    if (xpp != null) {
+                        xpp.red = true;
+                        root = rotateRight(root, xpp);
+                    }
+                }
+            }
+        }
+        else {
+            if (xppl != null && xppl.red) {
+                xppl.red = false;
+                xp.red = false;
+                xpp.red = true;
+                x = xpp;
+            }
+            else {
+                if (x == xp.left) {
+                    root = rotateRight(root, x = xp);
+                    xpp = (xp = x.parent) == null ? null : xp.parent;
+                }
+                if (xp != null) {
+                    xp.red = false;
+                    if (xpp != null) {
+                        xpp.red = true;
+                        root = rotateLeft(root, xpp);
+                    }
+                }
+            }
+        }
+    }
+}
+```
+
+
+### 平衡删除
+
+```java
+static <K,V> TreeNode<K,V> balanceDeletion(TreeNode<K,V> root,
+                                           TreeNode<K,V> x) {
+    for (TreeNode<K,V> xp, xpl, xpr;;) {
+        if (x == null || x == root)
+            return root;
+        else if ((xp = x.parent) == null) {
+            x.red = false;
+            return x;
+        }
+        else if (x.red) {
+            x.red = false;
+            return root;
+        }
+        else if ((xpl = xp.left) == x) {
+            if ((xpr = xp.right) != null && xpr.red) {
+                xpr.red = false;
+                xp.red = true;
+                root = rotateLeft(root, xp);
+                xpr = (xp = x.parent) == null ? null : xp.right;
+            }
+            if (xpr == null)
+                x = xp;
+            else {
+                TreeNode<K,V> sl = xpr.left, sr = xpr.right;
+                if ((sr == null || !sr.red) &&
+                    (sl == null || !sl.red)) {
+                    xpr.red = true;
+                    x = xp;
+                }
+                else {
+                    if (sr == null || !sr.red) {
+                        if (sl != null)
+                            sl.red = false;
+                        xpr.red = true;
+                        root = rotateRight(root, xpr);
+                        xpr = (xp = x.parent) == null ?
+                            null : xp.right;
+                    }
+                    if (xpr != null) {
+                        xpr.red = (xp == null) ? false : xp.red;
+                        if ((sr = xpr.right) != null)
+                            sr.red = false;
+                    }
+                    if (xp != null) {
+                        xp.red = false;
+                        root = rotateLeft(root, xp);
+                    }
+                    x = root;
+                }
+            }
+        }
+        else { // symmetric
+            if (xpl != null && xpl.red) {
+                xpl.red = false;
+                xp.red = true;
+                root = rotateRight(root, xp);
+                xpl = (xp = x.parent) == null ? null : xp.left;
+            }
+            if (xpl == null)
+                x = xp;
+            else {
+                TreeNode<K,V> sl = xpl.left, sr = xpl.right;
+                if ((sl == null || !sl.red) &&
+                    (sr == null || !sr.red)) {
+                    xpl.red = true;
+                    x = xp;
+                }
+                else {
+                    if (sl == null || !sl.red) {
+                        if (sr != null)
+                            sr.red = false;
+                        xpl.red = true;
+                        root = rotateLeft(root, xpl);
+                        xpl = (xp = x.parent) == null ?
+                            null : xp.left;
+                    }
+                    if (xpl != null) {
+                        xpl.red = (xp == null) ? false : xp.red;
+                        if ((sl = xpl.left) != null)
+                            sl.red = false;
+                    }
+                    if (xp != null) {
+                        xp.red = false;
+                        root = rotateRight(root, xp);
+                    }
+                    x = root;
+                }
             }
         }
     }
@@ -1019,601 +1405,35 @@ void internalWriteEntries(java.io.ObjectOutputStream s) throws IOException {
 ```
 
 ```java
-/* ------------------------------------------------------------ */
-// Tree bins
-
 /**
- * Entry for Tree bins. Extends LinkedHashMap.Entry (which in turn
- * extends Node) so can be used as extension of either regular or
- * linked node.
+ * Recursive invariant check
  */
-static final class TreeNode<K,V> extends LinkedHashMap.Entry<K,V> {
-    TreeNode<K,V> parent;  // red-black tree links
-    TreeNode<K,V> left;
-    TreeNode<K,V> right;
-    TreeNode<K,V> prev;    // needed to unlink next upon deletion
-    boolean red;
-    TreeNode(int hash, K key, V val, Node<K,V> next) {
-        super(hash, key, val, next);
-    }
-
-    /**
-     * Returns root of tree containing this node.
-     */
-    final TreeNode<K,V> root() {
-        for (TreeNode<K,V> r = this, p;;) {
-            if ((p = r.parent) == null)
-                return r;
-            r = p;
-        }
-    }
-
-    /**
-     * Ensures that the given root is the first node of its bin.
-     */
-    static <K,V> void moveRootToFront(Node<K,V>[] tab, TreeNode<K,V> root) {
-        int n;
-        if (root != null && tab != null && (n = tab.length) > 0) {
-            int index = (n - 1) & root.hash;
-            TreeNode<K,V> first = (TreeNode<K,V>)tab[index];
-            if (root != first) {
-                Node<K,V> rn;
-                tab[index] = root;
-                TreeNode<K,V> rp = root.prev;
-                if ((rn = root.next) != null)
-                    ((TreeNode<K,V>)rn).prev = rp;
-                if (rp != null)
-                    rp.next = rn;
-                if (first != null)
-                    first.prev = root;
-                root.next = first;
-                root.prev = null;
-            }
-            assert checkInvariants(root);
-        }
-    }
-
-    /**
-     * Finds the node starting at root p with the given hash and key.
-     * The kc argument caches comparableClassFor(key) upon first use
-     * comparing keys.
-     */
-    final TreeNode<K,V> find(int h, Object k, Class<?> kc) {
-        TreeNode<K,V> p = this;
-        do {
-            int ph, dir; K pk;
-            TreeNode<K,V> pl = p.left, pr = p.right, q;
-            if ((ph = p.hash) > h)
-                p = pl;
-            else if (ph < h)
-                p = pr;
-            else if ((pk = p.key) == k || (k != null && k.equals(pk)))
-                return p;
-            else if (pl == null)
-                p = pr;
-            else if (pr == null)
-                p = pl;
-            else if ((kc != null ||
-                      (kc = comparableClassFor(k)) != null) &&
-                     (dir = compareComparables(kc, k, pk)) != 0)
-                p = (dir < 0) ? pl : pr;
-            else if ((q = pr.find(h, k, kc)) != null)
-                return q;
-            else
-                p = pl;
-        } while (p != null);
-        return null;
-    }
-
-    /**
-     * Calls find for root node.
-     */
-    final TreeNode<K,V> getTreeNode(int h, Object k) {
-        return ((parent != null) ? root() : this).find(h, k, null);
-    }
-
-    /**
-     * Tie-breaking utility for ordering insertions when equal
-     * hashCodes and non-comparable. We don't require a total
-     * order, just a consistent insertion rule to maintain
-     * equivalence across rebalancings. Tie-breaking further than
-     * necessary simplifies testing a bit.
-     */
-    static int tieBreakOrder(Object a, Object b) {
-        int d;
-        if (a == null || b == null ||
-            (d = a.getClass().getName().
-             compareTo(b.getClass().getName())) == 0)
-            d = (System.identityHashCode(a) <= System.identityHashCode(b) ?
-                 -1 : 1);
-        return d;
-    }
-
-    /**
-     * Forms tree of the nodes linked from this node.
-     */
-    final void treeify(Node<K,V>[] tab) {
-        TreeNode<K,V> root = null;
-        for (TreeNode<K,V> x = this, next; x != null; x = next) {
-            next = (TreeNode<K,V>)x.next;
-            x.left = x.right = null;
-            if (root == null) {
-                x.parent = null;
-                x.red = false;
-                root = x;
-            }
-            else {
-                K k = x.key;
-                int h = x.hash;
-                Class<?> kc = null;
-                for (TreeNode<K,V> p = root;;) {
-                    int dir, ph;
-                    K pk = p.key;
-                    if ((ph = p.hash) > h)
-                        dir = -1;
-                    else if (ph < h)
-                        dir = 1;
-                    else if ((kc == null &&
-                              (kc = comparableClassFor(k)) == null) ||
-                             (dir = compareComparables(kc, k, pk)) == 0)
-                        dir = tieBreakOrder(k, pk);
-
-                    TreeNode<K,V> xp = p;
-                    if ((p = (dir <= 0) ? p.left : p.right) == null) {
-                        x.parent = xp;
-                        if (dir <= 0)
-                            xp.left = x;
-                        else
-                            xp.right = x;
-                        root = balanceInsertion(root, x);
-                        break;
-                    }
-                }
-            }
-        }
-        moveRootToFront(tab, root);
-    }
-
-    /**
-     * Returns a list of non-TreeNodes replacing those linked from
-     * this node.
-     */
-    final Node<K,V> untreeify(HashMap<K,V> map) {
-        Node<K,V> hd = null, tl = null;
-        for (Node<K,V> q = this; q != null; q = q.next) {
-            Node<K,V> p = map.replacementNode(q, null);
-            if (tl == null)
-                hd = p;
-            else
-                tl.next = p;
-            tl = p;
-        }
-        return hd;
-    }
-
-    /**
-     * Tree version of putVal.
-     */
-    final TreeNode<K,V> putTreeVal(HashMap<K,V> map, Node<K,V>[] tab,
-                                   int h, K k, V v) {
-        Class<?> kc = null;
-        boolean searched = false;
-        TreeNode<K,V> root = (parent != null) ? root() : this;
-        for (TreeNode<K,V> p = root;;) {
-            int dir, ph; K pk;
-            if ((ph = p.hash) > h)
-                dir = -1;
-            else if (ph < h)
-                dir = 1;
-            else if ((pk = p.key) == k || (k != null && k.equals(pk)))
-                return p;
-            else if ((kc == null &&
-                      (kc = comparableClassFor(k)) == null) ||
-                     (dir = compareComparables(kc, k, pk)) == 0) {
-                if (!searched) {
-                    TreeNode<K,V> q, ch;
-                    searched = true;
-                    if (((ch = p.left) != null &&
-                         (q = ch.find(h, k, kc)) != null) ||
-                        ((ch = p.right) != null &&
-                         (q = ch.find(h, k, kc)) != null))
-                        return q;
-                }
-                dir = tieBreakOrder(k, pk);
-            }
-
-            TreeNode<K,V> xp = p;
-            if ((p = (dir <= 0) ? p.left : p.right) == null) {
-                Node<K,V> xpn = xp.next;
-                TreeNode<K,V> x = map.newTreeNode(h, k, v, xpn);
-                if (dir <= 0)
-                    xp.left = x;
-                else
-                    xp.right = x;
-                xp.next = x;
-                x.parent = x.prev = xp;
-                if (xpn != null)
-                    ((TreeNode<K,V>)xpn).prev = x;
-                moveRootToFront(tab, balanceInsertion(root, x));
-                return null;
-            }
-        }
-    }
-
-    /**
-     * Removes the given node, that must be present before this call.
-     * This is messier than typical red-black deletion code because we
-     * cannot swap the contents of an interior node with a leaf
-     * successor that is pinned by "next" pointers that are accessible
-     * independently during traversal. So instead we swap the tree
-     * linkages. If the current tree appears to have too few nodes,
-     * the bin is converted back to a plain bin. (The test triggers
-     * somewhere between 2 and 6 nodes, depending on tree structure).
-     */
-    final void removeTreeNode(HashMap<K,V> map, Node<K,V>[] tab,
-                              boolean movable) {
-        int n;
-        if (tab == null || (n = tab.length) == 0)
-            return;
-        int index = (n - 1) & hash;
-        TreeNode<K,V> first = (TreeNode<K,V>)tab[index], root = first, rl;
-        TreeNode<K,V> succ = (TreeNode<K,V>)next, pred = prev;
-        if (pred == null)
-            tab[index] = first = succ;
-        else
-            pred.next = succ;
-        if (succ != null)
-            succ.prev = pred;
-        if (first == null)
-            return;
-        if (root.parent != null)
-            root = root.root();
-        if (root == null
-            || (movable
-                && (root.right == null
-                    || (rl = root.left) == null
-                    || rl.left == null))) {
-            tab[index] = first.untreeify(map);  // too small
-            return;
-        }
-        TreeNode<K,V> p = this, pl = left, pr = right, replacement;
-        if (pl != null && pr != null) {
-            TreeNode<K,V> s = pr, sl;
-            while ((sl = s.left) != null) // find successor
-                s = sl;
-            boolean c = s.red; s.red = p.red; p.red = c; // swap colors
-            TreeNode<K,V> sr = s.right;
-            TreeNode<K,V> pp = p.parent;
-            if (s == pr) { // p was s's direct parent
-                p.parent = s;
-                s.right = p;
-            }
-            else {
-                TreeNode<K,V> sp = s.parent;
-                if ((p.parent = sp) != null) {
-                    if (s == sp.left)
-                        sp.left = p;
-                    else
-                        sp.right = p;
-                }
-                if ((s.right = pr) != null)
-                    pr.parent = s;
-            }
-            p.left = null;
-            if ((p.right = sr) != null)
-                sr.parent = p;
-            if ((s.left = pl) != null)
-                pl.parent = s;
-            if ((s.parent = pp) == null)
-                root = s;
-            else if (p == pp.left)
-                pp.left = s;
-            else
-                pp.right = s;
-            if (sr != null)
-                replacement = sr;
-            else
-                replacement = p;
-        }
-        else if (pl != null)
-            replacement = pl;
-        else if (pr != null)
-            replacement = pr;
-        else
-            replacement = p;
-        if (replacement != p) {
-            TreeNode<K,V> pp = replacement.parent = p.parent;
-            if (pp == null)
-                root = replacement;
-            else if (p == pp.left)
-                pp.left = replacement;
-            else
-                pp.right = replacement;
-            p.left = p.right = p.parent = null;
-        }
-
-        TreeNode<K,V> r = p.red ? root : balanceDeletion(root, replacement);
-
-        if (replacement == p) {  // detach
-            TreeNode<K,V> pp = p.parent;
-            p.parent = null;
-            if (pp != null) {
-                if (p == pp.left)
-                    pp.left = null;
-                else if (p == pp.right)
-                    pp.right = null;
-            }
-        }
-        if (movable)
-            moveRootToFront(tab, r);
-    }
-
-    /**
-     * Splits nodes in a tree bin into lower and upper tree bins,
-     * or untreeifies if now too small. Called only from resize;
-     * see above discussion about split bits and indices.
-     *
-     * @param map the map
-     * @param tab the table for recording bin heads
-     * @param index the index of the table being split
-     * @param bit the bit of hash to split on
-     */
-    final void split(HashMap<K,V> map, Node<K,V>[] tab, int index, int bit) {
-        TreeNode<K,V> b = this;
-        // Relink into lo and hi lists, preserving order
-        TreeNode<K,V> loHead = null, loTail = null;
-        TreeNode<K,V> hiHead = null, hiTail = null;
-        int lc = 0, hc = 0;
-        for (TreeNode<K,V> e = b, next; e != null; e = next) {
-            next = (TreeNode<K,V>)e.next;
-            e.next = null;
-            if ((e.hash & bit) == 0) {
-                if ((e.prev = loTail) == null)
-                    loHead = e;
-                else
-                    loTail.next = e;
-                loTail = e;
-                ++lc;
-            }
-            else {
-                if ((e.prev = hiTail) == null)
-                    hiHead = e;
-                else
-                    hiTail.next = e;
-                hiTail = e;
-                ++hc;
-            }
-        }
-
-        if (loHead != null) {
-            if (lc <= UNTREEIFY_THRESHOLD)
-                tab[index] = loHead.untreeify(map);
-            else {
-                tab[index] = loHead;
-                if (hiHead != null) // (else is already treeified)
-                    loHead.treeify(tab);
-            }
-        }
-        if (hiHead != null) {
-            if (hc <= UNTREEIFY_THRESHOLD)
-                tab[index + bit] = hiHead.untreeify(map);
-            else {
-                tab[index + bit] = hiHead;
-                if (loHead != null)
-                    hiHead.treeify(tab);
-            }
-        }
-    }
-
-    /* ------------------------------------------------------------ */
-    // Red-black tree methods, all adapted from CLR
-
-    static <K,V> TreeNode<K,V> rotateLeft(TreeNode<K,V> root,
-                                          TreeNode<K,V> p) {
-        TreeNode<K,V> r, pp, rl;
-        if (p != null && (r = p.right) != null) {
-            if ((rl = p.right = r.left) != null)
-                rl.parent = p;
-            if ((pp = r.parent = p.parent) == null)
-                (root = r).red = false;
-            else if (pp.left == p)
-                pp.left = r;
-            else
-                pp.right = r;
-            r.left = p;
-            p.parent = r;
-        }
-        return root;
-    }
-
-    static <K,V> TreeNode<K,V> rotateRight(TreeNode<K,V> root,
-                                           TreeNode<K,V> p) {
-        TreeNode<K,V> l, pp, lr;
-        if (p != null && (l = p.left) != null) {
-            if ((lr = p.left = l.right) != null)
-                lr.parent = p;
-            if ((pp = l.parent = p.parent) == null)
-                (root = l).red = false;
-            else if (pp.right == p)
-                pp.right = l;
-            else
-                pp.left = l;
-            l.right = p;
-            p.parent = l;
-        }
-        return root;
-    }
-
-    static <K,V> TreeNode<K,V> balanceInsertion(TreeNode<K,V> root,
-                                                TreeNode<K,V> x) {
-        x.red = true;
-        for (TreeNode<K,V> xp, xpp, xppl, xppr;;) {
-            if ((xp = x.parent) == null) {
-                x.red = false;
-                return x;
-            }
-            else if (!xp.red || (xpp = xp.parent) == null)
-                return root;
-            if (xp == (xppl = xpp.left)) {
-                if ((xppr = xpp.right) != null && xppr.red) {
-                    xppr.red = false;
-                    xp.red = false;
-                    xpp.red = true;
-                    x = xpp;
-                }
-                else {
-                    if (x == xp.right) {
-                        root = rotateLeft(root, x = xp);
-                        xpp = (xp = x.parent) == null ? null : xp.parent;
-                    }
-                    if (xp != null) {
-                        xp.red = false;
-                        if (xpp != null) {
-                            xpp.red = true;
-                            root = rotateRight(root, xpp);
-                        }
-                    }
-                }
-            }
-            else {
-                if (xppl != null && xppl.red) {
-                    xppl.red = false;
-                    xp.red = false;
-                    xpp.red = true;
-                    x = xpp;
-                }
-                else {
-                    if (x == xp.left) {
-                        root = rotateRight(root, x = xp);
-                        xpp = (xp = x.parent) == null ? null : xp.parent;
-                    }
-                    if (xp != null) {
-                        xp.red = false;
-                        if (xpp != null) {
-                            xpp.red = true;
-                            root = rotateLeft(root, xpp);
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    static <K,V> TreeNode<K,V> balanceDeletion(TreeNode<K,V> root,
-                                               TreeNode<K,V> x) {
-        for (TreeNode<K,V> xp, xpl, xpr;;) {
-            if (x == null || x == root)
-                return root;
-            else if ((xp = x.parent) == null) {
-                x.red = false;
-                return x;
-            }
-            else if (x.red) {
-                x.red = false;
-                return root;
-            }
-            else if ((xpl = xp.left) == x) {
-                if ((xpr = xp.right) != null && xpr.red) {
-                    xpr.red = false;
-                    xp.red = true;
-                    root = rotateLeft(root, xp);
-                    xpr = (xp = x.parent) == null ? null : xp.right;
-                }
-                if (xpr == null)
-                    x = xp;
-                else {
-                    TreeNode<K,V> sl = xpr.left, sr = xpr.right;
-                    if ((sr == null || !sr.red) &&
-                        (sl == null || !sl.red)) {
-                        xpr.red = true;
-                        x = xp;
-                    }
-                    else {
-                        if (sr == null || !sr.red) {
-                            if (sl != null)
-                                sl.red = false;
-                            xpr.red = true;
-                            root = rotateRight(root, xpr);
-                            xpr = (xp = x.parent) == null ?
-                                null : xp.right;
-                        }
-                        if (xpr != null) {
-                            xpr.red = (xp == null) ? false : xp.red;
-                            if ((sr = xpr.right) != null)
-                                sr.red = false;
-                        }
-                        if (xp != null) {
-                            xp.red = false;
-                            root = rotateLeft(root, xp);
-                        }
-                        x = root;
-                    }
-                }
-            }
-            else { // symmetric
-                if (xpl != null && xpl.red) {
-                    xpl.red = false;
-                    xp.red = true;
-                    root = rotateRight(root, xp);
-                    xpl = (xp = x.parent) == null ? null : xp.left;
-                }
-                if (xpl == null)
-                    x = xp;
-                else {
-                    TreeNode<K,V> sl = xpl.left, sr = xpl.right;
-                    if ((sl == null || !sl.red) &&
-                        (sr == null || !sr.red)) {
-                        xpl.red = true;
-                        x = xp;
-                    }
-                    else {
-                        if (sl == null || !sl.red) {
-                            if (sr != null)
-                                sr.red = false;
-                            xpl.red = true;
-                            root = rotateLeft(root, xpl);
-                            xpl = (xp = x.parent) == null ?
-                                null : xp.left;
-                        }
-                        if (xpl != null) {
-                            xpl.red = (xp == null) ? false : xp.red;
-                            if ((sl = xpl.left) != null)
-                                sl.red = false;
-                        }
-                        if (xp != null) {
-                            xp.red = false;
-                            root = rotateRight(root, xp);
-                        }
-                        x = root;
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Recursive invariant check
-     */
-    static <K,V> boolean checkInvariants(TreeNode<K,V> t) {
-        TreeNode<K,V> tp = t.parent, tl = t.left, tr = t.right,
-            tb = t.prev, tn = (TreeNode<K,V>)t.next;
-        if (tb != null && tb.next != t)
-            return false;
-        if (tn != null && tn.prev != t)
-            return false;
-        if (tp != null && t != tp.left && t != tp.right)
-            return false;
-        if (tl != null && (tl.parent != t || tl.hash > t.hash))
-            return false;
-        if (tr != null && (tr.parent != t || tr.hash < t.hash))
-            return false;
-        if (t.red && tl != null && tl.red && tr != null && tr.red)
-            return false;
-        if (tl != null && !checkInvariants(tl))
-            return false;
-        if (tr != null && !checkInvariants(tr))
-            return false;
-        return true;
-    }
+static <K,V> boolean checkInvariants(TreeNode<K,V> t) {
+    TreeNode<K,V> tp = t.parent, tl = t.left, tr = t.right,
+        tb = t.prev, tn = (TreeNode<K,V>)t.next;
+    if (tb != null && tb.next != t)
+        return false;
+    if (tn != null && tn.prev != t)
+        return false;
+    if (tp != null && t != tp.left && t != tp.right)
+        return false;
+    if (tl != null && (tl.parent != t || tl.hash > t.hash))
+        return false;
+    if (tr != null && (tr.parent != t || tr.hash < t.hash))
+        return false;
+    if (t.red && tl != null && tl.red && tr != null && tr.red)
+        return false;
+    if (tl != null && !checkInvariants(tl))
+        return false;
+    if (tr != null && !checkInvariants(tr))
+        return false;
+    return true;
 }
 ```
+## 八、参考链接
+
+* [美团技术团队 -  Java 8系列之重新认识HashMap](https://tech.meituan.com/java-hashmap.html)
+* [I-team - 死磕Java之聊聊HashMap源码(基于JDK1.8)](http://www.hchstudio.cn/article/2018/10fc/)
+* [StackOverflow - Does HashTable maintains the insertion order?](https://stackoverflow.com/a/6405709/8750399)
+* [StackOverflow - Why Hashtable does not allow null keys or values?](https://stackoverflow.com/a/11981897/8750399)
+
