@@ -1,16 +1,87 @@
 ---
 layout:     post
 title:      "Java源码系列 -- ConcurrentHashMap"
-subtitle:   "JDK8"
-date:       2017-02-01
+date:       2018-07-06
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Java
+    - Java源码系列
 ---
 
 ```java
+/*
+ * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
+
+/*
+ *
+ *
+ *
+ *
+ *
+ * Written by Doug Lea with assistance from members of JCP JSR-166
+ * Expert Group and released to the public domain, as explained at
+ * http://creativecommons.org/publicdomain/zero/1.0/
+ */
+
+package java.util.concurrent;
+
+import java.io.ObjectStreamField;
+import java.io.Serializable;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.AbstractMap;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.Spliterator;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.LockSupport;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.DoubleBinaryOperator;
+import java.util.function.Function;
+import java.util.function.IntBinaryOperator;
+import java.util.function.LongBinaryOperator;
+import java.util.function.Predicate;
+import java.util.function.ToDoubleBiFunction;
+import java.util.function.ToDoubleFunction;
+import java.util.function.ToIntBiFunction;
+import java.util.function.ToIntFunction;
+import java.util.function.ToLongBiFunction;
+import java.util.function.ToLongFunction;
+import java.util.stream.Stream;
+import jdk.internal.misc.Unsafe;
+
 /**
  * A hash table supporting full concurrency of retrievals and
  * high expected concurrency for updates. This class obeys the
@@ -203,10 +274,7 @@ tags:
  * @param <V> the type of mapped values
  */
 public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
-    implements ConcurrentMap<K,V>, Serializable
-```
-
-```java
+    implements ConcurrentMap<K,V>, Serializable {
     private static final long serialVersionUID = 7249069246763182397L;
 
     /*
@@ -6339,4 +6407,5 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
         // LockSupport.park: https://bugs.openjdk.java.net/browse/JDK-8074773
         Class<?> ensureLoaded = LockSupport.class;
     }
+}
 ```

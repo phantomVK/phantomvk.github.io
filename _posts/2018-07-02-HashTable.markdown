@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-`HashTable`的方式使用`synchronized`修饰以保证线程安全，相比[HashMap](https://phantomvk.coding.me/2018/06/30/HashMap/)来说优化策略少。由于`HashTable`的实现相当原始，源码没有阅读难度。
+###### `HashTable`的方法使用`synchronized`修饰来保证线程安全，且相比[HashMap](https://phantomvk.coding.me/2018/06/30/HashMap/)来说优化度低。
 
 ```java
 public class Hashtable<K,V>
@@ -22,7 +22,7 @@ public class Hashtable<K,V>
 ## 二、数据成员
 
 ```java
-// 哈希表
+// 哈希桶
 private transient Entry<?,?>[] table;
 
 // 元素总数
@@ -56,23 +56,21 @@ public Hashtable(int initialCapacity, float loadFactor) {
     threshold = (int)Math.min(initialCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
 }
 
-// 仅指定初始容量
+// 自定初始容量
 public Hashtable(int initialCapacity) {
     this(initialCapacity, 0.75f);
 }
 
-// 默认构造方法，初始容量为11，初始负载因子为0.75
+// 默认构造方法，初始容量11，初始负载因子0.75
 public Hashtable() {
     this(11, 0.75f);
 }
 
-// 使用指定哈希表进行初始化
+// 使用指定表构造Hashtable
 public Hashtable(Map<? extends K, ? extends V> t) {
     this(Math.max(2*t.size(), 11), 0.75f);
     putAll(t);
 }
-
-Hashtable(Void dummy) {}
 ```
 
 ## 四、成员方法
@@ -85,11 +83,11 @@ public synchronized boolean contains(Object value) {
     if (value == null) {
         throw new NullPointerException();
     }
-    
-    // 遍历哈希表，查找是否有指定值
+
     Entry<?,?> tab[] = table;
     // 从哈希表的拉链首元素开始往后遍历
     for (int i = tab.length ; i-- > 0 ;) {
+        // 依次遍历哈希桶中的链
         for (Entry<?,?> e = tab[i] ; e != null ; e = e.next) {
             // 直到找到对应值
             if (e.value.equals(value)) {
@@ -97,6 +95,7 @@ public synchronized boolean contains(Object value) {
             }
         }
     }
+    // 找不到指定value
     return false;
 }
 
@@ -104,9 +103,9 @@ public synchronized boolean contains(Object value) {
 public synchronized boolean containsKey(Object key) {
     Entry<?,?> tab[] = table;
     int hash = key.hashCode();
-    // 先算键的哈希值，确定哈希桶索索引
+    // 先算键的哈希值，确定哈希桶索引
     int index = (hash & 0x7FFFFFFF) % tab.length;
-    // 从哈希桶第一个元素开始查找，使用的是拉链法
+    // 从哈希桶第一个元素开始查找
     for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
         // 匹配哈希值且key完全相同
         if ((e.hash == hash) && e.key.equals(key)) {
@@ -125,18 +124,18 @@ public synchronized V get(Object key) {
     int hash = key.hashCode(); // 计算key的哈希值
     int index = (hash & 0x7FFFFFFF) % tab.length; // 选桶
     for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
-        // 从同种获取对应的值
+        // 匹配哈希值，则获取对应的值
         if ((e.hash == hash) && e.key.equals(key)) {
             return (V)e.value;
         }
     }
-    return null; // 没有匹配到指定key，返回null的value
+    return null; // 没有匹配到指定key，返回null
 }
 
 // 获取指定key的value，没有则返回defaultValue
 @Override
 public synchronized V getOrDefault(Object key, V defaultValue) {
-    // 依赖get(key)方法，然后看是否为null再返回defaultValue
+    // 依赖get(key)方法，为null返回defaultValue
     V result = get(key);
     return (null == result) ? defaultValue : result;
 }
@@ -148,7 +147,7 @@ public synchronized V getOrDefault(Object key, V defaultValue) {
 // 数组最大长度
 private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
- // 扩容并冲哈希所有键值
+ // 扩容并重哈希所有键值
 @SuppressWarnings("unchecked")
 protected void rehash() {
     int oldCapacity = table.length;
@@ -162,6 +161,7 @@ protected void rehash() {
             return;
         newCapacity = MAX_ARRAY_SIZE;
     }
+    // 构建新哈希桶数组
     Entry<?,?>[] newMap = new Entry<?,?>[newCapacity];
 
     modCount++; // 修改次数递增
@@ -175,9 +175,9 @@ protected void rehash() {
             Entry<K,V> e = old;
             old = old.next;
             
-            // 获取链表的节点进行重哈希
+            // 获取链表节点进行重哈希
             int index = (e.hash & 0x7FFFFFFF) % newCapacity; // 计算新哈希桶索引
-            e.next = (Entry<K,V>)newMap[index]; // 这里两行相当于头插法插入链表
+            e.next = (Entry<K,V>)newMap[index]; // 这里两行相当于头插法插入新桶的链表中
             newMap[index] = e; 
         }
     }
@@ -236,7 +236,7 @@ public synchronized void putAll(Map<? extends K, ? extends V> t) {
         put(e.getKey(), e.getValue());
 }
 
-// 仅在key对应的Entry不存在的时候才创建的新Entry，否则直接返回旧value
+// 仅在key对应Entry不存在时才创建新Entry，否则直接返回旧value
 @Override
 public synchronized V putIfAbsent(K key, V value) {
     Objects.requireNonNull(value);
@@ -291,7 +291,7 @@ public synchronized V remove(Object key) {
     return null; // key匹配不到Entry
 }
 
-// 参考删除方法，此方法只是增加检查value是否一致，仅在一致的时候才移除
+// 参考删除方法，此方法只是增加检查value是否一致，仅一致时移除
 @Override
 public synchronized boolean remove(Object key, Object value) {
     Objects.requireNonNull(value);
