@@ -17,22 +17,20 @@ SparseArrays<E>由Android原生提供的稀疏数组，用于代替HashMap的容
 public class SparseArray<E> implements Cloneable
 ```
 
-SparseArrays使用基本类型`int`作为键，不像`HashMap<Integer, Object>`需把`int`转换为`Integer`，避免装箱、拆箱的性能消耗。使用内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。
+SparseArrays使用基本类型`int`作为键，不像`HashMap<Integer, Object>`需把`int`转换为`Integer`，避免装箱、拆箱的性能消耗。使用内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但在存取操作上需耗费相对更多时间。
 
-用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但在存取操作上需耗费相对更多时间。
+从类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的`index`找对应索引的值，由此可推测时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于`key`保存在`mKeys`数组，`value`保存在`mValues`数组，任何增删键值对都有可能重建这两个数组。
 
-从类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的index找对应索引的值，由此可推测时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于`key`保存在`mKeys`数组，`value`保存在`mValues`数组，任何增删键值对都有可能重建这两个数组。
-
-不过，SparseArrays做了一定优化，如移除一个键值对时只会把mValues对应的Object标记为`DELETED`，等下一次同key插入新value时直接替换，且失效空间在数组扩容或回收空间时才处理。
+不过，SparseArrays做了一定优化，如移除一个键值对时只会把`mValues`对应的Object标记为`DELETED`，等下一次同key插入新value时直接替换，且失效空间在数组扩容或回收空间时才处理。
 
 总结主要应用场景：
 
-- 类型为<int, Object>，若key是Integer建议直接用HashMap；
+- 类型为<int, Object>，若key是`Integer`建议直接用`HashMap`；
 - 存储键值对量较少，避免出现查询带来的性能问题；
 - 对存取时间不太敏感，但内存可用条件苛刻的设备；
 - 不在Java标准库，仅在Android系统中提供；
-- 支持按照key升序输出value；
-- 非线程安全，或自行保证；
+- 支持按照`key`升序输出`value`；
+- 非线程安全，或自行加锁实现；
 
 ### 二、数据成员
 
@@ -59,7 +57,7 @@ public SparseArray() {
     this(10);
 }
 ```
-指定初始化容量的构造方法。当初始容量设置为0时，mKeys数组和mValues数组各使用一个轻量级空数组初始化，否则按照指定容量进行初始化。
+指定初始化容量的构造方法。当初始容量设置为0时，`mKeys`数组和`mValues`数组各使用一个轻量级空数组初始化，否则按照指定容量进行初始化。
 ```java
 public SparseArray(int initialCapacity) {
     if (initialCapacity == 0) {
@@ -171,8 +169,8 @@ public void put(int key, E value) {
     if (i >= 0) {
         mValues[i] = value;
     } else {
-        //返回index是负数表明key不存在。对返i取反得到插入的位置i
-        // 例：i = ~i -> 2 = ~(-3)
+        // 返回index是负数表明key不存在。对返i取反得到插入的位置i
+        // 例如：i为2，则得到~i为-3
         i = ~i;
 
         // i没有越界，且i的value已被删除，则直接重用此空间
@@ -224,9 +222,9 @@ public int size() {
     return mSize;
 }
 
-// index范围在[0, size()-1]之内，返回index的key
+// index范围在[0, size()-1]之内，返回index的key；
 // index为0，返回mKeys最小key；
-// index为size()-1，返回mKeys最大key
+// index为size()-1，返回mKeys最大key；
 // 小于0或大于等于size()会出现未知结果
 public int keyAt(int index) {
     if (mGarbage) {
@@ -269,6 +267,7 @@ public int indexOfValue(E value) {
     for (int i = 0; i < mSize; i++)
         if (mValues[i] == value)
             return i;
+
     // 命失指定value返回-1
     return -1;
 }
