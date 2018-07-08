@@ -22,7 +22,7 @@ Handler有4个不可变成员变量：
 
 ```java
 final MessageQueue mQueue;   // 消息队列
-final Looper mLooper;        //消息队列所属Looper
+final Looper mLooper;        // 消息队列所属Looper
 final Callback mCallback;    // 可选Handler回调
 final boolean mAsynchronous; // 可选异步标志
 ```

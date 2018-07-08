@@ -225,7 +225,7 @@ $ source .bashrc
 
 #### 4.2 找不到配置文件
 
-这个错误可能只在使用OpenJDK的时候才出现
+这个错误可能在使用OpenJDK时出现
 
 ```
 Error: Config file not found: /usr/lib/jvm/java-9-openjdk-amd64/conf/management/management.properties
@@ -255,7 +255,7 @@ export HADOOP_HOME_WARN_SUPPRESS=1
 
 #### 4.4 SSH无法连接
 
-没有安装`OpenSSH`服务导致
+没有安装`SSH`服务导致
 
 ```
 localhost: ssh: connect to host localhost port 22: Connection refused

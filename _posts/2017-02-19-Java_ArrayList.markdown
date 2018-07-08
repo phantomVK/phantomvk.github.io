@@ -297,9 +297,12 @@ public Object[] toArray() {
 ```java
 @SuppressWarnings("unchecked")
 public <T> T[] toArray(T[] a) {
+    // 传入的数组a不足以保存elementData，则需要新创建Array
     if (a.length < size)
         // Make a new array of a's runtime type, but my contents:
         return (T[]) Arrays.copyOf(elementData, size, a.getClass());
+
+    // 传入的数组a足够存放elementData
     System.arraycopy(elementData, 0, a, 0, size);
     if (a.length > size)
         a[size] = null;

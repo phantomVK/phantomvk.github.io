@@ -11,13 +11,11 @@ tags:
 
 ## 一、摘要
 
-HashMap是软件工程师使用频率高、用来保存键值对映射的容器类。自JDK8始，HashMap引入红黑树，调整优化哈希算法，性能相比JDK7有进一步提升。同时对JDK7中存在多线程操作导致死循环的问题进行了优化。
-
-本文基于JDK10的源码进行介绍，代码格式进行轻微调整以便阅读，最终逻辑与JDK8版本无异。由于HashMap源码较多避免篇幅过长，部分内容不做介绍，请自行查阅。
+HashMap是软件工程师使用频率高、用来保存键值对映射的容器类。自JDK8始，HashMap引入红黑树，调整优化哈希算法，性能相比JDK7有进一步提升。同时对JDK7中存在多线程操作导致死循环的问题进行了优化。本文基于JDK10的源码进行介绍，代码格式进行轻微调整以便阅读，最终逻辑与JDK8版本无异。
 
 ## 二、类签名
 
-假设键值对能正确分散到不用桶中，那么访问get()和put()方法的时间消耗可近似为一个时间常数。哈希表遍历性能与哈希桶(table长度)、Node节点(键值对)数量成比例，因此不合适把初始capacity设置太大，或负载因子值load-factor(默认0.75)设置过小。
+假设键值对能正确分散到不用桶中，那么访问get()和put()方法消耗时间近似为一个时间常数。哈希表全遍历性能与哈希桶(table长度)、Node节点(键值对)数量成比例。因此不合适把初始capacity设置太大，或负载因子值load-factor(默认0.75)设置过小。
 
 ```java
 public class HashMap<K,V> extends AbstractMap<K,V>
@@ -31,15 +29,15 @@ public class HashMap<K,V> extends AbstractMap<K,V>
 在类注释里提到几个技术点： 
 
 - 实现Map<K,V>接口；
-- HashMap支持`null键`和`null值`；
+- HashMap支持空键和空值；
 - HashMap线程不安全；
 
-与HashMap一并谈论较多的是开发于早期的HashTable，后来被建议使用前者替代，但并不妨碍两者横向比较：
+与HashMap一并谈论较多的是开发于早期的[HashTable](https://phantomvk.github.io/2018/06/30/HashMap/)，后来被建议使用前者替代，但并不妨碍两者横向比较：
 
 - HashTable不支持键或值为null，而HashMap支持；
 - HashTable线程安全，与`ConcurrentHashMap`一样适用多线程；
-- 均实现Map<K,V>接口，具有相当Map操作能力；
-- 均不保证元素写入与读取的元素顺序一致性；
+- 均实现Map<K,V>接口，具有相当的Map操作能力；
+- 均不保证元素写入与读出顺序的一致性；
 
 上文提到，HashMap本身不是线程安全的，可通过
 ```java
@@ -154,7 +152,7 @@ static class Node<K,V> implements Map.Entry<K,V> {
 
 通常，判断Hash算法是否高效的方式是看元素是否均匀分放到不同桶中，最好一个桶存放一个元素。即使存放更多元素，也希望每个桶能均匀存放相同数量。如果哈希算法不佳，导致一个桶中存放元素数量特别多，严重影响存取性能。
 
-为减低碰撞几率，需设置负载因子 load factor（默认值0.75）。假设用默认桶数量capacity（初始值16），通过`threshold = capacity * load factor`可知当键值对数量超过12时触发扩容。当然，通过单纯使用大量的桶，即便不经优化的哈希算法，也能把元素相对均匀地放在不同桶中，类似空间换时间。事实上，JDK中的HashMap经过长期验证和修改，已能很好地在空间和时间两者取得平衡。
+为减低碰撞几率，需设置负载因子 load factor（默认值0.75）。假设用默认桶数量capacity（初始值16），通过`threshold = capacity * load factor`可知当键值对数量超过12时触发扩容。当然，通过单纯使用大量的桶，即便不经优化的哈希算法，也能把元素相对均匀地放在不同桶中，类似于空间换时间。事实上，JDK中的HashMap经过长期验证和修改，已在空间和时间两者取得平衡。
 
 过往的HashMap在桶数量较少时，连续值经过哈希运算很容易被分配到相同的桶，从而导致哈希碰撞。JDK8把哈希值`高16位`与`低16位`进行亦或运算。在不降低性能的前提下充分利用有限的条件提高混淆度，尽力把元素分配到不用桶。
 
@@ -276,7 +274,7 @@ final Node<K,V> getNode(int hash, Object key) {
 }
 ```
 
-返回key对应的value，若key内有对应映射，则返回null
+返回key对应的value，若key没有对应映射则返回null
 
 ```java
 public V get(Object key) {
