@@ -23,7 +23,7 @@ tags:
 
 #### 1.1 dispatchTouchEvent() 
 
-点击事件最先被分发到Activity上，首个处理事件的方法是dispatchTouchEvent()，重写方法可在所有事件分发到window前就进行拦截。方法参数MotionEvent是点击的事件类。
+点击事件最先被分发到Activity上，首个处理事件方法是dispatchTouchEvent()，重写方法可在所有事件分发到`window`前就进行拦截。方法参数`MotionEvent ev`是点击的事件类。
 
 ```java
 public boolean dispatchTouchEvent(MotionEvent ev) {
@@ -35,16 +35,16 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
     if (getWindow().superDispatchTouchEvent(ev)) {
         return true;
     }
-    // window没有消费该事件，交给onTouchEvent()处理
+    // window没有消费该事件，交给Activity.onTouchEvent()处理
     return onTouchEvent(ev);
 }
 ```
 
 #### 1.2 onUserInteraction()
 
-无论是按钮、触摸还是轨迹球事件都会分发给Activity。可以重写此方法，在activity运行过程中捕获用户与设备的交互事件。方法相当于一个回调，和onUserLeaveHint()一样，是为了帮助activity智能地管理状态栏的通知，尤其是在合适时间点取消一个与之相关的通知。
+无论是按钮、触摸还是轨迹球事件都会分发给Activity。可以重写此方法，在activity运行过程中捕获用户与设备的交互事件。方法相当于一个回调，和`onUserLeaveHint()`一样，是为了帮助activity智能地管理状态栏的通知，尤其是在合适时间点取消一个与之相关的通知。
 
-所有对onUserLeaveHint()的调用会同时伴随着对onUserInteraction()的调用，确保activity在一些关于用户操作，如向下拉并点击了通知时得到告知。方法只在ACTION_DOWN才会触发。
+所有对`onUserLeaveHint()`的调用会同时伴随着对`onUserInteraction()`的调用，确保activity在一些关于用户操作，如向下拉并点击了通知时得到告知。方法只在`ACTION_DOWN`才会触发。
 
 ```java
 public void onUserInteraction() {
@@ -53,7 +53,7 @@ public void onUserInteraction() {
 
 #### 1.3 onUserLeaveHint()
 
-和onUserInteraction()有关的方法。作为activity生命周期的一部分，用户把activity推到后台的时候调用方法。例如用户点击Home键onUserLeaveHint()就会被调用。但显示来电导致activity被中断并推到后台时onUserLeaveHint()不会调用。在onPause()生命周期调用前先触发此方法。
+和`onUserInteraction()`有关的方法。作为activity生命周期的一部分，用户把activity推到后台的时候调用方法。例如用户点击Home键`onUserLeaveHint()`就会被调用。但显示来电导致activity被中断并推到后台时`onUserLeaveHint()`不会调用。在`onPause()`生命周期调用前先触发此方法。
 
 ```java
 protected void onUserLeaveHint() {
@@ -62,7 +62,7 @@ protected void onUserLeaveHint() {
 
 #### 1.4 performUserLeaving()
 
-onUserInteraction()和onUserLeaveHint()都在用户离开时被回调，通过此方法串联起来：
+`onUserInteraction()`和`onUserLeaveHint()`都在用户离开时被回调，通过此方法串联起来：
 
 ```java
 final void performUserLeaving() {
@@ -79,16 +79,16 @@ final void performUserLeaving() {
 
 #### 2.1 activity.getWindow()
 
-getWindow()返回Window抽象类，superDispatchTouchEvent()是window的抽象方法。由自定义的windows调用，透过视图层级传递屏幕点击事件，例如Dialog。
+getWindow()返回Window抽象类，`superDispatchTouchEvent()`是window的抽象方法。由自定义的windows调用，透过视图层级传递屏幕点击事件，例如Dialog。
 
 ```java
 public abstract boolean superDispatchTouchEvent(MotionEvent event);
 ```
 
 #### 2.2 PhoneWindow.superDispatchTouchEvent()
-window的实现类是PhoneWindow，即实际调用的是PhoneWindow.superDispatchTouchEvent()，进而调用mDecor.superDispatchTouchEvent(event)。
+window的实现类是PhoneWindow，实际调用`PhoneWindow.superDispatchTouchEvent()`，进而调用`mDecor.superDispatchTouchEvent(event)`。
 
-DecorView是一个保存在PhoneWindow的成员变量。有很多文章提到DecorView是PhoneWindow内部类。但从Android27看来，DecorView是独立的类而不是一个内部类。
+DecorView是一个保存在PhoneWindow的成员变量。有很多文章提到DecorView是PhoneWindow内部类。但从`Android27`看来，DecorView是独立的类而不是一个内部类。
 
 ```java
 // This is the top-level view of the window, containing the window decor.
@@ -237,6 +237,6 @@ public final View peekDecorView() {
 
 ## 四、总结
 
-Activity仅有dispatchTouchEvent() 和 onTouchEvent()两个主要方法，和View的方法一样没有ViewGroup.onInterceptTouchEvent()。
+Activity仅有`dispatchTouchEvent()`和`onTouchEvent()`两个主要方法，和View的方法一样没有`ViewGroup.onInterceptTouchEvent()`。
 
 因为Activity本身默认不处理任何点击事件，只在ViewGroup和View都不处理事件时才尝试消费事件。最终也可能返回false，表示activity也不消费事件。
