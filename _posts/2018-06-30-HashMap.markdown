@@ -15,14 +15,14 @@ HashMap是软件工程师使用频率高、用来保存键值对映射的容器�
 
 ## 二、类签名
 
-假设键值对能正确分散到不用桶中，那么访问get()和put()方法消耗时间近似为一个时间常数。哈希表全遍历性能与哈希桶(table长度)、Node节点(键值对)数量成比例。因此不合适把初始capacity设置太大，或负载因子值load-factor(默认0.75)设置过小。
+假设键值对能正确分散到不用桶中，那么访问`get()`和`put()`方法消耗时间近似为一个时间常数。哈希表全遍历性能与哈希桶(table长度)、Node节点(键值对)数量成比例。因此不合适把初始capacity设置太大，或负载因子值load-factor(默认0.75)设置过小。
 
 ```java
 public class HashMap<K,V> extends AbstractMap<K,V>
     implements Map<K,V>, Cloneable, Serializable
 ```
 
-作为通用规范，默认负载因子值0.75可以很好的平衡`时间开销`和`内存开销`之间的关系。高负载因子值(如>0.75)有助于减少内存空间开支，但会增加查找的时间开销。如果在构建的时候正确指定哈希表初始容量，可以完全避免以后重哈希的操作，换句话说就是令插入操作更高效。
+作为通用规范，默认负载因子值0.75可以很好地平衡`时间开销`和`内存开销`之间关系。高负载因子值(如>0.75)有助于减少内存空间开支，但会增加查找的时间开销。如果在构建时正确指定哈希表初始容量，可以完全避免以后重哈希操作，换句话说就是令插入操作更高效。
 
 ![HashMap_UML](/img/java/HashMap_UML.png)
 
@@ -701,7 +701,7 @@ public boolean containsValue(Object value) {
 #### 6.10 计算容量
 
 - 哈希表不为空，返回哈希表长度；
-- 哈希表为空，且threshold大于0，返回threshold；
+- 哈希表为空，且`threshold`大于0，返回`threshold`；
 - 否则返回默认初始化大小16
 
 ```java
@@ -743,7 +743,7 @@ TreeNode(int hash, K key, V val, Node<K,V> next) {
 
 #### 7.2 获取根节点
 
-指定节沿着`TreeNode.parent`遍历到根节点
+沿着`TreeNode.parent`遍历到根节点
 
 ```java
 final TreeNode<K,V> root() {
@@ -765,10 +765,8 @@ static <K,V> void moveRootToFront(Node<K,V>[] tab, TreeNode<K,V> root) {
 
     // 根节点非空、哈希表不为空、桶首节点不为空
     if (root != null && tab != null && (n = tab.length) > 0) {
-        // 根据哈希值查哈希桶
-        int index = (n - 1) & root.hash;
-        // 获取桶首元素
-        TreeNode<K,V> first = (TreeNode<K,V>)tab[index];
+        int index = (n - 1) & root.hash; // 根据哈希值查哈希桶
+        TreeNode<K,V> first = (TreeNode<K,V>)tab[index]; // 获取桶首元素
         
         // 桶首元素不是红黑树的根节点，则开始移动节点
         if (root != first) {

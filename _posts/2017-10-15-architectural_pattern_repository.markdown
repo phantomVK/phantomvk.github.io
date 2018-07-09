@@ -9,6 +9,8 @@ tags:
     - Architectural Pattern
 ---
 
+## 前言
+
 移动端开发中，经常遇到通用的数据加载：例如IM中个人头像加载。
 
 在应用开发初期，由于缺乏把所有加载逻辑整合到一起的思维，导致后期头像逻辑变化时，只能用搜索找出相关的代码并修改。即使代码分散的地方比较少，也经常出现遗漏修改，亲历。
@@ -160,3 +162,6 @@ ImageLoaders.userAvatarLoader().loadByUserId(context, userID, avatarView);
 ImageLoaders.userAvatarLoader().loadByFilePath(context, file.getAbsolutePath(), view)
 ```
 
+## 六、 参考链接
+
+* [The Repository Pattern - Microsoft](https://docs.microsoft.com/en-us/previous-versions/msp-n-p/ff649690(v=pandp.10))

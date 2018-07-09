@@ -28,7 +28,7 @@ private transient Entry<?,?>[] table;
 // 保存元素总数
 private transient int count;
 
-// 重哈希阀值
+// 重哈希阈值
 private int threshold;
 
 // 负载因子
@@ -77,8 +77,28 @@ public Hashtable(Map<? extends K, ? extends V> t) {
 
 #### 4.1 包含
 
+通过`key`查找对应`Entry`：
+
 ```java
-// 查找是否有指定值
+public synchronized boolean containsKey(Object key) {
+    Entry<?,?> tab[] = table;
+    int hash = key.hashCode();
+    // 计算键哈希值，确定哈希桶索引
+    int index = (hash & 0x7FFFFFFF) % tab.length;
+    // 从哈希桶第一个元素开始查找
+    for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
+        // 匹配哈希值且key完全相同
+        if ((e.hash == hash) && e.key.equals(key)) {
+            return true;
+        }
+    }
+    return false; // 找不到指定key
+}
+```
+
+通过`value`查找对应`Entry`：
+
+```java
 public synchronized boolean contains(Object value) {
     // 不支持value为null
     if (value == null) {
@@ -90,56 +110,41 @@ public synchronized boolean contains(Object value) {
     for (int i = tab.length ; i-- > 0 ;) {
         // 依次遍历哈希桶中的链
         for (Entry<?,?> e = tab[i] ; e != null ; e = e.next) {
-            // 直到找到对应值
+            // 找到对应值
             if (e.value.equals(value)) {
                 return true;
             }
         }
     }
-
-    // 找不到指定value
-    return false;
-}
-
-// 查找是否有指定key
-public synchronized boolean containsKey(Object key) {
-    Entry<?,?> tab[] = table;
-    int hash = key.hashCode();
-    // 算键哈希值，确定哈希桶索引
-    int index = (hash & 0x7FFFFFFF) % tab.length;
-    // 从哈希桶第一个元素开始查找
-    for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
-        // 匹配哈希值且key完全相同
-        if ((e.hash == hash) && e.key.equals(key)) {
-            return true;
-        }
-    }
-    return false; // 不匹配
+    return false; // 找不到指定value
 }
 ```
 
 #### 4.2 获取
 
+获取指定`key`的`value`，没有则返回`null`：
+
 ```java
-// 获取指定key的value，没有则返回null
 @SuppressWarnings("unchecked")
 public synchronized V get(Object key) {
     Entry<?,?> tab[] = table;
     int hash = key.hashCode(); // 计算key哈希值
     int index = (hash & 0x7FFFFFFF) % tab.length; // 选桶
     for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
-        // 匹配哈希值，则获取对应的值
+        // 匹配哈希值，则获取对应值
         if ((e.hash == hash) && e.key.equals(key)) {
             return (V)e.value;
         }
     }
     return null; // 没有匹配到指定key，返回null
 }
+```
 
-// 获取指定key的value，没有则返回defaultValue
+获取指定`key`的`value`，没有则返回`defaultValue`：
+
+```java
 @Override
 public synchronized V getOrDefault(Object key, V defaultValue) {
-    // 依赖get(key)方法，为null返回defaultValue
     V result = get(key);
     return (null == result) ? defaultValue : result;
 }
@@ -180,10 +185,11 @@ protected void rehash() {
             // 遍历旧表中哈希桶的链表
             Entry<K,V> e = old;
             old = old.next;
-            
-            // 获取链表节点进行重哈希
+
             int index = (e.hash & 0x7FFFFFFF) % newCapacity; // 计算新哈希桶索引
-            e.next = (Entry<K,V>)newMap[index]; // 这里两行相当于头插法插入新桶链表中
+            
+            // 下面两行通过头插法把节点插入新桶链表中
+            e.next = (Entry<K,V>)newMap[index]; 
             newMap[index] = e; 
         }
     }
@@ -196,7 +202,7 @@ protected void rehash() {
 private void addEntry(int hash, K key, V value, int index) {
     Entry<?,?> tab[] = table;
     if (count >= threshold) {
-        // 超过阀值大小，哈希表执行扩容
+        // 超过阈值大小，哈希表执行扩容
         rehash();
 
         tab = table;
@@ -204,7 +210,7 @@ private void addEntry(int hash, K key, V value, int index) {
         index = (hash & 0x7FFFFFFF) % tab.length; // 算哈希索引
     }
 
-    // 创建新的Entry，存入key和value
+    // 创建新Entry，存入key和value
     @SuppressWarnings("unchecked")
     Entry<K,V> e = (Entry<K,V>) tab[index];
     tab[index] = new Entry<>(hash, key, value, e); // 把Entry放入哈希索引中
@@ -233,7 +239,7 @@ public synchronized V put(K key, V value) {
     
     // 不存在该Entry，创建新Entry
     addEntry(hash, key, value, index);
-    return null; // 创建新的Entry就一定返回null作为value
+    return null; // 创建新的Entry就返回null作为value
 }
 
 // 递归调用put()
@@ -324,7 +330,7 @@ public synchronized boolean remove(Object key, Object value) {
     return false;
 }
 
-// 清空哈希表的所有元素，桶表长度不会改变
+// 清空哈希表所有元素，桶表长度不改变
 public synchronized void clear() {
     Entry<?,?> tab[] = table;
     for (int index = tab.length; --index >= 0; )

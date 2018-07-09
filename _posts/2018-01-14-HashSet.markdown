@@ -17,6 +17,8 @@ public class HashSet<E>
     implements Set<E>, Cloneable, java.io.Serializable
 ```
 
+![HashMap_UML](/img/java/HashSet_UML.png)
+
 ## 二、数据成员
 
 HashSet利用HahsMap实现集合特性。利用HahsMap存储key哈希值去重，如果key对应值非空表明key存在。

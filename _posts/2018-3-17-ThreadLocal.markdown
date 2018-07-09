@@ -11,7 +11,7 @@ tags:
 
 ## 一、ThreadLocal的作用
 
-ThreadLocal类提供线程局部变量，以数据成员的形式存放在Thread中，线程与线程之间副本相互独立。这些副本存放在Thread.ThreadLocalMap中，避免线程竞争同一个实例带来锁操作的时间损耗。
+`ThreadLocal`类提供线程局部变量，以数据成员的形式存放在Thread中，线程与线程之间副本相互独立。这些副本存放在`Thread.ThreadLocalMap`中，避免线程竞争同一个实例带来锁操作的时间损耗。
 
 ![ThreadLoacalMap](/img/java/thredLocalRef.png)
 
