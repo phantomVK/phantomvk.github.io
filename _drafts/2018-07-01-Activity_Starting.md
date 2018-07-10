@@ -1,81 +1,55 @@
 ---
 layout:     post
 title:      "图解Activity启动流程"
-date:       2018-10-01
+date:       2018-07-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
 Android 27
 
+通常开启新Activity是通过以下方式：
+
 ```java
 override fun onCreate(savedInstanceState: Bundle?) {
-    super.onCreate(savedInstanceState)
-    setContentView(R.layout.activity_main)
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
 
-    button.setOnClickListener {
-        val intent = Intent(this, SettingsActivity::class.java).apply {
-            // Some params.
-            putExtra("USER_NAME", "John")
-            putExtra("GENDER", "Male")
-            putExtra("AGE", 24)
-            putExtra("JOB", "Engineer")
+        button.setOnClickListener {
+            val intent = Intent(this, SettingsActivity::class.java).apply {
+                // Some params.
+                putExtra("USER_NAME", "John")
+                putExtra("GENDER", "Male")
+                putExtra("AGE", 24)
+                putExtra("JOB", "Engineer")
+            }
+
+            startActivity(intent) // Start new activity.
         }
-
-        startActivity(intent) // Start new activity.
     }
-}
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+    }
 ```
 
-
-
+`startActivity(Intent intent)`调用`startActivity(intent, null)`方法。
 
 ```java
-/**
- * Same as {@link #startActivity(Intent, Bundle)} with no options
- * specified.
- *
- * @param intent The intent to start.
- *
- * @throws android.content.ActivityNotFoundException
- *
- * @see #startActivity(Intent, Bundle)
- * @see #startActivityForResult
- */
 @Override
 public void startActivity(Intent intent) {
     this.startActivity(intent, null);
 }
 ```
 
-
+`startActivity(intent, options)`调用`startActivityForResult(intent, -1, options)`。`-1`是`requestCode`，也是`onActivityResult()`回调中`requestCode`值。
 
 ```java
-/**
- * Launch a new activity.  You will not receive any information about when
- * the activity exits.  This implementation overrides the base version,
- * providing information about
- * the activity performing the launch.  Because of this additional
- * information, the {@link Intent#FLAG_ACTIVITY_NEW_TASK} launch flag is not
- * required; if not specified, the new activity will be added to the
- * task of the caller.
- *
- * <p>This method throws {@link android.content.ActivityNotFoundException}
- * if there was no Activity found to run the given Intent.
- *
- * @param intent The intent to start.
- * @param options Additional options for how the Activity should be started.
- * See {@link android.content.Context#startActivity(Intent, Bundle)}
- * Context.startActivity(Intent, Bundle)} for more details.
- *
- * @throws android.content.ActivityNotFoundException
- *
- * @see #startActivity(Intent)
- * @see #startActivityForResult
- */
+// Intent#FLAG_ACTIVITY_NEW_TASK没有指定，新创建Activity会放入调用者Activity所在的栈中;
+// 找不到要开启的Activity时，系统抛出ActivityNotFoundException异常;
 @Override
 public void startActivity(Intent intent, @Nullable Bundle options) {
     if (options != null) {
@@ -88,20 +62,9 @@ public void startActivity(Intent intent, @Nullable Bundle options) {
 }
 ```
 
+如果requestCode>=0，在activity存在时会回调其onActivityResult()方法
 
 ```java
-/**
- * Same as calling {@link #startActivityForResult(Intent, int, Bundle)}
- * with no options.
- *
- * @param intent The intent to start.
- * @param requestCode If >= 0, this code will be returned in
- *                    onActivityResult() when the activity exits.
- *
- * @throws android.content.ActivityNotFoundException
- *
- * @see #startActivity
- */
 public void startActivityForResult(@RequiresPermission Intent intent, int requestCode) {
     startActivityForResult(intent, requestCode, null);
 }

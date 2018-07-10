@@ -22,9 +22,10 @@ public class ArrayList<E> extends AbstractList<E>
 
 ## 二、数据成员
 
+默认初始化大小
+
 ```java
-private static final long serialVersionUID = 8683452581122892189L;
-private static final int DEFAULT_CAPACITY = 10; // 缺省值
+private static final int DEFAULT_CAPACITY = 10;
 ```
 
 构造函数方法参数为0的数组用此空数组标识：
@@ -39,13 +40,13 @@ private static final Object[] EMPTY_ELEMENTDATA = {};
 private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
 ```
 
-ArrayList的总长度就是这个总长度，如果构建前等于`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，第一个元素加入时构建序列长度初始化为10
+`ArrayList`总长度此变量长度，如果构建前等于`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，第一个元素加入时构建序列长度初始化为10
 
 ```java
 transient Object[] elementData;
 ```
 
-ArrayList大小，指已加入元素的数量
+ArrayList大小，指已保存元素数量
 
 ```java
 private int size;
@@ -65,7 +66,7 @@ public ArrayList() {
 
 ### 3.2 指定构造
 
-构造时指定ArrayList的容量，则空间会立即创建。如果列表的长度较短且可预知，此构造方法能避免动态扩展造成空间浪费。
+构造时指定ArrayList容量则内存空间会立即创建。如果列表长度较短且可预知，此构造方法能避免动态扩展造成性能损耗
 
 ```java 
 public ArrayList(int initialCapacity) {
@@ -82,7 +83,7 @@ public ArrayList(int initialCapacity) {
 
 ### 3.3 集合构造
 
-通过集合构建ArrayList，顺序由集合迭代器指定顺序为准。ArrayList长度和Collection长度一致。
+通过集合构建ArrayList，顺序由集合迭代器指定顺序为准，长度与Collection长度一致
 
 ```java
 public ArrayList(Collection<? extends E> c) {
@@ -292,7 +293,7 @@ public Object[] toArray() {
 }
 ```
 
-用自行传入的数组保存列表的元素，类型与传入相同。传入数组多余空位置为null，否则创建新数组。当传入的数组长度不足，可知返回的数组和传入数组不是同一个对象。
+用自行传入的数组保存列表的元素，类型与传入相同，传入数组多余空位置为null。当传入的数组长度不足，可知返回的数组和传入数组不是同一个对象。
 
 ```java
 @SuppressWarnings("unchecked")
@@ -355,7 +356,7 @@ public boolean add(E e) {
 }
 ```
 
-在指定位置增加新的元素，原位置以及其后元素组成的子序列向后移动
+在指定位置增加新元素，原位置以及其后元素组成的子序列向后移动
 
 ```java
 public void add(int index, E element) {
@@ -427,7 +428,7 @@ public E remove(int index) {
 }
 ```
 
-如果指定对象存在列表中，移除第一次遇到的
+移除在列表中第一次遇到的指定对象
 
 ```java
 public boolean remove(Object o) {
@@ -526,9 +527,7 @@ public boolean retainAll(Collection<?> c) {
     Objects.requireNonNull(c);
     return batchRemove(c, true);
 }
-```
 
-```java
 private boolean batchRemove(Collection<?> c, boolean complement) {
     final Object[] elementData = this.elementData;
     int r = 0, w = 0;

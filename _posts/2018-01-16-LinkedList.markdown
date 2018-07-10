@@ -56,7 +56,7 @@ public LinkedList(Collection<? extends E> c) {
 
 ## 四、成员方法
 
-### 4.1 头插法、尾插法、选择插入
+### 4.1 插入
 
 把元素作为第一个节点插入列表
 
@@ -197,7 +197,7 @@ E unlink(Node<E> x) {
 }
 ```
 
-### 4.3 获取头元素和尾元素
+### 4.3 获取头尾元素
 
 获取列表的第一个元素
 
@@ -221,7 +221,7 @@ public E getLast() {
 }
 ```
 
-### 4.4 移除头元素和尾元素
+### 4.4 移除头尾元素
 
 如果仅有一个元素，那么头指针和尾指针指向的是同一个元素。头指针为空或尾指针为空，有且只有在列表为空时成立，并且是同时成立。
 
@@ -353,7 +353,6 @@ public void clear() {
     size = 0;
     modCount++;
 }
-
 ```
 
 ## 五、指定下标操作
@@ -402,13 +401,13 @@ private boolean isPositionIndex(int index) {
 
 // 返回指定索引位置的非空节点
 Node<E> node(int index) {
-    // 检查索引值，如果小于列表元素数量的一半，就从头部顺序遍历
+    // 检查索引值，如果小于列表元素数量的一半，从头部开始遍历
     if (index < (size >> 1)) {
         Node<E> x = first;
         for (int i = 0; i < index; i++)
             x = x.next;
         return x;
-    } else { // 否则就从尾部倒序遍历
+    } else { // 否则从尾部倒序遍历
         Node<E> x = last;
         for (int i = size - 1; i > index; i--)
             x = x.prev;

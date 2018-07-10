@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-`AbstractStringBuilder`是`StringBuilder`和`StringBuffer`的父类，包含字符串操作的实现逻辑，子类根据各自需求对方法调用做同步处理，本身是线程不安全的。作为可变字符串的父类，`AbstractStringBuilder`借助字符数组的形式实现可变字符串，类中大部分方法是字符修改、插入、追加等操作。
+`AbstractStringBuilder`是[StringBuilder](http://phantomvk.github.io/2017/02/23/StringBuilder/)和[StringBuffer](http://phantomvk.github.io/2017/03/06/StringBuffer/)的父类，包含字符串操作的实现逻辑，子类根据各自需求对方法调用做同步处理，类本身线程不安全。作为可变字符串的父类，借助字符数组的形式实现可变字符串，类中大部分方法是字符修改、插入、追加等操作。
 
 ```java
 abstract class AbstractStringBuilder implements Appendable, CharSequence
@@ -51,7 +51,7 @@ public int length() {
 }
 ```
 
-字符串数组的空间长度，包含可插入新字符的空间。在同一时刻，总有`length()`小于等于`capacity()`
+字符串数组的空间长度，包含可插入新字符的空间，总有`length() <= capacity()`
 
 ```java
 public int capacity() {
@@ -63,7 +63,7 @@ public int capacity() {
 
 保证字符数组大小至少要和具体的最小值相等。若当前容量小于参数具体值，则创建一个更大的数组，数值取下列之大者：
 
-   * minimumCapacity的具体大小；
+   * minimumCapacity大小；
    * 原容量值的两倍
 
 若minimumCapacity不可用，下列直接退出。本类有方法减少字符数组的长度
@@ -98,7 +98,6 @@ void expandCapacity(int minimumCapacity) {
 ### 4.3 裁剪、增加
 
 可变字符数组有空余用于插入更多字符，可以通过裁剪剩余空间达到提高内存使用效率的目的。
-
 如果内存空间不紧张或没有特殊要求，不要使用这个方法，因为向裁剪后的字符数组添加字符一定会引起扩容。而且裁剪也是一次数据内容拷贝的过程，超大数组的情况下可能会引起性能问题。
 
 实现方式：把字符串拷贝到长度刚好合适的字符数组中返回，释放原数组空间
@@ -162,18 +161,14 @@ public int codePointBefore(int index) {
     }
     return Character.codePointBeforeImpl(value, index, 0);
 }
-```
 
-```java
 public int codePointCount(int beginIndex, int endIndex) {
     if (beginIndex < 0 || endIndex > count || beginIndex > endIndex) {
         throw new IndexOutOfBoundsException();
     }
     return Character.codePointCountImpl(value, beginIndex, endIndex-beginIndex);
 }
-```
 
-```java
 public int offsetByCodePoints(int index, int codePointOffset) {
     if (index < 0 || index > count) {
         throw new IndexOutOfBoundsException();
@@ -202,7 +197,6 @@ public void getChars(int srcBegin, int srcEnd, char[] dst, int dstBegin)
 ### 4.5 append
 
 ```java
-
 public AbstractStringBuilder append(Object obj) {
     return append(String.valueOf(obj));
 }
@@ -352,8 +346,7 @@ public AbstractStringBuilder append(float f) {
     FloatingDecimal.appendTo(f,this);
     return this;
 }
-eturn  a reference to this object.
- */
+
 public AbstractStringBuilder append(double d) {
     FloatingDecimal.appendTo(d,this);
     return this;
@@ -433,9 +426,7 @@ public AbstractStringBuilder replace(int start, int end, String str) {
     count = newCount;
     return this;
 }
-```
 
-```java
 public void setCharAt(int index, char ch) {
     if ((index < 0) || (index >= count))
         throw new StringIndexOutOfBoundsException(index);

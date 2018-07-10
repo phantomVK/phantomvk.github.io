@@ -25,7 +25,7 @@ AtomicInteger基于CAS(Compare and Swap，比较并修改)的操作，主要实�
 
 ## 二、类签名
 
-由于集成了`Number`，所以任何能接受`Number`类型的形参都能使用`AtomicInteger`
+由于继承`Number`，所以任何`Number`类型参数都能使用`AtomicInteger`
 
 ```java
 public class AtomicInteger extends Number implements java.io.Serializable
@@ -47,7 +47,7 @@ static {
 
 ## 四、数据成员
 
-`volatile`保证value值的有序性和可见性，原子性由`synchronized`或`Lock`来保障。
+`volatile`保证value值的有序性和线程可见性，原子性由`synchronized`或`Lock`来保障。
 
 ```java
 private volatile int value;
@@ -60,12 +60,12 @@ private static final long valueOffset;
 ## 五、构造方法
 
 ```java
-// 用一个给定的整形值初始化一个AtomicInteger实例
+// 用一个给定的整形值初始化实例
 public AtomicInteger(int initialValue) {
     value = initialValue;
 }
 
-// 初始化一个值为0的AtomicInteger实例
+// 初始化一个值为0的实例
 public AtomicInteger() {
 }
 ```
@@ -73,7 +73,7 @@ public AtomicInteger() {
 ## 六、成员方法
 
 ```java
-// 获取当前的整形值，线程不安全
+// 获取当前的整形值
 public final int get() {
     return value;
 }
@@ -88,16 +88,13 @@ public final void lazySet(int newValue) {
     unsafe.putOrderedInt(this, valueOffset, newValue);
 }
 
-// 设置新的整形值，把返回上一个保存的值
+// 设置新的整形值，返回上一个保存的值
 public final int getAndSet(int newValue) {
     return unsafe.getAndSetInt(this, valueOffset, newValue);
 }
 ```
 
-如果待修改的值和期待值相同，那就把待修改的值设置为update的值
-伪代码：
-
-> value == expect ? value = update; return isModified;
+如果待修改的值和期待值相同，那就把待修改的值设置为`update`的值
 
 ```java
 public final boolean compareAndSet(int expect, int update) {

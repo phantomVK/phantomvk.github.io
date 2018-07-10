@@ -11,19 +11,15 @@ tags:
 
 ## 前言
 
-移动端开发中，经常遇到通用的数据加载：例如IM中个人头像加载。
+移动端开发中，经常遇到通用的数据加载：例如IM中个人头像加载。在应用开发初期，由于缺乏把所有加载逻辑整合到一起的思维，导致后期头像逻辑变化时，只能用搜索找出相关的代码并修改。即使代码分散的地方比较少，也经常出现遗漏修改。
 
-在应用开发初期，由于缺乏把所有加载逻辑整合到一起的思维，导致后期头像逻辑变化时，只能用搜索找出相关的代码并修改。即使代码分散的地方比较少，也经常出现遗漏修改，亲历。
-
-头像加载这种统一的加载逻辑，必须整合到一个类中，并做好抽象，以便应对将来的需求变更。拓展开来，用户名获取、应用配置读取、读取Session都能受益。
-
-下面基于IM头像加载的实战，总结出相关经验。
+头像加载这种统一的加载逻辑，必须整合到一个类中，并做好抽象，以便应对将来的需求变更。拓展开来，用户名获取、应用配置读取、读取Session等多层次数据获取都能从中受益。下面基于IM头像加载的实战，总结出相关经验。
 
 ## 一、设计思想
 
 总结实战后接口设计的三个基本目的：
 
-1. 通过接口定义来指明实现的具体方向，声明接口的功能范围;
+1. 通过接口定义指明实现的具体方向，明确接口的功能范围;
 2. 对调用屏蔽实现：调用方只需了解接口方法的功能，而不需要了解具体实现;
 3. 抽象需要预留一定的拓展性：如个人头像接口设计时，考虑群头像和个人头像交互;
 
@@ -31,10 +27,10 @@ tags:
 
 产品开发过程要满足以下产品需求：
 
-1. 用userId即可把用户头像加载到ImageView中;
-2. 能指定加载来源的filePath，不仅根据userId;
-3. userId对应的url由指定规则拼接获得；
-4. 群头像由四个用户的个人头像拼接，个人头像为群头像提供Bitmap.
+1. 用`userId`即可把用户头像加载到`ImageView`中;
+2. 能指定加载来源的`filePath`，不仅根据`userId`;
+3. `userId`对应的`url`由指定规则拼接获得；
+4. 群头像由四个用户的个人头像拼接，个人头像为群头像拼装提供Bitmap.
 
 根据上述需求可以整理以下抽象接口，这些接口虽然已经投入到生产环境，但设计不一定合理，还在进一步演进，请酌情参考。方法具体能力在注释中已经写得很明确，不再复述。
 
@@ -48,10 +44,10 @@ public interface IUserAvatarLoader {
     // Load avatar into ImageView by local file path.
     void loadByFilePath(Context context, String filePath, ImageView view);
 
-    // Return a {@link Bitmap} instance according to specific image url and size.
+    // Return a {@link Bitmap} instance according to the specific image url and size.
     Bitmap getBitmap(Context context, String imageUrl, int ImageSize) throws ExecutionException, InterruptedException;
 
-    // Return the url requests of avatar.
+    // Return the url of avatar.
     String getUrl(String userId);
 }
 ```

@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Java源码系列(11) - LinkedHashMap"
+title:      "Java源码系列(11) -- LinkedHashMap"
 date:       2018-07-09
 author:     "phantomVK"
 header-img: "img/main_img.jpg"

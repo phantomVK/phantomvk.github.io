@@ -438,43 +438,6 @@ public interface SharedPreferences {
  * limitations under the License.
  */
 
-package android.app;
-
-import android.annotation.Nullable;
-import android.content.SharedPreferences;
-import android.os.FileUtils;
-import android.os.Looper;
-import android.system.ErrnoException;
-import android.system.Os;
-import android.system.StructStat;
-import android.system.StructTimespec;
-import android.util.Log;
-
-import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.ExponentiallyBucketedHistogram;
-import com.android.internal.util.XmlUtils;
-
-import dalvik.system.BlockGuard;
-
-import libcore.io.IoUtils;
-
-import org.xmlpull.v1.XmlPullParserException;
-
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.WeakHashMap;
-import java.util.concurrent.CountDownLatch;
-
 final class SharedPreferencesImpl implements SharedPreferences {
     private static final String TAG = "SharedPreferencesImpl";
     private static final boolean DEBUG = false;
@@ -1264,84 +1227,6 @@ final class SharedPreferencesImpl implements SharedPreferences {
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package android.app;
-
-import android.annotation.NonNull;
-import android.annotation.Nullable;
-import android.content.BroadcastReceiver;
-import android.content.ComponentName;
-import android.content.ContentProvider;
-import android.content.ContentResolver;
-import android.content.Context;
-import android.content.ContextWrapper;
-import android.content.IContentProvider;
-import android.content.IIntentReceiver;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.content.IntentSender;
-import android.content.ReceiverCallNotAllowedException;
-import android.content.ServiceConnection;
-import android.content.SharedPreferences;
-import android.content.pm.ActivityInfo;
-import android.content.pm.ApplicationInfo;
-import android.content.pm.IPackageManager;
-import android.content.pm.PackageManager;
-import android.content.pm.PackageManager.NameNotFoundException;
-import android.content.res.AssetManager;
-import android.content.res.CompatResources;
-import android.content.res.CompatibilityInfo;
-import android.content.res.Configuration;
-import android.content.res.Resources;
-import android.database.DatabaseErrorHandler;
-import android.database.sqlite.SQLiteDatabase;
-import android.database.sqlite.SQLiteDatabase.CursorFactory;
-import android.graphics.Bitmap;
-import android.graphics.drawable.Drawable;
-import android.net.Uri;
-import android.os.Binder;
-import android.os.Build;
-import android.os.Bundle;
-import android.os.Debug;
-import android.os.Environment;
-import android.os.FileUtils;
-import android.os.Handler;
-import android.os.IBinder;
-import android.os.Looper;
-import android.os.Process;
-import android.os.RemoteException;
-import android.os.ServiceManager;
-import android.os.SystemProperties;
-import android.os.Trace;
-import android.os.UserHandle;
-import android.os.storage.IStorageManager;
-import android.os.storage.StorageManager;
-import android.system.ErrnoException;
-import android.system.Os;
-import android.system.OsConstants;
-import android.system.StructStat;
-import android.util.AndroidRuntimeException;
-import android.util.ArrayMap;
-import android.util.Log;
-import android.util.Slog;
-import android.view.Display;
-import android.view.DisplayAdjustments;
-
-import com.android.internal.annotations.GuardedBy;
-import com.android.internal.util.Preconditions;
-
-import libcore.io.Memory;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.FilenameFilter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteOrder;
-import java.util.ArrayList;
-import java.util.Objects;
 
 class ReceiverRestrictedContext extends ContextWrapper {
     ReceiverRestrictedContext(Context base) {
