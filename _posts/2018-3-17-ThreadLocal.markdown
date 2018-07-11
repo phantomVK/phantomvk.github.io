@@ -72,7 +72,7 @@ Thread[Thread-4,5,main]'s result is 45
 
 ### 3.1 成员变量
 
-ThreadLocals依靠捆绑在每个线程的线性探针哈希表(ThreadLocalMap.Entry[])。ThreadLocal对象作为Hash的键，通过`threadLocalHashCode`来搜索，且该值只用在ThreadLocalMaps的定制哈希值，即使在同一个线程内连续构建ThreadLocals也可以运行得相当好。
+ThreadLocals依靠捆绑在每个线程的线性探针哈希表(ThreadLocalMap.Entry[])。ThreadLocal对象作为Hash的键，通过`threadLocalHashCode`来搜索，且该值只用在ThreadLocalMaps的定制哈希值。
 
 ```java
 private final int threadLocalHashCode = nextHashCode();
@@ -106,13 +106,13 @@ private static int nextHashCode() {
 
 一般来说这个方法在每个线程中最多只会调用一次。不过，线程如果执行了remove()方法后再调用get()，也会触发initialValue()。
 
-如果不希望初始化值是null，就重写这个方法提供特定初始化值。可以通过子类继承父类或匿名内部类两个方法重写initialValue()，不过后者比较典型。
-
 ```java
 protected T initialValue() {
     return null;
 }
 ```
+
+如果不希望初始化值是null，就重写这个方法提供特定初始化值。可以通过子类继承父类或匿名内部类两个方法重写initialValue()。
 
 
 ### 3.4 get()
@@ -170,7 +170,7 @@ val threadLocal = object : ThreadLocal<Int>() {
 
 ### 3.6 set( )
 
-把当前线程的thread-local设置为指定值。多数情况下子类没有必要重写这个方法
+把当前线程的thread-local设置为指定值，多数情况下子类没有必要重写这个方法
 
 ```java
 public void set(T value) {
@@ -294,16 +294,16 @@ private void setThreshold(int len) {
 ```
 
 ### 4.4 索引管理
-
+如果i+1没有超过长度则后移索引，否则索引回到头部索引0
 ```java
-// 如果i+1没有超过长度则后移索引，否则索引回到头部索引0
 private static int nextIndex(int i, int len) {
     return ((i + 1 < len) ? i + 1 : 0);
 }
 ```
 
+如果i-1没有小于长度则前移索引，否则索引跳到尾部索引len-1
+
 ```java
-// 如果i-1没有小于长度则前移索引，否则索引跳到尾部索引len-1
 private static int prevIndex(int i, int len) {
     return ((i - 1 >= 0) ? i - 1 : len - 1);
 }
@@ -329,9 +329,10 @@ ThreadLocalMap(ThreadLocal<?> firstKey, Object firstValue) {
 
 ```java
 private Entry getEntry(ThreadLocal<?> key) {
+    // 计算在表的下标
     int i = key.threadLocalHashCode & (table.length - 1);
     Entry e = table[i];
-    if (e != null && e.get() == key)
+    if (e != null && e.get() == key) // 命中Entry
         return e;
     else
         return getEntryAfterMiss(key, i, e);
@@ -345,25 +346,26 @@ private Entry getEntry(ThreadLocal<?> key) {
 - e == null
 - e.get != key
 
- getEntry方法没有找到直接下标的key，就调用此方法继续向后查找，一遍清理一边查找，直到找到目标键或遇到e == null时退出。
+ getEntry方法没有找到直接下标的key，就调用此方法继续向后查找，一边清理一边查找，直到找到目标键或遇到`e == null`时退出。
 
 ```java
 private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
     Entry[] tab = table;
     int len = tab.length;
 
-    // e.get == null走此分支
+    // e !=null && e.get == null走此分支
     while (e != null) {
         ThreadLocal<?> k = e.get();
+
         // 命中指定ThreadLocal，返回该Entry
         if (k == key)
             return e;
-        // Entry[]遇到的entry为空，清理该废弃的Entry
-        // 如果遇到的entry不为空，继续迭代下一个下标
+
         if (k == null)
-            expungeStaleEntry(i);
+            expungeStaleEntry(i); // Entry[]遇到的entry为空，清理该废弃的Entry
         else
-            i = nextIndex(i, len);
+            i = nextIndex(i, len); // 遇到的entry不为空，继续迭代下一个下标
+
         e = tab[i];
     }
     
@@ -407,8 +409,10 @@ private void set(ThreadLocal<?> key, Object value) {
 
     // 这个key不存在，创建新的entry放入
     tab[i] = new Entry(key, value);
+
     // 创建新的entry需要更改数量
     int sz = ++size;
+
     // 看看是否到了扩容阀值进行扩容
     if (!cleanSomeSlots(i, sz) && sz >= threshold)
         rehash();
@@ -422,12 +426,15 @@ private void set(ThreadLocal<?> key, Object value) {
 private void remove(ThreadLocal<?> key) {
     // 获取ThreadLocalMap的Entry数组
     Entry[] tab = table;
+
     // 取数组的长度，值为2的幂大小
     int len = tab.length;
+
     // 假设len为16，二进制表示为1000，len-1即15的二进制是0111
     // key.threadLocalHashCode与(len-1)进行位运算定位Entry[]的下标
     // 通过%也能实现相同目的，但位运算执行性能更好
     int i = key.threadLocalHashCode & (len-1);
+
     // 从下标开始查找直到遇到null，或匹配到Key的Entry执行移除操作
     for (Entry e = tab[i];
          e != null;
@@ -451,35 +458,25 @@ private void replaceStaleEntry(ThreadLocal<?> key, Object value,
     int len = tab.length;
     Entry e;
 
-    // Back up to check for prior stale entry in current run.
-    // We clean out whole runs at a time to avoid continual
-    // incremental rehashing due to garbage collector freeing
-    // up refs in bunches (i.e., whenever the collector runs).
     int slotToExpunge = staleSlot;
-    // 向前遍历，查找遇到的key为null的Entry
+
+    // 向前遍历，查找遇到的key为null的Entry，记录到slotToExpunge
     for (int i = prevIndex(staleSlot, len);
          (e = tab[i]) != null;
          i = prevIndex(i, len))
-        if (e.get() == null)
+        if (e.get() == null) // i.e WeakReference.Reference.referent
             slotToExpunge = i;
 
-    // Find either the key or trailing null slot of run, whichever
-    // occurs first
     for (int i = nextIndex(staleSlot, len);
          (e = tab[i]) != null;
          i = nextIndex(i, len)) {
         ThreadLocal<?> k = e.get();
 
-        // If we find key, then we need to swap it
-        // with the stale entry to maintain hash table order.
-        // The newly stale slot, or any other stale slot
-        // encountered above it, can then be sent to expungeStaleEntry
-        // to remove or rehash all of the other entries in run.
         // 命中指定ThreadLoacal的Entry
         if (k == key) {
             // 新value替换原value
             e.value = value;
-            
+
             // 交换位置i与位置staleSlot的Entry以维护hash顺序
             tab[i] = tab[staleSlot];
             tab[staleSlot] = e;
@@ -487,6 +484,7 @@ private void replaceStaleEntry(ThreadLocal<?> key, Object value,
             // Start expunge at preceding stale entry if it exists
             if (slotToExpunge == staleSlot)
                 slotToExpunge = i;
+
             // 清除Entry.key为空的Entry
             cleanSomeSlots(expungeStaleEntry(slotToExpunge), len);
             return;
@@ -523,7 +521,6 @@ private int expungeStaleEntry(int staleSlot) {
     // 元素总数递减
     size--;
 
-    // Rehash until we encounter null
     // 开放地址法需重Hash后续元素直到遇到null
     Entry e;
     int i;

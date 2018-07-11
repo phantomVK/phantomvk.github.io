@@ -32,13 +32,18 @@ TAG_TAG = "tag";
 `inflate()`为指定的xml资源文件构建视图布局
 
 ```java
+// resource: xml布局文件id 
+// root: 根布局
+// attachToRoot: 是否加入到父布局
 public View inflate(@LayoutRes int resource,
                     @Nullable ViewGroup root,
                     boolean attachToRoot) {
     // 从Context获取Resources
     final Resources res = getContext().getResources();
-    // 用Resources创建xml资源语义解析器
+
+    // 用Resources创建xml资源语义解析器，解析layout布局
     final XmlResourceParser parser = res.getLayout(resource);
+
     try {
         // 返回创建的View
         return inflate(parser, root, attachToRoot);
@@ -64,10 +69,12 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
         // mContext就是LayoutInflater(this)中的context.
         final Context inflaterContext = mContext;
         final AttributeSet attrs = Xml.asAttributeSet(parser);
+
         // mConstructorArgs[0]临时保存为lastContext
         Context lastContext = (Context) mConstructorArgs[0];
         // 用inflaterContext，即mContext赋值给mConstructorArgs[0]
         mConstructorArgs[0] = inflaterContext;
+
         View result = root;
 
         try {
@@ -80,8 +87,8 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
             }
             
             // 可能已找到START_TAG，也可能没有START_TAG而遇到END_DOCUMENT结束；
-            // 没有发现START_TAG意味xml内容非法，上层捕捉异常终止inflate
             if (type != XmlPullParser.START_TAG) {
+                // 没有发现START_TAG意味xml内容非法，上层捕捉异常终止inflate
                 throw new InflateException(parser.getPositionDescription()
                         + ": No start tag found!");
             }
@@ -89,9 +96,8 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
             // 有START_TAG则解析根布局名
             final String name = parser.getName();
             
-            // merge只能在根布局非空且attachToRoot为true时使用
-            // 否则抛出异常：<merge /> can be used only with a valid ViewGroup root and attachToRoot=true
             if (TAG_MERGE.equals(name)) {
+                // merge只能在根布局非空且attachToRoot为true时使用
                 if (root == null || !attachToRoot) {
                     throw new InflateException("<merge /> can be used only with a valid "
                             + "ViewGroup root and attachToRoot=true");
@@ -101,6 +107,7 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
                 rInflate(parser, root, inflaterContext, attrs, false);
             } else {
                 // 不是merge表明该标签是xml文件的根元素，命名为temp
+                // 例如name为"LinearLayout"，则temp是LinearLayout实例
                 final View temp = createViewFromTag(root, name, inflaterContext, attrs);
 
                 ViewGroup.LayoutParams params = null;
@@ -128,7 +135,6 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
                     result = temp;
                 }
             }
-
         } catch (XmlPullParserException e) {
             final InflateException ie = new InflateException(e.getMessage(), e);
             ie.setStackTrace(EMPTY_STACK_TRACE);
@@ -139,15 +145,15 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
             ie.setStackTrace(EMPTY_STACK_TRACE);
             throw ie;
         } finally {
-            // Don't retain static reference on context.
+            // 在context中不保留静态引用
             mConstructorArgs[0] = lastContext;
             mConstructorArgs[1] = null;
 
             Trace.traceEnd(Trace.TRACE_TAG_VIEW);
         }
         
-        // root非空且attachToRoot为true时构建temp添加到root，返回root
-        // 否则返回temp，temp可能设置了有关root的LayoutParams
+        // root非空且attachToRoot为true时构建temp添加到root，返回root;
+        // 否则返回temp，temp可能设置了有关root的LayoutParams.
         return result;
     }
 }
@@ -155,12 +161,13 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
 
 ### rInflate
 
-r原意为Recursive，深度递归xml布局初始化view，一并初始化此view的子view。
+`r`原意为`recursive`，深度递归xml布局初始化view，一并初始化此view的子view。
 
 ```java
 void rInflate(XmlPullParser parser, View parent, Context context,
         AttributeSet attrs, boolean finishInflate) throws XmlPullParserException, IOException {
-    // 获取最大遍历深度
+
+    // 获取树最大深度
     final int depth = parser.getDepth();
     int type;
     boolean pendingRequestFocus = false;
@@ -183,11 +190,11 @@ void rInflate(XmlPullParser parser, View parent, Context context,
             // 解析View的tag
             parseViewTag(parser, parent, attrs);
         } else if (TAG_INCLUDE.equals(name)) {
-            // 解析include标签
+            // include不能作为根元素
             if (parser.getDepth() == 0) {
                 throw new InflateException("<include /> cannot be the root element");
             }
-            parseInclude(parser, context, parent, attrs);
+            parseInclude(parser, context, parent, attrs); // 解析include标签
         } else if (TAG_MERGE.equals(name)) {
             // 子视图不能是merge标签，merge只能用在根元素
             throw new InflateException("<merge /> must be the root element");
@@ -217,7 +224,7 @@ void rInflate(XmlPullParser parser, View parent, Context context,
 
 ### createViewFromTag
 
-通过提供的`attribute set`，根据标签名创建view。
+根据标签名创建view。
 
 ```java
 View createViewFromTag(View parent, String name, Context context, AttributeSet attrs,
@@ -261,12 +268,13 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
             mConstructorArgs[0] = context;
             try {
                 // 不包含符号'.'表示原生View，不是自定义如 <com.phatomvk.custom.view />
-                // onCreateView()调用createView(name, prefix:"android.view.", attrs)
+                // onCreateView()调用createView(name, prefix = "android.view.", attrs)
                 // 示例：android.support.v7.widget.RecyclerView不会添加前缀
                 if (-1 == name.indexOf('.')) {
                     // 例：TextView全路径名为'android.view.TextView'
                     view = onCreateView(parent, name, attrs);
                 } else {
+                    // 自定义View创建
                     view = createView(name, null, attrs);
                 }
             } finally {
@@ -274,8 +282,7 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
             }
         }
         
-        // 返回构建的view
-        return view;
+        return view; // 返回构建的view
     } catch (InflateException e) {
         throw e;
 
@@ -305,47 +312,47 @@ private static final HashMap<String, Constructor<? extends View>> sConstructorMa
 
 public final View createView(String name, String prefix, AttributeSet attrs)
         throws ClassNotFoundException, InflateException {
+    
+    // 构建方法缓存HashMap
     Constructor<? extends View> constructor = sConstructorMap.get(name);
     if (constructor != null && !verifyClassLoader(constructor)) {
         constructor = null;
         sConstructorMap.remove(name);
     }
+
     Class<? extends View> clazz = null;
 
     try {
         Trace.traceBegin(Trace.TRACE_TAG_VIEW, name);
         
-        // 该类没有缓存
-        if (constructor == null) {
+        if (constructor == null) { // 该类没有缓存
             // 从ClassLoader中反射类
             clazz = mContext.getClassLoader().loadClass(
                     prefix != null ? (prefix + name) : name).asSubclass(View.class);
                     
             // 未经许可的类不能实例化，并抛出异常
             if (mFilter != null && clazz != null) {
-                // the specified class is not allowed to be inflated
+                // 指定类不允许被填充构建
                 boolean allowed = mFilter.onLoadClass(clazz);
                 if (!allowed) {
                     failNotAllowed(name, prefix, attrs);
                 }
             }
 
-            // 获取反射类的构造方法
+            // 获取反射类的构造方法，并把构造方法添加到缓存
             constructor = clazz.getConstructor(mConstructorSignature);
             constructor.setAccessible(true);
-            // 添加该类构造方法到缓存
             sConstructorMap.put(name, constructor);
         } else {
             // 已经缓存的构造方法还要经过mFilter的检查
             if (mFilter != null) {
-                // Have we seen this name before?
+                // 查看此name之前是否遇见过
                 Boolean allowedState = mFilterMap.get(name);
                 if (allowedState == null) {
-                    // New class -- remember whether it is allowed
+                    // 获取类并记录此类是否允许使用
                     clazz = mContext.getClassLoader().loadClass(
                             prefix != null ? (prefix + name) : name).asSubclass(View.class);
 
-                    // the specified class is not allowed to be inflated
                     boolean allowed = clazz != null && mFilter.onLoadClass(clazz);
                     mFilterMap.put(name, allowed);
                     if (!allowed) {
@@ -359,7 +366,6 @@ public final View createView(String name, String prefix, AttributeSet attrs)
 
         Object lastContext = mConstructorArgs[0];
         if (mConstructorArgs[0] == null) {
-            // Fill in the context if not already within inflation.
             mConstructorArgs[0] = mContext;
         }
         Object[] args = mConstructorArgs;
@@ -409,7 +415,7 @@ public final View createView(String name, String prefix, AttributeSet attrs)
 private final boolean verifyClassLoader(Constructor<? extends View> constructor) {
     final ClassLoader constructorLoader = constructor.getDeclaringClass().getClassLoader();
     if (constructorLoader == BOOT_CLASS_LOADER) {
-        // fast path for boot class loader (most common case?) - always ok
+        // boot class loader是合法的类加载器
         return true;
     }
     // in all normal cases (no dynamic code loading), we will exit the following loop on the
