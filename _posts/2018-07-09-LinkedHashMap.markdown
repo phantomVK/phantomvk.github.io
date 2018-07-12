@@ -13,20 +13,18 @@ tags:
 
 `LinkedHashMap<K,V>`继承自[HashMap<K,V>](http://phantomvk.coding.me/2018/06/30/HashMap/)，可知存入的节点key永远是唯一的。可以通过Android的[LruCache](http://phantomvk.coding.me/2017/02/28/LruCache/)了解`LinkedHashMap`用法。
 
-![HashMap_UML](/img/java/LinkedHashMap_UML.png)
-
 ```java
 public class LinkedHashMap<K,V>
     extends HashMap<K,V>
     implements Map<K,V>
 ```
 
+![HashMap_UML](/img/java/LinkedHashMap_UML.png)
+
 ## 二、节点
 
 
 `Entry<K,V>`是`HashMap.Node<K,V>`的子类，增加`before`、`after`引用实现双向链表
-
-![HashMap_UML](/img/java/LinkedHashMap_Entry_UML.png)
 
 ```java
 static class Entry<K,V> extends HashMap.Node<K,V> {
@@ -36,6 +34,8 @@ static class Entry<K,V> extends HashMap.Node<K,V> {
     }
 }
 ```
+
+![HashMap_UML](/img/java/LinkedHashMap_Entry_UML.png)
 
 ## 三、数据成员
 
@@ -49,6 +49,10 @@ transient LinkedHashMap.Entry<K,V> tail;
 // 是否保持访问顺序，为true则每次访问节点都会放到链表尾部
 final boolean accessOrder;
 ```
+
+依次插入`Entry_0`到`Entry_5`，若`accessOrder`为true，然后访问`Entry_4`，则`Entry_4`会被放到链尾。
+
+![HashMap_UML](/img/java/LinkedHashMap_accessOrder_true.png)
 
 ## 四、构造方法
 ```java

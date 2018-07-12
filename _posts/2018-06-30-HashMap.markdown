@@ -13,6 +13,14 @@ tags:
 
 HashMap是软件工程师使用频率高、用来保存键值对映射的容器类。自JDK8始HashMap引入红黑树，调整优化哈希算法，性能相比JDK7有进一步提升。同时对JDK7中存在多线程操作导致死循环的问题进行了优化。本文基于JDK10的源码进行介绍，代码格式进行轻微调整以便阅读，最终逻辑与JDK8版本无异。
 
+相关阅读：
+
+- [Java源码系列(10) -- Hashtable](http://phantomvk.github.io/2018/07/02/HashTable/)
+
+- [Java源码系列(11) -- LinkedHashMap](http://phantomvk.github.io/2018/07/09/LinkedHashMap/)
+
+- [Java源码系列(12) -- WeakHashMap](http://phantomvk.github.io/2018/07/11/WeakHashMap/)
+
 ## 二、类签名
 
 假设键值对能正确分散到不用桶中，那么访问`get()`和`put()`方法消耗时间近似为一个时间常数。哈希表全遍历性能与哈希桶(table长度)、Node节点(键值对)数量成比例。因此不合适把初始capacity设置太大，或负载因子值load-factor(默认0.75)设置过小。
@@ -22,7 +30,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     implements Map<K,V>, Cloneable, Serializable
 ```
 
-作为通用规范，默认负载因子值0.75可以很好地平衡`时间开销`和`内存开销`之间关系。高负载因子值(如>0.75)有助于减少内存空间开支，但会增加查找的时间开销。如果在构建时正确指定哈希表初始容量，可以完全避免以后重哈希操作，换句话说就是令插入操作更高效。
+作为通用参数，默认负载因子值0.75可以很好地平衡`时间开销`和`内存开销`之间关系。高负载因子值(如>0.75)有助于减少内存空间开支，但会增加查找的时间开销。如果在构建时正确指定哈希表初始容量，可以完全避免以后重哈希操作，换句话说就是令插入操作更高效。
 
 ![HashMap_UML](/img/java/HashMap_UML.png)
 
@@ -144,7 +152,6 @@ static class Node<K,V> implements Map.Entry<K,V> {
 
 哈希冲突解决方法常见有两种：`开放地址法`和`拉链法`。通过节点字段`Node<K,V> next`保存下一个节点的引用，推断出HashMap用拉链法处理哈希冲突问题。
 
-`Node<K,V>[] table`实现`Map.Entry<K,V>`示意UML：
 ![HashMap_Node_UML](/img/java/HashMap_Node_UML.png)
 
 从节点源码`final K key;`可知键值一旦指定就不能改变，不然以后因键哈希值改变而匹配不上。
@@ -153,7 +160,7 @@ static class Node<K,V> implements Map.Entry<K,V> {
 
 通常，判断Hash算法是否高效的方式是看元素是否均匀分放到不同桶中，最好一个桶存放一个元素。即使存放更多元素，也希望每个桶能均匀存放相同数量。如果哈希算法不佳，导致一个桶中存放元素数量特别多，严重影响存取性能。
 
-为减低碰撞几率，需设置负载因子 load factor（默认值0.75）。假设用默认桶数量capacity（初始值16），通过`threshold = capacity * load factor`可知当键值对数量超过12时触发扩容。当然，通过单纯使用大量的桶，即便不经优化的哈希算法，也能把元素相对均匀地放在不同桶中，类似于空间换时间。事实上，JDK中的HashMap经过长期验证和修改，已在空间和时间两者取得平衡。
+为减低碰撞几率，需设置负载因子 load factor（默认值0.75）。假设用默认桶数量capacity（初始值16），通过`threshold = capacity * loadFactor`可知当键值对数量超过12时触发扩容。当然，通过单纯使用大量桶，即便不经优化的哈希算法，也能把元素相对均匀地放在不同桶中，类似通过空间换时间。事实上，JDK中的HashMap经过长期验证和修改，已在空间和时间两者取得平衡。
 
 ```java
 static final int hash(Object key) {
@@ -164,7 +171,7 @@ static final int hash(Object key) {
 
 过往的HashMap在桶数量较少时，连续值经过哈希运算很容易被分配到相同的桶，从而导致哈希碰撞。JDK8把哈希值`高16位`与`低16位`进行亦或运算。在不降低性能的前提下充分利用有限的条件提高混淆度，尽力把元素分配到不用桶。同时由源码可知`key == null`的元素一定会放在第一个哈希桶中。
 
-下图展示hashCode如何进行高低位运算：
+下图展示hashCode高低位运算：
 
 ![HashMap_bit_hashCode](/img/java/HashMap_bit_hashCode.png)
 
@@ -305,7 +312,7 @@ final V putVal(int hash,
     // p: 哈希桶首Node，即tab[i]
     Node<K,V>[] tab; Node<K,V> p; int n, i;
 
-    // table为null 或 table.length == 0，构建新哈希表
+    // table == null 或 table.length == 0，构建新哈希表
     if ((tab = table) == null || (n = tab.length) == 0) {
         // resize()里新哈希表会在方法内赋值给table，后返回哈希表引用并赋值给tab
         n = (tab = resize()).length;
@@ -368,7 +375,7 @@ final V putVal(int hash,
     // 增加修改次数
     ++modCount;
 
-    // 已保存元素数量超过阈值需扩容哈希表
+    // 已保存元素数量超过阈值，需扩容哈希表
     if (++size > threshold)
         resize();
 
@@ -410,8 +417,7 @@ final void putMapEntries(Map<? extends K, ? extends V> m, boolean evict) {
         for (Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
             K key = e.getKey();
             V value = e.getValue();
-            // onlyIfAbsent为false
-            putVal(hash(key), key, value, false, evict);
+            putVal(hash(key), key, value, false, evict); // onlyIfAbsent为false
         }
     }
 }
@@ -584,9 +590,6 @@ final void treeifyBin(Node<K,V>[] tab, int hash) {
 #### 6.7 删除
 
 ```java
-// @param value the value to match if matchValue, else ignored
-// @param matchValue if true only remove if value is equal
-// @param movable if false do not move other nodes while removing
 final Node<K,V> removeNode(int hash,
                            Object key, Object value,
                            boolean matchValue,

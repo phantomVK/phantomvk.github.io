@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-WeakHashMap的元素`Entry`继承自WeakReference，当元素没有外部引用被回收，或因虚拟机内存不足而回收，元素会被放入到`queue`。虽然WeakHashMap和[HashMap](http://phantomvk.github.io/2018/06/30/HashMap/)拥有相同父类，但在具体实现上HashMap有更好的优化，和WeakHashMap更相似反倒是[HashTable](http://phantomvk.github.io/2018/07/02/HashTable/)。
+WeakHashMap的元素`Entry`继承自WeakReference，当元素没有外部引用或因虚拟机内存不足而回收，元素会被放入到`queue`。虽然WeakHashMap和[HashMap](http://phantomvk.github.io/2018/06/30/HashMap/)拥有相同父类，但在具体实现上HashMap有更好的优化，和WeakHashMap更相似反倒是[HashTable](http://phantomvk.github.io/2018/07/02/HashTable/)，不过线程不安全。
 
 ```java
 public class WeakHashMap<K,V>
@@ -44,13 +44,13 @@ Entry<K,V>[] table;
 // 已保存键值对数量
 private int size;
 
-// 扩容阈值：threshold = capacity * load factor
+// 扩容阈值：threshold = capacity * loadactor
 private int threshold;
 
 // 实际负载因子
 private final float loadFactor;
 
-//  保存已经清理WeakEntries的引用队列
+//  保存已经清理Entry的引用队列
 private final ReferenceQueue<Object> queue = new ReferenceQueue<>();
 
 // 修改次数
@@ -93,7 +93,7 @@ public WeakHashMap(Map<? extends K, ? extends V> m) {
     putAll(m);
 }
 
-// 构造方法中使用，用于创建Entry数组的方法
+// 构造方法中使用，用于创建Entry数组
 @SuppressWarnings("unchecked")
 private Entry<K,V>[] newTable(int n) {
     return (Entry<K,V>[]) new Entry<?,?>[n];
@@ -103,17 +103,17 @@ private Entry<K,V>[] newTable(int n) {
 ## 四、成员方法
 
 ```java
-// 检查是否为空，为空使用NULL_KEY表示
+// 检查是否为空，为空使用NULL_KEY表示，对比unmaskNull(Object key)
 private static Object maskNull(Object key) {
     return (key == null) ? NULL_KEY : key;
 }
 
-// 把NULL_KEY通过null表示
+// 把NULL_KEY通过null表示，对比maskNull(Object key)
 static Object unmaskNull(Object key) {
     return (key == NULL_KEY) ? null : key;
 }
 
-// 对象对比
+// 对象比较
 private static boolean eq(Object x, Object y) {
     return x == y || x.equals(y);
 }
@@ -126,23 +126,24 @@ final int hash(Object k) {
     return h ^ (h >>> 7) ^ (h >>> 4);
 }
 
-// 根据哈希值和表长度算出索引位置
+// 根据哈希值和表长度算出桶索引位置
 private static int indexFor(int h, int length) {
     return h & (length-1);
 }
 
 // 清理废弃的Entry
 private void expungeStaleEntries() {
-    // 依次遍历队列的元素，里面保存的全是已经废弃的元素
+    // 依次遍历队列元素，里面保存的全是已经废弃的元素
     for (Object x; (x = queue.poll()) != null; ) {
+        // 队列修改是同步操作
         synchronized (queue) {
             @SuppressWarnings("unchecked")
             Entry<K,V> e = (Entry<K,V>) x; // 类型转换
-
-            int i = indexFor(e.hash, table.length); // 通过Entry的哈希值选桶
+            int i = indexFor(e.hash, table.length); // 通过Entry哈希值选桶
 
             Entry<K,V> prev = table[i]; // 获取哈希桶的首个元素
             Entry<K,V> p = prev;
+
             while (p != null) {
                 Entry<K,V> next = p.next;
                 if (p == e) {
@@ -163,12 +164,6 @@ private void expungeStaleEntries() {
     }
 }
 
-// 清理废弃Entry后返回table
-private Entry<K,V>[] getTable() {
-    expungeStaleEntries();
-    return table;
-}
-
 // 清理废弃Entry后返回已保存Entry数量
 public int size() {
     if (size == 0)
@@ -183,7 +178,7 @@ private void transfer(Entry<K,V>[] src, Entry<K,V>[] dest) {
     for (int j = 0; j < src.length; ++j) {
         Entry<K,V> e = src[j]; // 获取哈希桶索引
         src[j] = null; // 把当前处理的链表从src解链接
-        while (e != null) {
+        while (e != null) { // 遍历链表元素
             Entry<K,V> next = e.next;
             Object key = e.get();
             if (key == null) {
@@ -191,7 +186,7 @@ private void transfer(Entry<K,V>[] src, Entry<K,V>[] dest) {
                 e.value = null;
                 size--;
             } else {
-                int i = indexFor(e.hash, dest.length);
+                int i = indexFor(e.hash, dest.length); // 选dest表的哈希桶
                 e.next = dest[i]; // 头插法放入dest表中
                 dest[i] = e;
             }
@@ -227,6 +222,12 @@ Entry<K,V> getEntry(Object key) {
         e = e.next;
     return e;
 }
+
+// 清理废弃Entry后返回table
+private Entry<K,V>[] getTable() {
+    expungeStaleEntries();
+    return table;
+}
 ```
 ## 六、存入
 
@@ -241,24 +242,24 @@ public V put(K key, V value) {
     for (Entry<K,V> e = tab[i]; e != null; e = e.next) {
         // 匹配到已有Entry
         if (h == e.hash && eq(k, e.get())) {
-            // 用newValue替换oldValue
             V oldValue = e.value;
-            if (value != oldValue)
+            if (value != oldValue) // 用newValue替换oldValue
                 e.value = value;
             return oldValue; // 返回oldValue
         }
     }
     
-    // 不存在以后元素，执行下面的逻辑
+    // 不匹配已存在元素，执行下面的逻辑
     modCount++; // 修改次数递增
     Entry<K,V> e = tab[i]; // 获取哈希桶
-    tab[i] = new Entry<>(k, value, queue, h, e); // 创建新Entry，通过头插法的方式放入链表
-    if (++size >= threshold) // 如果已保存元素数量超过阈值，触发重哈希逻辑
+    tab[i] = new Entry<>(k, value, queue, h, e); // 创建新Entry，通过头插法的方式放入桶链表
+    if (++size >= threshold) // 如果已保存元素数量超过阈值，触发重哈希逻辑扩大到原来2倍
         resize(tab.length * 2);
 
-    return null; // 创建新的Entry会返回null，因为不存在oldValue
+    return null; // 因为不存在oldValue，创建新Entry会返回null
 }
 
+// 批量存入，先检查是否需要扩容，然后调用put(K key, V value)把元素逐个插入
 public void putAll(Map<? extends K, ? extends V> m) {
     int numKeysToBeAdded = m.size();
     if (numKeysToBeAdded == 0)
@@ -293,7 +294,7 @@ void resize(int newCapacity) {
 
     Entry<K,V>[] newTable = newTable(newCapacity); // 构建新哈希表
     transfer(oldTable, newTable); // 把旧哈希表的元素放入新哈希表
-    table = newTable;
+    table = newTable; // 引用替换为新表
 
     if (size >= threshold / 2) {
         threshold = (int)(newCapacity * loadFactor);
@@ -334,6 +335,7 @@ public V remove(Object key) {
     return null; // 没有移除任何节点，返回null
 }
 
+// 根据Entry.hash移除Entry
 boolean removeMapping(Object o) {
     if (!(o instanceof Map.Entry))
         return false;
@@ -384,32 +386,32 @@ public void clear() {
 
 ```java
 public boolean containsValue(Object value) {
-    // 查找的value为null，调用containsNullValue()
+    // 查找value为null，调用containsNullValue()
     if (value==null)
         return containsNullValue();
 
     Entry<K,V>[] tab = getTable();
 
-    // 遍历表的所有哈希桶
+    // 遍历表所有哈希桶
     for (int i = tab.length; i-- > 0;)
-        // 遍历哈希桶中所有Entry
+        // 遍历哈希桶所有Entry
         for (Entry<K,V> e = tab[i]; e != null; e = e.next)
             // 检查该Entry的value是否匹配目标value
             if (value.equals(e.value))
                 return true;
 
-    return false; // 所有Entry都没有包含该value
+    return false; // 没有该value的Entry
 }
 
 // 检查所有Entry是否包含null的value
 private boolean containsNullValue() {
     Entry<K,V>[] tab = getTable();
 
-    // 遍历表的所有哈希桶
+    // 遍历表所有哈希桶
     for (int i = tab.length; i-- > 0;)
-        // 遍历哈希桶中所有Entry
+        // 遍历哈希桶所有Entry
         for (Entry<K,V> e = tab[i]; e != null; e = e.next)
-            // 如果发现Entry的存在value为null，返回true
+            // 如果匹配Entry的value为null，返回true
             if (e.value==null)
                 return true;
   
@@ -421,9 +423,9 @@ private boolean containsNullValue() {
 
 ```java
 private static class Entry<K,V> extends WeakReference<Object> implements Map.Entry<K,V> {
-    V value;
+    V value; // 保存的value
     final int hash;
-    Entry<K,V> next;
+    Entry<K,V> next; // 下一个节点的引用
 
     Entry(Object key, V value,
           ReferenceQueue<Object> queue,
@@ -455,6 +457,7 @@ private static class Entry<K,V> extends WeakReference<Object> implements Map.Ent
         Map.Entry<?,?> e = (Map.Entry<?,?>)o;
         K k1 = getKey();
         Object k2 = e.getKey();
+
         if (k1 == k2 || (k1 != null && k1.equals(k2))) {
             V v1 = getValue();
             Object v2 = e.getValue();
@@ -463,7 +466,8 @@ private static class Entry<K,V> extends WeakReference<Object> implements Map.Ent
         }
         return false;
     }
-
+    
+    // 计算Entry内key和value为条件的哈希值，已用匹配对应Entry
     public int hashCode() {
         K k = getKey();
         V v = getValue();

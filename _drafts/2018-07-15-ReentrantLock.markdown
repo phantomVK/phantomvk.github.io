@@ -1,14 +1,15 @@
 ---
 layout:     post
-title:      "Java源码系列 -- ReentrantLock"
-subtitle:   "JDK8"
-date:       2017-02-01
+title:      "Java源码系列(13) -- ReentrantLock"
+date:       2018-07-15
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Java
+    - Java源码系列
 ---
+
+## 类签名
 
 ```java
 /**
@@ -46,7 +47,7 @@ tags:
  * follow a call to {@code lock} with a {@code try} block, most
  * typically in a before/after construction such as:
  *
- *  <pre> {@code
+ * <pre> {@code
  * class X {
  *   private final ReentrantLock lock = new ReentrantLock();
  *   // ...
@@ -78,13 +79,16 @@ tags:
  * @author Doug Lea
  */
 public class ReentrantLock implements Lock, java.io.Serializable
-​```
+```
 
-​```java
-private static final long serialVersionUID = 7373984872572414699L;
+## 成员变量
+
+```java
 /** Synchronizer providing all implementation mechanics */
 private final Sync sync;
+```
 
+```java
 /**
  * Base of synchronization control for this lock. Subclassed
  * into fair and nonfair versions below. Uses AQS state to
@@ -94,15 +98,10 @@ abstract static class Sync extends AbstractQueuedSynchronizer {
     private static final long serialVersionUID = -5179523762034025860L;
 
     /**
-     * Performs {@link Lock#lock}. The main reason for subclassing
-     * is to allow fast path for nonfair version.
-     */
-    abstract void lock();
-
-    /**
      * Performs non-fair tryLock.  tryAcquire is implemented in
      * subclasses, but both need nonfair try for trylock method.
      */
+    @ReservedStackAccess
     final boolean nonfairTryAcquire(int acquires) {
         final Thread current = Thread.currentThread();
         int c = getState();
@@ -122,6 +121,7 @@ abstract static class Sync extends AbstractQueuedSynchronizer {
         return false;
     }
 
+    @ReservedStackAccess
     protected final boolean tryRelease(int releases) {
         int c = getState() - releases;
         if (Thread.currentThread() != getExclusiveOwnerThread())
@@ -168,24 +168,14 @@ abstract static class Sync extends AbstractQueuedSynchronizer {
         setState(0); // reset to unlocked state
     }
 }
+```
 
+```java
 /**
  * Sync object for non-fair locks
  */
 static final class NonfairSync extends Sync {
     private static final long serialVersionUID = 7316153563782823691L;
-
-    /**
-     * Performs lock.  Try immediate barge, backing up to normal
-     * acquire on failure.
-     */
-    final void lock() {
-        if (compareAndSetState(0, 1))
-            setExclusiveOwnerThread(Thread.currentThread());
-        else
-            acquire(1);
-    }
-
     protected final boolean tryAcquire(int acquires) {
         return nonfairTryAcquire(acquires);
     }
@@ -196,15 +186,11 @@ static final class NonfairSync extends Sync {
  */
 static final class FairSync extends Sync {
     private static final long serialVersionUID = -3000897897090466540L;
-
-    final void lock() {
-        acquire(1);
-    }
-
     /**
      * Fair version of tryAcquire.  Don't grant access unless
      * recursive call or no waiters or is first.
      */
+    @ReservedStackAccess
     protected final boolean tryAcquire(int acquires) {
         final Thread current = Thread.currentThread();
         int c = getState();
@@ -225,7 +211,11 @@ static final class FairSync extends Sync {
         return false;
     }
 }
+```
 
+## 构造方法
+
+```java
 /**
  * Creates an instance of {@code ReentrantLock}.
  * This is equivalent to using {@code ReentrantLock(false)}.
@@ -243,7 +233,9 @@ public ReentrantLock() {
 public ReentrantLock(boolean fair) {
     sync = fair ? new FairSync() : new NonfairSync();
 }
+```
 
+```java
 /**
  * Acquires the lock.
  *
@@ -259,7 +251,7 @@ public ReentrantLock(boolean fair) {
  * at which time the lock hold count is set to one.
  */
 public void lock() {
-    sync.lock();
+    sync.acquire(1);
 }
 
 /**
@@ -325,7 +317,7 @@ public void lockInterruptibly() throws InterruptedException {
  * This &quot;barging&quot; behavior can be useful in certain
  * circumstances, even though it breaks fairness. If you want to honor
  * the fairness setting for this lock, then use
- * {@link #tryLock(long, TimeUnit) tryLock(0, TimeUnit.SECONDS) }
+ * {@link #tryLock(long, TimeUnit) tryLock(0, TimeUnit.SECONDS)}
  * which is almost equivalent (it also detects interruption).
  *
  * <p>If the current thread already holds this lock then the hold
@@ -355,7 +347,7 @@ public boolean tryLock() {
  * method. If you want a timed {@code tryLock} that does permit barging on
  * a fair lock then combine the timed and un-timed forms together:
  *
- *  <pre> {@code
+ * <pre> {@code
  * if (lock.tryLock() ||
  *     lock.tryLock(timeout, unit)) {
  *   ...
@@ -418,7 +410,9 @@ public boolean tryLock(long timeout, TimeUnit unit)
         throws InterruptedException {
     return sync.tryAcquireNanos(1, unit.toNanos(timeout));
 }
+```
 
+```java
 /**
  * Attempts to release this lock.
  *
@@ -461,7 +455,7 @@ public void unlock() {
  * InterruptedException} will be thrown, and the thread's
  * interrupted status will be cleared.
  *
- * <li> Waiting threads are signalled in FIFO order.
+ * <li>Waiting threads are signalled in FIFO order.
  *
  * <li>The ordering of lock reacquisition for threads returning
  * from waiting methods is the same as for threads initially
@@ -488,7 +482,7 @@ public Condition newCondition() {
  * not be entered with the lock already held then we can assert that
  * fact:
  *
- *  <pre> {@code
+ * <pre> {@code
  * class X {
  *   ReentrantLock lock = new ReentrantLock();
  *   // ...
@@ -518,7 +512,7 @@ public int getHoldCount() {
  * debugging and testing. For example, a method that should only be
  * called while a lock is held can assert that this is the case:
  *
- *  <pre> {@code
+ * <pre> {@code
  * class X {
  *   ReentrantLock lock = new ReentrantLock();
  *   // ...
@@ -532,7 +526,7 @@ public int getHoldCount() {
  * <p>It can also be used to ensure that a reentrant lock is used
  * in a non-reentrant manner, for example:
  *
- *  <pre> {@code
+ * <pre> {@code
  * class X {
  *   ReentrantLock lock = new ReentrantLock();
  *   // ...
@@ -623,12 +617,11 @@ public final boolean hasQueuedThread(Thread thread) {
 }
 
 /**
- * Returns an estimate of the number of threads waiting to
- * acquire this lock.  The value is only an estimate because the number of
+ * Returns an estimate of the number of threads waiting to acquire
+ * this lock.  The value is only an estimate because the number of
  * threads may change dynamically while this method traverses
  * internal data structures.  This method is designed for use in
- * monitoring of the system state, not for synchronization
- * control.
+ * monitoring system state, not for synchronization control.
  *
  * @return the estimated number of threads waiting for this lock
  */
@@ -722,5 +715,3 @@ protected Collection<Thread> getWaitingThreads(Condition condition) {
     return sync.getWaitingThreads((AbstractQueuedSynchronizer.ConditionObject)condition);
 }
 ```
-
-

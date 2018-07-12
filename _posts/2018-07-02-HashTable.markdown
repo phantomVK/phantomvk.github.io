@@ -36,6 +36,9 @@ private float loadFactor;
 
 // 结构修改次数，或元素添加次数
 private transient int modCount = 0;
+
+// 数组最大长度
+private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 ```
 
 ## 三、构造方法
@@ -83,8 +86,8 @@ public Hashtable(Map<? extends K, ? extends V> t) {
 public synchronized boolean containsKey(Object key) {
     Entry<?,?> tab[] = table;
     int hash = key.hashCode();
-    // 计算键哈希值，确定哈希桶索引
-    int index = (hash & 0x7FFFFFFF) % tab.length;
+    int index = (hash & 0x7FFFFFFF) % tab.length; // 计算键哈希值确定哈希桶索引
+
     // 从哈希桶第一个元素开始查找
     for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
         // 匹配哈希值且key完全相同
@@ -106,13 +109,13 @@ public synchronized boolean contains(Object value) {
     }
 
     Entry<?,?> tab[] = table;
-    // 从哈希表的拉链首元素开始往后遍历
+
+    // 依次遍历所有哈希桶
     for (int i = tab.length ; i-- > 0 ;) {
         // 依次遍历哈希桶中的链
         for (Entry<?,?> e = tab[i] ; e != null ; e = e.next) {
-            // 找到对应值
             if (e.value.equals(value)) {
-                return true;
+                return true; // 找到对应值
             }
         }
     }
@@ -130,10 +133,11 @@ public synchronized V get(Object key) {
     Entry<?,?> tab[] = table;
     int hash = key.hashCode(); // 计算key哈希值
     int index = (hash & 0x7FFFFFFF) % tab.length; // 选桶
+    
+    // 遍历桶中的链表
     for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
-        // 匹配哈希值，则获取对应值
         if ((e.hash == hash) && e.key.equals(key)) {
-            return (V)e.value;
+            return (V)e.value; // 匹配哈希值则获取对应值
         }
     }
     return null; // 没有匹配到指定key，返回null
@@ -153,10 +157,7 @@ public synchronized V getOrDefault(Object key, V defaultValue) {
 #### 4.3 重哈希
 
 ```java
-// 数组最大长度
-private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
-
- // 扩容并重哈希所有键值
+// 扩容并重哈希所有键值
 @SuppressWarnings("unchecked")
 protected void rehash() {
     int oldCapacity = table.length;
@@ -202,18 +203,16 @@ protected void rehash() {
 private void addEntry(int hash, K key, V value, int index) {
     Entry<?,?> tab[] = table;
     if (count >= threshold) {
-        // 超过阈值大小，哈希表执行扩容
-        rehash();
+        rehash(); // 超过阈值大小，哈希表执行扩容
 
         tab = table;
         hash = key.hashCode(); // 取键的哈希值
-        index = (hash & 0x7FFFFFFF) % tab.length; // 算哈希索引
+        index = (hash & 0x7FFFFFFF) % tab.length; // 算哈希桶索引
     }
 
-    // 创建新Entry，存入key和value
     @SuppressWarnings("unchecked")
-    Entry<K,V> e = (Entry<K,V>) tab[index];
-    tab[index] = new Entry<>(hash, key, value, e); // 把Entry放入哈希索引中
+    Entry<K,V> e = (Entry<K,V>) tab[index]; // 获取哈希桶链表首个索引
+    tab[index] = new Entry<>(hash, key, value, e); // 把Entry放入哈希索引中，头插法
     count++; // 总数递增
     modCount++; // 修改次数递增
 }
@@ -322,17 +321,19 @@ public synchronized boolean remove(Object key, Object value) {
                 tab[index] = e.next; // 从链头摘除节点
             }
             e.value = null; // 置空以便GC
-            modCount++;
-            count--;
-            return true;
+            modCount++; // 修改递增
+            count--; // 元素数量递减
+            return true; // 匹配Entry成功
         }
     }
-    return false;
+    return false; // 匹配Entry失败
 }
 
 // 清空哈希表所有元素，桶表长度不改变
 public synchronized void clear() {
     Entry<?,?> tab[] = table;
+    
+    // 直接把链表从哈希桶上解除关系
     for (int index = tab.length; --index >= 0; )
         tab[index] = null;
     modCount++;
@@ -413,7 +414,8 @@ public synchronized boolean replace(K key, V oldValue, V newValue) {
     @SuppressWarnings("unchecked")
     Entry<K,V> e = (Entry<K,V>)tab[index]; // 获取哈希桶
     for (; e != null; e = e.next) {
-        if ((e.hash == hash) && e.key.equals(key)) { // 查找是否有key对应的Entry
+        // 查找是否有key对应的Entry
+        if ((e.hash == hash) && e.key.equals(key)) {
             if (e.value.equals(oldValue)) {
                 e.value = newValue; // 同时还有oldValue匹配，才能替换为newValue
                 return true; // 替换成功

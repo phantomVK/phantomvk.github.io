@@ -31,10 +31,12 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
     if (ev.getAction() == MotionEvent.ACTION_DOWN) {
         onUserInteraction();
     }
+
     // 事件交给window处理
     if (getWindow().superDispatchTouchEvent(ev)) {
         return true;
     }
+
     // window没有消费该事件，交给Activity.onTouchEvent()处理
     return onTouchEvent(ev);
 }

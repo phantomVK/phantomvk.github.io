@@ -19,7 +19,7 @@ public class SparseArray<E> implements Cloneable
 
 SparseArrays使用基本类型`int`作为键，不像`HashMap<Integer, Object>`需把`int`转换为`Integer`，避免装箱、拆箱的性能消耗。使用内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但在存取操作上需耗费相对更多时间。
 
-从类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的`index`找对应索引的值，由此可推测时间复杂度为O(log(N))。同有几百个key-value查找性能只有HashMap一半。由于`key`保存在`mKeys`数组，`value`保存在`mValues`数组，任何增删键值对都有可能重建这两个数组。
+从类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的`index`找对应索引的值，由此可推测时间复杂度为O(log(N))。由于`key`保存在`mKeys`数组，`value`保存在`mValues`数组，任何增删键值对都有可能重建这两个数组。
 
 不过，SparseArrays做了一定优化，如移除一个键值对时只会把`mValues`对应的Object标记为`DELETED`，等下一次同key插入新value时直接替换，且失效空间在数组扩容或回收空间时才处理。
 
@@ -35,15 +35,18 @@ SparseArrays使用基本类型`int`作为键，不像`HashMap<Integer, Object>`�
 ### 二、数据成员
 
 ```java
-// 用于标记键对应Object已被删除的标志，起占位作用
+// 用于标记键对应Object已被删除的标志
 private static final Object DELETED = new Object();
-// 是否开启失效值处理的标志位，用于规整数组
+
+// 是否存在失效值的标志位
 private boolean mGarbage = false;
 
 // 保存键的整形数组
 private int[] mKeys;
+
 // 保存值的数组，索引与键数组对应
 private Object[] mValues;
+
 // 数组容量
 private int mSize;
 ```
@@ -111,14 +114,16 @@ public void delete(int key) {
 
 // 移除并返回指定key对应value，若不存在返回null
 public E removeReturnOld(int key) {
+    // 在mKeys的mSize有效范围内二分查找key的数组下标i
     int i = ContainerHelpers.binarySearch(mKeys, mSize, key);
-
+    // i>=0表示key存在
     if (i >= 0) {
+        // 检查key对应value是否已被删除
         if (mValues[i] != DELETED) {
             final E old = (E) mValues[i];
             mValues[i] = DELETED;
             mGarbage = true;
-            return old;
+            return old; // 移除该key，并返回value
         }
     }
     return null;
@@ -153,7 +158,7 @@ public void clear() {
     for (int i = 0; i < n; i++) {
         values[i] = null;
     }
-    // 数组容量置0
+    // 数组容量置0，即使mKeys不清空也不会影响二分查找的结果
     mSize = 0;
     mGarbage = false;
 }
@@ -170,7 +175,6 @@ public void put(int key, E value) {
         mValues[i] = value;
     } else {
         // 返回index是负数表明key不存在。对返i取反得到插入的位置i
-        // 例如：i为2，则得到~i为-3
         i = ~i;
 
         // i没有越界，且i的value已被删除，则直接重用此空间
