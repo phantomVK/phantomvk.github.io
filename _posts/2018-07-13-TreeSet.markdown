@@ -1,0 +1,196 @@
+---
+layout:     post
+title:      "Java源码系列(13) -- TreeSet"
+date:       2018-07-13
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    true
+tags:
+    - Java源码系列
+---
+
+## 一、类签名
+
+TreeSet通过继承AbstractSet支持导航能力，NavigableSet主要基于TreeMap实现。TreeSet的方法没有添加锁保护，所以多线程操作不安全。本文源码来自JDK10。
+
+```java
+public class TreeSet<E> extends AbstractSet<E>
+    implements NavigableSet<E>, Cloneable, java.io.Serializable
+```
+
+特点：
+- 元素基于自然排序，或Comparator决定排序顺序，具体由创建时所使用构造方法决定；
+- 保证基本操作的时间复杂度为log(n)，如：add，remove，contains；
+- TreeSet本质是有序的、无重复的集合类；
+
+## 二、数据成员
+
+```java
+// 用于存储元素的Map，实际应该是TreeMap
+private transient NavigableMap<E,Object> m;
+
+// 用于表示该元素存在
+private static final Object PRESENT = new Object();
+```
+
+## 三、构造方法
+
+```java
+// 通过指定NavigableMap构建TreeSet
+TreeSet(NavigableMap<E,Object> m) {
+    this.m = m;
+}
+
+// 默认构造方法
+public TreeSet() {
+    this(new TreeMap<>());
+}
+
+// 通过外部comparator构建TreeSet
+public TreeSet(Comparator<? super E> comparator) {
+    this(new TreeMap<>(comparator));
+}
+
+// 通过指定集合构建TreeSet
+public TreeSet(Collection<? extends E> c) {
+    this();
+    addAll(c);
+}
+
+// 通过指定SortedSet构建TreeSet
+public TreeSet(SortedSet<E> s) {
+    this(s.comparator());
+    addAll(s);
+}
+```
+
+## 四、成员方法
+
+```java
+// 返回集合中已保存元素数量
+public int size() {
+    return m.size();
+}
+
+// 返回集合是否为空
+public boolean isEmpty() {
+    return m.isEmpty();
+}
+
+// 返回集合是否包含该元素
+public boolean contains(Object o) {
+    return m.containsKey(o);
+}
+
+// 添加元素
+public boolean add(E e) {
+    return m.put(e, PRESENT)==null;
+}
+
+// 移除元素
+public boolean remove(Object o) {
+    return m.remove(o)==PRESENT;
+}
+
+// 清空所有元素
+public void clear() {
+    m.clear();
+}
+
+// 批量添加元素
+public  boolean addAll(Collection<? extends E> c) {
+    // Use linear-time version if applicable
+    if (m.size()==0 && c.size() > 0 &&
+        c instanceof SortedSet &&
+        m instanceof TreeMap) {
+        SortedSet<? extends E> set = (SortedSet<? extends E>) c;
+        TreeMap<E,Object> map = (TreeMap<E, Object>) m;
+        Comparator<?> cc = set.comparator();
+        Comparator<? super E> mc = map.comparator();
+        if (cc==mc || (cc != null && cc.equals(mc))) {
+            map.addAllForTreeSet(set, PRESENT);
+            return true;
+        }
+    }
+    return super.addAll(c);
+}
+
+// 返回子集
+public NavigableSet<E> subSet(E fromElement, boolean fromInclusive,
+                              E toElement,   boolean toInclusive) {
+    return new TreeSet<>(m.subMap(fromElement, fromInclusive,
+                                   toElement,   toInclusive));
+}
+
+// 返回指定范围元素：[headElement, toElement] 或 [headElement, toElement)
+public NavigableSet<E> headSet(E toElement, boolean inclusive) {
+    return new TreeSet<>(m.headMap(toElement, inclusive));
+}
+
+// 返回指定范围元素：[headElement, toElement)
+public SortedSet<E> headSet(E toElement) {
+    return headSet(toElement, false);
+}
+
+// 返回指定范围元素：[fromElement, tailElement] or [fromElement, tailElement)
+public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
+    return new TreeSet<>(m.tailMap(fromElement, inclusive));
+}
+
+// 返回指定范围元素：[fromElement, tailElement]
+public SortedSet<E> tailSet(E fromElement) {
+    return tailSet(fromElement, true);
+}
+
+// 返回指定范围元素：[fromElement, toElement)
+public SortedSet<E> subSet(E fromElement, E toElement) {
+    return subSet(fromElement, true, toElement, false);
+}
+
+// 获取comparator
+public Comparator<? super E> comparator() {
+    return m.comparator();
+}
+
+// 获取第一个元素
+public E first() {
+    return m.firstKey();
+}
+
+// 获取最后一个元素
+public E last() {
+    return m.lastKey();
+}
+
+// 返回小于e的最大元素
+public E lower(E e) {
+    return m.lowerKey(e);
+}
+
+// 返回小于/等于e的最大元素
+public E floor(E e) {
+    return m.floorKey(e);
+}
+
+// 返回大于/等于e的最小元素
+public E ceiling(E e) {
+    return m.ceilingKey(e);
+}
+
+// 返回大于e的最小元素
+public E higher(E e) {
+    return m.higherKey(e);
+}
+
+// 获取第一个元素，并把该元素从TreeMap中移除
+public E pollFirst() {
+    Map.Entry<E,?> e = m.pollFirstEntry();
+    return (e == null) ? null : e.getKey();
+}
+
+// 获取最后一个元素，并把该元素从TreeMap中移除
+public E pollLast() {
+    Map.Entry<E,?> e = m.pollLastEntry();
+    return (e == null) ? null : e.getKey();
+}
+```
