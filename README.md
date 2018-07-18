@@ -119,7 +119,7 @@ RSS: false
 
 增加文章归档功能，自动按照月份归档文章，具体展示请参考[phantomVK - Archive](https://phantomvk.github.io/archives/)
 
-![](./img/archive_img.jpg)
+![](./img/archive_img.png)
 
 ### 六、Google analytics
 
