@@ -302,7 +302,7 @@ $ ssh localhost # 检查ssh服务
 E:Sub-process /usr/bin/dpkg returned an error code(1)
 ```
 
-如果问题无法解决，可以尝试:
+如果问题无法解决，可以尝试：
 
 ```bash
 $ cd /var/lib/dpkg

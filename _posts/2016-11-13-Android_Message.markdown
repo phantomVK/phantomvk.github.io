@@ -20,13 +20,13 @@ Android常用序列化有 Serializable 和 [Parcelable](https://developer.androi
 
 # 一、成员变量
 
-用一个标志来区分不同的消息的身份，不同的Handler使用相同值的消息不会弄混。一般用十六进制形式表示，阅读起来比较容易。
+用一个标志来区分不同消息的身份，不同Handler使用相同值的消息不会弄混。一般用十六进制形式表示，阅读起来比较容易。
 
 ```java
 public int what; // 0x01
 ```
 
-`arg1`和`arg2`都是类中可选变量，可以用来存放两个数值，不用访问`obj`对象就能读取变量。
+`arg1`和`arg2`都是类中可选变量，用于存放两个整形值，不访问`obj`对象即可读取变量。
 
 ```java
 public int arg1; 
@@ -54,19 +54,19 @@ long when; // 存时间戳
 ```java
 Bundle data;    // 存放Bundle
 Handler target; // 存放Handler实例
-Runnable callback; // 消息的回调操作
+Runnable callback; // 消息回调操作
 Message next;   // 消息池用链表的方式存储
 
 private static final Object sPoolSync = new Object(); // 消息池同步锁对象
 private static Message sPool; // 消息池
-private static int sPoolSize = 0; // 消息池已缓存数量
+private static int sPoolSize = 0; // 已缓存消息数量
 private static final int MAX_POOL_SIZE = 50; // 消息池最大容量
 private static boolean gCheckRecycle = true; // 该版本系统是否支持回收标志位
 ```
 
 # 二、消息体获取
 
-从消息池中获得可复用消息对象。方法体有一个同步代码块，对象`sPoolSync`作为锁标志，避免不同线程取同一个空消息体导致使用紊乱。如果没有可复用的对象，则创建新Message对象。
+从消息池中获得可复用消息对象。方法体有一个同步代码块，`sPoolSync`作为锁标志，避免不同线程取同一个空消息体导致使用紊乱。如果没有可复用对象，则创建新Message对象。
 
 可手动创建一个消息对象，但是最好的方式还是从`obtain()`中获取缓存好的空消息体，避免创建多余对象。
 
@@ -78,7 +78,7 @@ public static Message obtain() {
             Message m = sPool;
             // 把sPool当头指针使用，指向m之后有效的缓存对象
             sPool = m.next;
-            // 置空缓存对象m的next指针
+            // 置空缓存对象m的next引用
             m.next = null;
             // 移除使用中标志
             m.flags = 0;
@@ -87,12 +87,13 @@ public static Message obtain() {
             return m;
         }
     }
+
     // 缓存池为空，返回新构建的Message
     return new Message();
 }
 ```
 
-从消息池中取可用的消息体后，把实参全部复制进去
+从消息池中取可用消息体后赋值实参
 
 ```java
 public static Message obtain(Message orig) {
@@ -114,7 +115,7 @@ public static Message obtain(Message orig) {
 }
 ```
 
-返回一个消息，这个消息已经设置好发送的目标
+返回一个消息，这个消息已经设置发送目标
 
 ```java
 public static Message obtain(Handler h) {

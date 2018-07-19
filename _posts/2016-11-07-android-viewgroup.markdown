@@ -16,7 +16,7 @@ tags:
 
 # 一、 代码构建
 
-继承LinearLayout类重写**dispatchTouchEvent()**、**onInterceptTouchEvent()**、**onTouchEvent()**方法。
+继承LinearLayout重写**dispatchTouchEvent()**、**onInterceptTouchEvent()**、**onTouchEvent()**方法。
 
 ```java
 public class MyLinearLayout extends LinearLayout {
@@ -105,7 +105,7 @@ public class MyLinearLayout extends LinearLayout {
 
 # 二、运行结果
 
-事件按照以下顺序传递:
+事件按照以下顺序传递：
 
 * MyLinearLayout: dispatchTouchEvent
 * MyLinearLayout: onInterceptTouchEvent
@@ -119,7 +119,7 @@ public class MyLinearLayout extends LinearLayout {
 
 - 事件进入`ViewGroup.onInterceptTouchEvent()`，该方法返回`false`继续下发；
 - 分发给子View的`dispatchTouchEvent()`，传递到`onTouchEvent.OnTouchListener`消费；
-- 如果`OnTouchListener`不拦截事件，则交给`View.onTouch().OnClickListener`消费.
+- 如果`OnTouchListener`不拦截事件，则交给`View.onTouchEvent()`消费.
 
 ```
 demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_DOWN

@@ -139,7 +139,7 @@ G1回收机制发展到JDK8已基本成型。G1在JDK中应该是唯一一个能
 
 基于G1回收的特殊性，G1的内存模型和上面介绍的内存模型是有差别的。也就是说，上面的内存模型不能用在G1上。现时没有太多资料供参考G1内存模型，如果没有特殊需求，现时CMS和PerNew已经很好地适应大部分应用场景。
 
-G1学习资料:
+G1学习资料：
 
 * [Java Hotspot G1 GC的一些关键技术](https://zhuanlan.zhihu.com/p/22591838)
 * [About G1 Garbage Collector, Permanent Generation and Metaspace](https://blogs.oracle.com/poonam/entry/about_g1_garbage_collector_permanent)
