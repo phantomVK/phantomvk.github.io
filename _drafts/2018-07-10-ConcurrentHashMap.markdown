@@ -546,22 +546,6 @@ static final int NCPU = Runtime.getRuntime().availableProcessors();
 ```
 
 ```java
-/**
- * Serialized pseudo-fields, provided only for jdk7 compatibility.
- * @serialField segments Segment[]
- *   The segments, each of which is a specialized hash table.
- * @serialField segmentMask int
- *   Mask value for indexing into segments. The upper bits of a
- *   key's hash code are used to choose the segment.
- * @serialField segmentShift int
- *   Shift value for indexing within segments.
- */
-private static final ObjectStreamField[] serialPersistentFields = {
-    new ObjectStreamField("segments", Segment[].class),
-    new ObjectStreamField("segmentMask", Integer.TYPE),
-    new ObjectStreamField("segmentShift", Integer.TYPE),
-};
-
 /* ---------------- Nodes -------------- */
 
 /**
@@ -1826,7 +1810,9 @@ private final void fullAddCount(long x, boolean wasUncontended) {
             break;                          // Fall back on using base
     }
 }
+```
 
+```java
 /* ---------------- Conversion from/to TreeBins -------------- */
 
 /**
@@ -1930,7 +1916,9 @@ static final class TreeNode<K,V> extends Node<K,V> {
         return null;
     }
 }
+```
 
+```java
 /* ---------------- TreeBins -------------- */
 
 /**
@@ -2469,7 +2457,9 @@ static final class TreeBin<K,V> extends Node<K,V> {
     private static final long LOCKSTATE
             = U.objectFieldOffset(TreeBin.class, "lockState");
 }
+```
 
+```java
 /* ----------------Table Traversal -------------- */
 
 /**
@@ -2592,7 +2582,9 @@ static class Traverser<K,V> {
             index = ++baseIndex;
     }
 }
+```
 
+```java
 // Unsafe mechanics
 private static final Unsafe U = Unsafe.getUnsafe();
 private static final long SIZECTL;
