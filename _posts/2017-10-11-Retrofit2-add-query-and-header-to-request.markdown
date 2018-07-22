@@ -19,7 +19,6 @@ OkHttpClient.Builder client = new OkHttpClient.Builder();
 client.addInterceptor(new Interceptor() {
     @Override
     public Response intercept(Chain chain) throws IOException {
-    
         Request request = chain.request();
         
         // 添加Query参数
@@ -31,8 +30,8 @@ client.addInterceptor(new Interceptor() {
         
         // 添加Header参数
         Request request = original.newBuilder()
-                .addHeader("HeaderKeyA", headerValueA)
-                .addHeader("HeaderKeyB", headerValueB)
+                .addHeader("HeaderKeyA", "headerValueA")
+                .addHeader("HeaderKeyB", "headerValueB")
                 .url(httpUrl)
                 .build();
         

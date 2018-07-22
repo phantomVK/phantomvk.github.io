@@ -27,6 +27,7 @@ protected void onCreate(@Nullable Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
 
+    // This is an example that do something useless.
     Disposable disposable = Observable.just(1)
             .map(integer -> "Map to String: " + integer)
             .filter(s -> !s.isEmpty())
@@ -34,16 +35,14 @@ protected void onCreate(@Nullable Bundle savedInstanceState) {
             .observeOn(AndroidSchedulers.mainThread())
             .subscribe(s -> Toast.show(this, s));
     
-    // 集中管理
-    mCompositeDisposable.add(disposable);
+    mCompositeDisposable.add(disposable); // 集中管理
 }
 
 @Override
 protected void onDestroy() {
     super.onDestroy();
     
-    // 解除所有订阅
-    if (mCompositeDisposable != null) {
+    if (mCompositeDisposable != null) { // 解除所有订阅
         mCompositeDisposable.dispose();
     }
 }
@@ -72,13 +71,13 @@ protected void onCreate(@Nullable Bundle savedInstanceState) {
 }
 ```
 
-`RxLifecycle`缺点这篇文章不会详细说，有兴趣的可以阅读原作者写的文章：[为什么不用RxLifecycle](http://blog.danlew.net/2017/08/02/why-not-rxlifecycle/)。下面我们开始分析源码是怎么构造的。
+`RxLifecycle`缺点这篇文章不会详细说，有兴趣的可以阅读原作者写的文章(英文)：[为什么不用RxLifecycle](http://blog.danlew.net/2017/08/02/why-not-rxlifecycle/)。
 
 # 二、源码
 
 ## 2.1 类签名
 
-`RxAppCompatActivity`抽象类的父类是`AppCompatActivity`，实现`LifecycleProvider<ActivityEvent>`接口。
+抽象类的父类是`AppCompatActivity`，实现`LifecycleProvider<ActivityEvent>`接口。
 
 ```java
 public abstract class RxAppCompatActivity extends AppCompatActivity
@@ -170,7 +169,7 @@ public final <T> LifecycleTransformer<T> bindUntilEvent(@NonNull ActivityEvent e
 
 ### 2.3.3 bindToLifecycle
 
-`bindToLifecycle()`根据绑定时所处生命周期，自动在合理的生命周期中解除订阅，用的时候只需要在`.compose()`中调这个方法即可：
+`bindToLifecycle()`根据绑定时所处生命周期，自动在合理的生命周期中解除订阅。
 
 ```java
 @Override

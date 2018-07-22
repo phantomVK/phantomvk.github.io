@@ -140,7 +140,7 @@ public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
 
 以上方法带`Delayed`可设置延迟时间，带`EmptyMessage`为创建空消息。共同点是都调用了`sendMessageDelayed()`，并返回这个调用的结果。
 
-`SystemClock.uptimeMillis()`是从开机到现在的毫秒数，不包括手机睡眠的时间。个人估计使用`SystemClock.uptimeMillis()`是为了避免用户调整系统时间后影响`System.currentTimeMillis()`，导致消息分发时间点异常。
+`SystemClock.uptimeMillis()`从开机到现在的毫秒数，不包括手机睡眠时间。可能为了避免用户调整系统时间后影响消息分发时间。
 
 `postAtTime()`重载方法调用了`sendMessageAtTime()`。
 
@@ -175,7 +175,7 @@ public final boolean sendEmptyMessageAtTime(int what, long uptimeMillis) {
 }
 ```
 
-总而言之，上面所有post和send都终结在`sendMessageAtTime()`，而`sendMessageAtTime()`仅负责把消息确定一个具体执行时间点，然后送进消息队列中。
+总而言之，上面所有post和send都终结在`sendMessageAtTime()`，把消息确定一个具体执行时间点，然后送进消息队列中。
 
 ```java
 public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
@@ -190,9 +190,7 @@ public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
 }
 ```
 
-消息默认放在消息队列的队尾处，返回`true`代表成功进入队列，不代表消息会被调度。
-
-一般情况下消息队列都会等待所有消息完成才退出。如果手动关闭消息队列，滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
+消息默认放在消息队列的队尾处，返回`true`代表成功进入队列，不代表消息会被调度。一般消息队列都会等待所有消息完成才退出。如果手动关闭消息队列，滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
 
 ```java
 private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
@@ -300,9 +298,7 @@ public void handleMessage(Message msg) {
 
 # 七、移除消息
 
-根据消息身份`what`、消息`Runnable`或`msg.obj`移除队列中对应的消息。
-
-例如发送`msg`，用同一个`msg.what`作为参数。所有方法最终调用`MessageQueue.removeMessages`，具体在`MessageQueue`的源码阅读里面说。
+根据消息身份`what`、消息`Runnable`或`msg.obj`移除队列中对应的消息。例如发送`msg`，用同一个`msg.what`作为参数。所有方法最终调用`MessageQueue.removeMessages`，具体在`MessageQueue`的源码阅读里面说。
 
 ```java
 public final void removeCallbacks(Runnable r) {
@@ -349,8 +345,6 @@ public final boolean hasCallbacks(Runnable r) {
 
 如果当前执行线程是Handler的线程，Runnable会被立刻执行。否则把它放在消息队列中一直等待执行完毕或者超时。超时后这个任务还是在队列中，在后面的某个时刻它仍然会执行，很有可能造成死锁，所以尽量不要用它。
 
-这个方法使用场景是Android初始化一个WindowManagerService，因为WindowManagerService不成功，其他组件就不允许继续，所以使用阻塞的方式直到完成。
-
 ```java
 public final boolean runWithScissors(final Runnable r, long timeout) {
     if (r == null) {
@@ -371,6 +365,8 @@ public final boolean runWithScissors(final Runnable r, long timeout) {
     return br.postAndWait(this, timeout);
 }
 ```
+
+这个方法使用场景是Android初始化一个WindowManagerService，因为WindowManagerService不成功，其他组件就不允许继续，所以使用阻塞的方式直到完成。
 
 ```java
 IMessenger mMessenger;  // IPC

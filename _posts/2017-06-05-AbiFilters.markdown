@@ -30,10 +30,10 @@ tags:
             at com.baidu.platform.comapi.b.a(Unknown Source)
             at com.baidu.mapapi.SDKInitializer.initialize(Unknown Source)
             at com.baidu.mapapi.SDKInitializer.initialize(Unknown Source)
-            at com.gnet.calendarsdk.common.MyApplication.init(MyApplication.java:92)
-            at com.gnet.calendarsdk.UCCalendarClient.init(UCCalendarClient.java:34)
-            at im.vector.Application.initQuanshiSDK(Application.java:226)
-            at im.vector.Application.onCreate(Application.java:126)
+            at --.init(MyApplication.java:92)
+            at --.init(UCCalendarClient.java:34)
+            at --.init(Application.java:226)
+            at --.onCreate(Application.java:126)
             at android.app.Instrumentation.callApplicationOnCreate(Instrumentation.java:1024)
             at android.app.ActivityThread.handleBindApplication(ActivityThread.java:5076)
             at android.app.ActivityThread.access$1600(ActivityThread.java:187)
@@ -45,8 +45,8 @@ tags:
             at java.lang.reflect.Method.invoke(Method.java:372)
             at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:1019)
             at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:814)
-```  
-  
+```
+
 不过，Android 64位是可以向下兼容32位程序的，apk只需要在budil.gradle中明确支持的指令集，以此适配手机即可。
 
 ```groovy

@@ -20,10 +20,6 @@ tags:
 经过上面的处理，令`HeightListView`与`ListView`用法无异。
 
 ```java
-// Auto height calculating ListView.
-// Calculates items' total height which includes some TextViews.
-// Use it just like a common ListView.
-// Author: PhantomVK
 public final class HeightListView extends ListView {
 
     private DataSetObserver mDataSetObserver; // The custom data set observer.
@@ -42,22 +38,12 @@ public final class HeightListView extends ListView {
         createObserver();
     }
 
-    // Overrides to set a suitable measure spec.
-    //
-    // @param widthMeasureSpec  widthMeasureSpec, not changed.
-    // @param heightMeasureSpec heightMeasureSpec replaced with a custom one.
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int spec = MeasureSpec.makeMeasureSpec(Integer.MAX_VALUE >> 2, MeasureSpec.AT_MOST);
         super.onMeasure(widthMeasureSpec, spec);
     }
 
-    // Sets the data behind this ListView.
-    //
-    // Unregisters the observer of the pre adapter before which will be replaced.
-    // After the new adapter is setted, registers a observer.
-    //
-    // @param adapter Set the new listView adapter
     @Override
     public void setAdapter(ListAdapter adapter) {
         if (adapter == null) throw new NullPointerException();

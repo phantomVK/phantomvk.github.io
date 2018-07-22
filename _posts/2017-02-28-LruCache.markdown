@@ -20,14 +20,14 @@ public class LruCache<K, V>
 
 资源缓存除了最近最少使用外，还巧妙利用Java对象引用类型完成内存回收。这4种类型分别是强、软、弱、虚。
 
-每次被操作的元素都会移动到队列首位，一段时间后，本来处于队列前方的元素因为其他元素的操作逐渐后退到队尾。如果队列空间足够，所有元素都不会移除。否则处于队尾的元素会优先移除，腾出空间容纳新元素。因此使用热度高的资源得到有效缓存，长时间没有使用的资源会被移除队列。
+每次被操作元素都会被移到队列末位。一段时间后本来处于队列末位的元素，因为其他元素的操作逐渐前进到队头。如果队列空间足够，所有元素都不会移除。否则处于队头的元素优先移除，腾出空间容纳新元素。所以使用热度高的资源得到有效缓存，长时间没有使用的资源会被移出队列。这些操作均依赖LinkedHashMap，深入了解请阅读文章：[Java源码系列(11) -- LinkedHashMap](https://phantomvk.github.io/2018/07/09/LinkedHashMap/)
 
 为了使该类适合实际应用，开发中多定义子类继承`LruCache`，重写`create()`、`entryRemoved()`和`sizeOf()`等方法。
 
 ## 二、数据成员
 
 
-`LruCache`通过`LinkedHashMap`数据结构来完成item的保存，无论是查找、节点修改，都能提供不错的性能
+`LruCache`通过`LinkedHashMap`数据结构来完成item的保存
 
 ```java
 private final LinkedHashMap<K, V> map;
@@ -70,7 +70,7 @@ public LruCache(int maxSize) {
 
 `LruCache`作为一个二次封装`LinkedHashMap`类，在增删查改上提供非常有限但实用的方法。关键操作都是线程安全的，可放心在多线程中操作同一个`LruCache`实例。
 
-### 4.1 修改容量
+### 4.1 设置大小
 
 可以修改列表最大保存数量，具体请看`trimToSize()`方法的解析
 
@@ -153,25 +153,27 @@ public final V put(K key, V value) {
     V previous;
     synchronized (this) {
         putCount++;
+        // 添加新元素，把新元素的大小增加到size
         size += safeSizeOf(key, value);
-        previous = map.put(key, value);
+        previous = map.put(key, value // 被替换出来的元素
+        // 需要减去前一个元素空间占用
         if (previous != null) {
             size -= safeSizeOf(key, previous);
         }
     }
 
     if (previous != null) {
-        entryRemoved(false, key, previous, value);
+        entryRemoved(false, key, previous, value); // 执行移除操作
     }
 
-    trimToSize(maxSize);
+    trimToSize(maxSize); // 调整大小
     return previous;
 }
 ```
 
-### 4.3 调整队列容量
+### 4.3 调整容量
 
-已保存元素数量大于新队列容量值，调整过程中选择近期最少使用的item出列。方法实参为`-1`时，所有元素依次移除直到队列为空。
+已保存元素数量大于新队列容量值，调整过程中选择近期最少使用的item出列。若`maxSize`值为`-1`，所有元素依次移除直至队列为空。
 
 ```java
 public void trimToSize(int maxSize) {
@@ -187,7 +189,8 @@ public void trimToSize(int maxSize) {
             if (size <= maxSize) {
                 break;
             }
-
+            
+            // 获取最近最少使用的元素
             Map.Entry<K, V> toEvict = map.eldest();
             if (toEvict == null) {
                 break;
@@ -195,8 +198,8 @@ public void trimToSize(int maxSize) {
 
             key = toEvict.getKey();
             value = toEvict.getValue();
-            map.remove(key);
-            size -= safeSizeOf(key, value);
+            map.remove(key); // 从LinkedHashMap中移除
+            size -= safeSizeOf(key, value); // 调整总大小
             evictionCount++;
         }
 
@@ -215,6 +218,7 @@ public final V remove(K key) {
 
     V previous;
     synchronized (this) {
+        // 根据key在LinkedHashMap中查找元素
         previous = map.remove(key);
         if (previous != null) {
             size -= safeSizeOf(key, previous);
@@ -233,43 +237,17 @@ public final V remove(K key) {
 
 #### 4.5.1 entryRemoved()
 
-entryRemoved目的是被重写。因为有的实例拥有独特的对象回收逻辑，当实例被移出队列时，应该通过此方法完成销毁操作，否则这个被移除的对象按照虚拟机垃圾回收策略进行回收。所以要确定item是否有特殊释放需要，否则忽略释放操作会造成严重内存泄漏问题。
+有的实例拥有独特的对象回收逻辑，当实例被移出队列时，应该通过此方法完成销毁操作，否则这个被移除的对象仅按照虚拟机垃圾回收策略进行回收。所以要确定item是否有特殊释放需要，忽略释放操作会造成严重内存泄漏问题。
 
 ```java
-// Called for entries that have been evicted or removed. This method is
-// invoked when a value is evicted to make space, removed by a call to
-// {@link #remove}, or replaced by a call to {@link #put}. The default
-// implementation does nothing.
-//
-// <p>The method is called without synchronization: other threads may
-// access the cache while this method is executing.
-//
-// @param evicted true if the entry is being removed to make space, false
-//     if the removal was caused by a {@link #put} or {@link #remove}.
-// @param newValue the new value for {@code key}, if it exists. If non-null,
-//     this removal was caused by a {@link #put}. Otherwise it was caused by
-//     an eviction or a {@link #remove}.
 protected void entryRemoved(boolean evicted, K key, V oldValue, V newValue) {}
 ```
 
 #### 4.5.2 create()
 
-在子类选择性重写此方法，目的是键值命中失败时提供自定义创建功能，把新建item加入队列
+在子类选择性重写此方法，目的是键值命中失败时提供自定义创建功能，把新建item加入队列，默认返回null。
 
 ```java
-// Called after a cache miss to compute a value for the corresponding key.
-// Returns the computed value or null if no value can be computed. The
-// default implementation returns null.
-//
-// <p>The method is called without synchronization: other threads may
-// access the cache while this method is executing.
-//
-// <p>If a value for {@code key} exists in the cache when this method
-// returns, the created value will be released with {@link #entryRemoved}
-// and discarded. This can occur when multiple threads request the same key
-// at the same time (causing multiple values to be created), or when one
-// thread calls {@link #put} while another is creating a value for the same
-// key.
 protected V create(K key) {
     return null;
 }
@@ -277,7 +255,7 @@ protected V create(K key) {
 
 ### 4.6 值大小
 
-私有方法，对`sizeOf()`方法返回结果安全检查
+私有方法，对`sizeOf()`方法返回结果安全检查。假设item中存放的是Bitmap对象，需重写sizeof对象实现获取该对象的内存大小。为什么在已预设队列长度的情况下还要重写此方法？
 
 ```java
 private int safeSizeOf(K key, V value) {
@@ -289,17 +267,15 @@ private int safeSizeOf(K key, V value) {
 }
 ```
 
-假设item中存放的是Bitmap对象，重写sizeof对象实现获取该对象的内存大小。为什么在已预设队列长度的情况下还要重写此方法？
-
-拿图片缓存为例：虽然我们可以控制图片在队列中缓存的数量，但却无法控制所有图片在内存中的占用。可能出现队列保存若干张图，每张图片占用多达16M内存，以至于为数不多的图片占用大量内存。为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阀值，也要强制释放队列最近未使用资源，被释放的图片以后使用时再考虑重新加载。
-
-元素大小返回默认值为1，表示元素占用一个单位。条目size在运行时不能改变，否则会导致数量控制失效。
+拿图片缓存为例：虽然我们可以控制图片在队列中缓存的数量，但却无法控制所有图片在内存中的占用。可能出现队列保存若干张图，每张图片占用多达16M内存，以至于为数不多的图片占用大量内存。为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阈值，也要强制释放队列最近最少使用资源，被释放图片以后使用时再重新加载。
 
 ```java
 protected int sizeOf(K key, V value) {
     return 1;
 }
 ```
+
+元素大小返回默认值为1，表示元素占用一个单位。条目size在运行时不能改变，否则会导致数量控制失效。
 
 ### 4.7 清空
 
@@ -355,11 +331,9 @@ public synchronized final int evictionCount() {
 
 ### 4.9 队列快照
 
-返回队列快照
+返回队列快照的浅拷贝，且保留所有元素最近访问的顺序。
 
 ```java
-// Returns a copy of the current contents of the cache, ordered from least
-// recently accessed to most recently accessed.
 public synchronized final Map<K, V> snapshot() {
     return new LinkedHashMap<K, V>(map);
 }
