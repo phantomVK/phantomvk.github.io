@@ -59,8 +59,7 @@ private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifier
         return false;
     }
 
-    // dontinline标志开启不编译方法，用来排除可能有问题的目标方法
-    // Allow use of -XX:CompileCommand=dontinline to exclude problematic methods
+    // 通过-XX:CompileCommand=dontinline标志不编译方法，排除可能有问题的目标方法
     if (!javaMethod.canBeInlined()) {
         return false;
     }
@@ -107,7 +106,6 @@ if (classFileCounter >= startAt) {
         }
     }
 
-    // Also compile the class initializer if it exists
     // 类初始化器也是能被编译
     HotSpotResolvedJavaMethod clinit = (HotSpotResolvedJavaMethod) metaAccess.lookupJavaType(javaClass).getClassInitializer();
     if (clinit != null && canBeCompiled(clinit, clinit.getModifiers())) {
@@ -116,25 +114,27 @@ if (classFileCounter >= startAt) {
 }
 ```
 
-目标方法`compileMethod()`，编译完成后下次执行时新编译方法替换旧方式。
+编译过程中还会收集统计数据，完成后下次执行时新编译方法替换旧方法。
 
 ```java
-// Compiles a method and gathers some statistics.
 private void compileMethod(HotSpotResolvedJavaMethod method, int counter) {
     try {
         long start = System.currentTimeMillis();
         long allocatedAtStart = MemUseTrackerImpl.getCurrentThreadAllocatedBytes();
         int entryBCI = JVMCICompiler.INVOCATION_ENTRY_BCI;
         HotSpotCompilationRequest request = new HotSpotCompilationRequest(method, entryBCI, 0L);
+
         // For more stable CTW execution, disable use of profiling information
         boolean useProfilingInfo = false;
         boolean installAsDefault = false;
-        // 创建一个编译任务
+
+        // 创建编译任务
         CompilationTask task = new CompilationTask(jvmciRuntime, compiler, request, useProfilingInfo, installAsDefault);
+
         // 开始编译任务
         task.runCompilation();
 
-        // Invalidate the generated code so the code cache doesn't fill up
+        // 令已生成的code失效，避免code cache被填满
         HotSpotInstalledCode installedCode = task.getInstalledCode();
         if (installedCode != null) {
             installedCode.invalidate();
@@ -144,7 +144,6 @@ private void compileMethod(HotSpotResolvedJavaMethod method, int counter) {
         compileTime.getAndAdd(System.currentTimeMillis() - start);
         compiledMethodsCounter.incrementAndGet();
     } catch (Throwable t) {
-        // Catch everything and print a message
         println("CompileTheWorld (%d) : Error compiling method: %s", counter, method.format("%H.%n(%p):%r"));
         printStackTrace(t);
     }

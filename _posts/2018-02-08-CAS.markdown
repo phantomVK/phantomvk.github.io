@@ -54,7 +54,7 @@ public final native boolean compareAndSetInt(Object var1, long var2, int var4, i
 
 下面unsafe.cpp尾段有个保存方法对应关系的静态数组：
 
-```cpp
+```c
 static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
     ......
     
@@ -69,7 +69,7 @@ static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
 
 从查找对应关系知道`compareAndSetInt`是`Unsafe_CompareAndSetInt`，位于相同文件1031行：
 
-```cpp
+```c
 UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobject obj, jlong offset, jint e, jint x)) {
   oop p = JNIHandles::resolve(obj);
   jint* addr = (jint *)index_oop_from_field_offset_long(p, offset);
@@ -80,9 +80,9 @@ UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobj
 
 逻辑执行流程：
 
- - `obj`是`AtomicInteger`对象，通过 JNIHandles::resolve() 获取`obj`在内存中OOP实例`p`
- - 根据成员变量`value`反射后计算出的内存偏移值`offset`去内存中取指针`addr`
- - 获得更新值`x`、指针`addr`、期待值`e`三个参数后，调用`Atomic::cmpxchg(x, addr, e)`
+ - `obj`是`AtomicInteger`对象，通过 JNIHandles::resolve() 获取`obj`在内存中OOP实例`p`;
+ - 根据`value`的内存偏移值`offset`去内存中取指针`addr`;
+ - 获得更新值`x`、指针`addr`、期待值`e`三个参数后，调用`Atomic::cmpxchg(x, addr, e)`;
  - 通过`Atomic::cmpxchg(x, addr, e)`实现CAS
 
 ## 三、CAS本体
@@ -93,7 +93,7 @@ UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobj
 
 __注意：形参order是JDK9中新加的，JDK8u没有该形参__
 
-```cpp
+```c
 inline jint Atomic::cmpxchg(jint exchange_value,
                             volatile jint* dest,
                             jint compare_value,
@@ -125,13 +125,13 @@ inline jint Atomic::cmpxchg(jint exchange_value,
 
 方法`is_MP()`实现在`jdk9/hotspot/src/share/vm/runtime/os.hpp`206行：
 
-```cpp
+```c
 int mp = os::is_MP();
 ```
 
 用于获取当前系统处理器核心数，如果`_processor_count`在引导过程尚未初始化，就默认假设其是多处理器以保证线程安全。
 
-```cpp
+```c
 static int _processor_count;                // number of processors
 static int _initial_active_processor_count; // number of active processors during initialization.
 
@@ -152,7 +152,7 @@ static inline bool is_MP() {
 
 获取成功后把核心数保存在整形值`mp`中，实际起到布尔值的作用。为0意味系统是单处理器系统，大于0是多处理器系统，并作为实参调起宏定义`LOCK_IF_MP(mp)`：
 
-```cpp
+```c
 // Adding a lock prefix to an instruction on MP machine
 #define LOCK_IF_MP(mp) "cmp $0, " #mp "; je 1f; lock; 1: "
 ```

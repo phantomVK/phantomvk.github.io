@@ -11,7 +11,7 @@ tags:
 
 ## 一、介绍
 
-Java常用的List实现有[ArrayList](http://phantomvk.coding.me/2017/02/19/Java_ArrayList/)和LinkedList。ArrayList通过数组实现，LinkedList通过链表实现。由于Java中没有指针的概念，所以需要用在一个对象里保存下一对象引用的方式实现链表。
+Java常用的List实现有[ArrayList](http://phantomvk.coding.me/2017/02/19/Java_ArrayList/)和LinkedList。ArrayList通过数组实现，LinkedList通过链表实现。由于Java中没有指针的概念，需保存下一对象引用的方式实现链表。
 
 ```java
 public class LinkedList<E>
@@ -30,22 +30,20 @@ transient int size = 0;
 头指针
 
 ```java
-// Invariant: (first == null && last == null) ||
-//            (first.prev == null && first.item != null)
+// Invariant: (first == null && last == null) || (first.prev == null && first.item != null)
 transient Node<E> first;
 ```
 
 尾指针
 
 ```java
-// Invariant: (first == null && last == null) ||
-//            (last.next == null && last.item != null)
+// Invariant: (first == null && last == null) || (last.next == null && last.item != null)
 transient Node<E> last;
 ```
 
 ## 三、构造方法
 
-用指定集合构建列表，传入集合元素访问顺序由集合的迭代器决定：
+用指定集合构建列表，传入集合元素访问顺序由集合迭代器决定：
 
 ```java
 public LinkedList(Collection<? extends E> c) {
@@ -112,10 +110,13 @@ public void addLast(E e) {
 void linkBefore(E e, Node<E> succ) {
     // succ的前一个节点pred
     final Node<E> pred = succ.prev;
+
     // 创建新节点newNode，分别设置其前后指针为pred和succ
     final Node<E> newNode = new Node<>(pred, e, succ);
+
     // 把succ向前方向的指针从指向pred改为指向newNode
     succ.prev = newNode;
+
     // succ原前指针为null可推断succ是头结点，然后把新插入newNode作为头结点
     if (pred == null)
         first = newNode;
@@ -343,7 +344,7 @@ public boolean addAll(int index, Collection<? extends E> c) {
 ```java
 public void clear() {
     for (Node<E> x = first; x != null; ) {
-        Node<E> next = x.next;
+        Node<E> next = x.next; // 逐个获取并置空
         x.item = null;
         x.next = null;
         x.prev = null;
@@ -622,8 +623,7 @@ public Object[] toArray() {
 
 如果数组空间足够保存所有链表元素，则正常返回传入数组，否则会创建一个与数组类型一致，容量与链表长度一致的新数组。
 
-如果传入数组的容量大于链表的长度，则当最后一个链表节点存入数组位置
-下一个数组空间会被置为null。这样有助于计算数组实际包含的元素数。
+如果传入数组的容量大于链表的长度，则当最后一个链表节点存入数组位置下一个数组空间会被置为null。这样有助于计算数组实际包含的元素数。
 
 ```java
 @SuppressWarnings("unchecked")
