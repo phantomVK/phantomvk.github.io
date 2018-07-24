@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-TreeSet通过继承AbstractSet支持导航能力，NavigableSet主要基于TreeMap实现。TreeSet的方法没有添加锁保护，所以多线程操作不安全。本文源码来自JDK10。
+TreeSet通过继承NavigableSet支持导航能力，NavigableSet主要基于TreeMap实现。TreeSet的方法没有添加锁保护，所以多线程操作不安全。本文源码来自JDK10。
 
 ```java
 public class TreeSet<E> extends AbstractSet<E>
