@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Java源码系列(12) -- ConcurrentHashMap"
-date:       2018-07-10
+date:       2018-07-24
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
@@ -559,10 +559,10 @@ static final int NCPU = Runtime.getRuntime().availableProcessors();
  * exported).  Otherwise, keys and vals are never null.
  */
 static class Node<K,V> implements Map.Entry<K,V> {
-    final int hash;
-    final K key;
-    volatile V val;
-    volatile Node<K,V> next;
+    final int hash; // key的哈希值
+    final K key;    // 节点的key
+    volatile V val; // 节点的value
+    volatile Node<K,V> next; // 下一个节点的引用
 
     Node(int hash, K key, V val) {
         this.hash = hash;
@@ -634,7 +634,11 @@ static class Node<K,V> implements Map.Entry<K,V> {
 static final int spread(int h) {
     return (h ^ (h >>> 16)) & HASH_BITS;
 }
+```
 
+通过给定值计算得`相等或更大`且`大小为2^n`的数值：
+
+```java
 /**
  * Returns a power of two table size for the given desired capacity.
  * See Hackers Delight, sec 3.2
@@ -648,7 +652,14 @@ private static final int tableSizeFor(int c) {
     n |= n >>> 16;
     return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
 }
+```
+下面假设cap为15，通过tableSizeFor()计算：
 
+![HashMap_tableSizeFor](/img/java/HashMap_tableSizeFor.png)
+
+从图中看出，当流程进行到n|=n>>>4，后续步骤运算结果已经固定不变。
+
+```java
 /**
  * Returns x's Class if it is of the form "class C implements
  * Comparable<C>", else null.
@@ -758,6 +769,8 @@ private transient volatile int cellsBusy;
 private transient volatile CounterCell[] counterCells;
 ```
 
+## 构造方法
+
 ```java
 /* ---------------- Public operations -------------- */
 
@@ -865,7 +878,11 @@ public int size() {
 public boolean isEmpty() {
     return sumCount() <= 0L; // ignore transient negative values
 }
+```
 
+## 获取
+
+```java
 /**
  * Returns the value to which the specified key is mapped,
  * or {@code null} if this map contains no mapping for the key.
@@ -879,21 +896,31 @@ public boolean isEmpty() {
  */
 public V get(Object key) {
     Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
+    // 获取分散后的哈希值
     int h = spread(key.hashCode());
+    // 通过哈希值在table中选桶
     if ((tab = table) != null && (n = tab.length) > 0 &&
         (e = tabAt(tab, (n - 1) & h)) != null) {
+        // 检查桶首个元素是否匹配目标元素的哈希值
         if ((eh = e.hash) == h) {
+            // 哈希值匹配成功后，还需要检查key是否匹配
             if ((ek = e.key) == key || (ek != null && key.equals(ek)))
+                // 全匹配后返回该元素的value
                 return e.val;
         }
-        else if (eh < 0)
+        else if (eh < 0) // 从桶元素开始查找
             return (p = e.find(h, key)) != null ? p.val : null;
+        
+        // eh >= 0
         while ((e = e.next) != null) {
+            // 逐个匹配哈希值并进行查找
             if (e.hash == h &&
                 ((ek = e.key) == key || (ek != null && key.equals(ek))))
                 return e.val;
         }
     }
+    
+    // 没有找到元素
     return null;
 }
 
@@ -934,7 +961,11 @@ public boolean containsValue(Object value) {
     }
     return false;
 }
+```
 
+## 添加
+
+```java
 /**
  * Maps the specified key to the specified value in this table.
  * Neither the key nor the value can be null.
@@ -1034,7 +1065,11 @@ public void putAll(Map<? extends K, ? extends V> m) {
     for (Map.Entry<? extends K, ? extends V> e : m.entrySet())
         putVal(e.getKey(), e.getValue(), false);
 }
+```
 
+## 移除
+
+```java
 /**
  * Removes the key (and its corresponding value) from this map.
  * This method does nothing if the key is not in the map.
@@ -1047,7 +1082,11 @@ public void putAll(Map<? extends K, ? extends V> m) {
 public V remove(Object key) {
     return replaceNode(key, null, null);
 }
+```
 
+## 替换
+
+```java
 /**
  * Implementation for the four public remove/replace methods:
  * Replaces node value with v, conditional upon match of cv if
@@ -1127,6 +1166,34 @@ final V replaceNode(Object key, V value, Object cv) {
 }
 
 /**
+ * {@inheritDoc}
+ *
+ * @throws NullPointerException if any of the arguments are null
+ */
+public boolean replace(K key, V oldValue, V newValue) {
+    if (key == null || oldValue == null || newValue == null)
+        throw new NullPointerException();
+    return replaceNode(key, newValue, oldValue) != null;
+}
+
+/**
+ * {@inheritDoc}
+ *
+ * @return the previous value associated with the specified key,
+ *         or {@code null} if there was no mapping for the key
+ * @throws NullPointerException if the specified key or value is null
+ */
+public V replace(K key, V value) {
+    if (key == null || value == null)
+        throw new NullPointerException();
+    return replaceNode(key, value, null);
+}
+```
+
+## 清除
+
+```java
+/**
  * Removes all of the mappings from this map.
  */
 public void clear() {
@@ -1160,7 +1227,9 @@ public void clear() {
     if (delta != 0L)
         addCount(delta, -1);
 }
+```
 
+```java
 /**
  * Returns the hash code value for this {@link Map}, i.e.,
  * the sum of, for each key-value pair in the map,
@@ -1214,7 +1283,9 @@ public boolean equals(Object o) {
     }
     return true;
 }
+```
 
+```java
 /**
  * Stripped-down version of helper class used in previous version,
  * declared for the sake of serialization compatibility.
@@ -1245,30 +1316,6 @@ public boolean remove(Object key, Object value) {
     if (key == null)
         throw new NullPointerException();
     return value != null && replaceNode(key, null, value) != null;
-}
-
-/**
- * {@inheritDoc}
- *
- * @throws NullPointerException if any of the arguments are null
- */
-public boolean replace(K key, V oldValue, V newValue) {
-    if (key == null || oldValue == null || newValue == null)
-        throw new NullPointerException();
-    return replaceNode(key, newValue, oldValue) != null;
-}
-
-/**
- * {@inheritDoc}
- *
- * @return the previous value associated with the specified key,
- *         or {@code null} if there was no mapping for the key
- * @throws NullPointerException if the specified key or value is null
- */
-public V replace(K key, V value) {
-    if (key == null || value == null)
-        throw new NullPointerException();
-    return replaceNode(key, value, null);
 }
 
 // Overrides of JDK8+ Map extension method defaults
@@ -1326,53 +1373,6 @@ public boolean contains(Object value) {
 public long mappingCount() {
     long n = sumCount();
     return (n < 0L) ? 0L : n; // ignore transient negative values
-}
-
-/**
- * Creates a new {@link Set} backed by a ConcurrentHashMap
- * from the given type to {@code Boolean.TRUE}.
- *
- * @param <K> the element type of the returned set
- * @return the new set
- * @since 1.8
- */
-public static <K> KeySetView<K,Boolean> newKeySet() {
-    return new KeySetView<K,Boolean>
-        (new ConcurrentHashMap<K,Boolean>(), Boolean.TRUE);
-}
-
-/**
- * Creates a new {@link Set} backed by a ConcurrentHashMap
- * from the given type to {@code Boolean.TRUE}.
- *
- * @param initialCapacity The implementation performs internal
- * sizing to accommodate this many elements.
- * @param <K> the element type of the returned set
- * @return the new set
- * @throws IllegalArgumentException if the initial capacity of
- * elements is negative
- * @since 1.8
- */
-public static <K> KeySetView<K,Boolean> newKeySet(int initialCapacity) {
-    return new KeySetView<K,Boolean>
-        (new ConcurrentHashMap<K,Boolean>(initialCapacity), Boolean.TRUE);
-}
-
-/**
- * Returns a {@link Set} view of the keys in this map, using the
- * given common mapped value for any additions (i.e., {@link
- * Collection#add} and {@link Collection#addAll(Collection)}).
- * This is of course only appropriate if it is acceptable to use
- * the same value for all additions from this view.
- *
- * @param mappedValue the mapped value to use for any additions
- * @return the set view
- * @throws NullPointerException if the mappedValue is null
- */
-public KeySetView<K,V> keySet(V mappedValue) {
-    if (mappedValue == null)
-        throw new NullPointerException();
-    return new KeySetView<K,V>(this, mappedValue);
 }
 
 /* ---------------- Special Nodes -------------- */
@@ -2474,115 +2474,6 @@ static final class TableStack<K,V> {
     int index;
     Node<K,V>[] tab;
     TableStack<K,V> next;
-}
-
-/**
- * Encapsulates traversal for methods such as containsValue; also
- * serves as a base class for other iterators and spliterators.
- *
- * Method advance visits once each still-valid node that was
- * reachable upon iterator construction. It might miss some that
- * were added to a bin after the bin was visited, which is OK wrt
- * consistency guarantees. Maintaining this property in the face
- * of possible ongoing resizes requires a fair amount of
- * bookkeeping state that is difficult to optimize away amidst
- * volatile accesses.  Even so, traversal maintains reasonable
- * throughput.
- *
- * Normally, iteration proceeds bin-by-bin traversing lists.
- * However, if the table has been resized, then all future steps
- * must traverse both the bin at the current index as well as at
- * (index + baseSize); and so on for further resizings. To
- * paranoically cope with potential sharing by users of iterators
- * across threads, iteration terminates if a bounds checks fails
- * for a table read.
- */
-static class Traverser<K,V> {
-    Node<K,V>[] tab;        // current table; updated if resized
-    Node<K,V> next;         // the next entry to use
-    TableStack<K,V> stack, spare; // to save/restore on ForwardingNodes
-    int index;              // index of bin to use next
-    int baseIndex;          // current index of initial table
-    int baseLimit;          // index bound for initial table
-    final int baseSize;     // initial table size
-
-    Traverser(Node<K,V>[] tab, int size, int index, int limit) {
-        this.tab = tab;
-        this.baseSize = size;
-        this.baseIndex = this.index = index;
-        this.baseLimit = limit;
-        this.next = null;
-    }
-
-    /**
-     * Advances if possible, returning next valid node, or null if none.
-     */
-    final Node<K,V> advance() {
-        Node<K,V> e;
-        if ((e = next) != null)
-            e = e.next;
-        for (;;) {
-            Node<K,V>[] t; int i, n;  // must use locals in checks
-            if (e != null)
-                return next = e;
-            if (baseIndex >= baseLimit || (t = tab) == null ||
-                (n = t.length) <= (i = index) || i < 0)
-                return next = null;
-            if ((e = tabAt(t, i)) != null && e.hash < 0) {
-                if (e instanceof ForwardingNode) {
-                    tab = ((ForwardingNode<K,V>)e).nextTable;
-                    e = null;
-                    pushState(t, i, n);
-                    continue;
-                }
-                else if (e instanceof TreeBin)
-                    e = ((TreeBin<K,V>)e).first;
-                else
-                    e = null;
-            }
-            if (stack != null)
-                recoverState(n);
-            else if ((index = i + baseSize) >= n)
-                index = ++baseIndex; // visit upper slots if present
-        }
-    }
-
-    /**
-     * Saves traversal state upon encountering a forwarding node.
-     */
-    private void pushState(Node<K,V>[] t, int i, int n) {
-        TableStack<K,V> s = spare;  // reuse if possible
-        if (s != null)
-            spare = s.next;
-        else
-            s = new TableStack<K,V>();
-        s.tab = t;
-        s.length = n;
-        s.index = i;
-        s.next = stack;
-        stack = s;
-    }
-
-    /**
-     * Possibly pops traversal state.
-     *
-     * @param n length of current table
-     */
-    private void recoverState(int n) {
-        TableStack<K,V> s; int len;
-        while ((s = stack) != null && (index += (len = s.length)) >= n) {
-            n = len;
-            index = s.index;
-            tab = s.tab;
-            s.tab = null;
-            TableStack<K,V> next = s.next;
-            s.next = spare; // save for reuse
-            stack = next;
-            spare = s;
-        }
-        if (s == null && (index += baseSize) >= n)
-            index = ++baseIndex;
-    }
 }
 ```
 
