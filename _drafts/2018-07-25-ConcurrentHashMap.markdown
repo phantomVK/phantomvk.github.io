@@ -534,7 +534,9 @@ private static final int MAX_RESIZERS = (1 << (32 - RESIZE_STAMP_BITS)) - 1;
  * The bit shift for recording size stamp in sizeCtl.
  */
 private static final int RESIZE_STAMP_SHIFT = 32 - RESIZE_STAMP_BITS;
+```
 
+```java
 /*
  * Encodings for Node hash fields. See above for explanation.
  */
@@ -860,7 +862,9 @@ public ConcurrentHashMap(int initialCapacity,
         MAXIMUM_CAPACITY : tableSizeFor((int)size);
     this.sizeCtl = cap;
 }
+```
 
+```java
 // Original (since JDK1.2) Map methods
 
 /**
@@ -2811,8 +2815,11 @@ static final class TreeBin<K,V> extends Node<K,V> {
      * @return true if now too small, so should be untreeified
      */
     final boolean removeTreeNode(TreeNode<K,V> p) {
+        // p节点的下一节点
         TreeNode<K,V> next = (TreeNode<K,V>)p.next;
+        // p节点的上一节点
         TreeNode<K,V> pred = p.prev;  // unlink traversal pointers
+        // root，rootLeft
         TreeNode<K,V> r, rl;
         if (pred == null)
             first = next;
