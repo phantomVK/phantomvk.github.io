@@ -926,15 +926,7 @@ public V get(Object key) {
     return null;
 }
 
-/**
- * Tests if the specified object is a key in this table.
- *
- * @param  key possible key
- * @return {@code true} if and only if the specified object
- *         is a key in this table, as determined by the
- *         {@code equals} method; {@code false} otherwise
- * @throws NullPointerException if the specified key is null
- */
+// 查找是否包含此key，key不能为null.
 public boolean containsKey(Object key) {
     return get(key) != null;
 }
@@ -2249,12 +2241,12 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
     int n = tab.length, stride;
     if ((stride = (NCPU > 1) ? (n >>> 3) / NCPU : n) < MIN_TRANSFER_STRIDE)
         stride = MIN_TRANSFER_STRIDE; // subdivide range
-    if (nextTab == null) {            // initiating
+    if (nextTab == null) {
         try {
             @SuppressWarnings("unchecked")
             Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n << 1];
             nextTab = nt;
-        } catch (Throwable ex) {      // try to cope with OOME
+        } catch (Throwable ex) {      // 尝试应付OOME
             sizeCtl = Integer.MAX_VALUE;
             return;
         }
