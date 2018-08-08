@@ -575,10 +575,10 @@ private static final ObjectStreamField[] serialPersistentFields = {
  * exported).  Otherwise, keys and vals are never null.
  */
 static class Node<K,V> implements Map.Entry<K,V> {
-    final int hash;
-    final K key;
-    volatile V val;
-    volatile Node<K,V> next;
+    final int hash; // 不可变初始哈希值
+    final K key;    // 不可变key
+    volatile V val; // value
+    volatile Node<K,V> next; // 下一节点的引用
 
     Node(int hash, K key, V val) {
         this.hash = hash;
@@ -975,6 +975,7 @@ public V put(K key, V value) {
 
 /** Implementation for put and putIfAbsent */
 final V putVal(K key, V value, boolean onlyIfAbsent) {
+    // 不支持key或value为空
     if (key == null || value == null) throw new NullPointerException();
     int hash = spread(key.hashCode());
     int binCount = 0;
