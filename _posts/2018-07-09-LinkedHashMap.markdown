@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-`LinkedHashMap<K,V>`继承自[HashMap<K,V>](http://phantomvk.coding.me/2018/06/30/HashMap/)，可知存入的节点key永远是唯一的。可以通过Android的[LruCache](http://phantomvk.coding.me/2017/02/28/LruCache/)了解`LinkedHashMap`用法。
+`LinkedHashMap<K,V>`继承自[HashMap<K,V>](http://phantomvk.github.io/2018/06/30/HashMap/)，可知存入的节点key永远是唯一的。可以通过Android的[LruCache](http://phantomvk.github.io/2017/02/28/LruCache/)了解`LinkedHashMap`用法。
 
 ```java
 public class LinkedHashMap<K,V>
