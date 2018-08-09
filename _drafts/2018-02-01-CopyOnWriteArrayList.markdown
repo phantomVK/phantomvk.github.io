@@ -10,7 +10,7 @@ tags:
     - Java
 ---
 
-JDK10.0.2
+JDK10.0.2。影响内存占用和GC，适合读多写少的场景。
 
 ```java
 /**
@@ -69,7 +69,7 @@ final Object[] getArray() {
     return array;
 }
 
-// 传入数组
+// 设置数组
 final void setArray(Object[] a) {
     array = a;
 }
@@ -118,20 +118,12 @@ public CopyOnWriteArrayList(E[] toCopyIn) {
 ```
 
 ```java
-/**
- * Returns the number of elements in this list.
- *
- * @return the number of elements in this list
- */
+// 获取列表元素的数量
 public int size() {
     return getArray().length;
 }
 
-/**
- * Returns {@code true} if this list contains no elements.
- *
- * @return {@code true} if this list contains no elements
- */
+// 检查列表是否为空
 public boolean isEmpty() {
     return size() == 0;
 }
@@ -249,38 +241,7 @@ public int lastIndexOf(E e, int index) {
     return lastIndexOf(e, elements, index);
 }
 
-/**
- * Returns a shallow copy of this list.  (The elements themselves
- * are not copied.)
- *
- * @return a clone of this list
- */
-public Object clone() {
-    try {
-        @SuppressWarnings("unchecked")
-        CopyOnWriteArrayList<E> clone =
-            (CopyOnWriteArrayList<E>) super.clone();
-        clone.resetLock();
-        return clone;
-    } catch (CloneNotSupportedException e) {
-        // this shouldn't happen, since we are Cloneable
-        throw new InternalError();
-    }
-}
-
-/**
- * Returns an array containing all of the elements in this list
- * in proper sequence (from first to last element).
- *
- * <p>The returned array will be "safe" in that no references to it are
- * maintained by this list.  (In other words, this method must allocate
- * a new array).  The caller is thus free to modify the returned array.
- *
- * <p>This method acts as bridge between array-based and collection-based
- * APIs.
- *
- * @return an array containing all the elements in this list
- */
+// 根据原数组浅拷贝一份独立新数组，长度一致并保持元素原有顺序，元素类型为Object
 public Object[] toArray() {
     Object[] elements = getArray();
     return Arrays.copyOf(elements, elements.length);
@@ -338,8 +299,7 @@ public <T> T[] toArray(T[] a) {
     }
 }
 
-// Positional Access Operations
-
+// 获取指定索引的元素，元素来自传入数组a
 @SuppressWarnings("unchecked")
 static <E> E elementAt(Object[] a, int index) {
     return (E) a[index];
@@ -349,11 +309,7 @@ static String outOfBounds(int index, int size) {
     return "Index: " + index + ", Size: " + size;
 }
 
-/**
- * {@inheritDoc}
- *
- * @throws IndexOutOfBoundsException {@inheritDoc}
- */
+// 获取指定索引的元素，元素来自本数组getArray()
 public E get(int index) {
     return elementAt(getArray(), index);
 }
@@ -382,36 +338,35 @@ public E set(int index, E element) {
     }
 }
 
-/**
- * Appends the specified element to the end of this list.
- *
- * @param e element to be appended to this list
- * @return {@code true} (as specified by {@link Collection#add})
- */
+// 把新元素插入到列表尾
 public boolean add(E e) {
+    // 修改的时候需要获取锁以保证线程安全
     synchronized (lock) {
-        Object[] elements = getArray();
-        int len = elements.length;
+        Object[] elements = getArray(); // 获取原数组
+        int len = elements.length;      // 计算原数组长度
+        // 用原数组拷贝出新数组，长度增加1个单位。
         Object[] newElements = Arrays.copyOf(elements, len + 1);
+        // 在新数组最后的位置存入新元素e
         newElements[len] = e;
+        // 此时同时存在新、旧两个数组，用新数组引用替换旧数组引用
         setArray(newElements);
+        // 旧数组如果在其他地方没有引用就会回收
         return true;
     }
 }
 
-/**
- * Inserts the specified element at the specified position in this
- * list. Shifts the element currently at that position (if any) and
- * any subsequent elements to the right (adds one to their indices).
- *
- * @throws IndexOutOfBoundsException {@inheritDoc}
- */
+// 把新元素插入到指定索引位置，指定索引位置原元素及后续元素都相对后移一个位置
 public void add(int index, E element) {
+    // 修改的时候需要获取锁以保证线程安全
     synchronized (lock) {
+        // 获取原数组
         Object[] elements = getArray();
+        // 获取原数组长度
         int len = elements.length;
+        // 检查超如位置是否越界
         if (index > len || index < 0)
             throw new IndexOutOfBoundsException(outOfBounds(index, len));
+        // 
         Object[] newElements;
         int numMoved = len - index;
         if (numMoved == 0)
@@ -422,7 +377,9 @@ public void add(int index, E element) {
             System.arraycopy(elements, index, newElements, index + 1,
                              numMoved);
         }
+        // 在新数组指定位置插入新元素
         newElements[index] = element;
+        // 此时同时存在新、旧两个数组，用新数组引用替换旧数组引用
         setArray(newElements);
     }
 }
@@ -436,8 +393,11 @@ public void add(int index, E element) {
  */
 public E remove(int index) {
     synchronized (lock) {
+        // 获取原数组
         Object[] elements = getArray();
+        // 获取原数组长度
         int len = elements.length;
+        // 获取指定索引元素
         E oldValue = elementAt(elements, index);
         int numMoved = len - index - 1;
         if (numMoved == 0)
@@ -466,6 +426,7 @@ public E remove(int index) {
  * @return {@code true} if this list contained the specified element
  */
 public boolean remove(Object o) {
+    // 获取原数组
     Object[] snapshot = getArray();
     int index = indexOf(o, snapshot, 0, snapshot.length);
     return (index < 0) ? false : remove(o, snapshot, index);
@@ -477,7 +438,9 @@ public boolean remove(Object o) {
  */
 private boolean remove(Object o, Object[] snapshot, int index) {
     synchronized (lock) {
+        // 获取原数组
         Object[] current = getArray();
+        // 获取原数组长度
         int len = current.length;
         if (snapshot != current) findIndex: {
             int prefix = Math.min(index, len);
@@ -1107,21 +1070,7 @@ static final class COWIterator<E> implements ListIterator<E> {
     }
 }
 
-/**
- * Returns a view of the portion of this list between
- * {@code fromIndex}, inclusive, and {@code toIndex}, exclusive.
- * The returned list is backed by this list, so changes in the
- * returned list are reflected in this list.
- *
- * <p>The semantics of the list returned by this method become
- * undefined if the backing list (i.e., this list) is modified in
- * any way other than via the returned list.
- *
- * @param fromIndex low endpoint (inclusive) of the subList
- * @param toIndex high endpoint (exclusive) of the subList
- * @return a view of the specified range within this list
- * @throws IndexOutOfBoundsException {@inheritDoc}
- */
+// 获取[fromIndex, toIndex)的元素子列表。修改结果列表会影响原列表。
 public List<E> subList(int fromIndex, int toIndex) {
     synchronized (lock) {
         Object[] elements = getArray();
@@ -1131,7 +1080,11 @@ public List<E> subList(int fromIndex, int toIndex) {
         return new COWSubList<E>(this, fromIndex, toIndex);
     }
 }
+```
 
+## COWSubList
+
+```java
 /**
  * Sublist for CopyOnWriteArrayList.
  */
@@ -1415,7 +1368,9 @@ private static class COWSubListIterator<E> implements ListIterator<E> {
         }
     }
 }
+```
 
+```java
 /** Initializes the lock; for use when deserializing or cloning. */
 private void resetLock() {
     Field lockField = java.security.AccessController.doPrivileged(

@@ -455,24 +455,28 @@ private static final long serialVersionUID = 7249069246763182397L;
  * because the top two bits of 32bit hash fields are used for
  * control purposes.
  */
+// 容纳元素最大数量
 private static final int MAXIMUM_CAPACITY = 1 << 30;
 
 /**
  * The default initial table capacity.  Must be a power of 2
  * (i.e., at least 1) and at most MAXIMUM_CAPACITY.
  */
+// 默认容量
 private static final int DEFAULT_CAPACITY = 16;
 
 /**
  * The largest possible (non-power of two) array size.
  * Needed by toArray and related methods.
  */
+// 最大哈希桶数组大小
 static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
 /**
  * The default concurrency level for this table. Unused but
  * defined for compatibility with previous versions of this class.
  */
+// 默认并发等级。只是为了旧版本JDK的兼容。
 private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
 
 /**
@@ -482,6 +486,7 @@ private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
  * simpler to use expressions such as {@code n - (n >>> 2)} for
  * the associated resizing threshold.
  */
+// 默认负载因子
 private static final float LOAD_FACTOR = 0.75f;
 
 /**
@@ -492,6 +497,7 @@ private static final float LOAD_FACTOR = 0.75f;
  * tree removal about conversion back to plain bins upon
  * shrinkage.
  */
+// 拉链树化的阈值
 static final int TREEIFY_THRESHOLD = 8;
 
 /**
@@ -499,6 +505,7 @@ static final int TREEIFY_THRESHOLD = 8;
  * resize operation. Should be less than TREEIFY_THRESHOLD, and at
  * most 6 to mesh with shrinkage detection under removal.
  */
+// 从树退化的阈值
 static final int UNTREEIFY_THRESHOLD = 6;
 
 /**
@@ -545,7 +552,7 @@ static final int TREEBIN   = -2; // hash for roots of trees
 static final int RESERVED  = -3; // hash for transient reservations
 static final int HASH_BITS = 0x7fffffff; // usable bits of normal node hash
 
-/** Number of CPUS, to place bounds on some sizings */
+// 获取处理器核心数
 static final int NCPU = Runtime.getRuntime().availableProcessors();
 
 /**
@@ -626,9 +633,11 @@ static class Node<K,V> implements Map.Entry<K,V> {
         return null;
     }
 }
+```
 
-/* ---------------- Static utilities -------------- */
+## 静态工具
 
+```java
 /**
  * Spreads (XORs) higher bits of hash to lower and also forces top
  * bit to 0. Because the table uses power-of-two masking, sets of
@@ -725,7 +734,11 @@ static final <K,V> boolean casTabAt(Node<K,V>[] tab, int i,
 static final <K,V> void setTabAt(Node<K,V>[] tab, int i, Node<K,V> v) {
     U.putObjectRelease(tab, ((long)i << ASHIFT) + ABASE, v);
 }
+```
 
+## 成员变量
+
+```java
 /* ---------------- Fields -------------- */
 
 /**
@@ -776,8 +789,11 @@ private transient volatile CounterCell[] counterCells;
 private transient KeySetView<K,V> keySet;
 private transient ValuesView<K,V> values;
 private transient EntrySetView<K,V> entrySet;
+```
 
+## 公共操作
 
+```java
 /* ---------------- Public operations -------------- */
 
 /**
@@ -945,6 +961,7 @@ public boolean containsKey(Object key) {
  * @throws NullPointerException if the specified value is null
  */
 public boolean containsValue(Object value) {
+    // 不支持value为空
     if (value == null)
         throw new NullPointerException();
     Node<K,V>[] t;
