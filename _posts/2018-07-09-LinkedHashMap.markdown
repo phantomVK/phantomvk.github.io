@@ -50,7 +50,7 @@ transient LinkedHashMap.Entry<K,V> tail;
 final boolean accessOrder;
 ```
 
-依次插入`Entry_0`到`Entry_5`，若`accessOrder`为true，然后访问`Entry_4`，则`Entry_4`会被放到链尾。
+依次插入`Entry_0`到`Entry_5`，若`accessOrder`为true并访问`Entry_4`，则`Entry_4`移到链尾。
 
 ![HashMap_UML](/img/java/LinkedHashMap_accessOrder_true.png)
 
@@ -157,7 +157,7 @@ TreeNode<K,V> replacementTreeNode(Node<K,V> p, Node<K,V> next) {
 
 ```java
 // 把节点从链表解除链接
-void afterNodeRemoval(Node<K,V> e) { // unlink
+void afterNodeRemoval(Node<K,V> e) {
     // p：即是节点e
     // b：e的前一个节点
     // a：e的后一个节点
@@ -196,6 +196,7 @@ void afterNodeInsertion(boolean evict) { // 移除最少使用的节点
 // 把节点移动到链表尾
 void afterNodeAccess(Node<K,V> e) {
     LinkedHashMap.Entry<K,V> last;
+    // 仅当accessOrder为true，且被访问元素不是尾节点
     if (accessOrder && (last = tail) != e) {
         // p：即是节点e
         // b：e的前一个节点
@@ -263,7 +264,7 @@ public V get(Object key) {
         afterNodeAccess(e);
     }
 
-    return e.value; // 最后把获取的Entry的value返回
+    return e.value; // 最后把获取的Entry.value返回
 }
 
 // 通过Key获取对应Entry的value
@@ -279,7 +280,7 @@ public V getOrDefault(Object key, V defaultValue) {
         afterNodeAccess(e);
     }
 
-   return e.value; // 最后把获取的Entry的value返回
+   return e.value; // 最后把获取的Entry.value返回
 }
 ```
 
@@ -289,7 +290,7 @@ public V getOrDefault(Object key, V defaultValue) {
 // 清除所有引用
 public void clear() {
     super.clear(); // 把HashMap所有Entry都清空
-    head = tail = null;  // 置空head引用和tail引用
+    head = tail = null;  // 置空head和tail引用
 }
 
 // 方法主要用于在子类重写，决定最少使用的节点能否被移除

@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-`HashTable`的方法使用`synchronized`修饰来保证线程安全，且相比[HashMap](https://phantomvk.coding.me/2018/06/30/HashMap/)来说优化度低。
+`Hashtable`的方法使用`synchronized`修饰来保证线程安全，且相比[HashMap](https://phantomvk.coding.me/2018/06/30/HashMap/)来说优化度低。
 
 ```java
 public class Hashtable<K,V>
@@ -450,13 +450,13 @@ public synchronized V replace(K key, V value) {
 }
 ```
 
-## 五、哈希项
+## 五、节点
 
 ```java
 private static class Entry<K,V> implements Map.Entry<K,V> {
     final int hash; // 哈希值
     final K key; // 键
-    V value; // 值
+    V value;     // 值
     Entry<K,V> next; // 下一项的引用
     
     // 构造方法
@@ -466,25 +466,21 @@ private static class Entry<K,V> implements Map.Entry<K,V> {
         this.value = value;
         this.next = next;
     }
-    
-    // Clone
+
     @SuppressWarnings("unchecked")
     protected Object clone() {
         return new Entry<>(hash, key, value,
                               (next==null ? null : (Entry<K,V>) next.clone()));
     }
-    
-    // 获取键
+
     public K getKey() {
         return key;
     }
-    
-    // 获取值
+
     public V getValue() {
         return value;
     }
-    
-    // 设置值
+
     public V setValue(V value) {
         if (value == null)
             throw new NullPointerException();
