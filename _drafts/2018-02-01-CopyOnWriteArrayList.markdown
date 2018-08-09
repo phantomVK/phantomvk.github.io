@@ -61,27 +61,24 @@ public class CopyOnWriteArrayList<E>
  */
 final transient Object lock = new Object();
 
-/** The array, accessed only via getArray/setArray. */
+// 此变量只能通过getArray()、setArray()获取
 private transient volatile Object[] array;
 
-/**
- * Gets the array.  Non-private so as to also be accessible
- * from CopyOnWriteArraySet class.
- */
+// 获取数组
 final Object[] getArray() {
     return array;
 }
 
-/**
- * Sets the array.
- */
+// 传入数组
 final void setArray(Object[] a) {
     array = a;
 }
+```
 
-/**
- * Creates an empty list.
- */
+## 构造方法
+
+```java
+// 创建空列表
 public CopyOnWriteArrayList() {
     setArray(new Object[0]);
 }
@@ -118,7 +115,9 @@ public CopyOnWriteArrayList(Collection<? extends E> c) {
 public CopyOnWriteArrayList(E[] toCopyIn) {
     setArray(Arrays.copyOf(toCopyIn, toCopyIn.length, Object[].class));
 }
+```
 
+```java
 /**
  * Returns the number of elements in this list.
  *

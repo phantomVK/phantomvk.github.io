@@ -732,6 +732,7 @@ static final <K,V> void setTabAt(Node<K,V>[] tab, int i, Node<K,V> v) {
  * The array of bins. Lazily initialized upon first insertion.
  * Size is always a power of two. Accessed directly by iterators.
  */
+// 哈希桶数组，第一次插入时进行懒初始化。大小是2的整数次幂。
 transient volatile Node<K,V>[] table;
 
 /**
@@ -782,6 +783,7 @@ private transient EntrySetView<K,V> entrySet;
 /**
  * Creates a new, empty map with the default initial table size (16).
  */
+// 创建全新的map，表大小为默认值16
 public ConcurrentHashMap() {
 }
 
@@ -809,6 +811,7 @@ public ConcurrentHashMap(int initialCapacity) {
  *
  * @param m the map
  */
+// 通过一个传入map完成初始化
 public ConcurrentHashMap(Map<? extends K, ? extends V> m) {
     this.sizeCtl = DEFAULT_CAPACITY;
     putAll(m);
