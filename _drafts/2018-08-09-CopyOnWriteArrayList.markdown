@@ -11,51 +11,14 @@ tags:
 
 ## 一、类签名
 
-CopyOnWriteArrayList类的操作线程安全，读取时共享同一个数组对象，修改时会先拷贝一份新数组并修改，修改完成后再替换旧数组的引用。由于修改时数据修改线程自行拷贝新数组，所以在这段时间内内存会出现原数组对象和新数组对象。如果修改操作过于频繁，就会产生大量废弃对象。由此可推出CopyOnWriteArrayList适合读多写少的场景下使用。通过读写分离的操作，即使写操作非常费时，也不会阻塞读取的操作。读取的时候数据未必是最新的，基本写入是线程安全的，所以能保证数据最终一致性。
-
-源码来自：JDK10.0.2
+CopyOnWriteArrayList线程安全，读取时共享同一个数组对象，修改时会先拷贝出一份新数组，修改完成后再此新数组替换旧数组。由于修改时方法会自行拷贝得到新数组，所以在这段时间内存会出现原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象增加垃圾回收的负担。
 
 ```java
-/**
- * A thread-safe variant of {@link java.util.ArrayList} in which all mutative
- * operations ({@code add}, {@code set}, and so on) are implemented by
- * making a fresh copy of the underlying array.
- *
- * <p>This is ordinarily too costly, but may be <em>more</em> efficient
- * than alternatives when traversal operations vastly outnumber
- * mutations, and is useful when you cannot or don't want to
- * synchronize traversals, yet need to preclude interference among
- * concurrent threads.  The "snapshot" style iterator method uses a
- * reference to the state of the array at the point that the iterator
- * was created. This array never changes during the lifetime of the
- * iterator, so interference is impossible and the iterator is
- * guaranteed not to throw {@code ConcurrentModificationException}.
- * The iterator will not reflect additions, removals, or changes to
- * the list since the iterator was created.  Element-changing
- * operations on iterators themselves ({@code remove}, {@code set}, and
- * {@code add}) are not supported. These methods throw
- * {@code UnsupportedOperationException}.
- *
- * <p>All elements are permitted, including {@code null}.
- *
- * <p>Memory consistency effects: As with other concurrent
- * collections, actions in a thread prior to placing an object into a
- * {@code CopyOnWriteArrayList}
- * <a href="package-summary.html#MemoryVisibility"><i>happen-before</i></a>
- * actions subsequent to the access or removal of that element from
- * the {@code CopyOnWriteArrayList} in another thread.
- *
- * <p>This class is a member of the
- * <a href="{@docRoot}/java/util/package-summary.html#CollectionsFramework">
- * Java Collections Framework</a>.
- *
- * @since 1.5
- * @author Doug Lea
- * @param <E> the type of elements held in this list
- */
 public class CopyOnWriteArrayList<E>
     implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
+
+由此，可推出此类适合在读多写少的场景下使用。通过读写分离的操作，即使写操作非常费时，也不会阻塞读取的操作。值得注意的是，读取时的数组数据未必是最新的，此类只能保证数据最终一致性。源码来自JDK10。
 
 ## 二、数据成员
 
@@ -243,10 +206,6 @@ public boolean addIfAbsent(E e) {
         addIfAbsent(e, snapshot);
 }
 
-/**
- * A version of addIfAbsent using the strong hint that given
- * recent snapshot does not contain e.
- */
 private boolean addIfAbsent(E e, Object[] snapshot) {
     // 修改的时候需要获取锁以保证线程安全
     synchronized (lock) {
@@ -485,15 +444,6 @@ public boolean contains(Object o) {
     return indexOf(o, elements, 0, elements.length) >= 0;
 }
 
-/**
- * static version of indexOf, to allow repeated calls without
- * needing to re-acquire array each time.
- * @param o element to search for
- * @param elements the array
- * @param index first index to search
- * @param fence one past last index to search
- * @return index of element, or -1 if absent
- */
 private static int indexOf(Object o, Object[] elements,
                            int index, int fence) {
     if (o == null) { // 查找的实例为null
@@ -508,13 +458,6 @@ private static int indexOf(Object o, Object[] elements,
     return -1;
 }
 
-/**
- * static version of lastIndexOf.
- * @param o element to search for
- * @param elements the array
- * @param index first index to search
- * @return index of element, or -1 if absent
- */
 private static int lastIndexOf(Object o, Object[] elements, int index) {
     if (o == null) {
         for (int i = index; i >= 0; i--)
@@ -668,21 +611,6 @@ private boolean bulkRemove(Predicate<? super E> filter) {
     }
 }
 
-/**
- * Compares the specified object with this list for equality.
- * Returns {@code true} if the specified object is the same object
- * as this object, or if it is also a {@link List} and the sequence
- * of elements returned by an {@linkplain List#iterator() iterator}
- * over the specified list is the same as the sequence returned by
- * an iterator over this list.  The two sequences are considered to
- * be the same if they have the same length and corresponding
- * elements at the same position in the sequence are <em>equal</em>.
- * Two elements {@code e1} and {@code e2} are considered
- * <em>equal</em> if {@code Objects.equals(e1, e2)}.
- *
- * @param o the object to be compared for equality with this list
- * @return {@code true} if the specified object is equal to this list
- */
 public boolean equals(Object o) {
     if (o == this)
         return true;
@@ -781,29 +709,14 @@ static final class COWIterator<E> implements ListIterator<E> {
         return cursor-1;
     }
 
-    /**
-     * Not supported. Always throws UnsupportedOperationException.
-     * @throws UnsupportedOperationException always; {@code remove}
-     *         is not supported by this iterator.
-     */
     public void remove() {
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * Not supported. Always throws UnsupportedOperationException.
-     * @throws UnsupportedOperationException always; {@code set}
-     *         is not supported by this iterator.
-     */
     public void set(E e) {
         throw new UnsupportedOperationException();
     }
 
-    /**
-     * Not supported. Always throws UnsupportedOperationException.
-     * @throws UnsupportedOperationException always; {@code add}
-     *         is not supported by this iterator.
-     */
     public void add(E e) {
         throw new UnsupportedOperationException();
     }
@@ -832,7 +745,7 @@ public List<E> subList(int fromIndex, int toIndex) {
 }
 ```
 
-## 八、COWSubList
+## 九、COWSubList
 
 CopyOnWriteArrayList子列表类
 
@@ -1119,7 +1032,7 @@ private static class COWSubListIterator<E> implements ListIterator<E> {
 }
 ```
 
-## 九、重置锁
+## 十、重置锁
 
 ```java
 /** Initializes the lock; for use when deserializing or cloning. */
