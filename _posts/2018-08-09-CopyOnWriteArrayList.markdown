@@ -11,24 +11,28 @@ tags:
 
 ## 一、类签名
 
-CopyOnWriteArrayList线程安全，读取时共享同一个数组对象，修改时会先拷贝出一份新数组，操作在新数组上完成后再以此新数组替换旧数组。由于修改时方法会自行拷贝得到新数组，所以在这段时间内存会出现原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象增加垃圾回收的负担。
+ArrayList在多线程操作下是不安全的，为此应使用CopyOnWriteArrayList。通过CopyOnWrite(简称COW，写时复制)策略，所有读取共享同一个数组对象，修改时才拷贝出一份新数组，操作在新数组上完成后再用此新数组替换旧数组。
 
 ```java
 public class CopyOnWriteArrayList<E>
     implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 
-由此，可推出此类适合在读多写少的场景下使用。通过读写分离的操作，即使写操作非常费时，也不会阻塞读取的操作。值得注意的是，读取时的数组数据未必是最新的，且只能保证数据最终一致性。而修改是线程安全的，每次最多只有一个线程在进行修改操作。源码来自JDK10。
+由于修改时方法会自行拷贝得到新数组，所以在这段时间内存同时存在原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象增加垃圾回收的负担。
+
+由此，可推理出此类适合在读多写少的场景下使用。通过读写分离，修改操作异常费时不会阻塞读取，读取的数组数据未必是此刻最新的。还有修改操作是线程安全的，每次最多只有一个线程进行修改，以此保证数据最终一致性。
+
+此次源码来自JDK10，和之前版本有一定差别。
 
 ## 二、数据成员
 
-全局锁，只在修改array才持有锁，读取不持有
+通过网上阅读JDK8版本的CopyOnWriteArrayList源码，可了解到约束同步使用ReentrantLock。而在JDK10中用synchronized (lock)方式，暂时不知道性能有多大提升。
 
 ```java
 final transient Object lock = new Object();
 ```
 
-变量array只能通过getArray()、setArray()获取
+变量array只能通过getArray()、setArray()获取，见第四节。
 
 ```java
 private transient volatile Object[] array;
@@ -52,6 +56,7 @@ public CopyOnWriteArrayList(Collection<? extends E> c) {
         // defend against c.toArray (incorrectly) not returning Object[]
         // (see e.g. https://bugs.openjdk.java.net/browse/JDK-6260652)
         if (elements.getClass() != Object[].class)
+            // 类型不是Object[].class，重新拷贝
             elements = Arrays.copyOf(elements, elements.length, Object[].class);
     }
     setArray(elements);
@@ -65,7 +70,7 @@ public CopyOnWriteArrayList(E[] toCopyIn) {
 
 ## 四、列表存取
 
-获取数组
+获取数组，返回类型为Object[]。
 
 ```java
 final Object[] getArray() {
@@ -73,7 +78,7 @@ final Object[] getArray() {
 }
 ```
 
-设置数组
+设置数组，形参类型为Object[]。
 
 ```java
 final void setArray(Object[] a) {
@@ -83,30 +88,29 @@ final void setArray(Object[] a) {
 
 ## 五、基本操作
 
-### 5.1 增加
+### 5.1、增加
 
 
 ```java
 // 把新元素插入到列表尾
 public boolean add(E e) {
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         Object[] elements = getArray(); // 获取原数组
         int len = elements.length;      // 计算原数组长度
-        // 用原数组拷贝出新数组，长度增加1个单位。
+        // 用原数组拷贝出新数组，长度增加1个单位
         Object[] newElements = Arrays.copyOf(elements, len + 1);
-        // 在新数组最后的位置存入新元素e
+        // 在新数组最后位置存入新元素e
         newElements[len] = e;
         // 此时同时存在新、旧两个数组，用新数组引用替换旧数组引用
         setArray(newElements);
-        // 旧数组如果在其他地方没有引用就会回收
         return true;
     }
 }
 
-// 把新元素插入到指定索引位置，指定索引位置原元素及后续元素都相对后移一个位置
+// 把新元素插入到指定索引位置，指定索引原位置元素及后续元素都相对后移一个位置
 public void add(int index, E element) {
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         // 获取原数组
         Object[] elements = getArray();
@@ -116,8 +120,9 @@ public void add(int index, E element) {
         if (index > len || index < 0)
             throw new IndexOutOfBoundsException(outOfBounds(index, len));
         Object[] newElements;
+        // 有多少个元素需要后移
         int numMoved = len - index;
-        if (numMoved == 0)
+        if (numMoved == 0) // 插入的位置就是列表最后位置
             newElements = Arrays.copyOf(elements, len + 1);
         else {
             // 创建新数组
@@ -142,7 +147,7 @@ public boolean addAll(Collection<? extends E> c) {
     if (cs.length == 0)
         return false;
         
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] elements = getArray();
@@ -151,7 +156,7 @@ public boolean addAll(Collection<? extends E> c) {
         if (len == 0 && cs.getClass() == Object[].class)
             setArray(cs);
         else {
-            // 用原数组构建新数组，长度为原数组长度和集合c长度之和
+            // 用原数组构建新数组，长度为原数组长度与集合c长度之和
             Object[] newElements = Arrays.copyOf(elements, len + cs.length);
             // 把集合c的元素拷贝到新数组中
             System.arraycopy(cs, 0, newElements, len, cs.length);
@@ -165,7 +170,7 @@ public boolean addAll(Collection<? extends E> c) {
 // 在原数组index位置开始插入所有集合c的元素
 public boolean addAll(int index, Collection<? extends E> c) {
     Object[] cs = c.toArray();
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] elements = getArray();
@@ -175,11 +180,12 @@ public boolean addAll(int index, Collection<? extends E> c) {
             throw new IndexOutOfBoundsException(outOfBounds(index, len));
         if (cs.length == 0)
             return false;
+        // 有多少个元素需要后移
         int numMoved = len - index;
         // 新数组
         Object[] newElements;
         if (numMoved == 0)
-            // 保存所有原数组与集合c的元素
+            // 用原数组构建新数组，长度为原数组长度与集合c长度之和
             newElements = Arrays.copyOf(elements, len + cs.length);
         else {
             // 创建新数组
@@ -207,7 +213,7 @@ public boolean addIfAbsent(E e) {
 }
 
 private boolean addIfAbsent(E e, Object[] snapshot) {
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] current = getArray();
@@ -239,13 +245,13 @@ private boolean addIfAbsent(E e, Object[] snapshot) {
     }
 }
 
-// 把在集合c中不存在原列表的元素添加在原列表尾部
+// 集合c中不包含在原列表的元素添加到原列表尾部
 public int addAllAbsent(Collection<? extends E> c) {
-    // c为空抛出空指针异常
+    // c为空抛出空指针异常，cs是c的拷贝
     Object[] cs = c.toArray();
     if (cs.length == 0)
         return 0;
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         // 获取原数组
         Object[] elements = getArray();
@@ -278,7 +284,7 @@ public int addAllAbsent(Collection<? extends E> c) {
 ```java
 // 移除数组中指定索引的元素
 public E remove(int index) {
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         // 获取原数组
         Object[] elements = getArray();
@@ -315,7 +321,7 @@ public boolean remove(Object o) {
 
 // 根据提示移除元素
 private boolean remove(Object o, Object[] snapshot, int index) {
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         // 获取原数组
         Object[] current = getArray();
@@ -338,11 +344,15 @@ private boolean remove(Object o, Object[] snapshot, int index) {
             if (index < 0)
                 return false;
         }
+        // 除了被移除的元素，其余元素全部复制到新数组中
         Object[] newElements = new Object[len - 1];
+        // 拷贝原数组[0, index)元素到新数组[0, index)
         System.arraycopy(current, 0, newElements, 0, index);
+        // 拷贝原数组[index+1, len)元素到新数组[index, len-1)
         System.arraycopy(current, index + 1,
                          newElements, index,
                          len - index - 1);
+        // 此时同时存在新、旧两个数组，用新数组引用替换旧数组引用
         setArray(newElements);
         return true;
     }
@@ -350,7 +360,7 @@ private boolean remove(Object o, Object[] snapshot, int index) {
 
 // 移除指定范围的元素[fromIndex, toIndex)
 void removeRange(int fromIndex, int toIndex) {
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] elements = getArray();
@@ -368,11 +378,13 @@ void removeRange(int fromIndex, int toIndex) {
         else {
             // 用新长度创建新数组
             Object[] newElements = new Object[newlen];
-            // 从就数组拷贝元素到新数组
+            // 旧数组[0, fromIndex)拷贝元素到新数组
             System.arraycopy(elements, 0, newElements, 0, fromIndex);
+            // 旧数组[toIndex, toIndex+numMoved)拷贝元素到新数组
             System.arraycopy(elements, toIndex, newElements,
                              fromIndex, numMoved);
-            setArray(newElements); // 用新数组引用替换旧数组
+            // 用新数组引用替换旧数组
+            setArray(newElements);
         }
     }
 }
@@ -384,6 +396,7 @@ public boolean removeAll(Collection<?> c) {
     return bulkRemove(e -> c.contains(e));
 }
 
+// 被removeAll调用
 boolean bulkRemove(Predicate<? super E> filter, int i, int end) {
     // assert Thread.holdsLock(lock);
     final Object[] es = getArray();
@@ -458,10 +471,8 @@ private static int indexOf(Object o, Object[] elements,
     return -1;
 }
 
-// 查找最后一次出现的索引位置
 private static int lastIndexOf(Object o, Object[] elements, int index) {
     if (o == null) {
-        // 倒序查找
         for (int i = index; i >= 0; i--)
             if (elements[i] == null)
                 return i;
@@ -491,13 +502,13 @@ public int lastIndexOf(Object o) {
     return lastIndexOf(o, elements, elements.length - 1);
 }
 
-// 获取列表中指定元素最顶索引之后最后出现的索引值
+// 获取列表中指定元素最索引之后，且最后出现的索引值
 public int lastIndexOf(E e, int index) {
     Object[] elements = getArray();
     return lastIndexOf(e, elements, index);
 }
 
-// 检查员列表是否全部包含集合c的元素
+// 检查原列表是否全部包含集合c元素
 public boolean containsAll(Collection<?> c) {
     // 原数组
     Object[] elements = getArray();
@@ -506,7 +517,7 @@ public boolean containsAll(Collection<?> c) {
     // 逐个确认元素是否包含
     for (Object e : c) {
         if (indexOf(e, elements, 0, len) < 0)
-            return false; // 不包含
+            return false;  // 有一个元素不包含就返回false
     }
     return true; // 原数组包含所有集合c的元素
 }
@@ -517,7 +528,7 @@ public boolean containsAll(Collection<?> c) {
 ```java
 // 把指定元素设置到指定索引位置
 public E set(int index, E element) {
-    // 修改时获取同步锁以保证线程安全
+    // 修改时获取锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] elements = getArray();
@@ -557,8 +568,8 @@ public Object[] toArray() {
     return Arrays.copyOf(elements, elements.length);
 }
 
-@SuppressWarnings("unchecked")
 // 把元数组元素放入数组a中
+@SuppressWarnings("unchecked")
 public <T> T[] toArray(T[] a) {
     // 原数组
     Object[] elements = getArray();
@@ -615,14 +626,17 @@ private boolean bulkRemove(Predicate<? super E> filter) {
 
 public boolean equals(Object o) {
     if (o == this)
+        // 同一个元素
         return true;
     if (!(o instanceof List))
+        // 类型不一样，返回false
         return false;
 
     List<?> list = (List<?>)o;
     Iterator<?> it = list.iterator();
     Object[] elements = getArray();
     for (int i = 0, len = elements.length; i < len; i++)
+        // 逐个对比元素
         if (!it.hasNext() || !Objects.equals(elements[i], it.next()))
             return false;
     if (it.hasNext())
@@ -1036,24 +1050,23 @@ private static class COWSubListIterator<E> implements ListIterator<E> {
 
 ## 十、重置锁
 
-反序列化或克隆的时候需要设置同步锁
+反序列化或克隆后需要重置同步对象
 
 ```java
-/** Initializes the lock; for use when deserializing or cloning. */
 private void resetLock() {
     Field lockField = java.security.AccessController.doPrivileged(
         (java.security.PrivilegedAction<Field>) () -> {
             try {
-                // 从类实例中反射出变量lock的实例
+                // 反射获取lock变量
                 Field f = CopyOnWriteArrayList.class
                     .getDeclaredField("lock");
-                f.setAccessible(true); // 修改访问属性
+                f.setAccessible(true);
                 return f;
             } catch (ReflectiveOperationException e) {
                 throw new Error(e);
             }});
     try {
-        // 给变量lock设置新同步锁
+        // 给lock赋对象
         lockField.set(this, new Object());
     } catch (IllegalAccessException e) {
         throw new Error(e);
