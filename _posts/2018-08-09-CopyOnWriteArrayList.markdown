@@ -11,14 +11,14 @@ tags:
 
 ## 一、类签名
 
-CopyOnWriteArrayList线程安全，读取时共享同一个数组对象，修改时会先拷贝出一份新数组，修改完成后再此新数组替换旧数组。由于修改时方法会自行拷贝得到新数组，所以在这段时间内存会出现原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象增加垃圾回收的负担。
+CopyOnWriteArrayList线程安全，读取时共享同一个数组对象，修改时会先拷贝出一份新数组，操作在新数组上完成后再以此新数组替换旧数组。由于修改时方法会自行拷贝得到新数组，所以在这段时间内存会出现原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象增加垃圾回收的负担。
 
 ```java
 public class CopyOnWriteArrayList<E>
     implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 
-由此，可推出此类适合在读多写少的场景下使用。通过读写分离的操作，即使写操作非常费时，也不会阻塞读取的操作。值得注意的是，读取时的数组数据未必是最新的，此类只能保证数据最终一致性。源码来自JDK10。
+由此，可推出此类适合在读多写少的场景下使用。通过读写分离的操作，即使写操作非常费时，也不会阻塞读取的操作。值得注意的是，读取时的数组数据未必是最新的，且只能保证数据最终一致性。而修改是线程安全的，每次最多只有一个线程在进行修改操作。源码来自JDK10。
 
 ## 二、数据成员
 
@@ -89,7 +89,7 @@ final void setArray(Object[] a) {
 ```java
 // 把新元素插入到列表尾
 public boolean add(E e) {
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         Object[] elements = getArray(); // 获取原数组
         int len = elements.length;      // 计算原数组长度
@@ -106,7 +106,7 @@ public boolean add(E e) {
 
 // 把新元素插入到指定索引位置，指定索引位置原元素及后续元素都相对后移一个位置
 public void add(int index, E element) {
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         // 获取原数组
         Object[] elements = getArray();
@@ -142,7 +142,7 @@ public boolean addAll(Collection<? extends E> c) {
     if (cs.length == 0)
         return false;
         
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] elements = getArray();
@@ -165,7 +165,7 @@ public boolean addAll(Collection<? extends E> c) {
 // 在原数组index位置开始插入所有集合c的元素
 public boolean addAll(int index, Collection<? extends E> c) {
     Object[] cs = c.toArray();
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] elements = getArray();
@@ -207,7 +207,7 @@ public boolean addIfAbsent(E e) {
 }
 
 private boolean addIfAbsent(E e, Object[] snapshot) {
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] current = getArray();
@@ -245,7 +245,7 @@ public int addAllAbsent(Collection<? extends E> c) {
     Object[] cs = c.toArray();
     if (cs.length == 0)
         return 0;
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         // 获取原数组
         Object[] elements = getArray();
@@ -278,7 +278,7 @@ public int addAllAbsent(Collection<? extends E> c) {
 ```java
 // 移除数组中指定索引的元素
 public E remove(int index) {
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         // 获取原数组
         Object[] elements = getArray();
@@ -315,7 +315,7 @@ public boolean remove(Object o) {
 
 // 根据提示移除元素
 private boolean remove(Object o, Object[] snapshot, int index) {
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         // 获取原数组
         Object[] current = getArray();
@@ -350,7 +350,7 @@ private boolean remove(Object o, Object[] snapshot, int index) {
 
 // 移除指定范围的元素[fromIndex, toIndex)
 void removeRange(int fromIndex, int toIndex) {
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] elements = getArray();
@@ -458,8 +458,10 @@ private static int indexOf(Object o, Object[] elements,
     return -1;
 }
 
+// 查找最后一次出现的索引位置
 private static int lastIndexOf(Object o, Object[] elements, int index) {
     if (o == null) {
+        // 倒序查找
         for (int i = index; i >= 0; i--)
             if (elements[i] == null)
                 return i;
@@ -515,7 +517,7 @@ public boolean containsAll(Collection<?> c) {
 ```java
 // 把指定元素设置到指定索引位置
 public E set(int index, E element) {
-    // 修改的时候需要获取锁以保证线程安全
+    // 修改时获取同步锁以保证线程安全
     synchronized (lock) {
         // 原数组
         Object[] elements = getArray();
@@ -1034,20 +1036,24 @@ private static class COWSubListIterator<E> implements ListIterator<E> {
 
 ## 十、重置锁
 
+反序列化或克隆的时候需要设置同步锁
+
 ```java
 /** Initializes the lock; for use when deserializing or cloning. */
 private void resetLock() {
     Field lockField = java.security.AccessController.doPrivileged(
         (java.security.PrivilegedAction<Field>) () -> {
             try {
+                // 从类实例中反射出变量lock的实例
                 Field f = CopyOnWriteArrayList.class
                     .getDeclaredField("lock");
-                f.setAccessible(true);
+                f.setAccessible(true); // 修改访问属性
                 return f;
             } catch (ReflectiveOperationException e) {
                 throw new Error(e);
             }});
     try {
+        // 给变量lock设置新同步锁
         lockField.set(this, new Object());
     } catch (IllegalAccessException e) {
         throw new Error(e);
