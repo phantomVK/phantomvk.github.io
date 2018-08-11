@@ -443,8 +443,7 @@ final Node<K,V>[] resize() {
         if (oldCap >= MAXIMUM_CAPACITY) {
             threshold = Integer.MAX_VALUE;
             return oldTab;
-        }
-        else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
+        } else if ((newCap = oldCap << 1) < MAXIMUM_CAPACITY &&
                  oldCap >= DEFAULT_INITIAL_CAPACITY) {
             // 扩充为原来两倍: 左移原值乘以2，右移原值除以2
             newThr = oldThr << 1;
@@ -454,7 +453,7 @@ final Node<K,V>[] resize() {
         newCap = oldThr;
     } else {
         // aka: oldCap == 0 && oldThr == 0
-        // 哈希表即没有初始化，也没有设置初始阈值，则通过默认值进行初始化
+        // 哈希表既没有初始化，也没有设置初始阈值，则通过默认值进行初始化
         newCap = DEFAULT_INITIAL_CAPACITY;
         newThr = (int)(DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY);
     }
@@ -624,7 +623,7 @@ final Node<K,V> removeNode(int hash,
             }
         }
         
-        // 遍历节点不为空，则找到目标节点
+        // 遍历节点不为空，表示找到目标节点
         if (node != null && (!matchValue || (v = node.value) == value ||
                              (value != null && value.equals(v)))) {
             if (node instanceof TreeNode) {

@@ -13,7 +13,7 @@ tags:
 
 ## 一、类签名
 
-源码版本为JDK8，ArrayList实现了`随机存储`、`克隆`、`序列化`接口
+源码版本为JDK8，ArrayList实现了`随机存储`、`克隆`、`序列化`接口，且多线程操作不安全，需要线程安全请参考：[CopyOnWriteArrayList](https://phantomvk.github.io/2018/08/09/CopyOnWriteArrayList/)。
 
 ```java
 public class ArrayList<E> extends AbstractList<E>

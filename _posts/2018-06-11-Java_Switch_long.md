@@ -11,7 +11,7 @@ tags:
 
 
 ### 原文
-内容摘自  << The Java Virtual Machine Specification Java SE 10 Edition >> PDF - Page57
+内容摘自  __"The Java Virtual Machine Specification Java SE 10 Edition"__ PDF, Page57
 
 ```
 3.10. Compiling Switches
