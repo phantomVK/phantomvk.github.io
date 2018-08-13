@@ -83,7 +83,9 @@ private static final long serialVersionUID = -6903933977591709194L;
  * linking a Node that has just been dequeued to itself.  Such a
  * self-link implicitly means to advance to head.next.
  */
+```
 
+```java
 /**
  * Linked list node class.
  */
@@ -100,7 +102,9 @@ static class Node<E> {
 
     Node(E x) { item = x; }
 }
+```
 
+```java
 /** The capacity bound, or Integer.MAX_VALUE if none */
 private final int capacity;
 
@@ -157,7 +161,9 @@ private void signalNotFull() {
         putLock.unlock();
     }
 }
+```
 
+```java
 /**
  * Links node at end of queue.
  *
@@ -201,7 +207,12 @@ void fullyUnlock() {
     takeLock.unlock();
     putLock.unlock();
 }
+```
 
+## 构造方法
+
+
+```java
 /**
  * Creates a {@code LinkedBlockingQueue} with a capacity of
  * {@link Integer#MAX_VALUE}.
@@ -252,7 +263,9 @@ public LinkedBlockingQueue(Collection<? extends E> c) {
         putLock.unlock();
     }
 }
+```
 
+```java
 // this doc comment is overridden to remove the reference to collections
 // greater in size than Integer.MAX_VALUE
 /**
@@ -724,7 +737,9 @@ Node<E> succ(Node<E> p) {
 public Iterator<E> iterator() {
     return new Itr();
 }
+```
 
+```java
 /**
  * Weakly-consistent iterator.
  *
@@ -828,7 +843,9 @@ private class Itr implements Iterator<E> {
         }
     }
 }
+```
 
+```java
 /**
  * A customized variant of Spliterators.IteratorSpliterator.
  * Keep this class in sync with (very similar) LBDSpliterator.
@@ -918,7 +935,9 @@ private final class LBQSpliterator implements Spliterator<E> {
                 Spliterator.CONCURRENT);
     }
 }
+```
 
+```java
 /**
  * Returns a {@link Spliterator} over the elements in this queue.
  *
@@ -937,47 +956,6 @@ private final class LBQSpliterator implements Spliterator<E> {
  */
 public Spliterator<E> spliterator() {
     return new LBQSpliterator();
-}
-
-/**
- * @throws NullPointerException {@inheritDoc}
- */
-public void forEach(Consumer<? super E> action) {
-    Objects.requireNonNull(action);
-    forEachFrom(action, null);
-}
-
-/**
- * Runs action on each element found during a traversal starting at p.
- * If p is null, traversal starts at head.
- */
-void forEachFrom(Consumer<? super E> action, Node<E> p) {
-    // Extract batches of elements while holding the lock; then
-    // run the action on the elements while not
-    final int batchSize = 64;       // max number of elements per batch
-    Object[] es = null;             // container for batch of elements
-    int n, len = 0;
-    do {
-        fullyLock();
-        try {
-            if (es == null) {
-                if (p == null) p = head.next;
-                for (Node<E> q = p; q != null; q = succ(q))
-                    if (q.item != null && ++len == batchSize)
-                        break;
-                es = new Object[len];
-            }
-            for (n = 0; p != null && n < len; p = succ(p))
-                if ((es[n] = p.item) != null)
-                    n++;
-        } finally {
-            fullyUnlock();
-        }
-        for (int i = 0; i < n; i++) {
-            @SuppressWarnings("unchecked") E e = (E) es[i];
-            action.accept(e);
-        }
-    } while (n > 0 && p != null);
 }
 
 /**
