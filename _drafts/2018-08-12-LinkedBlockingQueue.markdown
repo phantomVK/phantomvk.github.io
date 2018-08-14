@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Java源码系列 -- LinkedBlockingQueue"
+title:      "Java源码系列(15) -- LinkedBlockingQueue"
 date:       2018-08-12
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -10,6 +10,8 @@ tags:
 ---
 
 JDK10
+
+## 类签名
 
 ```java
 /**
@@ -47,8 +49,6 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 ```
 
 ```java
-private static final long serialVersionUID = -6903933977591709194L;
-
 /*
  * A variant of the "two lock queue" algorithm.  The putLock gates
  * entry to put (and offer), and has an associated condition for
@@ -85,6 +85,8 @@ private static final long serialVersionUID = -6903933977591709194L;
  */
 ```
 
+## 节点
+
 ```java
 /**
  * Linked list node class.
@@ -104,6 +106,8 @@ static class Node<E> {
 }
 ```
 
+## 数据成员
+
 ```java
 /** The capacity bound, or Integer.MAX_VALUE if none */
 private final int capacity;
@@ -122,7 +126,9 @@ transient Node<E> head;
  * Invariant: last.next == null
  */
 private transient Node<E> last;
+```
 
+```java
 /** Lock held by take, poll, etc */
 private final ReentrantLock takeLock = new ReentrantLock();
 
@@ -134,7 +140,9 @@ private final ReentrantLock putLock = new ReentrantLock();
 
 /** Wait queue for waiting puts */
 private final Condition notFull = putLock.newCondition();
+```
 
+```java
 /**
  * Signals a waiting take. Called only from put/offer (which do not
  * otherwise ordinarily lock takeLock.)
@@ -191,7 +199,9 @@ private E dequeue() {
     first.item = null;
     return x;
 }
+```
 
+```java
 /**
  * Locks to prevent both puts and takes.
  */
@@ -264,6 +274,8 @@ public LinkedBlockingQueue(Collection<? extends E> c) {
     }
 }
 ```
+
+## 成员方法
 
 ```java
 // this doc comment is overridden to remove the reference to collections
@@ -634,10 +646,6 @@ public <T> T[] toArray(T[] a) {
     }
 }
 
-public String toString() {
-    return Helpers.collectionToString(this);
-}
-
 /**
  * Atomically removes all of the elements from this queue.
  * The queue will be empty after this call returns.
@@ -724,7 +732,11 @@ Node<E> succ(Node<E> p) {
         p = head.next;
     return p;
 }
+```
 
+## Itr
+
+```java
 /**
  * Returns an iterator over the elements in this queue in proper sequence.
  * The elements will be returned in order from first (head) to last (tail).
@@ -845,6 +857,8 @@ private class Itr implements Iterator<E> {
 }
 ```
 
+##  LBQSpliterator
+
 ```java
 /**
  * A customized variant of Spliterators.IteratorSpliterator.
@@ -956,14 +970,6 @@ private final class LBQSpliterator implements Spliterator<E> {
  */
 public Spliterator<E> spliterator() {
     return new LBQSpliterator();
-}
-
-/**
- * @throws NullPointerException {@inheritDoc}
- */
-public boolean removeIf(Predicate<? super E> filter) {
-    Objects.requireNonNull(filter);
-    return bulkRemove(filter);
 }
 
 /**
