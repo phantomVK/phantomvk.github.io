@@ -87,19 +87,12 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
 ## 节点
 
-```java
-/**
- * Linked list node class.
- */
-static class Node<E> {
-    E item;
+链表节点类
 
-    /**
-     * One of:
-     * - the real successor Node
-     * - this Node, meaning the successor is head.next
-     * - null, meaning there is no successor (this is the last node)
-     */
+```java
+static class Node<E> {
+    E item; // 节点数据
+
     Node<E> next;
 
     Node(E x) { item = x; }
@@ -115,16 +108,10 @@ private final int capacity;
 /** Current number of elements */
 private final AtomicInteger count = new AtomicInteger();
 
-/**
- * Head of linked list.
- * Invariant: head.item == null
- */
+// 链表头节点
 transient Node<E> head;
 
-/**
- * Tail of linked list.
- * Invariant: last.next == null
- */
+// 链表尾节点
 private transient Node<E> last;
 ```
 
@@ -172,11 +159,7 @@ private void signalNotFull() {
 ```
 
 ```java
-/**
- * Links node at end of queue.
- *
- * @param node the node
- */
+// 把节点插入到链表尾
 private void enqueue(Node<E> node) {
     // assert putLock.isHeldByCurrentThread();
     // assert last.next == null;
