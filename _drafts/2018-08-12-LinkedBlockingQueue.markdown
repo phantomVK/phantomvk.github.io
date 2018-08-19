@@ -105,7 +105,7 @@ static class Node<E> {
 /** The capacity bound, or Integer.MAX_VALUE if none */
 private final int capacity;
 
-/** Current number of elements */
+// 元素总数
 private final AtomicInteger count = new AtomicInteger();
 
 // 链表头节点
@@ -176,7 +176,7 @@ private E dequeue() {
     // assert head.item == null;
     Node<E> h = head;
     Node<E> first = h.next;
-    h.next = h; // help GC
+    h.next = h; // 帮助GC
     head = first;
     E x = first.item;
     first.item = null;
