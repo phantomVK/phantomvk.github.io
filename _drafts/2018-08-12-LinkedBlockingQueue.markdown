@@ -166,11 +166,7 @@ private void enqueue(Node<E> node) {
     last = last.next = node;
 }
 
-/**
- * Removes a node from head of queue.
- *
- * @return the node
- */
+// 从队列头移除节点
 private E dequeue() {
     // assert takeLock.isHeldByCurrentThread();
     // assert head.item == null;
@@ -188,6 +184,7 @@ private E dequeue() {
 /**
  * Locks to prevent both puts and takes.
  */
+// 上锁以禁止存取操作
 void fullyLock() {
     putLock.lock();
     takeLock.lock();
@@ -196,6 +193,7 @@ void fullyLock() {
 /**
  * Unlocks to allow both puts and takes.
  */
+// 解锁以允许存取操作
 void fullyUnlock() {
     takeLock.unlock();
     putLock.unlock();
@@ -210,6 +208,7 @@ void fullyUnlock() {
  * Creates a {@code LinkedBlockingQueue} with a capacity of
  * {@link Integer#MAX_VALUE}.
  */
+// 默认构造方法，最大容量大小为Integer.MAX_VALUE
 public LinkedBlockingQueue() {
     this(Integer.MAX_VALUE);
 }
@@ -221,6 +220,7 @@ public LinkedBlockingQueue() {
  * @throws IllegalArgumentException if {@code capacity} is not greater
  *         than zero
  */
+// 构造方法，初始化头结点引用和为节点引用
 public LinkedBlockingQueue(int capacity) {
     if (capacity <= 0) throw new IllegalArgumentException();
     this.capacity = capacity;
@@ -237,6 +237,7 @@ public LinkedBlockingQueue(int capacity) {
  * @throws NullPointerException if the specified collection or any
  *         of its elements are null
  */
+// 通过集合实例初始化类
 public LinkedBlockingQueue(Collection<? extends E> c) {
     this(Integer.MAX_VALUE);
     final ReentrantLock putLock = this.putLock;
@@ -248,7 +249,7 @@ public LinkedBlockingQueue(Collection<? extends E> c) {
                 throw new NullPointerException();
             if (n == capacity)
                 throw new IllegalStateException("Queue full");
-            enqueue(new Node<E>(e));
+            enqueue(new Node<E>(e)); // 在集合c中取元素，创建节点并存入到队列中
             ++n;
         }
         count.set(n);
