@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-CopyOnWriteArraySet基于[CopyOnWriteArrayList](https://phantomvk.github.io/2018/08/09/CopyOnWriteArrayList/)实现功能，通过检查元素是否包含在列表中，实现集合的功能。来自JDK10。
+CopyOnWriteArraySet基于[CopyOnWriteArrayList](https://phantomvk.github.io/2018/08/09/CopyOnWriteArrayList/)实现功能。插入前先检查元素是否包含在列表中，实现集合中元素去重的功能，源码来自JDK10。
 
 ```java
 public class CopyOnWriteArraySet<E> extends AbstractSet<E>
@@ -20,7 +20,7 @@ public class CopyOnWriteArraySet<E> extends AbstractSet<E>
 
 ## 二、数据成员
 
-由于CopyOnWriteArraySet利用CopyOnWriteArrayList实现功能，所以数据成员中包含了一个CopyOnWriteArrayList实例。
+数据成员中包含了一个CopyOnWriteArrayList实例。
 
 ```java
 private final CopyOnWriteArrayList<E> al;
@@ -28,7 +28,7 @@ private final CopyOnWriteArrayList<E> al;
 
 ## 三、构造方法
 
-初始化空集合
+初始化空列表
 
 ```java
 public CopyOnWriteArraySet() {
@@ -36,7 +36,7 @@ public CopyOnWriteArraySet() {
 }
 ```
 
-通过指定集合初始化，集合c为空则抛出NullPointerException
+通过指定集合初始化，集合c为空则抛出`NullPointerException`
 
 ```java
 public CopyOnWriteArraySet(Collection<? extends E> c) {
@@ -60,32 +60,43 @@ public CopyOnWriteArraySet(Collection<? extends E> c) {
 
 ### 4.1 增加
 
+添加指定元素，如果元素已存在，则该元素不会添加
+
 ```java
-// 添加指定元素，如果元素已存在，则该元素不会添加
 public boolean add(E e) {
     return al.addIfAbsent(e); // 此元素成功添加返回true，否则返回false
 }
+```
 
-// 把集合c中所有的元素添加到ArraySet实例中
+把集合c中所有元素添加到ArraySet实例中
+
+```java
 public boolean addAll(Collection<? extends E> c) {
-    return al.addAllAbsent(c) > 0; // 有任何元素添加到
+    return al.addAllAbsent(c) > 0; // 有任何元素添加则返回true，否则返回false
 }
 ```
 
 ### 4.2 删除
 
+清空Set中所有元素，其实就是清空CopyOnWriteArrayList
+
 ```java
-// 清空Set中所有元素
 public void clear() {
     al.clear();
 }
+```
 
-// 移除指定元素
+移除指定元素
+
+```java
 public boolean remove(Object o) {
     return al.remove(o);
 }
+```
 
-// 移除Set与集合c共有的元素
+移除Set与集合c共有的元素
+
+```java
 public boolean removeAll(Collection<?> c) {
     return al.removeAll(c);
 }
@@ -93,20 +104,27 @@ public boolean removeAll(Collection<?> c) {
 
 ### 4.3 查询
 
+检查是否包含指定对象
+
 ```java
-// 查找指定对象是否包含在那本实例
 public boolean contains(Object o) {
     return al.contains(o);
 }
+```
 
-// 检查Set是否全包含集合c的元素
+检查Set是否全包含集合c的全部元素
+
+```java
 public boolean containsAll(Collection<?> c) {
     return (c instanceof Set)
         ? compareSets(al.getArray(), (Set<?>) c) >= 0
         : al.containsAll(c);
 }
+```
 
-// 检查集合是否为空
+检查集合是否为空
+
+```java
 public boolean isEmpty() {
     return al.isEmpty();
 }
@@ -114,8 +132,9 @@ public boolean isEmpty() {
 
 ### 4.4 修改
 
+仅保留Set与集合c共有的元素
+
 ```java
-// 仅保留Set与集合c共有的元素
 public boolean retainAll(Collection<?> c) {
     return al.retainAll(c);
 }
@@ -174,7 +193,7 @@ public Iterator<E> iterator() {
     return al.iterator();
 }
 
-// 检查对象o和被实例是否为同一个对象，或其中包含的元素完全相同
+// 检查对象o和指定实例是否为同一个对象，或其中包含的元素完全相同
 public boolean equals(Object o) {
     return (o == this)
         || ((o instanceof Set)
