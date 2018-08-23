@@ -13,6 +13,8 @@ JDK10
 
 ## 类签名
 
+从类名可知，LinkedBlockingQueue是基于链表实现的阻塞队列。
+
 ```java
 /**
  * An optionally-bounded {@linkplain BlockingQueue blocking queue} based on
@@ -87,25 +89,25 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 
 ## 节点
 
-链表节点类
+单向链表节点类，查找元素需要从链表头开始依次遍历节点
 
 ```java
 static class Node<E> {
     E item; // 节点数据
 
-    Node<E> next;
+    Node<E> next; // 下一节点
 
-    Node(E x) { item = x; }
+    Node(E x) { item = x; } // 构造方法，存入节点保存的内容，类型为E
 }
 ```
 
 ## 数据成员
 
 ```java
-/** The capacity bound, or Integer.MAX_VALUE if none */
+// 队列容量，默认为Integer.MAX_VALUE
 private final int capacity;
 
-// 元素总数
+// 已存元素总数
 private final AtomicInteger count = new AtomicInteger();
 
 // 链表头节点
@@ -166,7 +168,7 @@ private void enqueue(Node<E> node) {
     last = last.next = node;
 }
 
-// 从队列头移除节点
+// 队头元素出队
 private E dequeue() {
     // assert takeLock.isHeldByCurrentThread();
     // assert head.item == null;
@@ -223,8 +225,9 @@ public LinkedBlockingQueue() {
 // 构造方法，初始化头结点引用和为节点引用
 public LinkedBlockingQueue(int capacity) {
     if (capacity <= 0) throw new IllegalArgumentException();
+    // 自定义队列capacity
     this.capacity = capacity;
-    last = head = new Node<E>(null);
+    last = head = new Node<E>(null); // 头指针和尾指针指向同一个空节点
 }
 
 /**
@@ -239,7 +242,7 @@ public LinkedBlockingQueue(int capacity) {
  */
 // 通过集合实例初始化类
 public LinkedBlockingQueue(Collection<? extends E> c) {
-    this(Integer.MAX_VALUE);
+    this(Integer.MAX_VALUE); // capacity设置为Integer.MAX_VALUE
     final ReentrantLock putLock = this.putLock;
     putLock.lock(); // Never contended, but necessary for visibility
     try {
@@ -269,6 +272,7 @@ public LinkedBlockingQueue(Collection<? extends E> c) {
  *
  * @return the number of elements in this queue
  */
+// 获取队里已存元素数量
 public int size() {
     return count.get();
 }
@@ -286,6 +290,7 @@ public int size() {
  * because it may be the case that another thread is about to
  * insert or remove an element.
  */
+// 剩余可用队列容量
 public int remainingCapacity() {
     return capacity - count.get();
 }
@@ -297,6 +302,7 @@ public int remainingCapacity() {
  * @throws InterruptedException {@inheritDoc}
  * @throws NullPointerException {@inheritDoc}
  */
+// 插入到队列尾部，直到成功插入才返回成功
 public void put(E e) throws InterruptedException {
     if (e == null) throw new NullPointerException();
     // Note: convention in all put/take/etc is to preset local var
@@ -305,6 +311,7 @@ public void put(E e) throws InterruptedException {
     Node<E> node = new Node<E>(e);
     final ReentrantLock putLock = this.putLock;
     final AtomicInteger count = this.count;
+    // 此锁可以被中断
     putLock.lockInterruptibly();
     try {
         /*
@@ -318,11 +325,16 @@ public void put(E e) throws InterruptedException {
         while (count.get() == capacity) {
             notFull.await();
         }
+        // 元素插入到队列尾部
         enqueue(node);
+        // 已保存元素数量递增
         c = count.getAndIncrement();
+        // 检查队列是否已满
         if (c + 1 < capacity)
+            // 通知其他线程继续插入元素
             notFull.signal();
     } finally {
+        // 解除锁
         putLock.unlock();
     }
     if (c == 0)
@@ -470,7 +482,9 @@ public E poll() {
     return x;
 }
 
+// 返回队列头节点包含的数据，此操作不会改变队列节点的数量或顺序
 public E peek() {
+    // 队列没有节点直接返回null
     if (count.get() == 0)
         return null;
     final ReentrantLock takeLock = this.takeLock;
@@ -485,14 +499,15 @@ public E peek() {
 /**
  * Unlinks interior Node p with predecessor pred.
  */
+// 把节点p从列表中解除链接
 void unlink(Node<E> p, Node<E> pred) {
     // assert putLock.isHeldByCurrentThread();
     // assert takeLock.isHeldByCurrentThread();
     // p.next is not changed, to allow iterators that are
     // traversing p to maintain their weak-consistency guarantee.
-    p.item = null;
-    pred.next = p.next;
-    if (last == p)
+    p.item = null; // 节点p的内容置空
+    pred.next = p.next; // 操作p前后节点，令p解除链接
+    if (last == p) // 如果p是尾节点，则调整尾指针的指向
         last = pred;
     if (count.getAndDecrement() == capacity)
         notFull.signal();
@@ -509,6 +524,8 @@ void unlink(Node<E> p, Node<E> pred) {
  * @param o element to be removed from this queue, if present
  * @return {@code true} if this queue changed as a result of the call
  */
+// 如果队列中存在指定元素，则把该元素从队列中移除
+// 即使队列中存在多个相同元素，此方法只会移除最多一个
 public boolean remove(Object o) {
     if (o == null) return false;
     fullyLock();
@@ -516,11 +533,15 @@ public boolean remove(Object o) {
         for (Node<E> pred = head, p = pred.next;
              p != null;
              pred = p, p = p.next) {
+            // 在链表上逐个查找元素是否匹配
             if (o.equals(p.item)) {
+                // 找到匹配元素则把该元素解除链接
                 unlink(p, pred);
+                // 元素返回true
                 return true;
             }
         }
+        // 没有移除元素
         return false;
     } finally {
         fullyUnlock();
@@ -634,14 +655,16 @@ public <T> T[] toArray(T[] a) {
  * Atomically removes all of the elements from this queue.
  * The queue will be empty after this call returns.
  */
+// 移除队列中所有元素，移除完成后队列元素为空
 public void clear() {
+    // 上锁
     fullyLock();
     try {
         for (Node<E> p, h = head; (p = h.next) != null; h = p) {
             h.next = h;
-            p.item = null;
+            p.item = null; // 置空节点的数据
         }
-        head = last;
+        head = last; // 由于队列元素全清空了，所以头指针和为指针引用相同
         // assert head.item == null && head.next == null;
         if (count.getAndSet(0) == capacity)
             notFull.signal();
@@ -959,6 +982,7 @@ public Spliterator<E> spliterator() {
 /**
  * @throws NullPointerException {@inheritDoc}
  */
+// 移除所有集合c的元素，若集合c对象为空则抛出NullPointerException
 public boolean removeAll(Collection<?> c) {
     Objects.requireNonNull(c);
     return bulkRemove(e -> c.contains(e));
@@ -967,6 +991,7 @@ public boolean removeAll(Collection<?> c) {
 /**
  * @throws NullPointerException {@inheritDoc}
  */
+// 仅保留所有集合c的元素，若集合c对象为空则抛出NullPointerException
 public boolean retainAll(Collection<?> c) {
     Objects.requireNonNull(c);
     return bulkRemove(e -> !c.contains(e));
@@ -976,6 +1001,7 @@ public boolean retainAll(Collection<?> c) {
  * Returns the predecessor of live node p, given a node that was
  * once a live ancestor of p (or head); allows unlinking of p.
  */
+// 
 Node<E> findPred(Node<E> p, Node<E> ancestor) {
     // assert p.item != null;
     if (ancestor.item == null)
