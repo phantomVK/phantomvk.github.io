@@ -97,7 +97,7 @@ static class Node<E> {
 
     Node<E> next; // 下一节点
 
-    Node(E x) { item = x; } // 构造方法，存入节点保存的内容，类型为E
+    Node(E x) { item = x; } // 构造方法，存入节点的内容
 }
 ```
 

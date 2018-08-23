@@ -18,21 +18,21 @@ public class CopyOnWriteArrayList<E>
     implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 
-由于修改时方法会自行拷贝得到新数组，所以在这段时间内存同时存在原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象增加垃圾回收的负担。
+由于修改时方法会自行拷贝得到新数组，所以在这段时间内存同时存在原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象将增加垃圾回收的负担。
 
-由此，可推理出此类适合在读多写少的场景下使用。通过读写分离，修改操作异常费时不会阻塞读取，读取的数组数据未必是此刻最新的。还有修改操作是线程安全的，每次最多只有一个线程进行修改，以此保证数据最终一致性。
+由此，可推理出此类适合在读多写少的场景下使用。通过读写分离，修改操作异常费时不会阻塞读取，读取的数组数据未必是最新的。还有修改操作是线程安全的，每次最多只有一个线程在进行修改，以此保证数据最终一致性。
 
 此次源码来自JDK10，和之前版本有一定差别。
 
 ## 二、数据成员
 
-通过网上阅读JDK8版本的CopyOnWriteArrayList源码，可了解到约束同步使用ReentrantLock。而在JDK10中用synchronized (lock)方式，暂时不知道性能有多大提升。
+通过网上阅读JDK8版本的CopyOnWriteArrayList源码，可了解曾经约束同步使用的是ReentrantLock。而在JDK10中用synchronized (lock)方式，暂时不知道对性能有多大提升。
 
 ```java
 final transient Object lock = new Object();
 ```
 
-变量array只能通过getArray()、setArray()获取，见第四节。
+变量array只能通过getArray()、setArray()获取，见第四节。注意，array变量的类型是Object[]，而不是E[]。
 
 ```java
 private transient volatile Object[] array;
@@ -40,13 +40,15 @@ private transient volatile Object[] array;
 
 ## 三、构造方法
 
+构造空列表
 ```java
-// 构造空列表
 public CopyOnWriteArrayList() {
     setArray(new Object[0]);
 }
+```
 
-// 从集合c中构建实例
+从集合c构建实例
+```java
 public CopyOnWriteArrayList(Collection<? extends E> c) {
     Object[] elements;
     if (c.getClass() == CopyOnWriteArrayList.class)
@@ -61,8 +63,10 @@ public CopyOnWriteArrayList(Collection<? extends E> c) {
     }
     setArray(elements);
 }
+```
 
-// 从数组中构建实例
+从数组构建实例
+```java
 public CopyOnWriteArrayList(E[] toCopyIn) {
     setArray(Arrays.copyOf(toCopyIn, toCopyIn.length, Object[].class));
 }
@@ -96,8 +100,10 @@ final void setArray(Object[] a) {
 public boolean add(E e) {
     // 修改时获取锁以保证线程安全
     synchronized (lock) {
-        Object[] elements = getArray(); // 获取原数组
-        int len = elements.length;      // 计算原数组长度
+        // 获取原数组
+        Object[] elements = getArray();
+        // 获取原数组长度
+        int len = elements.length;
         // 用原数组拷贝出新数组，长度增加1个单位
         Object[] newElements = Arrays.copyOf(elements, len + 1);
         // 在新数组最后位置存入新元素e
@@ -122,7 +128,8 @@ public void add(int index, E element) {
         Object[] newElements;
         // 有多少个元素需要后移
         int numMoved = len - index;
-        if (numMoved == 0) // 插入的位置就是列表最后位置
+        if (numMoved == 0)
+            // 创建新数组，同时存入原有元素
             newElements = Arrays.copyOf(elements, len + 1);
         else {
             // 创建新数组
@@ -144,12 +151,14 @@ public void add(int index, E element) {
 public boolean addAll(Collection<? extends E> c) {
     Object[] cs = (c.getClass() == CopyOnWriteArrayList.class) ?
         ((CopyOnWriteArrayList<?>)c).getArray() : c.toArray();
+    
+    // 没有添加任何元素
     if (cs.length == 0)
         return false;
         
     // 修改时获取锁以保证线程安全
     synchronized (lock) {
-        // 原数组
+        // 获取原数组
         Object[] elements = getArray();
         // 获取原数组长度
         int len = elements.length;
@@ -176,6 +185,7 @@ public boolean addAll(int index, Collection<? extends E> c) {
         Object[] elements = getArray();
         // 原数组长度
         int len = elements.length;
+        // 检查元素插入索引
         if (index > len || index < 0)
             throw new IndexOutOfBoundsException(outOfBounds(index, len));
         if (cs.length == 0)
@@ -185,7 +195,7 @@ public boolean addAll(int index, Collection<? extends E> c) {
         // 新数组
         Object[] newElements;
         if (numMoved == 0)
-            // 用原数组构建新数组，长度为原数组长度与集合c长度之和
+            // 用原数组构建新数组，新长度为原数组长度与集合c长度之和
             newElements = Arrays.copyOf(elements, len + cs.length);
         else {
             // 创建新数组
@@ -207,7 +217,9 @@ public boolean addAll(int index, Collection<? extends E> c) {
 
 // 若原列表不存在此元素，则存入
 public boolean addIfAbsent(E e) {
+    // 先拷贝出一份快照
     Object[] snapshot = getArray();
+    // 检查快照是否包含此元素，不包含则存入此元素
     return indexOf(e, snapshot, 0, snapshot.length) >= 0 ? false :
         addIfAbsent(e, snapshot);
 }
@@ -241,7 +253,8 @@ private boolean addIfAbsent(E e, Object[] snapshot) {
         newElements[len] = e;
         // 新数组引用替换旧数组引用
         setArray(newElements);
-        return true; // 添加成功
+        // 添加成功
+        return true;
     }
 }
 
@@ -314,12 +327,13 @@ public E remove(int index) {
 public boolean remove(Object o) {
     // 获取原数组
     Object[] snapshot = getArray();
+    // 获取指定元素在数组中的索引
     int index = indexOf(o, snapshot, 0, snapshot.length);
     // 成功移除返回true，否则返回false
     return (index < 0) ? false : remove(o, snapshot, index);
 }
 
-// 根据提示移除元素
+// 根据快照移除元素
 private boolean remove(Object o, Object[] snapshot, int index) {
     // 修改时获取锁以保证线程安全
     synchronized (lock) {
@@ -457,13 +471,16 @@ public boolean contains(Object o) {
     return indexOf(o, elements, 0, elements.length) >= 0;
 }
 
+// 在[0, fence)的范围内查找元素
 private static int indexOf(Object o, Object[] elements,
                            int index, int fence) {
-    if (o == null) { // 查找的实例为null
+    if (o == null) {
+        // 返回数组中第一个内容为null的索引
         for (int i = index; i < fence; i++)
             if (elements[i] == null)
                 return i;
     } else {
+        // 返回数组中第一个匹配内容的索引
         for (int i = index; i < fence; i++)
             if (o.equals(elements[i]))
                 return i;
@@ -471,12 +488,15 @@ private static int indexOf(Object o, Object[] elements,
     return -1;
 }
 
+// 在[0, index]的范围内倒序查找元素
 private static int lastIndexOf(Object o, Object[] elements, int index) {
     if (o == null) {
+        // 返回数组中最后一个内容为null的索引
         for (int i = index; i >= 0; i--)
             if (elements[i] == null)
                 return i;
     } else {
+        // 返回数组中最后一个匹配内容的索引
         for (int i = index; i >= 0; i--)
             if (o.equals(elements[i]))
                 return i;
@@ -502,7 +522,7 @@ public int lastIndexOf(Object o) {
     return lastIndexOf(o, elements, elements.length - 1);
 }
 
-// 获取列表中指定元素最索引之后，且最后出现的索引值
+// 获取列表中指定元素在索引之后，且最后出现的索引值
 public int lastIndexOf(E e, int index) {
     Object[] elements = getArray();
     return lastIndexOf(e, elements, index);
@@ -517,9 +537,11 @@ public boolean containsAll(Collection<?> c) {
     // 逐个确认元素是否包含
     for (Object e : c) {
         if (indexOf(e, elements, 0, len) < 0)
-            return false;  // 有一个元素不包含就返回false
+            // 有一个元素不包含就返回false
+            return false;
     }
-    return true; // 原数组包含所有集合c的元素
+    // 原数组包含所有集合c的元素
+    return true;
 }
 ```
 
@@ -568,7 +590,7 @@ public Object[] toArray() {
     return Arrays.copyOf(elements, elements.length);
 }
 
-// 把元数组元素放入数组a中
+// 把原数组元素放入数组a中
 @SuppressWarnings("unchecked")
 public <T> T[] toArray(T[] a) {
     // 原数组
@@ -592,6 +614,7 @@ public <T> T[] toArray(T[] a) {
 // 获取指定索引的元素，元素来自传入数组a
 @SuppressWarnings("unchecked")
 static <E> E elementAt(Object[] a, int index) {
+    // 有可能出现数组越界
     return (E) a[index];
 }
 
@@ -599,9 +622,10 @@ static String outOfBounds(int index, int size) {
     return "Index: " + index + ", Size: " + size;
 }
 
-// 清空列表，直接置空
+// 清空列表
 public void clear() {
     synchronized (lock) {
+        // 申请一个空数组，并作为新结果存入
         setArray(new Object[0]);
     }
 }
@@ -633,14 +657,19 @@ public boolean equals(Object o) {
         return false;
 
     List<?> list = (List<?>)o;
-    Iterator<?> it = list.iterator();
+    Iterator<?> it = list.iterator(); // 获取o的迭代器
     Object[] elements = getArray();
+    
+    // 逐个对比数组o与原数组的元素
     for (int i = 0, len = elements.length; i < len; i++)
-        // 逐个对比元素
         if (!it.hasNext() || !Objects.equals(elements[i], it.next()))
             return false;
+
+    // 对象o还存在更多元素
     if (it.hasNext())
         return false;
+
+    // 元素完全一致
     return true;
 }
 
@@ -648,6 +677,7 @@ public boolean equals(Object o) {
 public int hashCode() {
     int hashCode = 1;
     for (Object x : getArray())
+        // 逐个叠加哈希值
         hashCode = 31 * hashCode + (x == null ? 0 : x.hashCode());
     return hashCode;
 }
@@ -749,11 +779,12 @@ static final class COWIterator<E> implements ListIterator<E> {
     }
 }
 
-// 获取[fromIndex, toIndex)的元素子列表。修改结果列表会影响原列表。
+// 获取[fromIndex, toIndex)元素子列表
 public List<E> subList(int fromIndex, int toIndex) {
     synchronized (lock) {
         Object[] elements = getArray();
         int len = elements.length;
+        // 检查越界
         if (fromIndex < 0 || toIndex > len || fromIndex > toIndex)
             throw new IndexOutOfBoundsException();
         return new COWSubList<E>(this, fromIndex, toIndex);
