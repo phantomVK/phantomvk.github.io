@@ -13,7 +13,14 @@ JDK10
 
 ## 类签名
 
-从类名可知，LinkedBlockingQueue是基于链表实现的阻塞队列。
+从类名可知，LinkedBlockingQueue是基于链表实现的阻塞队列。以下是此队列的特点：
+
+- 基于链表实现的阻塞队列，操作线程安全；
+- 队头的元素是存活在队列中时间最长的元素；
+- 队尾的元素是存在在队列中时间最短的元素；
+- 元素从队列尾进队，从队列头出队；
+- 链表实现的队列基本上比基于数组实现的队列有更高吞吐量，但在大多数并发应用比理想中性能更低；
+- 默认队列最大长度是Integer.MAX_VALUE，节点的元素在需要时动态创建；
 
 ```java
 /**
@@ -117,19 +124,27 @@ transient Node<E> head;
 private transient Node<E> last;
 ```
 
+## 锁成员
+
 ```java
 /** Lock held by take, poll, etc */
+// 此锁被take，poll操作持有
 private final ReentrantLock takeLock = new ReentrantLock();
 
 /** Wait queue for waiting takes */
+// takes的等待队列
 private final Condition notEmpty = takeLock.newCondition();
 
 /** Lock held by put, offer, etc */
+// 此锁被put，offer持有
 private final ReentrantLock putLock = new ReentrantLock();
 
 /** Wait queue for waiting puts */
+// puts的等待队列
 private final Condition notFull = putLock.newCondition();
 ```
+
+## 锁操作
 
 ```java
 /**
@@ -249,6 +264,7 @@ public LinkedBlockingQueue(Collection<? extends E> c) {
         int n = 0;
         for (E e : c) {
             if (e == null)
+                // 集合中的元素为空会抛出NullPointerException
                 throw new NullPointerException();
             if (n == capacity)
                 throw new IllegalStateException("Queue full");
@@ -350,10 +366,12 @@ public void put(E e) throws InterruptedException {
  * @throws InterruptedException {@inheritDoc}
  * @throws NullPointerException {@inheritDoc}
  */
+// 在队列尾部插入指定元素，如果在指定超时时间内插入成功返回true，否则返回false
 public boolean offer(E e, long timeout, TimeUnit unit)
     throws InterruptedException {
-
+    // e为空抛出NullPointerException
     if (e == null) throw new NullPointerException();
+    // 根据超时值和时间单位转换为纳秒时长
     long nanos = unit.toNanos(timeout);
     int c = -1;
     final ReentrantLock putLock = this.putLock;
@@ -363,7 +381,7 @@ public boolean offer(E e, long timeout, TimeUnit unit)
         while (count.get() == capacity) {
             if (nanos <= 0L)
                 return false;
-            nanos = notFull.awaitNanos(nanos);
+            nanos = notFull.awaitNanos(nanos); // 时间倒计时
         }
         enqueue(new Node<E>(e));
         c = count.getAndIncrement();
@@ -460,16 +478,21 @@ public E poll(long timeout, TimeUnit unit) throws InterruptedException {
 }
 
 public E poll() {
+    // 获取元素数量
     final AtomicInteger count = this.count;
+    // 队列中没有元素则返回null
     if (count.get() == 0)
         return null;
+    // 队列中有元素，开始以下逻辑
     E x = null;
     int c = -1;
     final ReentrantLock takeLock = this.takeLock;
     takeLock.lock();
     try {
         if (count.get() > 0) {
+            // 元素从对头出队
             x = dequeue();
+            // 队列元素数量递减
             c = count.getAndDecrement();
             if (c > 1)
                 notEmpty.signal();
@@ -490,6 +513,7 @@ public E peek() {
     final ReentrantLock takeLock = this.takeLock;
     takeLock.lock();
     try {
+        // 返回对头元素的内容，否则返回null
         return (count.get() > 0) ? head.next.item : null;
     } finally {
         takeLock.unlock();
@@ -527,6 +551,7 @@ void unlink(Node<E> p, Node<E> pred) {
 // 如果队列中存在指定元素，则把该元素从队列中移除
 // 即使队列中存在多个相同元素，此方法只会移除最多一个
 public boolean remove(Object o) {
+    // 元素为null直接返回false
     if (o == null) return false;
     fullyLock();
     try {
@@ -556,13 +581,18 @@ public boolean remove(Object o) {
  * @param o object to be checked for containment in this queue
  * @return {@code true} if this queue contains the specified element
  */
+// 检查是否包含指定元素
 public boolean contains(Object o) {
+    // 元素为null直接返回false
     if (o == null) return false;
     fullyLock();
     try {
+        // 遍历队列逐个查找元素
         for (Node<E> p = head.next; p != null; p = p.next)
+            // 找到匹配元素
             if (o.equals(p.item))
                 return true;
+        // 找不到匹配元素
         return false;
     } finally {
         fullyUnlock();
@@ -582,14 +612,20 @@ public boolean contains(Object o) {
  *
  * @return an array containing all of the elements in this queue
  */
+// 返回一个数组，此数组包含队列的所有元素，且数组元素的顺序和队列的元素的顺序一致
+// 每次返回的数组为不同对象，修改数组是安全的
 public Object[] toArray() {
     fullyLock();
     try {
+        // 获取队列中元素个数
         int size = count.get();
+        // 通过元素数量构造数组
         Object[] a = new Object[size];
         int k = 0;
+        // 遍历队列，一次拷贝元素引用到数组对应索引
         for (Node<E> p = head.next; p != null; p = p.next)
             a[k++] = p.item;
+        // 返回数组
         return a;
     } finally {
         fullyUnlock();
