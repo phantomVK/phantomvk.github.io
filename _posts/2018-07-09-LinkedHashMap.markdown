@@ -39,18 +39,22 @@ static class Entry<K,V> extends HashMap.Node<K,V> {
 
 ## 三、数据成员
 
+双向链表头，指向最早（最老）访问节点元素
 ```java
-// 双向链表头，指向最早（最老）访问节点元素
 transient LinkedHashMap.Entry<K,V> head;
+```
 
-// 双向链表尾，指向最近（最年轻）访问节点元素
+双向链表尾，指向最近（最晚）访问节点元素
+```java
 transient LinkedHashMap.Entry<K,V> tail;
+```
 
-// 是否保持访问顺序，为true则每次访问节点都会放到链表尾部
+是否保持访问顺序，为true则每次被访问的节点都会放到链表尾部
+```java
 final boolean accessOrder;
 ```
 
-依次插入`Entry_0`到`Entry_5`，若`accessOrder`为true并访问`Entry_4`，则`Entry_4`移到链尾。
+依次插入`Entry_0`到`Entry_5`，当`accessOrder`为true并访问`Entry_4`，则`Entry_4`移到链尾。
 
 ![HashMap_UML](/img/java/LinkedHashMap_accessOrder_true.png)
 
@@ -124,6 +128,7 @@ void reinitialize() {
     head = tail = null;
 }
 
+// 创建新链表节点
 Node<K,V> newNode(int hash, K key, V value, Node<K,V> e) {
     LinkedHashMap.Entry<K,V> p =
         new LinkedHashMap.Entry<>(hash, key, value, e);
@@ -131,6 +136,7 @@ Node<K,V> newNode(int hash, K key, V value, Node<K,V> e) {
     return p;
 }
 
+// 替换链表节点
 Node<K,V> replacementNode(Node<K,V> p, Node<K,V> next) {
     LinkedHashMap.Entry<K,V> q = (LinkedHashMap.Entry<K,V>)p;
     LinkedHashMap.Entry<K,V> t =
@@ -139,12 +145,14 @@ Node<K,V> replacementNode(Node<K,V> p, Node<K,V> next) {
     return t;
 }
 
+// 创建新红黑树节点
 TreeNode<K,V> newTreeNode(int hash, K key, V value, Node<K,V> next) {
     TreeNode<K,V> p = new TreeNode<>(hash, key, value, next);
     linkNodeLast(p);
     return p;
 }
 
+// 替换红黑树节点
 TreeNode<K,V> replacementTreeNode(Node<K,V> p, Node<K,V> next) {
     LinkedHashMap.Entry<K,V> q = (LinkedHashMap.Entry<K,V>)p;
     TreeNode<K,V> t = new TreeNode<>(q.hash, q.key, q.value, next);
@@ -184,19 +192,22 @@ void afterNodeRemoval(Node<K,V> e) {
     }
 }
 
-// 父类HashMap调用putVal()中会调用此方法
-void afterNodeInsertion(boolean evict) { // 移除最少使用的节点
-    LinkedHashMap.Entry<K,V> first; // first是最少使用的节点
+// 父类HashMap调用putVal()中会调用此方法，移除最少使用的节点
+void afterNodeInsertion(boolean evict) {
+    // first是最少使用的节点
+    LinkedHashMap.Entry<K,V> first;
     if (evict && (first = head) != null && removeEldestEntry(first)) {
-        K key = first.key; // 获取first的key
-        removeNode(hash(key), key, null, false, true); // 通过key找到对应Node并移除
+        // 获取first的key
+        K key = first.key;
+        // 通过key找到对应Node并移除
+        removeNode(hash(key), key, null, false, true);
     }
 }
 
 // 把节点移动到链表尾
 void afterNodeAccess(Node<K,V> e) {
     LinkedHashMap.Entry<K,V> last;
-    // 仅当accessOrder为true，且被访问元素不是尾节点
+    // 仅当accessOrder为true且被访问元素不是尾节点
     if (accessOrder && (last = tail) != e) {
         // p：即是节点e
         // b：e的前一个节点
@@ -222,11 +233,12 @@ void afterNodeAccess(Node<K,V> e) {
             // 可知节点e本是尾节点，则e的上一个节点b作为链表的尾节点
             last = b;
         }
-
+        
+        // p之前没有节点，表明p就是头结点
         if (last == null) {
-            head = p; // 链表只有p一个节点
+            head = p;
         } else {
-            // 作为尾节点
+            // p作为新的尾节点，链接到上一个尾节点之后
             p.before = last;
             last.after = p;
         }
@@ -293,7 +305,7 @@ public void clear() {
     head = tail = null;  // 置空head和tail引用
 }
 
-// 方法主要用于在子类重写，决定最少使用的节点能否被移除
+// 方法主要用于被子类重写，决定最少使用的节点能否被移除
 protected boolean removeEldestEntry(Map.Entry<K,V> eldest) {
     return false;
 } 
