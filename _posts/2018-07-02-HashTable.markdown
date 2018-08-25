@@ -11,7 +11,14 @@ tags:
 
 ## 一、类签名
 
-`Hashtable`的方法使用`synchronized`修饰来保证线程安全，且相比[HashMap](https://phantomvk.coding.me/2018/06/30/HashMap/)来说优化度低。
+`Hashtable`是早期的哈希表实现，新版JDK几乎不做修改，且和[HashMap](https://phantomvk.github.io/2018/06/30/HashMap/)有几个大区别：
+
+- `Hashtable`父类为Dictionary<K,V>，`HashMap`父类为Map<K,V>；
+- `HashMap`经过不断优化，性能远远好于`Hashtable`；
+- `Hashtable`使用`synchronized`修饰方法保证线程安全，`HashMap`线程不安全；
+- `Hashtable`不允许空key或value，但`HashMap`允许；
+- `HashTable`使用Enumeration，`HashMap`使用Iterator；
+- `HashMap`增加了红黑树缓解哈希冲突的影响；
 
 ```java
 public class Hashtable<K,V>
