@@ -38,7 +38,7 @@ private static final float DEFAULT_LOAD_FACTOR = 0.75f;
 // 代表tables里的null_key
 private static final Object NULL_KEY = new Object();
 
-// 哈希表，长度必须为2的幂
+// 哈希桶，长度必须为2的幂
 Entry<K,V>[] table;
 
 // 已保存键值对数量
@@ -50,7 +50,7 @@ private int threshold;
 // 实际负载因子
 private final float loadFactor;
 
-//  保存已经清理Entry的引用队列
+// 保存已经清理Entry的引用队列
 private final ReferenceQueue<Object> queue = new ReferenceQueue<>();
 
 // 修改次数
@@ -73,8 +73,11 @@ public WeakHashMap(int initialCapacity, float loadFactor) {
     int capacity = 1;
     while (capacity < initialCapacity)
         capacity <<= 1;
+    // 初始化哈希桶
     table = newTable(capacity);
+    // 初始化负载因子
     this.loadFactor = loadFactor;
+    // 计算下一次扩容的阈值
     threshold = (int)(capacity * loadFactor);
 }
 
@@ -103,12 +106,12 @@ private Entry<K,V>[] newTable(int n) {
 ## 四、成员方法
 
 ```java
-// 检查是否为空，为空使用NULL_KEY表示，对比unmaskNull(Object key)
+// 检查是否为空，为空使用NULL_KEY表示，对比方法unmaskNull(Object key)
 private static Object maskNull(Object key) {
     return (key == null) ? NULL_KEY : key;
 }
 
-// 把NULL_KEY通过null表示，对比maskNull(Object key)
+// 把NULL_KEY通过null表示，对比方法maskNull(Object key)
 static Object unmaskNull(Object key) {
     return (key == NULL_KEY) ? null : key;
 }
@@ -157,6 +160,7 @@ private void expungeStaleEntries() {
                     size--; // 保存元素数量递减
                     break;
                 }
+                // 还没有匹配到，继续查找
                 prev = p;
                 p = next;
             }
@@ -261,6 +265,7 @@ public V put(K key, V value) {
 
 // 批量存入，先检查是否需要扩容，然后调用put(K key, V value)把元素逐个插入
 public void putAll(Map<? extends K, ? extends V> m) {
+    // 计算需要添加多少个元素
     int numKeysToBeAdded = m.size();
     if (numKeysToBeAdded == 0)
         return;
@@ -420,6 +425,8 @@ private boolean containsNullValue() {
 ```
 
 ## 九、节点
+
+Entry<K,V> 继承了 WeakReference
 
 ```java
 private static class Entry<K,V> extends WeakReference<Object> implements Map.Entry<K,V> {

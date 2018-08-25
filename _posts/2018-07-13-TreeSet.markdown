@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-TreeSet通过继承NavigableSet支持导航能力，NavigableSet主要基于TreeMap实现。TreeSet的方法没有添加锁保护，所以多线程操作不安全。本文源码来自JDK10。
+TreeSet通过实现NavigableSet接口支持导航能力，方法又主要基于TreeMap的能力。TreeSet的方法没有添加锁保护，所以多线程操作不安全。本文源码来自JDK10。
 
 ```java
 public class TreeSet<E> extends AbstractSet<E>
@@ -25,11 +25,14 @@ public class TreeSet<E> extends AbstractSet<E>
 
 ## 二、数据成员
 
-```java
-// 用于存储元素的Map，实际应该是TreeMap
-private transient NavigableMap<E,Object> m;
+存储元素的Map，实际应该是TreeMap
 
-// 用于表示该元素存在
+```java
+private transient NavigableMap<E,Object> m;
+```
+
+用于表示元素的状态为已存在
+```java
 private static final Object PRESENT = new Object();
 ```
 
@@ -132,7 +135,7 @@ public SortedSet<E> headSet(E toElement) {
     return headSet(toElement, false);
 }
 
-// 返回指定范围元素：[fromElement, tailElement] or [fromElement, tailElement)
+// 返回指定范围元素：[fromElement, tailElement] 或 [fromElement, tailElement)
 public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
     return new TreeSet<>(m.tailMap(fromElement, inclusive));
 }
