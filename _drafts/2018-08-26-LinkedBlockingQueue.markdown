@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "Java源码系列(15) -- LinkedBlockingQueue"
-date:       2018-08-12
+title:      "Java源码系列(17) -- LinkedBlockingQueue"
+date:       2018-08-26
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
@@ -9,92 +9,40 @@ tags:
     - Java源码系列
 ---
 
-JDK10
+## 一、类签名
 
-## 类签名
-
-从类名可知，LinkedBlockingQueue是基于链表实现的阻塞队列。以下是此队列的特点：
-
-- 基于链表实现的阻塞队列，操作线程安全；
-- 队头的元素是存活在队列中时间最长的元素；
-- 队尾的元素是存在在队列中时间最短的元素；
-- 元素从队列尾进队，从队列头出队；
-- 链表实现的队列基本上比基于数组实现的队列有更高吞吐量，但在大多数并发应用比理想中性能更低；
-- 默认队列最大长度是Integer.MAX_VALUE，节点的元素在需要时动态创建；
+从类名可知，LinkedBlockingQueue是基于链表实现的阻塞队列。
 
 ```java
-/**
- * An optionally-bounded {@linkplain BlockingQueue blocking queue} based on
- * linked nodes.
- * This queue orders elements FIFO (first-in-first-out).
- * The <em>head</em> of the queue is that element that has been on the
- * queue the longest time.
- * The <em>tail</em> of the queue is that element that has been on the
- * queue the shortest time. New elements
- * are inserted at the tail of the queue, and the queue retrieval
- * operations obtain elements at the head of the queue.
- * Linked queues typically have higher throughput than array-based queues but
- * less predictable performance in most concurrent applications.
- *
- * <p>The optional capacity bound constructor argument serves as a
- * way to prevent excessive queue expansion. The capacity, if unspecified,
- * is equal to {@link Integer#MAX_VALUE}.  Linked nodes are
- * dynamically created upon each insertion unless this would bring the
- * queue above capacity.
- *
- * <p>This class and its iterator implement all of the <em>optional</em>
- * methods of the {@link Collection} and {@link Iterator} interfaces.
- *
- * <p>This class is a member of the
- * <a href="{@docRoot}/java/util/package-summary.html#CollectionsFramework">
- * Java Collections Framework</a>.
- *
- * @since 1.5
- * @author Doug Lea
- * @param <E> the type of elements held in this queue
- */
 public class LinkedBlockingQueue<E> extends AbstractQueue<E>
         implements BlockingQueue<E>, java.io.Serializable
 ```
 
-```java
-/*
- * A variant of the "two lock queue" algorithm.  The putLock gates
- * entry to put (and offer), and has an associated condition for
- * waiting puts.  Similarly for the takeLock.  The "count" field
- * that they both rely on is maintained as an atomic to avoid
- * needing to get both locks in most cases. Also, to minimize need
- * for puts to get takeLock and vice-versa, cascading notifies are
- * used. When a put notices that it has enabled at least one take,
- * it signals taker. That taker in turn signals others if more
- * items have been entered since the signal. And symmetrically for
- * takes signalling puts. Operations such as remove(Object) and
- * iterators acquire both locks.
- *
- * Visibility between writers and readers is provided as follows:
- *
- * Whenever an element is enqueued, the putLock is acquired and
- * count updated.  A subsequent reader guarantees visibility to the
- * enqueued Node by either acquiring the putLock (via fullyLock)
- * or by acquiring the takeLock, and then reading n = count.get();
- * this gives visibility to the first n items.
- *
- * To implement weakly consistent iterators, it appears we need to
- * keep all Nodes GC-reachable from a predecessor dequeued Node.
- * That would cause two problems:
- * - allow a rogue Iterator to cause unbounded memory retention
- * - cause cross-generational linking of old Nodes to new Nodes if
- *   a Node was tenured while live, which generational GCs have a
- *   hard time dealing with, causing repeated major collections.
- * However, only non-deleted Nodes need to be reachable from
- * dequeued Nodes, and reachability does not necessarily have to
- * be of the kind understood by the GC.  We use the trick of
- * linking a Node that has just been dequeued to itself.  Such a
- * self-link implicitly means to advance to head.next.
- */
-```
+类特点：
 
-## 节点
+- 基于链表实现的阻塞队列，线程安全；
+- 队头元素是存活时间最长的元素，队尾元素是存活时间最短的元素；
+- 元素从队列尾进队，从队列头出队，符合FIFO；
+- 链表实现的队列一般比基于数组实现有更高吞吐量，但比大多数并发应用的理想性能低；
+- 默认队列最大长度为Integer.MAX_VALUE，新节点动态创建，已保存节点不会超过此值；
+- 此类和其迭代器均实现了`Collection`和`Iterator`接口的可选方法；
+
+这是`two lock queue`算法的变体。putLock守卫元素的put、offer操作，且与等待存入的条件关联。takeLock原理类似。putLock和takeLock都依赖的`count`变量，被维护为一个原子变量，yi以避免多数情况下需同时请求两个锁。为了最小化put时需获取takeLock，使用了层叠式通知。当put操作注意到至少一个take可以启动，就会通知获取者。如果有多个item在信号后进队，获取者将依次通知其他获取者。因此，有对称的取操作通知存操作。有些操作如remove和iterators会同时请求两个锁。
+
+读取者和写入者间可见性如下提供：
+
+当元素已进入队列，putLock已被获取，且count变量也更新。随后，读取者通过获取putLock或获取takeLock，得到入队元素的可见性，然后读取`n = count.get();`，令前n个元素变得可见。
+
+为实现弱一致性迭代器，显然要从前导出队节点上保持所有节点的GC可达性。这会引起两个问题：
+
+1. 允许一个异常的迭代器触发无限制的内存保留；
+2. 如果节点在老年代存活，会引起老节点和新节点间的跨代连接，令分代垃圾回收难以进行，导致重复老年代回收(major collections)；
+
+然而，只有未删除节点需要从已出队节点可达，GC不需要理解可达性的类型。我们使用一些小手段连接一个刚刚被出队的节点。
+
+源码来自JDK10。
+
+## 二、节点
 
 单向链表节点类，查找元素需要从链表头开始依次遍历节点
 
@@ -108,49 +56,63 @@ static class Node<E> {
 }
 ```
 
-## 数据成员
+## 三、数据成员
+
+队列容量，默认为Integer.MAX_VALUE
 
 ```java
-// 队列容量，默认为Integer.MAX_VALUE
 private final int capacity;
+```
 
-// 已存元素总数
+已存元素总数
+
+```java
 private final AtomicInteger count = new AtomicInteger();
+```
 
-// 链表头节点
+链表头节点
+
+```java
 transient Node<E> head;
+```
 
-// 链表尾节点
+链表尾节点
+
+```java
 private transient Node<E> last;
 ```
 
-## 锁成员
+## 四、锁成员
+
+此锁被take，poll等操作持有
 
 ```java
-/** Lock held by take, poll, etc */
-// 此锁被take，poll操作持有
 private final ReentrantLock takeLock = new ReentrantLock();
+```
 
-/** Wait queue for waiting takes */
-// takes的等待队列
+takes的等待队列
+
+```java
 private final Condition notEmpty = takeLock.newCondition();
+```
 
-/** Lock held by put, offer, etc */
-// 此锁被put，offer持有
+此锁被put，offer等持有
+
+```java
 private final ReentrantLock putLock = new ReentrantLock();
+```
 
-/** Wait queue for waiting puts */
-// puts的等待队列
+puts的等待队列
+
+```java
 private final Condition notFull = putLock.newCondition();
 ```
 
-## 锁操作
+## 五、锁操作
+
+唤醒notEmpty队列上正在等待获取元素的线程，此方法由put/offer调用。
 
 ```java
-/**
- * Signals a waiting take. Called only from put/offer (which do not
- * otherwise ordinarily lock takeLock.)
- */
 private void signalNotEmpty() {
     final ReentrantLock takeLock = this.takeLock;
     takeLock.lock();
@@ -160,10 +122,11 @@ private void signalNotEmpty() {
         takeLock.unlock();
     }
 }
+```
 
-/**
- * Signals a waiting put. Called only from take/poll.
- */
+唤醒notFull队列上正在等待存入元素的线程，此方法由take/poll调用。
+
+```java
 private void signalNotFull() {
     final ReentrantLock putLock = this.putLock;
     putLock.lock();
@@ -175,15 +138,21 @@ private void signalNotFull() {
 }
 ```
 
+## 六、进队出队
+
+把节点插入到链表尾
+
 ```java
-// 把节点插入到链表尾
 private void enqueue(Node<E> node) {
     // assert putLock.isHeldByCurrentThread();
     // assert last.next == null;
     last = last.next = node;
 }
+```
 
-// 队头元素出队
+队头元素出队
+
+```java
 private E dequeue() {
     // assert takeLock.isHeldByCurrentThread();
     // assert head.item == null;
@@ -197,80 +166,71 @@ private E dequeue() {
 }
 ```
 
+## 七、读写锁操作
+
+上锁禁止存取操作
+
 ```java
-/**
- * Locks to prevent both puts and takes.
- */
-// 上锁以禁止存取操作
 void fullyLock() {
     putLock.lock();
     takeLock.lock();
 }
+```
 
-/**
- * Unlocks to allow both puts and takes.
- */
-// 解锁以允许存取操作
+解锁允许存取操作
+
+```java
 void fullyUnlock() {
     takeLock.unlock();
     putLock.unlock();
 }
 ```
 
-## 构造方法
+## 八、构造方法
 
+
+默认构造方法，最大容量为Integer.MAX_VALUE
 
 ```java
-/**
- * Creates a {@code LinkedBlockingQueue} with a capacity of
- * {@link Integer#MAX_VALUE}.
- */
-// 默认构造方法，最大容量大小为Integer.MAX_VALUE
 public LinkedBlockingQueue() {
     this(Integer.MAX_VALUE);
 }
+```
 
-/**
- * Creates a {@code LinkedBlockingQueue} with the given (fixed) capacity.
- *
- * @param capacity the capacity of this queue
- * @throws IllegalArgumentException if {@code capacity} is not greater
- *         than zero
- */
-// 构造方法，初始化头结点引用和为节点引用
+构造方法，初始化头结点引用和为节点引用，使用指定capacity
+
+```java
 public LinkedBlockingQueue(int capacity) {
     if (capacity <= 0) throw new IllegalArgumentException();
     // 自定义队列capacity
     this.capacity = capacity;
-    last = head = new Node<E>(null); // 头指针和尾指针指向同一个空节点
+    // 头指针和尾指针指向同一个空节点
+    last = head = new Node<E>(null);
 }
+```
 
-/**
- * Creates a {@code LinkedBlockingQueue} with a capacity of
- * {@link Integer#MAX_VALUE}, initially containing the elements of the
- * given collection,
- * added in traversal order of the collection's iterator.
- *
- * @param c the collection of elements to initially contain
- * @throws NullPointerException if the specified collection or any
- *         of its elements are null
- */
-// 通过集合实例初始化类
+通过集合实例初始化类，最大容量为Integer.MAX_VALUE
+
+```java
 public LinkedBlockingQueue(Collection<? extends E> c) {
     this(Integer.MAX_VALUE); // capacity设置为Integer.MAX_VALUE
     final ReentrantLock putLock = this.putLock;
-    putLock.lock(); // Never contended, but necessary for visibility
+    putLock.lock(); // 没有竞争，但对可见性来说有必要
     try {
         int n = 0;
+        // 依次遍历集合c
         for (E e : c) {
             if (e == null)
-                // 集合中的元素为空会抛出NullPointerException
+                // 集合元素为空抛出NullPointerException
                 throw new NullPointerException();
             if (n == capacity)
                 throw new IllegalStateException("Queue full");
-            enqueue(new Node<E>(e)); // 在集合c中取元素，创建节点并存入到队列中
+            // 在集合c中取元素，用元素创建节点存入队列
+            enqueue(new Node<E>(e));
+            // 添加元素递增
             ++n;
         }
+        // 最后把总添加元素更新至原子值count
         count.set(n);
     } finally {
         putLock.unlock();
@@ -278,47 +238,27 @@ public LinkedBlockingQueue(Collection<? extends E> c) {
 }
 ```
 
-## 成员方法
+## 九、成员方法
+
+获取队已存元素数量
 
 ```java
-// this doc comment is overridden to remove the reference to collections
-// greater in size than Integer.MAX_VALUE
-/**
- * Returns the number of elements in this queue.
- *
- * @return the number of elements in this queue
- */
-// 获取队里已存元素数量
 public int size() {
     return count.get();
 }
+```
 
-// this doc comment is a modified copy of the inherited doc comment,
-// without the reference to unlimited queues.
-/**
- * Returns the number of additional elements that this queue can ideally
- * (in the absence of memory or resource constraints) accept without
- * blocking. This is always equal to the initial capacity of this queue
- * less the current {@code size} of this queue.
- *
- * <p>Note that you <em>cannot</em> always tell if an attempt to insert
- * an element will succeed by inspecting {@code remainingCapacity}
- * because it may be the case that another thread is about to
- * insert or remove an element.
- */
-// 剩余可用队列容量
+剩余可用队列容量
+
+```java
 public int remainingCapacity() {
     return capacity - count.get();
 }
+```
 
-/**
- * Inserts the specified element at the tail of this queue, waiting if
- * necessary for space to become available.
- *
- * @throws InterruptedException {@inheritDoc}
- * @throws NullPointerException {@inheritDoc}
- */
-// 插入到队列尾部，直到成功插入才返回成功
+插入到队列尾部，直到成功插入才返回成功
+
+```java
 public void put(E e) throws InterruptedException {
     if (e == null) throw new NullPointerException();
     // Note: convention in all put/take/etc is to preset local var
@@ -330,14 +270,6 @@ public void put(E e) throws InterruptedException {
     // 此锁可以被中断
     putLock.lockInterruptibly();
     try {
-        /*
-         * Note that count is used in wait guard even though it is
-         * not protected by lock. This works because count can
-         * only decrease at this point (all other puts are shut
-         * out by lock), and we (or some other waiting put) are
-         * signalled if it ever changes from capacity. Similarly
-         * for all other uses of count in other wait guards.
-         */
         while (count.get() == capacity) {
             notFull.await();
         }
@@ -356,17 +288,11 @@ public void put(E e) throws InterruptedException {
     if (c == 0)
         signalNotEmpty();
 }
+```
 
-/**
- * Inserts the specified element at the tail of this queue, waiting if
- * necessary up to the specified wait time for space to become available.
- *
- * @return {@code true} if successful, or {@code false} if
- *         the specified waiting time elapses before space is available
- * @throws InterruptedException {@inheritDoc}
- * @throws NullPointerException {@inheritDoc}
- */
-// 在队列尾部插入指定元素，如果在指定超时时间内插入成功返回true，否则返回false
+在队列尾部插入指定元素，如果在指定超时时间内插入成功返回true，否则返回false
+
+```java
 public boolean offer(E e, long timeout, TimeUnit unit)
     throws InterruptedException {
     // e为空抛出NullPointerException
@@ -394,18 +320,11 @@ public boolean offer(E e, long timeout, TimeUnit unit)
         signalNotEmpty();
     return true;
 }
+```
 
-/**
- * Inserts the specified element at the tail of this queue if it is
- * possible to do so immediately without exceeding the queue's capacity,
- * returning {@code true} upon success and {@code false} if this queue
- * is full.
- * When using a capacity-restricted queue, this method is generally
- * preferable to method {@link BlockingQueue#add add}, which can fail to
- * insert an element only by throwing an exception.
- *
- * @throws NullPointerException if the specified element is null
- */
+把指定元素插入到队尾，如果插入成功返回true，队列已满插入失败返回false。当使用有容量限制的队列时，这个方法是比add方法更好，因为add元素添加失败会抛出异常。存入元素e为空时抛出NullPointerException。
+
+```java
 public boolean offer(E e) {
     if (e == null) throw new NullPointerException();
     final AtomicInteger count = this.count;
@@ -429,7 +348,11 @@ public boolean offer(E e) {
         signalNotEmpty();
     return c >= 0;
 }
+```
 
+获取元素
+
+```java
 public E take() throws InterruptedException {
     E x;
     int c = -1;
@@ -451,7 +374,11 @@ public E take() throws InterruptedException {
         signalNotFull();
     return x;
 }
+```
 
+在指定等待超时时间内获取元素，到达超时时间没有则返回null
+
+```java
 public E poll(long timeout, TimeUnit unit) throws InterruptedException {
     E x = null;
     int c = -1;
@@ -476,7 +403,11 @@ public E poll(long timeout, TimeUnit unit) throws InterruptedException {
         signalNotFull();
     return x;
 }
+```
 
+获取元素
+
+```java
 public E poll() {
     // 获取元素数量
     final AtomicInteger count = this.count;
@@ -504,8 +435,11 @@ public E poll() {
         signalNotFull();
     return x;
 }
+```
 
-// 返回队列头节点包含的数据，此操作不会改变队列节点的数量或顺序
+返回队列头节点包含的数据，此操作不会改变队列节点的数量或顺序
+
+```java
 public E peek() {
     // 队列没有节点直接返回null
     if (count.get() == 0)
@@ -519,11 +453,11 @@ public E peek() {
         takeLock.unlock();
     }
 }
+```
 
-/**
- * Unlinks interior Node p with predecessor pred.
- */
-// 把节点p从列表中解除链接
+把节点p从列表中解除链接，pred是p的上一个节点
+
+```java
 void unlink(Node<E> p, Node<E> pred) {
     // assert putLock.isHeldByCurrentThread();
     // assert takeLock.isHeldByCurrentThread();
@@ -536,20 +470,11 @@ void unlink(Node<E> p, Node<E> pred) {
     if (count.getAndDecrement() == capacity)
         notFull.signal();
 }
+```
 
-/**
- * Removes a single instance of the specified element from this queue,
- * if it is present.  More formally, removes an element {@code e} such
- * that {@code o.equals(e)}, if this queue contains one or more such
- * elements.
- * Returns {@code true} if this queue contained the specified element
- * (or equivalently, if this queue changed as a result of the call).
- *
- * @param o element to be removed from this queue, if present
- * @return {@code true} if this queue changed as a result of the call
- */
-// 如果队列中存在指定元素，则把该元素从队列中移除
-// 即使队列中存在多个相同元素，此方法只会移除最多一个
+如果队列中存在指定元素，则把该元素从队列中移除。即使队列中存在多个相同元素，此方法只会移除其中一个。移除成功返回true，否则返回false。
+
+```java
 public boolean remove(Object o) {
     // 元素为null直接返回false
     if (o == null) return false;
@@ -572,16 +497,11 @@ public boolean remove(Object o) {
         fullyUnlock();
     }
 }
+```
 
-/**
- * Returns {@code true} if this queue contains the specified element.
- * More formally, returns {@code true} if and only if this queue contains
- * at least one element {@code e} such that {@code o.equals(e)}.
- *
- * @param o object to be checked for containment in this queue
- * @return {@code true} if this queue contains the specified element
- */
-// 检查是否包含指定元素
+检查是否包含指定元素
+
+```java
 public boolean contains(Object o) {
     // 元素为null直接返回false
     if (o == null) return false;
@@ -598,22 +518,11 @@ public boolean contains(Object o) {
         fullyUnlock();
     }
 }
+```
 
-/**
- * Returns an array containing all of the elements in this queue, in
- * proper sequence.
- *
- * <p>The returned array will be "safe" in that no references to it are
- * maintained by this queue.  (In other words, this method must allocate
- * a new array).  The caller is thus free to modify the returned array.
- *
- * <p>This method acts as bridge between array-based and collection-based
- * APIs.
- *
- * @return an array containing all of the elements in this queue
- */
-// 返回一个数组，此数组包含队列的所有元素，且数组元素的顺序和队列的元素的顺序一致
-// 每次返回的数组为不同对象，修改数组是安全的
+返回一个数组，此数组包含队列的所有元素，且数组元素的顺序和队列的元素的顺序一致。每次返回的数组为不同对象，修改数组是安全的。
+
+```java
 public Object[] toArray() {
     fullyLock();
     try {
@@ -631,7 +540,11 @@ public Object[] toArray() {
         fullyUnlock();
     }
 }
+```
 
+返回一个数组，此数组包含队列的所有元素，且数组元素的顺序和队列的元素的顺序一致。如果传入数组空间足够，返回的数组就是传入的数组。否则方法内存创建类型相同新数组，数组长度和被队列长度相等。
+
+```java
 /**
  * Returns an array containing all of the elements in this queue, in
  * proper sequence; the runtime type of the returned array is that of
@@ -686,12 +599,11 @@ public <T> T[] toArray(T[] a) {
         fullyUnlock();
     }
 }
+```
 
-/**
- * Atomically removes all of the elements from this queue.
- * The queue will be empty after this call returns.
- */
-// 移除队列中所有元素，移除完成后队列元素为空
+移除队列中所有元素，移除完成后队列元素为空
+
+```java
 public void clear() {
     // 上锁
     fullyLock();
@@ -708,23 +620,15 @@ public void clear() {
         fullyUnlock();
     }
 }
+```
 
-/**
- * @throws UnsupportedOperationException {@inheritDoc}
- * @throws ClassCastException            {@inheritDoc}
- * @throws NullPointerException          {@inheritDoc}
- * @throws IllegalArgumentException      {@inheritDoc}
- */
+```java
 public int drainTo(Collection<? super E> c) {
     return drainTo(c, Integer.MAX_VALUE);
 }
+```
 
-/**
- * @throws UnsupportedOperationException {@inheritDoc}
- * @throws ClassCastException            {@inheritDoc}
- * @throws NullPointerException          {@inheritDoc}
- * @throws IllegalArgumentException      {@inheritDoc}
- */
+```java
 public int drainTo(Collection<? super E> c, int maxElements) {
     Objects.requireNonNull(c);
     if (c == this)
@@ -763,7 +667,13 @@ public int drainTo(Collection<? super E> c, int maxElements) {
             signalNotFull();
     }
 }
+```
 
+在任何元素没有完全上锁的情况下遍历。此种遍历必须处理一下两种情况：
+ - 出队节点(p.next == p)
+ - (可能多个)内部节点移除(p.item == null)
+
+```java
 /**
  * Used for any element traversal that is not entirely under lock.
  * Such traversals must handle both:
@@ -777,22 +687,17 @@ Node<E> succ(Node<E> p) {
 }
 ```
 
-## Itr
+## 十、Itr
+
+返回队列当前元素顺序的迭代器，元素顺序按照队列头到队列尾
 
 ```java
-/**
- * Returns an iterator over the elements in this queue in proper sequence.
- * The elements will be returned in order from first (head) to last (tail).
- *
- * <p>The returned iterator is
- * <a href="package-summary.html#Weakly"><i>weakly consistent</i></a>.
- *
- * @return an iterator over the elements in this queue in proper sequence
- */
 public Iterator<E> iterator() {
     return new Itr();
 }
 ```
+
+弱一致性迭代器。懒更新祖先域提供预计O(1)的remove()，最差情况下为O(n)，不管何时保存的祖先节点已被并发删除。
 
 ```java
 /**
@@ -900,13 +805,11 @@ private class Itr implements Iterator<E> {
 }
 ```
 
-##  LBQSpliterator
+##  十一、LBQSpliterator
+
+Spliterators.IteratorSpliterator的自定义变体
 
 ```java
-/**
- * A customized variant of Spliterators.IteratorSpliterator.
- * Keep this class in sync with (very similar) LBDSpliterator.
- */
 private final class LBQSpliterator implements Spliterator<E> {
     static final int MAX_BATCH = 1 << 25;  // max batch array size;
     Node<E> current;    // current node; null until initialized
@@ -994,50 +897,19 @@ private final class LBQSpliterator implements Spliterator<E> {
 }
 ```
 
+返回基于此队列元素的可分割迭代器。返回的可分割迭代器是弱一致性的。此迭代器可报告Spliterator#CONCURRENT、Spliterator#ORDERED、Spliterator#NONNULL。
+
 ```java
-/**
- * Returns a {@link Spliterator} over the elements in this queue.
- *
- * <p>The returned spliterator is
- * <a href="package-summary.html#Weakly"><i>weakly consistent</i></a>.
- *
- * <p>The {@code Spliterator} reports {@link Spliterator#CONCURRENT},
- * {@link Spliterator#ORDERED}, and {@link Spliterator#NONNULL}.
- *
- * @implNote
- * The {@code Spliterator} implements {@code trySplit} to permit limited
- * parallelism.
- *
- * @return a {@code Spliterator} over the elements in this queue
- * @since 1.8
- */
 public Spliterator<E> spliterator() {
     return new LBQSpliterator();
 }
+```
 
-/**
- * @throws NullPointerException {@inheritDoc}
- */
-// 移除所有集合c的元素，若集合c对象为空则抛出NullPointerException
-public boolean removeAll(Collection<?> c) {
-    Objects.requireNonNull(c);
-    return bulkRemove(e -> c.contains(e));
-}
+## 十二、前导节点
 
-/**
- * @throws NullPointerException {@inheritDoc}
- */
-// 仅保留所有集合c的元素，若集合c对象为空则抛出NullPointerException
-public boolean retainAll(Collection<?> c) {
-    Objects.requireNonNull(c);
-    return bulkRemove(e -> !c.contains(e));
-}
+返回活节点p的前导节点，以便解链接p
 
-/**
- * Returns the predecessor of live node p, given a node that was
- * once a live ancestor of p (or head); allows unlinking of p.
- */
-// 
+```java
 Node<E> findPred(Node<E> p, Node<E> ancestor) {
     // assert p.item != null;
     if (ancestor.item == null)
@@ -1047,8 +919,32 @@ Node<E> findPred(Node<E> p, Node<E> ancestor) {
         ancestor = q;
     return ancestor;
 }
+```
 
-/** Implementation of bulk remove methods. */
+## 十三、批量操作
+
+
+移除所有集合c的元素，若集合c对象为空则抛出NullPointerException
+```java
+public boolean removeAll(Collection<?> c) {
+    Objects.requireNonNull(c);
+    return bulkRemove(e -> c.contains(e));
+}
+```
+
+仅保留所有集合c的元素，若集合c对象为空则抛出NullPointerException
+
+```java
+public boolean retainAll(Collection<?> c) {
+    Objects.requireNonNull(c);
+    return bulkRemove(e -> !c.contains(e));
+}
+```
+
+
+实现批量移除方法
+
+```java
 @SuppressWarnings("unchecked")
 private boolean bulkRemove(Predicate<? super E> filter) {
     boolean removed = false;
