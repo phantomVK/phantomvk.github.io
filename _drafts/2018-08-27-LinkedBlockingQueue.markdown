@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Java源码系列(17) -- LinkedBlockingQueue"
-date:       2018-08-26
+date:       2018-08-27
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
@@ -213,9 +213,11 @@ public LinkedBlockingQueue(int capacity) {
 
 ```java
 public LinkedBlockingQueue(Collection<? extends E> c) {
-    this(Integer.MAX_VALUE); // capacity设置为Integer.MAX_VALUE
+    // capacity设置为Integer.MAX_VALUE
+    this(Integer.MAX_VALUE);
     final ReentrantLock putLock = this.putLock;
-    putLock.lock(); // 没有竞争，但对可见性来说有必要
+    // 没有竞争，但对可见性来说有必要
+    putLock.lock();
     try {
         int n = 0;
         // 依次遍历集合c
@@ -542,44 +544,11 @@ public Object[] toArray() {
 }
 ```
 
-返回一个数组，此数组包含队列的所有元素，且数组元素的顺序和队列的元素的顺序一致。如果传入数组空间足够，返回的数组就是传入的数组。否则方法内存创建类型相同新数组，数组长度和被队列长度相等。
+返回一个数组，此数组包含队列的所有元素，且数组元素的顺序和队列的元素的顺序一致。如果传入数组空间足够，返回的数组就是传入的数组(运行时类型也一致)。否则方法内存创建类型相同新数组，数组长度和被队列长度相等。
+
+如果传入的数组保存队列所有元素后还有空余，这些空余会被置null。
 
 ```java
-/**
- * Returns an array containing all of the elements in this queue, in
- * proper sequence; the runtime type of the returned array is that of
- * the specified array.  If the queue fits in the specified array, it
- * is returned therein.  Otherwise, a new array is allocated with the
- * runtime type of the specified array and the size of this queue.
- *
- * <p>If this queue fits in the specified array with room to spare
- * (i.e., the array has more elements than this queue), the element in
- * the array immediately following the end of the queue is set to
- * {@code null}.
- *
- * <p>Like the {@link #toArray()} method, this method acts as bridge between
- * array-based and collection-based APIs.  Further, this method allows
- * precise control over the runtime type of the output array, and may,
- * under certain circumstances, be used to save allocation costs.
- *
- * <p>Suppose {@code x} is a queue known to contain only strings.
- * The following code can be used to dump the queue into a newly
- * allocated array of {@code String}:
- *
- * <pre> {@code String[] y = x.toArray(new String[0]);}</pre>
- *
- * Note that {@code toArray(new Object[0])} is identical in function to
- * {@code toArray()}.
- *
- * @param a the array into which the elements of the queue are to
- *          be stored, if it is big enough; otherwise, a new array of the
- *          same runtime type is allocated for this purpose
- * @return an array containing all of the elements in this queue
- * @throws ArrayStoreException if the runtime type of the specified array
- *         is not a supertype of the runtime type of every element in
- *         this queue
- * @throws NullPointerException if the specified array is null
- */
 @SuppressWarnings("unchecked")
 public <T> T[] toArray(T[] a) {
     fullyLock();
@@ -622,11 +591,15 @@ public void clear() {
 }
 ```
 
+移除队列所有元素，并把这些元素添加到指定集合c中
+
 ```java
 public int drainTo(Collection<? super E> c) {
     return drainTo(c, Integer.MAX_VALUE);
 }
 ```
+
+移除队列最多maxElements个元素，并把这些元素添加到指定集合c中
 
 ```java
 public int drainTo(Collection<? super E> c, int maxElements) {
@@ -669,9 +642,9 @@ public int drainTo(Collection<? super E> c, int maxElements) {
 }
 ```
 
-在任何元素没有完全上锁的情况下遍历。此种遍历必须处理一下两种情况：
+在任何元素没有完全上锁的情况下遍历。此种遍历必须处理以下两种情况：
  - 出队节点(p.next == p)
- - (可能多个)内部节点移除(p.item == null)
+ - (可能多个)内部已移除节点(p.item == null)
 
 ```java
 /**
@@ -697,16 +670,9 @@ public Iterator<E> iterator() {
 }
 ```
 
-弱一致性迭代器。懒更新祖先域提供预计O(1)的remove()，最差情况下为O(n)，不管何时保存的祖先节点已被并发删除。
+弱一致性迭代器。懒更新祖先域提供预计O(1)的remove()，最差情况下为O(n)，不管何时保存的祖先节点被并发删除。
 
 ```java
-/**
- * Weakly-consistent iterator.
- *
- * Lazily updated ancestor field provides expected O(1) remove(),
- * but still O(n) in the worst case, whenever the saved ancestor
- * is concurrently deleted.
- */
 private class Itr implements Iterator<E> {
     private Node<E> next;           // Node holding nextItem
     private E nextItem;             // next item to hand out
