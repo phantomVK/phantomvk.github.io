@@ -68,15 +68,20 @@ sidebar: true                           # whether or not using Sidebar.
 sidebar-about-description: "世界再无聊，总有可探索的境地"
 sidebar-avatar: /img/avatar.jpg      # use absolute URL, seeing it's used in both `/` and `/about/`
 
+
+
 # Pay QRcode
 sidebar-wechat-pay: /img/wechat.jpg
 sidebar-alipay-pay: /img/alipay.jpg
+
 
 
 # Pay Tags
 pay-tags: false
 pay-tags-wechat: false
 pay-tags-alipay: false
+
+
 
 # Featured Tags
 featured-tags: true                     # whether or not using Feature-Tags
@@ -97,3 +102,12 @@ friends: [
         href: ""
     }
 ]
+
+
+
+# compress
+compress_html:
+  clippings:      all
+  comments:       ["<!--", "-->"]
+  endings:        all
+  startings:      [html, head, body]
