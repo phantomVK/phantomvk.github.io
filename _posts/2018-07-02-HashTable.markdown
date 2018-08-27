@@ -62,7 +62,8 @@ public Hashtable(int initialCapacity, float loadFactor) {
     if (initialCapacity==0)
         initialCapacity = 1;
     this.loadFactor = loadFactor;
-    table = new Entry<?,?>[initialCapacity]; // 通过初始化容量构建哈希桶
+    // 通过初始化容量构建哈希桶
+    table = new Entry<?,?>[initialCapacity];
     threshold = (int)Math.min(initialCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
 }
 
@@ -76,9 +77,11 @@ public Hashtable() {
     this(11, 0.75f);
 }
 
-// 使用指定表构造Hashtable
+// 使用指定Map构造Hashtable
 public Hashtable(Map<? extends K, ? extends V> t) {
+    // 初始化哈希表
     this(Math.max(2*t.size(), 11), 0.75f);
+    // 向Hashtable存入Map
     putAll(t);
 }
 ```
@@ -93,7 +96,7 @@ public Hashtable(Map<? extends K, ? extends V> t) {
 public synchronized boolean containsKey(Object key) {
     Entry<?,?> tab[] = table;
     int hash = key.hashCode();
-    int index = (hash & 0x7FFFFFFF) % tab.length; // 计算键哈希值确定哈希桶索引
+    int index = (hash & 0x7FFFFFFF) % tab.length; // 选桶
 
     // 从哈希桶第一个元素开始查找
     for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
@@ -121,6 +124,7 @@ public synchronized boolean contains(Object value) {
     for (int i = tab.length ; i-- > 0 ;) {
         // 依次遍历哈希桶中的链
         for (Entry<?,?> e = tab[i] ; e != null ; e = e.next) {
+            // 依次检查Entry.value是否等于在查找的值
             if (e.value.equals(value)) {
                 return true; // 找到对应值
             }
@@ -167,6 +171,7 @@ public synchronized V getOrDefault(Object key, V defaultValue) {
 // 扩容并重哈希所有键值
 @SuppressWarnings("unchecked")
 protected void rehash() {
+    // 获取原表的元素数量
     int oldCapacity = table.length;
     Entry<?,?>[] oldMap = table;
 
@@ -182,8 +187,11 @@ protected void rehash() {
     // 构建新哈希桶数组
     Entry<?,?>[] newMap = new Entry<?,?>[newCapacity];
 
-    modCount++; // 修改次数递增
+    // 修改次数递增
+    modCount++;
+    // 计算扩容阈值
     threshold = (int)Math.min(newCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
+    // 赋值新哈希表
     table = newMap;
     
     // 哈希桶总数
@@ -236,16 +244,19 @@ public synchronized V put(K key, V value) {
     Entry<K,V> entry = (Entry<K,V>)tab[index]; // 获取哈希桶
     for(; entry != null ; entry = entry.next) {
         if ((entry.hash == hash) && entry.key.equals(key)) {
-            // 如果已存在相同key的Enty，则替换该Entry的value
+            // 临时保存旧值
             V old = entry.value;
+            // 新值替换该Entry的旧值
             entry.value = value;
-            return old; // 返回旧的value
+            // 返回旧的value
+            return old;
         }
     }
     
     // 不存在该Entry，创建新Entry
     addEntry(hash, key, value, index);
-    return null; // 创建新的Entry就返回null作为value
+    // 创建新Entry就返回null作为value
+    return null;
 }
 
 // 递归调用put()
@@ -344,6 +355,7 @@ public synchronized void clear() {
     for (int index = tab.length; --index >= 0; )
         tab[index] = null;
     modCount++;
+    // 保存元素总数置0
     count = 0;
 }
 ```
@@ -357,9 +369,9 @@ public synchronized boolean equals(Object o) {
 
     if (!(o instanceof Map))
         return false; // 对象o没有继承Map，返回false
-        
-    // 表中保存元素数量不同，不是同一个表
+
     Map<?,?> t = (Map<?,?>) o;
+    // 表中保存元素数量不同，不是同一个表
     if (t.size() != size())
         return false;
 
@@ -395,7 +407,7 @@ public synchronized int hashCode() {
     Entry<?,?>[] tab = table;
     for (Entry<?,?> entry : tab) {
         while (entry != null) {
-            h += entry.hashCode(); // 计算Entry实例的哈希值
+            h += entry.hashCode(); // 累加Entry实例的哈希值
             entry = entry.next;
         }
     }
@@ -411,6 +423,7 @@ public synchronized int hashCode() {
 ```java
 @Override
 public synchronized boolean replace(K key, V oldValue, V newValue) {
+    // oldValue和newValue均不能为空
     Objects.requireNonNull(oldValue);
     Objects.requireNonNull(newValue);
 
@@ -473,7 +486,8 @@ private static class Entry<K,V> implements Map.Entry<K,V> {
         this.value = value;
         this.next = next;
     }
-
+    
+    // 深克隆
     @SuppressWarnings("unchecked")
     protected Object clone() {
         return new Entry<>(hash, key, value,

@@ -22,10 +22,13 @@ public class HandlerThread extends Thread
 ```java
 // 线程优先级
 int mPriority;
+
 // 线程id
 int mTid = -1;
+
 // 线程Looper
 Looper mLooper;
+
 // 通过上述Looper构建的Handler
 private @Nullable Handler mHandler;
 ```
