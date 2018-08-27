@@ -27,7 +27,9 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 - 默认队列最大长度为Integer.MAX_VALUE，新节点动态创建，已保存节点不会超过此值；
 - 此类和其迭代器均实现了`Collection`和`Iterator`接口的可选方法；
 
-这是`two lock queue`算法的变体。putLock守卫元素的put、offer操作，且与等待存入的条件关联。takeLock原理类似。putLock和takeLock都依赖的`count`变量，被维护为一个原子变量，yi以避免多数情况下需同时请求两个锁。为了最小化put时需获取takeLock，使用了层叠式通知。当put操作注意到至少一个take可以启动，就会通知获取者。如果有多个item在信号后进队，获取者将依次通知其他获取者。因此，有对称的取操作通知存操作。有些操作如remove和iterators会同时请求两个锁。
+这是`two lock queue`算法的变体。putLock守卫元素的put、offer操作，且与等待存入的条件关联。takeLock原理类似。putLock和takeLock都依赖的`count`变量，被维护为一个原子变量，以避免多数情况下需同时请求两个锁。
+
+为了最小化put时需获取takeLock，使用了层叠式通知。当put操作注意到至少一个take可以启动，就会通知获取者。如果有多个item在信号后进队，获取者将依次通知其他获取者。因此，有对称的取操作通知存操作。有些操作如remove和iterators会同时请求两个锁。
 
 读取者和写入者间可见性如下提供：
 
@@ -140,7 +142,7 @@ private void signalNotFull() {
 
 ## 六、进队出队
 
-把节点插入到链表尾
+元素队尾进队
 
 ```java
 private void enqueue(Node<E> node) {
@@ -262,6 +264,7 @@ public int remainingCapacity() {
 
 ```java
 public void put(E e) throws InterruptedException {
+    // 存入元素不能为空
     if (e == null) throw new NullPointerException();
     // Note: convention in all put/take/etc is to preset local var
     // holding count negative to indicate failure unless set.
@@ -272,6 +275,7 @@ public void put(E e) throws InterruptedException {
     // 此锁可以被中断
     putLock.lockInterruptibly();
     try {
+        // 队列已满则原地等待直到队列出现空余
         while (count.get() == capacity) {
             notFull.await();
         }
@@ -302,18 +306,27 @@ public boolean offer(E e, long timeout, TimeUnit unit)
     // 根据超时值和时间单位转换为纳秒时长
     long nanos = unit.toNanos(timeout);
     int c = -1;
+    // 获取putLock
     final ReentrantLock putLock = this.putLock;
+    // 获取已有元素总数
     final AtomicInteger count = this.count;
+    // 锁putLock设置为可中断
     putLock.lockInterruptibly();
     try {
+        // 队列已满则原地等待直到队列出现空余
         while (count.get() == capacity) {
             if (nanos <= 0L)
+                // 到达超时时间，退出方法并返回false
                 return false;
-            nanos = notFull.awaitNanos(nanos); // 时间倒计时
+            // 时间倒计时
+            nanos = notFull.awaitNanos(nanos);
         }
+        // 元素进入队列
         enqueue(new Node<E>(e));
+        // 队列元素总数递增
         c = count.getAndIncrement();
         if (c + 1 < capacity)
+            // 唤醒其他写入线程
             notFull.signal();
     } finally {
         putLock.unlock();
@@ -328,22 +341,32 @@ public boolean offer(E e, long timeout, TimeUnit unit)
 
 ```java
 public boolean offer(E e) {
+    // 存入元素不能为null
     if (e == null) throw new NullPointerException();
+    // 获取队列元素总数
     final AtomicInteger count = this.count;
+    // 队列已满，退出
     if (count.get() == capacity)
         return false;
     int c = -1;
+    // 创建新节点
     Node<E> node = new Node<E>(e);
     final ReentrantLock putLock = this.putLock;
+    // 获取不可中断锁
     putLock.lock();
     try {
+        // 还有剩余空间
         if (count.get() < capacity) {
+            // 向队列存入元素
             enqueue(node);
+            // 队列保存元素总数递增
             c = count.getAndIncrement();
+            // 队列没满，通知其他线程写入
             if (c + 1 < capacity)
                 notFull.signal();
         }
     } finally {
+        // 解锁
         putLock.unlock();
     }
     if (c == 0)
@@ -358,18 +381,26 @@ public boolean offer(E e) {
 public E take() throws InterruptedException {
     E x;
     int c = -1;
+    // 获取队列元素总数
     final AtomicInteger count = this.count;
+    // 获取takeLock
     final ReentrantLock takeLock = this.takeLock;
+    // 上锁，设置为可中断
     takeLock.lockInterruptibly();
     try {
+        // 如果队列为空，则等待其他线程通知
         while (count.get() == 0) {
             notEmpty.await();
         }
+        // 队列有可用元素，队头元素出列
         x = dequeue();
+        // 队列元素总数递减
         c = count.getAndDecrement();
+        // 如果队列还有元素，通知其他线程取数据
         if (c > 1)
             notEmpty.signal();
     } finally {
+        // 解锁
         takeLock.unlock();
     }
     if (c == capacity)
@@ -384,21 +415,31 @@ public E take() throws InterruptedException {
 public E poll(long timeout, TimeUnit unit) throws InterruptedException {
     E x = null;
     int c = -1;
+    // 转换超时时间为纳秒
     long nanos = unit.toNanos(timeout);
+    // 获取队列元素总数
     final AtomicInteger count = this.count;
     final ReentrantLock takeLock = this.takeLock;
+    // 上锁takeLock，设置为可中断
     takeLock.lockInterruptibly();
     try {
+        // 当队列为空，在超时时间内等待
         while (count.get() == 0) {
             if (nanos <= 0L)
+                // 到达超时时间，返回null
                 return null;
+            // 超时时间倒数
             nanos = notEmpty.awaitNanos(nanos);
         }
+        // 队头元素出列
         x = dequeue();
+        // 队列元素总数递减
         c = count.getAndDecrement();
+        // 队列还有可用元素，通知其他线程获取数据
         if (c > 1)
             notEmpty.signal();
     } finally {
+        // 解锁
         takeLock.unlock();
     }
     if (c == capacity)
@@ -427,10 +468,12 @@ public E poll() {
             x = dequeue();
             // 队列元素数量递减
             c = count.getAndDecrement();
+            // 队列还有可用元素，通知其他线程获取数据
             if (c > 1)
                 notEmpty.signal();
         }
     } finally {
+        // 解锁
         takeLock.unlock();
     }
     if (c == capacity)
@@ -452,6 +495,7 @@ public E peek() {
         // 返回对头元素的内容，否则返回null
         return (count.get() > 0) ? head.next.item : null;
     } finally {
+        // 解锁
         takeLock.unlock();
     }
 }
@@ -544,25 +588,29 @@ public Object[] toArray() {
 }
 ```
 
-返回一个数组，此数组包含队列的所有元素，且数组元素的顺序和队列的元素的顺序一致。如果传入数组空间足够，返回的数组就是传入的数组(运行时类型也一致)。否则方法内存创建类型相同新数组，数组长度和被队列长度相等。
-
-如果传入的数组保存队列所有元素后还有空余，这些空余会被置null。
+返回包含队列所有元素的数组，数组元素顺序和队列元素顺序一致。如果传入数组空间足够，返回的数组就是传入的数组(运行时类型也一致)。否则方法内部创建类型相同新数组，数组长度和队列元素数量相等。如果传入的数组保存队列所有元素后还有空余，这个空余会被置null。
 
 ```java
 @SuppressWarnings("unchecked")
 public <T> T[] toArray(T[] a) {
     fullyLock();
     try {
+        // 获取队列元素总数
         int size = count.get();
+        // 队列元素总数超过传入数组的长度
         if (a.length < size)
+            // 创建新的数组，长度为队列元素总数
             a = (T[])java.lang.reflect.Array.newInstance
                 (a.getClass().getComponentType(), size);
 
         int k = 0;
+        // 依次把队列的元素存入数组中
         for (Node<E> p = head.next; p != null; p = p.next)
             a[k++] = (T)p.item;
+        // 如果数组还有空余空间，则该位置设为null
         if (a.length > k)
             a[k] = null;
+        // 返回数组
         return a;
     } finally {
         fullyUnlock();
@@ -604,25 +652,34 @@ public int drainTo(Collection<? super E> c) {
 ```java
 public int drainTo(Collection<? super E> c, int maxElements) {
     Objects.requireNonNull(c);
+    // 不能把本队列的元素添加到自己队列上
     if (c == this)
         throw new IllegalArgumentException();
+    // maxElements须为正数
     if (maxElements <= 0)
         return 0;
     boolean signalNotFull = false;
     final ReentrantLock takeLock = this.takeLock;
+    // takeLock上锁
     takeLock.lock();
     try {
+        // 计算需要转移多少个队列元素
         int n = Math.min(maxElements, count.get());
         // count.get provides visibility to first n Nodes
         Node<E> h = head;
         int i = 0;
         try {
             while (i < n) {
+                // 从列表取节点
                 Node<E> p = h.next;
+                // 节点数据添加到数组中
                 c.add(p.item);
+                // 置空节点的数据
                 p.item = null;
+                // 引用移动到下一个节点
                 h.next = h;
                 h = p;
+                // 转移节点数递增
                 ++i;
             }
             return n;
@@ -630,6 +687,7 @@ public int drainTo(Collection<? super E> c, int maxElements) {
             // Restore invariants even if c.add() threw
             if (i > 0) {
                 // assert h.item == null;
+                // 已经转移了i个元素，队列的头引用需要向后移动i个位置
                 head = h;
                 signalNotFull = (count.getAndAdd(-i) == capacity);
             }
@@ -647,12 +705,6 @@ public int drainTo(Collection<? super E> c, int maxElements) {
  - (可能多个)内部已移除节点(p.item == null)
 
 ```java
-/**
- * Used for any element traversal that is not entirely under lock.
- * Such traversals must handle both:
- * - dequeued nodes (p.next == p)
- * - (possibly multiple) interior removed nodes (p.item == null)
- */
 Node<E> succ(Node<E> p) {
     if (p == (p = p.next))
         p = head.next;
