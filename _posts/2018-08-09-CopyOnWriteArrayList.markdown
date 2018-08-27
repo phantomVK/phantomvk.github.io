@@ -11,16 +11,16 @@ tags:
 
 ## 一、类签名
 
-ArrayList在多线程操作下是不安全的，为此应使用CopyOnWriteArrayList。通过CopyOnWrite(简称COW，写时复制)策略，所有读取共享同一个数组对象，修改时才拷贝出一份新数组，操作在新数组上完成后再用此新数组替换旧数组。
+ArrayList在多线程操作下是不安全的，为此应使用CopyOnWriteArrayList。通过CopyOnWrite(简称COW，写时复制)策略，所有读取共享同一个数组对象，修改时另拷贝出新数组，操作在新数组上完成后再用此新数组替换旧数组。
 
 ```java
 public class CopyOnWriteArrayList<E>
     implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 
-由于修改时方法会自行拷贝得到新数组，所以在这段时间内存同时存在原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象将增加垃圾回收的负担。
+由于修改时方法会自行拷贝得到新数组，所以在这段时间，内存中同时存在原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象将增加垃圾回收负担。
 
-由此，可推理出此类适合在读多写少的场景下使用。通过读写分离，修改操作异常费时不会阻塞读取，读取的数组数据未必是最新的。还有修改操作是线程安全的，每次最多只有一个线程在进行修改，以此保证数据最终一致性。
+由此，可推理出此类适合在读多写少的场景下使用。通过读写分离，即使修改操作费时也不会阻塞读取，而读取的数组数据未必是最新的。还有修改操作是线程安全的，每次最多只有一个线程在进行修改，以此保证数据最终一致性。
 
 此次源码来自JDK10，和之前版本有一定差别。
 
@@ -128,6 +128,7 @@ public void add(int index, E element) {
         Object[] newElements;
         // 有多少个元素需要后移
         int numMoved = len - index;
+        // numMoved为0表示新元素插入到最后一个索引
         if (numMoved == 0)
             // 创建新数组，同时存入原有元素
             newElements = Arrays.copyOf(elements, len + 1);

@@ -28,7 +28,7 @@ private final CopyOnWriteArrayList<E> al;
 
 ## 三、构造方法
 
-初始化空列表
+初始化空列表。
 
 ```java
 public CopyOnWriteArraySet() {
@@ -36,7 +36,7 @@ public CopyOnWriteArraySet() {
 }
 ```
 
-通过指定集合初始化，集合c为空则抛出`NullPointerException`
+通过指定集合初始化，集合c为空则抛出`NullPointerException`。
 
 ```java
 public CopyOnWriteArraySet(Collection<? extends E> c) {
@@ -60,7 +60,7 @@ public CopyOnWriteArraySet(Collection<? extends E> c) {
 
 ### 4.1 增加
 
-添加指定元素，如果元素已存在，则该元素不会添加
+添加指定元素，如果元素已存在，则该元素不会添加。
 
 ```java
 public boolean add(E e) {
@@ -68,7 +68,7 @@ public boolean add(E e) {
 }
 ```
 
-把集合c中所有元素添加到CopyOnWriteArraySet实例中
+把集合c中所有元素添加到CopyOnWriteArraySet实例中。
 
 ```java
 public boolean addAll(Collection<? extends E> c) {
@@ -78,7 +78,7 @@ public boolean addAll(Collection<? extends E> c) {
 
 ### 4.2 删除
 
-清空CopyOnWriteArraySet中所有元素，其实就是清空成员变量`CopyOnWriteArrayList al`
+清空CopyOnWriteArraySet中所有元素，其实就是清空成员变量`CopyOnWriteArrayList al`。
 
 ```java
 public void clear() {
@@ -86,7 +86,7 @@ public void clear() {
 }
 ```
 
-移除指定元素
+移除指定元素。
 
 ```java
 public boolean remove(Object o) {
@@ -94,7 +94,7 @@ public boolean remove(Object o) {
 }
 ```
 
-移除Set与集合c共有的元素
+移除Set与集合c共有的元素。
 
 ```java
 public boolean removeAll(Collection<?> c) {
@@ -104,7 +104,7 @@ public boolean removeAll(Collection<?> c) {
 
 ### 4.3 查询
 
-检查是否包含指定对象
+检查是否包含指定对象。
 
 ```java
 public boolean contains(Object o) {
@@ -112,7 +112,7 @@ public boolean contains(Object o) {
 }
 ```
 
-检查Set是否全包含集合c的全部元素
+检查Set是否全包含集合c的全部元素。
 
 ```java
 public boolean containsAll(Collection<?> c) {
@@ -122,7 +122,7 @@ public boolean containsAll(Collection<?> c) {
 }
 ```
 
-检查集合是否为空
+检查集合是否为空。
 
 ```java
 public boolean isEmpty() {
@@ -132,7 +132,7 @@ public boolean isEmpty() {
 
 ### 4.4 修改
 
-仅保留Set与集合c共有的元素
+仅保留Set与集合c共有的元素。
 
 ```java
 public boolean retainAll(Collection<?> c) {
@@ -142,7 +142,7 @@ public boolean retainAll(Collection<?> c) {
 
 ### 4.5 其他
 
-返回集合已保存元素的数量
+返回集合已保存元素的数量。
 
 ```java
 public int size() {
@@ -150,7 +150,7 @@ public int size() {
 }
 ```
 
-返回一个数组作为结果，修改数组没有副作用
+返回一个数组作为结果，修改数组没有副作用。
 
 ```java
 public Object[] toArray() {
@@ -164,8 +164,8 @@ public <T> T[] toArray(T[] a) {
 检查snapshot是否为set的超集:
 
 - -1: snapshot不是set的超集;
-- 0: snapshot和set包含的元素完全相同;
-- 1: snapshot是set的超集，即所有set的元素snapshot都包含;
+- +0: snapshot和set包含的元素完全相同;
+- +1: snapshot是set的超集，即所有set的元素snapshot都包含;
 
 ```java
 private static int compareSets(Object[] snapshot, Set<?> set) {
@@ -196,7 +196,7 @@ private static int compareSets(Object[] snapshot, Set<?> set) {
 }
 ```
 
-返回迭代器，遍历的集合是一份快照，且不支持remove()操作
+返回迭代器，遍历的集合是一份快照，且不支持remove()操作。
 
 ```java
 public Iterator<E> iterator() {
@@ -204,7 +204,7 @@ public Iterator<E> iterator() {
 }
 ```
 
-检查对象o和指定实例是否为同一个对象，或其中包含的元素是否完全相同
+检查对象o和指定实例是否为同一个对象，或其中包含的元素是否完全相同。
 
 ```java
 public boolean equals(Object o) {

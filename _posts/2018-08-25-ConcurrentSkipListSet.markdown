@@ -10,7 +10,7 @@ tags:
 ---
 ## 一、类签名
 
-ConcurrentSkipListSet是一个基于ConcurrentSkipListMap的，可扩展的并发(NavigableSet)实现。所有元素根据其可比较的自然排序，或构造时提供的Comparator决定排列顺序，具体由所使用的构造方法决定。
+ConcurrentSkipListSet是一个基于ConcurrentSkipListMap的可伸缩并发(NavigableSet)实现。所有元素根据其可比较的自然次序，或构造时提供的Comparator决定排列顺序，具体由所使用的构造方法决定。
 
 ```java
 public class ConcurrentSkipListSet<E>
@@ -18,21 +18,21 @@ public class ConcurrentSkipListSet<E>
     implements NavigableSet<E>, Cloneable, java.io.Serializable
 ```
 
-此实现在contains、add、remove类似操作上预计平均时间开销为`log(n)`。插入、移除、访问操作在多线程下操作都是线程安全的(注：保证最终一致性)。
+此实现在contains、add、remove等操作上预计平均时间开销为`log(n)`。插入、移除、访问操作在多线程下操作都是线程安全的(注：保证最终一致性)。
 
 递增排序视图和其迭代器都比递减方式的速度要快。
 
-需要注意的是，不像大多数集合，size操作并不是一个常数时间的操作。由于集合的异步特性，当前元素的数量由需元素的遍历决定。所以，在遍历过程中集合的元素也在改变，会返回一个不准确的元素数量值。
+需要注意的是，不像大多数集合，size()并不是一个常数时间操作。由于集合的异步特性，当前数量需遍历元素后确定。若遍历过程中集合元素在改变，会返回一个不准确的元素数量值。
 
 批量操作如添加、移除、检查多个元素，譬如addAll、removeIf、forEach等都不保证其原子性。就像forEach遍历和另一个线程的addAll并发执行，可能会导致只有一部分新元素能被forEach察觉。
 
-此类和其迭代器实现了Set和Iterator接口的可选方法。像其他多数并发集合实现，此类不允许使用为null的元素。因为数据值null和返回值，不能与缺失元素的null做出区分。（备注：即返回值获取null，表明元素不存在，而不表示元素的值为null）
+本类和其迭代器实现了Set和Iterator接口的可选方法。像其他多数并发集合实现，此类不允许使用为null的元素。因为数据值null和返回值，不能与缺失元素的null做出区分。（备注：返回值为null表示元素不存在，而不表示元素的值为null）
 
 源码基于JDK10。
 
 ## 二、数据成员
 
-ConcurrentSkipListSet基于ConcurrentNavigableMap实现集合去重的特性。由于ConcurrentNavigableMap是<K, V>的，所以使用Boolean.TRUE作为元素的值，表示已存入的元素已存在。此变量被修饰为final是为了线程安全，但同时也导致clone()方法实现的一点丑陋。
+ConcurrentSkipListSet基于ConcurrentNavigableMap实现集合去重特性。由于ConcurrentNavigableMap是<K, V>的，所以使用Boolean.TRUE表示该元素已存在。此变量被修饰为final是为了线程安全，但同时也导致clone()方法实现的一点丑陋。
 
 ```java
 private final ConcurrentNavigableMap<E,Object> m;
@@ -40,7 +40,7 @@ private final ConcurrentNavigableMap<E,Object> m;
 
 ## 三、构造方法
 
-构造一个全新的空集合，元素顺序由其可比较自然次序决定
+构造全新空集合，元素顺序由其可比较的自然次序决定。
 
 ```java
 public ConcurrentSkipListSet() {
@@ -48,7 +48,7 @@ public ConcurrentSkipListSet() {
 }
 ```
 
-构造一个全新的空集合，元素顺序由其传入的比较器决定。若比较器为空，则默认使用可比较自然次序。
+构造全新空集合，元素顺序由其传入的比较器决定。若比较器为空，则默认使用可比较的自然次序。
 
 ```java
 public ConcurrentSkipListSet(Comparator<? super E> comparator) {
@@ -56,7 +56,7 @@ public ConcurrentSkipListSet(Comparator<? super E> comparator) {
 }
 ```
 
-指定数据集构造一个新集合，元素顺序由其可比较自然次序决定。
+指定数据集构造新集合，元素顺序由其可比较自然次序决定。
 
 ```java
 public ConcurrentSkipListSet(Collection<? extends E> c) {
@@ -65,7 +65,7 @@ public ConcurrentSkipListSet(Collection<? extends E> c) {
 }
 ```
 
-构造一个全新的集合，元素顺序由SortedSet里的comparator决定。存入元素的顺序和SortedSet元素的顺序一致。
+构造一个全新的集合，元素顺序由SortedSet的comparator决定。存入元素顺序和SortedSet元素顺序一致。
 
 ```java
 public ConcurrentSkipListSet(SortedSet<E> s) {
@@ -74,7 +74,7 @@ public ConcurrentSkipListSet(SortedSet<E> s) {
 }
 ```
 
-此构造方法由submaps使用
+此构造方法由submaps使用。
 
 ```java
 ConcurrentSkipListSet(ConcurrentNavigableMap<E,Object> m) {
@@ -86,9 +86,7 @@ ConcurrentSkipListSet(ConcurrentNavigableMap<E,Object> m) {
 
 返回集合元素数量，如果集合元素数量超过Integer.MAX_VALUE，则返回Integer.MAX_VALUE。
 
-需要注意的是，不像其他多数集合的实现，此方法不是常数时间的操作。因其异步特性，统计元素数量需要遍历集合的所有元素。而且，集合元素实际数量有可能在遍历的过程中发生变化，这会导致最终返回值不准确。因此，此方法在并发应用中的实用性并不高。
-
-由于每次获取总数需要遍历所有元素，所以即使在多线程操作下，也应尽量减少调用此方法。
+需要注意的是，不像其他多数集合的实现，此方法不是常数时间的操作。因其异步特性，统计元素数量需要遍历集合所有元素。而且，集合元素实际数量有可能在遍历过程中发生变化，这会导致最终返回值不准确。因此，此方法在并发应用中的实用性并不高。由于每次获取总数需要遍历所有元素，即使在多线程操作下，也应尽量减少调用此方法。
 
 ```java
 public int size() {
@@ -96,7 +94,7 @@ public int size() {
 }
 ```
 
-检查集合是否包含指定元素
+检查集合是否为空。
 
 ```java
 public boolean isEmpty() {
@@ -104,7 +102,7 @@ public boolean isEmpty() {
 }
 ```
 
-检查指定元素是否已包含在集合中。元素o为空抛出NullPointerException；从集合用key获取的元素类型转换失败抛出ClassCastException。
+检查指定元素是否已包含在集合中，元素o为空抛出NullPointerException。从集合获取的元素类型转换失败抛出ClassCastException。
 
 ```java
 public boolean contains(Object o) {
@@ -112,7 +110,7 @@ public boolean contains(Object o) {
 }
 ```
 
-把指定元素添加到集合中。元素不存在于集合，在添加成功返回true。如果元素已经存在于集合中，原集合将保持不变且返回false
+把指定元素添加到集合中。元素不存在于集合，在添加成功返回true。如果元素已经存在于原集合，原集合将保持不变且返回false。
 
 ```java
 public boolean add(E e) {
@@ -120,7 +118,7 @@ public boolean add(E e) {
 }
 ```
 
-在指定元素存在于本集合的时候，移除集合匹配元素。移除成功返回true，否则返回false
+在指定元素存在于本集合的时候，移除集合匹配元素。移除成功返回true，否则返回false。
 
 ```java
 public boolean remove(Object o) {
@@ -128,7 +126,7 @@ public boolean remove(Object o) {
 }
 ```
 
-清空集合所有元素
+清空集合所有元素。
 
 ```java
 public void clear() {
@@ -136,7 +134,7 @@ public void clear() {
 }
 ```
 
-返回基于此集合元素的升序迭代器
+返回基于此集合元素的升序迭代器。
 
 ```java
 public Iterator<E> iterator() {
@@ -144,7 +142,7 @@ public Iterator<E> iterator() {
 }
 ```
 
-返回基于此集合元素的降序迭代器
+返回基于此集合元素的降序迭代器。
 
 ```java
 public Iterator<E> descendingIterator() {
@@ -154,7 +152,7 @@ public Iterator<E> descendingIterator() {
 
 ## 五、AbstractSet重载
 
-检查两个集合的元素是否完全一致。重写此方法，避免父类实现调用此类的size()方法。上文已经提到，size()方法在并发的场景下返回的数值不一定准确。
+检查两个集合元素是否完全一致。重写此方法，避免父类实现调用此类的size()方法。上文已经提到，size()方法在并发的场景下返回的数值不一定准确。
 
 ```java
 public boolean equals(Object o) {
@@ -176,7 +174,7 @@ public boolean equals(Object o) {
 }
 ```
 
-移除集合c中包含的元素。重写此方法，避免父类实现调用此类的size()方法。上文已经提到，size()方法在并发的场景下返回的数值不一定准确。
+移除所有集合c存在于原集合的元素。重写此方法，避免父类实现调用此类的size()方法。上文已经提到，size()方法在并发的场景下返回的数值不一定准确。
 ```java
 public boolean removeAll(Collection<?> c) {
     boolean modified = false;
@@ -223,12 +221,11 @@ public E pollLast() {
     Map.Entry<E,Object> e = m.pollLastEntry();
     return (e == null) ? null : e.getKey();
 }
-
 ```
 
 ## 七、SortedSet操作
 
-返回集合拥有的比较器
+返回集合的比较器。
 
 ```java
 public Comparator<? super E> comparator() {
@@ -236,7 +233,7 @@ public Comparator<? super E> comparator() {
 }
 ```
 
-没有此元素抛出NoSuchElementException
+没有此元素抛出NoSuchElementException。
 
 ```java
 public E first() {
@@ -244,7 +241,7 @@ public E first() {
 }
 ```
 
-没有此元素抛出NoSuchElementException
+没有此元素抛出NoSuchElementException。
 
 ```java
 public E last() {
@@ -253,8 +250,7 @@ public E last() {
 ```
 
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement或toElement为null抛出NullPointerException。
-参数错误抛出IllegalArgumentException；
+从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement或toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> subSet(E fromElement,
@@ -267,7 +263,7 @@ public NavigableSet<E> subSet(E fromElement,
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException；
+从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> headSet(E toElement, boolean inclusive) {
@@ -275,7 +271,7 @@ public NavigableSet<E> headSet(E toElement, boolean inclusive) {
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException
+从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
@@ -283,7 +279,7 @@ public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement或toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException
+从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement或toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> subSet(E fromElement, E toElement) {
@@ -291,7 +287,7 @@ public NavigableSet<E> subSet(E fromElement, E toElement) {
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException
+从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> headSet(E toElement) {
@@ -299,7 +295,7 @@ public NavigableSet<E> headSet(E toElement) {
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException
+从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> tailSet(E fromElement) {
@@ -307,7 +303,7 @@ public NavigableSet<E> tailSet(E fromElement) {
 }
 ```
 
-返回倒序排列的集合。由于新ConcurrentSkipListSet数据是基于原ConcurrentSkipListSet实例的。修改新ConcurrentSkipListSet会影响原ConcurrentSkipListSet的数据，反之亦然
+返回倒序排列的集合。由于新ConcurrentSkipListSet数据基于原ConcurrentSkipListSet实例。修改新ConcurrentSkipListSet会影响原ConcurrentSkipListSet的数据，反之亦然。
 
 ```java
 public NavigableSet<E> descendingSet() {
@@ -327,7 +323,7 @@ public Spliterator<E> spliterator() {
 
 ## 八、克隆
 
-返回ConcurrentSkipListSet实例中元素的浅拷贝
+返回ConcurrentSkipListSet实例中元素的浅拷贝。
 
 ```java
 public ConcurrentSkipListSet<E> clone() {
@@ -343,7 +339,7 @@ public ConcurrentSkipListSet<E> clone() {
 }
 ```
 
-clone()方法专用
+clone()方法专用。
 
 ```java
 private void setMap(ConcurrentNavigableMap<E,Object> map) {
