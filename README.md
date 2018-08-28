@@ -141,6 +141,24 @@ RSS: false
 {% endif %}
 {% endif %}
 ```
+### 七、HTML压缩
+默认开启压缩，关闭压缩请按照以下步骤进行
+ 1. 移除_layouts/default.html中以下代码:
+```
+---
+layout: compress
+---
+```
+
+ 2. 注释_config.yml中以下代码：
+```
+# compress
+compress_html:
+  clippings:      all
+  comments:       ["<!--", "-->"]
+  endings:        all
+  startings:      [html, head, body]
+```
 
 # License
 
