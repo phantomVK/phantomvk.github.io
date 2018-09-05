@@ -174,14 +174,14 @@
             $(selector).append(l);
         });
         return true;    
-    }
+    };
 
     generateCatalog(".catalog-body");
 
     $(".catalog-toggle").click((function(e){
         e.preventDefault();
-        $('.side-catalog').toggleClass("fold")
-    }))
+        $('.side-catalog').toggleClass("fold");
+    }));
 
     async("{{ '/js/jquery.nav.js' | prepend: site.baseurl }}", function () {
         $('.catalog-body').onePageNav({
