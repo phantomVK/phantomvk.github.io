@@ -77,22 +77,12 @@ editor.apply();
  * @see Context#getSharedPreferences
  */
 public interface SharedPreferences {
-    /**
-     * Interface definition for a callback to be invoked when a shared
-     * preference is changed.
-     */
+
+    // 当SharedPreference发生变化时回调的监听器
     public interface OnSharedPreferenceChangeListener {
-        /**
-         * Called when a shared preference is changed, added, or removed. This
-         * may be called even if a preference is set to its existing value.
-         *
-         * <p>This callback will be run on your main thread.
-         *
-         * @param sharedPreferences The {@link SharedPreferences} that received
-         *            the change.
-         * @param key The key of the preference that was changed, added, or
-         *            removed.
-         */
+        // 当SharedPreference发生修改、新增、移除时回调的方法，key为此时变化的键，方法回调在主线程
+        // @param sharedPreferences 发生变化的SharedPreferences
+        // @param key               值发生修改、新增、移除的键
         void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key);
     }
     
@@ -130,52 +120,16 @@ public interface SharedPreferences {
          */
         Editor putStringSet(String key, @Nullable Set<String> values);
         
-        /**
-         * Set an int value in the preferences editor, to be written back once
-         * {@link #commit} or {@link #apply} are called.
-         * 
-         * @param key The name of the preference to modify.
-         * @param value The new value for the preference.
-         * 
-         * @return Returns a reference to the same Editor object, so you can
-         * chain put calls together.
-         */
+        // 向编辑器设置一个int类型的键值对，并在commit或apply方法调用时进行回写
         Editor putInt(String key, int value);
         
-        /**
-         * Set a long value in the preferences editor, to be written back once
-         * {@link #commit} or {@link #apply} are called.
-         * 
-         * @param key The name of the preference to modify.
-         * @param value The new value for the preference.
-         * 
-         * @return Returns a reference to the same Editor object, so you can
-         * chain put calls together.
-         */
+        // 向编辑器设置一个long类型的键值对，并在commit或apply方法调用时进行回写
         Editor putLong(String key, long value);
         
-        /**
-         * Set a float value in the preferences editor, to be written back once
-         * {@link #commit} or {@link #apply} are called.
-         * 
-         * @param key The name of the preference to modify.
-         * @param value The new value for the preference.
-         * 
-         * @return Returns a reference to the same Editor object, so you can
-         * chain put calls together.
-         */
+        // 向编辑器设置一个float类型的键值对，并在commit或apply方法调用时进行回写
         Editor putFloat(String key, float value);
         
-        /**
-         * Set a boolean value in the preferences editor, to be written back
-         * once {@link #commit} or {@link #apply} are called.
-         * 
-         * @param key The name of the preference to modify.
-         * @param value The new value for the preference.
-         * 
-         * @return Returns a reference to the same Editor object, so you can
-         * chain put calls together.
-         */
+        // 向编辑器设置一个boolean类型的键值对，并在commit或apply方法调用时进行回写
         Editor putBoolean(String key, boolean value);
 
         /**
@@ -279,18 +233,8 @@ public interface SharedPreferences {
      */
     Map<String, ?> getAll();
 
-    /**
-     * Retrieve a String value from the preferences.
-     * 
-     * @param key The name of the preference to retrieve.
-     * @param defValue Value to return if this preference does not exist.
-     * 
-     * @return Returns the preference value if it exists, or defValue.  Throws
-     * ClassCastException if there is a preference with this name that is not
-     * a String.
-     * 
-     * @throws ClassCastException
-     */
+    // 获取key对应的String，若key不存在则返回defValue
+    // 如果key存在但不是String类型，则直接抛出ClassCastException
     @Nullable
     String getString(String key, @Nullable String defValue);
     
@@ -313,69 +257,23 @@ public interface SharedPreferences {
     @Nullable
     Set<String> getStringSet(String key, @Nullable Set<String> defValues);
     
-    /**
-     * Retrieve an int value from the preferences.
-     * 
-     * @param key The name of the preference to retrieve.
-     * @param defValue Value to return if this preference does not exist.
-     * 
-     * @return Returns the preference value if it exists, or defValue.  Throws
-     * ClassCastException if there is a preference with this name that is not
-     * an int.
-     * 
-     * @throws ClassCastException
-     */
+    // 获取key对应的int，若key不存在则返回defValue
+    // 如果key存在但不是int类型，则直接抛出ClassCastException
     int getInt(String key, int defValue);
     
-    /**
-     * Retrieve a long value from the preferences.
-     * 
-     * @param key The name of the preference to retrieve.
-     * @param defValue Value to return if this preference does not exist.
-     * 
-     * @return Returns the preference value if it exists, or defValue.  Throws
-     * ClassCastException if there is a preference with this name that is not
-     * a long.
-     * 
-     * @throws ClassCastException
-     */
+    // 获取key对应的long，若key不存在则返回defValue
+    // 如果key存在但不是long类型，则直接抛出ClassCastException
     long getLong(String key, long defValue);
     
-    /**
-     * Retrieve a float value from the preferences.
-     * 
-     * @param key The name of the preference to retrieve.
-     * @param defValue Value to return if this preference does not exist.
-     * 
-     * @return Returns the preference value if it exists, or defValue.  Throws
-     * ClassCastException if there is a preference with this name that is not
-     * a float.
-     * 
-     * @throws ClassCastException
-     */
+    // 获取key对应的float，若key不存在则返回defValue
+    // 如果key存在但不是float类型，则直接抛出ClassCastException
     float getFloat(String key, float defValue);
-    
-    /**
-     * Retrieve a boolean value from the preferences.
-     * 
-     * @param key The name of the preference to retrieve.
-     * @param defValue Value to return if this preference does not exist.
-     * 
-     * @return Returns the preference value if it exists, or defValue.  Throws
-     * ClassCastException if there is a preference with this name that is not
-     * a boolean.
-     * 
-     * @throws ClassCastException
-     */
+
+    // 获取key对应的boolean，若key不存在则返回defValue
+    // 如果key存在但不是boolean类型，则直接抛出ClassCastException
     boolean getBoolean(String key, boolean defValue);
 
-    /**
-     * Checks whether the preferences contains a preference.
-     * 
-     * @param key The name of the preference to check.
-     * @return Returns true if the preference exists in the preferences,
-     *         otherwise false.
-     */
+    // 检查是否已包含此键代表的preference
     boolean contains(String key);
     
     /**
@@ -392,27 +290,10 @@ public interface SharedPreferences {
      */
     Editor edit();
     
-    /**
-     * Registers a callback to be invoked when a change happens to a preference.
-     *
-     * <p class="caution"><strong>Caution:</strong> The preference manager does
-     * not currently store a strong reference to the listener. You must store a
-     * strong reference to the listener, or it will be susceptible to garbage
-     * collection. We recommend you keep a reference to the listener in the
-     * instance data of an object that will exist as long as you need the
-     * listener.</p>
-     *
-     * @param listener The callback that will run.
-     * @see #unregisterOnSharedPreferenceChangeListener
-     */
+    // 新增一个未注册的监听器
     void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener);
     
-    /**
-     * Unregisters a previous callback.
-     * 
-     * @param listener The callback that should be unregistered.
-     * @see #registerOnSharedPreferenceChangeListener
-     */
+    // 移除一个已注册的监听器
     void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener);
 }
 ```
