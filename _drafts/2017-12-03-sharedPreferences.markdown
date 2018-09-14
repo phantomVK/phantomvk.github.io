@@ -57,25 +57,8 @@ editor.apply();
 
 
 ```java
-/**
- * Interface for accessing and modifying preference data returned by {@link
- * Context#getSharedPreferences}.  For any particular set of preferences,
- * there is a single instance of this class that all clients share.
- * Modifications to the preferences must go through an {@link Editor} object
- * to ensure the preference values remain in a consistent state and control
- * when they are committed to storage.  Objects that are returned from the
- * various <code>get</code> methods must be treated as immutable by the application.
- *
- * <p><em>Note: This class does not support use across multiple processes.</em>
- *
- * <div class="special reference">
- * <h3>Developer Guides</h3>
- * <p>For more information about using SharedPreferences, read the
- * <a href="{@docRoot}guide/topics/data/data-storage.html#pref">Data Storage</a>
- * developer guide.</p></div>
- *
- * @see Context#getSharedPreferences
- */
+// 读写由getSharedPreferences返回的数据。修改操作需通过Editor对象，以保证数据一致性和控制回写的时机
+// 此类不能用在多进程中，可以在相同进程不同线程中同时调用线程安全
 public interface SharedPreferences {
 
     // 当SharedPreference发生变化时回调的监听器
@@ -85,39 +68,13 @@ public interface SharedPreferences {
         // @param key               值发生修改、新增、移除的键
         void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key);
     }
-    
-    /**
-     * Interface used for modifying values in a {@link SharedPreferences}
-     * object.  All changes you make in an editor are batched, and not copied
-     * back to the original {@link SharedPreferences} until you call {@link #commit}
-     * or {@link #apply}
-     */
+
+    // 修改SharedPreferences中值的接口，所有操作均为批处理，只在调用commit或apply后才回写到磁盘
     public interface Editor {
-        /**
-         * Set a String value in the preferences editor, to be written back once
-         * {@link #commit} or {@link #apply} are called.
-         * 
-         * @param key The name of the preference to modify.
-         * @param value The new value for the preference.  Passing {@code null}
-         *    for this argument is equivalent to calling {@link #remove(String)} with
-         *    this key.
-         * 
-         * @return Returns a reference to the same Editor object, so you can
-         * chain put calls together.
-         */
+        // 向编辑器设置一个String类型的键值对，并在commit或apply方法调用时进行回写
         Editor putString(String key, @Nullable String value);
-        
-        /**
-         * Set a set of String values in the preferences editor, to be written
-         * back once {@link #commit} or {@link #apply} is called.
-         * 
-         * @param key The name of the preference to modify.
-         * @param values The set of new values for the preference.  Passing {@code null}
-         *    for this argument is equivalent to calling {@link #remove(String)} with
-         *    this key.
-         * @return Returns a reference to the same Editor object, so you can
-         * chain put calls together.
-         */
+
+        // 向编辑器设置一个String类型的键值对集合，并在commit或apply方法调用时进行回写
         Editor putStringSet(String key, @Nullable Set<String> values);
         
         // 向编辑器设置一个int类型的键值对，并在commit或apply方法调用时进行回写
@@ -132,105 +89,31 @@ public interface SharedPreferences {
         // 向编辑器设置一个boolean类型的键值对，并在commit或apply方法调用时进行回写
         Editor putBoolean(String key, boolean value);
 
-        /**
-         * Mark in the editor that a preference value should be removed, which
-         * will be done in the actual preferences once {@link #commit} is
-         * called.
-         * 
-         * <p>Note that when committing back to the preferences, all removals
-         * are done first, regardless of whether you called remove before
-         * or after put methods on this editor.
-         * 
-         * @param key The name of the preference to remove.
-         * 
-         * @return Returns a reference to the same Editor object, so you can
-         * chain put calls together.
-         */
+        // 移除编辑器中指定的key，并在commit或apply方法调用时进行回写
+        // 移除操作在其他操作之前，即不管移除操作是否在添加之后调用，都会优先执行
         Editor remove(String key);
 
-        /**
-         * Mark in the editor to remove <em>all</em> values from the
-         * preferences.  Once commit is called, the only remaining preferences
-         * will be any that you have defined in this editor.
-         * 
-         * <p>Note that when committing back to the preferences, the clear
-         * is done first, regardless of whether you called clear before
-         * or after put methods on this editor.
-         * 
-         * @return Returns a reference to the same Editor object, so you can
-         * chain put calls together.
-         */
+        // 清除所有值，并在commit或apply方法调用时进行回写
+        // 移除操作在其他操作之前，即不管移除操作是否在添加之后调用，都会优先执行
         Editor clear();
 
-        /**
-         * Commit your preferences changes back from this Editor to the
-         * {@link SharedPreferences} object it is editing.  This atomically
-         * performs the requested modifications, replacing whatever is currently
-         * in the SharedPreferences.
-         *
-         * <p>Note that when two editors are modifying preferences at the same
-         * time, the last one to call commit wins.
-         *
-         * <p>If you don't care about the return value and you're
-         * using this from your application's main thread, consider
-         * using {@link #apply} instead.
-         *
-         * @return Returns true if the new values were successfully written
-         * to persistent storage.
-         */
+        // 执行所有preferences修改
+        // 当有两个editors同时修改preferences，最后一个被调用的总能被执行
+        // 如果不关心执行的结果值，且在主线程使用，建议通过apply提交修改
+        // true提交并修改成功，false表示失败
         boolean commit();
 
-        /**
-         * Commit your preferences changes back from this Editor to the
-         * {@link SharedPreferences} object it is editing.  This atomically
-         * performs the requested modifications, replacing whatever is currently
-         * in the SharedPreferences.
-         *
-         * <p>Note that when two editors are modifying preferences at the same
-         * time, the last one to call apply wins.
-         *
-         * <p>Unlike {@link #commit}, which writes its preferences out
-         * to persistent storage synchronously, {@link #apply}
-         * commits its changes to the in-memory
-         * {@link SharedPreferences} immediately but starts an
-         * asynchronous commit to disk and you won't be notified of
-         * any failures.  If another editor on this
-         * {@link SharedPreferences} does a regular {@link #commit}
-         * while a {@link #apply} is still outstanding, the
-         * {@link #commit} will block until all async commits are
-         * completed as well as the commit itself.
-         *
-         * <p>As {@link SharedPreferences} instances are singletons within
-         * a process, it's safe to replace any instance of {@link #commit} with
-         * {@link #apply} if you were already ignoring the return value.
-         *
-         * <p>You don't need to worry about Android component
-         * lifecycles and their interaction with <code>apply()</code>
-         * writing to disk.  The framework makes sure in-flight disk
-         * writes from <code>apply()</code> complete before switching
-         * states.
-         *
-         * <p class='note'>The SharedPreferences.Editor interface
-         * isn't expected to be implemented directly.  However, if you
-         * previously did implement it and are now getting errors
-         * about missing <code>apply()</code>, you can simply call
-         * {@link #commit} from <code>apply()</code>.
-         */
+        // 执行所有preferences修改
+        // 当有两个editors同时修改preferences，最后一个被调用的总能被执行
+        // apply所有提交保存在内存中，并异步进行回写，即回写失败不会有任何提示
+        // 当apply还没完成，其他editor的commit操作会阻塞并等待异步回写完成
+        // SharedPreferences进程内线程安全，且在不关心返回值的情况下可用apply代替commit
+        // apply的写入安全由Android Framework保证，不受组件生命周期或交互影响
         void apply();
     }
 
-    /**
-     * Retrieve all values from the preferences.
-     *
-     * <p>Note that you <em>must not</em> modify the collection returned
-     * by this method, or alter any of its contents.  The consistency of your
-     * stored data is not guaranteed if you do.
-     *
-     * @return Returns a map containing a list of pairs key/value representing
-     * the preferences.
-     *
-     * @throws NullPointerException
-     */
+    // 从preferences获得所有值，且一定不能修改这个Map的数据，增删改都不行
+    // 否则会出现已存储数据不一致的问题
     Map<String, ?> getAll();
 
     // 获取key对应的String，若key不存在则返回defValue
@@ -238,22 +121,7 @@ public interface SharedPreferences {
     @Nullable
     String getString(String key, @Nullable String defValue);
     
-    /**
-     * Retrieve a set of String values from the preferences.
-     * 
-     * <p>Note that you <em>must not</em> modify the set instance returned
-     * by this call.  The consistency of the stored data is not guaranteed
-     * if you do, nor is your ability to modify the instance at all.
-     *
-     * @param key The name of the preference to retrieve.
-     * @param defValues Values to return if this preference does not exist.
-     * 
-     * @return Returns the preference values if they exist, or defValues.
-     * Throws ClassCastException if there is a preference with this name
-     * that is not a Set.
-     * 
-     * @throws ClassCastException
-     */
+    // 通过key获取字符串集合，且一直能够不能修改返回的数据，否则会导致数据不一致的问题
     @Nullable
     Set<String> getStringSet(String key, @Nullable Set<String> defValues);
     
@@ -275,19 +143,8 @@ public interface SharedPreferences {
 
     // 检查是否已包含此键代表的preference
     boolean contains(String key);
-    
-    /**
-     * Create a new Editor for these preferences, through which you can make
-     * modifications to the data in the preferences and atomically commit those
-     * changes back to the SharedPreferences object.
-     * 
-     * <p>Note that you <em>must</em> call {@link Editor#commit} to have any
-     * changes you perform in the Editor actually show up in the
-     * SharedPreferences.
-     * 
-     * @return Returns a new instance of the {@link Editor} interface, allowing
-     * you to modify the values in this SharedPreferences object.
-     */
+
+    // 给preferences创建多一个新的Editor，并使用commit提交修改
     Editor edit();
     
     // 新增一个未注册的监听器
@@ -300,25 +157,9 @@ public interface SharedPreferences {
 
 ## 2.2 SharedPreferencesImpl实现类
 
-`/frameworks/base/core/java/android/app`
+类文件在`/frameworks/base/core/java/android/app`中
 
 ```java
-/*
- * Copyright (C) 2010 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 final class SharedPreferencesImpl implements SharedPreferences {
     private static final String TAG = "SharedPreferencesImpl";
     private static final boolean DEBUG = false;
@@ -356,15 +197,15 @@ final class SharedPreferencesImpl implements SharedPreferences {
     private final WeakHashMap<OnSharedPreferenceChangeListener, Object> mListeners =
             new WeakHashMap<OnSharedPreferenceChangeListener, Object>();
 
-    /** Current memory state (always increasing) */
+    // 当前内存状态，持续递增
     @GuardedBy("this")
     private long mCurrentMemoryStateGeneration;
 
-    /** Latest memory state that was committed to disk */
+    // 提交到磁盘的最新内存状态
     @GuardedBy("mWritingToDiskLock")
     private long mDiskStateGeneration;
 
-    /** Time (and number of instances) of file-system sync requests */
+    // 系统文件同步请求的次数
     @GuardedBy("mWritingToDiskLock")
     private final ExponentiallyBucketedHistogram mSyncTimes = new ExponentiallyBucketedHistogram(16);
     private int mNumSync = 0;
@@ -378,6 +219,7 @@ final class SharedPreferencesImpl implements SharedPreferences {
         startLoadFromDisk();
     }
 
+    // 开始从磁盘加载
     private void startLoadFromDisk() {
         synchronized (mLock) {
             mLoaded = false;
@@ -391,29 +233,28 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
     private void loadFromDisk() {
         synchronized (mLock) {
+            // 如果已经加载过，跳出
             if (mLoaded) {
                 return;
             }
+            // 备份文件存在，则把源文件删除，备份文件作为原文件
             if (mBackupFile.exists()) {
                 mFile.delete();
                 mBackupFile.renameTo(mFile);
             }
         }
 
-        // Debugging
-        if (mFile.exists() && !mFile.canRead()) {
-            Log.w(TAG, "Attempt to read preferences file " + mFile + " without permission");
-        }
-
         Map<String, Object> map = null;
         StructStat stat = null;
         try {
             stat = Os.stat(mFile.getPath());
+            // 从文件读出数据
             if (mFile.canRead()) {
                 BufferedInputStream str = null;
                 try {
                     str = new BufferedInputStream(
                             new FileInputStream(mFile), 16*1024);
+                    // 把xml转换为对应键值对
                     map = (Map<String, Object>) XmlUtils.readMapXml(str);
                 } catch (Exception e) {
                     Log.w(TAG, "Cannot read " + mFile.getAbsolutePath(), e);
@@ -427,24 +268,27 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
         synchronized (mLock) {
             mLoaded = true;
+            // 读取的数据不为空，则把数据设置到mMap
             if (map != null) {
                 mMap = map;
                 mStatTimestamp = stat.st_mtim;
                 mStatSize = stat.st_size;
             } else {
+                // 磁盘没有已保存数据，则创建空HashMap给mMap
                 mMap = new HashMap<>();
             }
             mLock.notifyAll();
         }
     }
-
+    
+    // 创建备份文件
     static File makeBackupFile(File prefsFile) {
         return new File(prefsFile.getPath() + ".bak");
     }
-
+    
+    // 出现意外是开始重新加载
     void startReloadIfChangedUnexpectedly() {
         synchronized (mLock) {
-            // TODO: wait for any pending writes to disk?
             if (!hasFileChangedUnexpectedly()) {
                 return;
             }
@@ -454,6 +298,7 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
     // Has the file changed out from under us?  i.e. writes that
     // we didn't instigate.
+    // 文件被外部操作修改了？
     private boolean hasFileChangedUnexpectedly() {
         synchronized (mLock) {
             if (mDiskWritesInFlight > 0) {
@@ -508,7 +353,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
             }
         }
     }
-
+    
+    // 获取所有
     @Override
     public Map<String, ?> getAll() {
         synchronized (mLock) {
@@ -518,6 +364,7 @@ final class SharedPreferencesImpl implements SharedPreferences {
         }
     }
 
+    // 获取字符串
     @Override
     @Nullable
     public String getString(String key, @Nullable String defValue) {
@@ -527,7 +374,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
             return v != null ? v : defValue;
         }
     }
-
+    
+    // 获取字符串集合
     @Override
     @Nullable
     public Set<String> getStringSet(String key, @Nullable Set<String> defValues) {
@@ -537,7 +385,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
             return v != null ? v : defValues;
         }
     }
-
+    
+    // 获取Int
     @Override
     public int getInt(String key, int defValue) {
         synchronized (mLock) {
@@ -546,6 +395,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
             return v != null ? v : defValue;
         }
     }
+    
+    // 获取Long
     @Override
     public long getLong(String key, long defValue) {
         synchronized (mLock) {
@@ -554,6 +405,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
             return v != null ? v : defValue;
         }
     }
+    
+    // 获取Float
     @Override
     public float getFloat(String key, float defValue) {
         synchronized (mLock) {
@@ -562,6 +415,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
             return v != null ? v : defValue;
         }
     }
+    
+    // 获取Boolean
     @Override
     public boolean getBoolean(String key, boolean defValue) {
         synchronized (mLock) {
@@ -570,7 +425,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
             return v != null ? v : defValue;
         }
     }
-
+    
+    // 检查时候包含指定key
     @Override
     public boolean contains(String key) {
         synchronized (mLock) {
@@ -624,66 +480,89 @@ final class SharedPreferencesImpl implements SharedPreferences {
     }
 
     public final class EditorImpl implements Editor {
+        // 编辑器锁
         private final Object mEditorLock = new Object();
-
+        
+        // 需修改记录，记录在内存中
         @GuardedBy("mEditorLock")
         private final Map<String, Object> mModified = new HashMap<>();
-
+        
+        // 是否是干净的
         @GuardedBy("mEditorLock")
         private boolean mClear = false;
-
+        
+        // 存入String
         @Override
         public Editor putString(String key, @Nullable String value) {
             synchronized (mEditorLock) {
+                // 向HashMap记录最新修改
                 mModified.put(key, value);
                 return this;
             }
         }
+        
+        // 存入StringSet
         @Override
         public Editor putStringSet(String key, @Nullable Set<String> values) {
             synchronized (mEditorLock) {
+                // 向HashMap记录最新修改
                 mModified.put(key,
                         (values == null) ? null : new HashSet<String>(values));
                 return this;
             }
         }
+        
+        // 存入Int
         @Override
         public Editor putInt(String key, int value) {
             synchronized (mEditorLock) {
+                // 向HashMap记录最新修改
                 mModified.put(key, value);
                 return this;
             }
         }
+        
+        // 存入Long
         @Override
         public Editor putLong(String key, long value) {
             synchronized (mEditorLock) {
+                // 向HashMap记录最新修改
                 mModified.put(key, value);
                 return this;
             }
         }
+        
+        // 存入Float
         @Override
         public Editor putFloat(String key, float value) {
             synchronized (mEditorLock) {
+                // 向HashMap记录最新修改
                 mModified.put(key, value);
                 return this;
             }
         }
+        
+        // 存入Boolean
         @Override
         public Editor putBoolean(String key, boolean value) {
             synchronized (mEditorLock) {
+                // 向HashMap记录最新修改
                 mModified.put(key, value);
                 return this;
             }
         }
-
+        
+        // 移除key
         @Override
         public Editor remove(String key) {
             synchronized (mEditorLock) {
+                // 向HashMap记录最新修改
                 mModified.put(key, this);
                 return this;
             }
         }
-
+        
+        // 清空所有key
         @Override
         public Editor clear() {
             synchronized (mEditorLock) {
@@ -852,7 +731,7 @@ final class SharedPreferencesImpl implements SharedPreferences {
                     }
                 }
             } else {
-                // Run this function on the main thread.
+                // 在主线程调用
                 ActivityThread.sMainThreadHandler.post(() -> notifyListeners(mcr));
             }
         }
