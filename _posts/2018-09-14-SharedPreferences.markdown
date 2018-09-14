@@ -1,9 +1,10 @@
 ---
 layout:     post
 title:      "SharedPreferences源码剖析"
-date:       2017-12-03
+date:       2018-09-14
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
+catalog:    true
 tags:
     - Android
 ---
@@ -14,7 +15,7 @@ tags:
 
 ## 1.2 用法
 
-首先获取`SharedPreferences`实例，调用`sp.edit()`获得可编辑实例，写入几个类型的数据并提交。
+首先获取`SharedPreferences`实例，调用`sp.edit()`获得可编辑实例，写入类型的数据并提交。
 
 ```java
 SharedPreferences sp = getSharedPreferences("PrefsName", MODE_PRIVATE);
@@ -172,10 +173,15 @@ final class SharedPreferencesImpl implements SharedPreferences {
     //  - acquire SharedPreferencesImpl.mLock before EditorImpl.mLock
     //  - acquire mWritingToDiskLock before EditorImpl.mLock
 
+    // 当前的文件
     private final File mFile;
+    // 备份的文件
     private final File mBackupFile;
+    // 模式
     private final int mMode;
+    // 锁
     private final Object mLock = new Object();
+    // 磁盘写入锁
     private final Object mWritingToDiskLock = new Object();
 
     @GuardedBy("mLock")
@@ -183,7 +189,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
     @GuardedBy("mLock")
     private int mDiskWritesInFlight = 0;
-
+    
+    // 已加载标志位
     @GuardedBy("mLock")
     private boolean mLoaded = false;
 
@@ -192,7 +199,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
     @GuardedBy("mLock")
     private long mStatSize;
-
+    
+    // 监听器列表，通过WeakHashMap持有监听器
     @GuardedBy("mLock")
     private final WeakHashMap<OnSharedPreferenceChangeListener, Object> mListeners =
             new WeakHashMap<OnSharedPreferenceChangeListener, Object>();
@@ -303,7 +311,6 @@ final class SharedPreferencesImpl implements SharedPreferences {
         synchronized (mLock) {
             if (mDiskWritesInFlight > 0) {
                 // If we know we caused it, it's not unexpected.
-                if (DEBUG) Log.d(TAG, "disk write in flight, not unexpected.");
                 return false;
             }
         }
@@ -324,21 +331,26 @@ final class SharedPreferencesImpl implements SharedPreferences {
             return !stat.st_mtim.equals(mStatTimestamp) || mStatSize != stat.st_size;
         }
     }
-
+    
+    // 注册修改监听器
     @Override
     public void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener) {
         synchronized(mLock) {
+            // 向列表中加入监听器
             mListeners.put(listener, CONTENT);
         }
     }
-
+    
+    // 移除修改监听器
     @Override
     public void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener) {
         synchronized(mLock) {
+            // 从列表中移除监听器
             mListeners.remove(listener);
         }
     }
 
+    // 阻塞等待文件内容已加载到对象中
     private void awaitLoadedLocked() {
         if (!mLoaded) {
             // Raise an explicit StrictMode onReadFromDisk for this
@@ -437,13 +449,7 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
     @Override
     public Editor edit() {
-        // TODO: remove the need to call awaitLoadedLocked() when
-        // requesting an editor.  will require some work on the
-        // Editor, but then we should be able to do:
-        //
-        //      context.getSharedPreferences(..).edit().putString(..).apply()
-        //
-        // ... all without blocking.
+        // 阻塞等待加载完成，并返回编辑对象
         synchronized (mLock) {
             awaitLoadedLocked();
         }
@@ -455,12 +461,16 @@ final class SharedPreferencesImpl implements SharedPreferences {
     private static class MemoryCommitResult {
         final long memoryStateGeneration;
         @Nullable final List<String> keysModified;
+        // SharedPreference修改时间监听器
         @Nullable final Set<OnSharedPreferenceChangeListener> listeners;
+        // 需要写磁盘的Map
         final Map<String, Object> mapToWriteToDisk;
         final CountDownLatch writtenToDiskLatch = new CountDownLatch(1);
-
+        
+        // 写磁盘结果
         @GuardedBy("mWritingToDiskLock")
         volatile boolean writeToDiskResult = false;
+        // 已写入标志位
         boolean wasWritten = false;
 
         private MemoryCommitResult(long memoryStateGeneration, @Nullable List<String> keysModified,
@@ -471,7 +481,9 @@ final class SharedPreferencesImpl implements SharedPreferences {
             this.listeners = listeners;
             this.mapToWriteToDisk = mapToWriteToDisk;
         }
-
+        
+        // wasWritten：已写入
+        // result：结果
         void setDiskWriteResult(boolean wasWritten, boolean result) {
             this.wasWritten = wasWritten;
             writeToDiskResult = result;
@@ -566,6 +578,7 @@ final class SharedPreferencesImpl implements SharedPreferences {
         @Override
         public Editor clear() {
             synchronized (mEditorLock) {
+                // 设置清除标志位
                 mClear = true;
                 return this;
             }
@@ -573,8 +586,6 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
         @Override
         public void apply() {
-            final long startTime = System.currentTimeMillis();
-
             final MemoryCommitResult mcr = commitToMemory();
             final Runnable awaitCommit = new Runnable() {
                     @Override
@@ -582,12 +593,6 @@ final class SharedPreferencesImpl implements SharedPreferences {
                         try {
                             mcr.writtenToDiskLatch.await();
                         } catch (InterruptedException ignored) {
-                        }
-
-                        if (DEBUG && mcr.wasWritten) {
-                            Log.d(TAG, mFile.getName() + ":" + mcr.memoryStateGeneration
-                                    + " applied after " + (System.currentTimeMillis() - startTime)
-                                    + " ms");
                         }
                     }
                 };
@@ -611,7 +616,7 @@ final class SharedPreferencesImpl implements SharedPreferences {
             notifyListeners(mcr);
         }
 
-        // Returns true if any changes were made
+        // 有修改返回true
         private MemoryCommitResult commitToMemory() {
             long memoryStateGeneration;
             List<String> keysModified = null;
@@ -631,7 +636,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
                 }
                 mapToWriteToDisk = mMap;
                 mDiskWritesInFlight++;
-
+                
+                // 监听器数量
                 boolean hasListeners = mListeners.size() > 0;
                 if (hasListeners) {
                     keysModified = new ArrayList<String>();
@@ -640,10 +646,13 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
                 synchronized (mEditorLock) {
                     boolean changesMade = false;
-
+                    
+                    // 如果调用了clear()，则mClear为true
                     if (mClear) {
+                        // 需写入磁盘的数据不为空
                         if (!mapToWriteToDisk.isEmpty()) {
                             changesMade = true;
+                            // 把需写入的数据全部置空
                             mapToWriteToDisk.clear();
                         }
                         mClear = false;
@@ -691,41 +700,40 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
         @Override
         public boolean commit() {
-            long startTime = 0;
-
-            if (DEBUG) {
-                startTime = System.currentTimeMillis();
-            }
-
+            // 获取提交到内存的结果
             MemoryCommitResult mcr = commitToMemory();
-
+            // 数据写入到磁盘
             SharedPreferencesImpl.this.enqueueDiskWrite(
                 mcr, null /* sync write on this thread okay */);
             try {
+                // 等待磁盘写入完成
                 mcr.writtenToDiskLatch.await();
             } catch (InterruptedException e) {
                 return false;
             } finally {
-                if (DEBUG) {
-                    Log.d(TAG, mFile.getName() + ":" + mcr.memoryStateGeneration
-                            + " committed after " + (System.currentTimeMillis() - startTime)
-                            + " ms");
-                }
             }
+            // 发送通知
             notifyListeners(mcr);
+            // 返回写入磁盘的结果
             return mcr.writeToDiskResult;
         }
 
         private void notifyListeners(final MemoryCommitResult mcr) {
+            // 没有需要通知的监听器或没有被修改的key，则直接退出
             if (mcr.listeners == null || mcr.keysModified == null ||
                 mcr.keysModified.size() == 0) {
                 return;
             }
+
+            // 已在主线程，直接通知所有监听器
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 for (int i = mcr.keysModified.size() - 1; i >= 0; i--) {
+                    // 逐个获取已修改的key
                     final String key = mcr.keysModified.get(i);
+                    // 遍历所有监听器
                     for (OnSharedPreferenceChangeListener listener : mcr.listeners) {
                         if (listener != null) {
+                            // listener不为空，则发出通知
                             listener.onSharedPreferenceChanged(SharedPreferencesImpl.this, key);
                         }
                     }
@@ -753,19 +761,27 @@ final class SharedPreferencesImpl implements SharedPreferences {
      *   we catch them in userdebug StrictMode reports to convert
      *   them where possible to apply() ...)
      */
+    // 从内存写入磁盘任务的排队队列，顺序是FIFO，依次执行
+    // 如果参数postWriteRunnable非空，则执行apply()
+    // 如果参数postWriteRunnable为空，则执行commit()，并允许数据在主线程写入磁盘
+    // 这可以减少内存申请和避免创建后台线程，并能通过StrictMode报告去把commit()改为apply()
     private void enqueueDiskWrite(final MemoryCommitResult mcr,
                                   final Runnable postWriteRunnable) {
+        // postWriteRunnable为空，同步提交数据到磁盘
         final boolean isFromSyncCommit = (postWriteRunnable == null);
-
+        
+        // 创建磁盘写入Runnable
         final Runnable writeToDiskRunnable = new Runnable() {
                 @Override
                 public void run() {
                     synchronized (mWritingToDiskLock) {
+                        // 写入文件，是否同步写入isFromSyncCommit
                         writeToFile(mcr, isFromSyncCommit);
                     }
                     synchronized (mLock) {
                         mDiskWritesInFlight--;
                     }
+                    // 仅apply()时执行
                     if (postWriteRunnable != null) {
                         postWriteRunnable.run();
                     }
@@ -774,6 +790,7 @@ final class SharedPreferencesImpl implements SharedPreferences {
 
         // Typical #commit() path with fewer allocations, doing a write on
         // the current thread.
+        // 典型的更少内存申请的commit()方式，并在当前线程写入
         if (isFromSyncCommit) {
             boolean wasEmpty = false;
             synchronized (mLock) {
@@ -784,13 +801,16 @@ final class SharedPreferencesImpl implements SharedPreferences {
                 return;
             }
         }
-
+        
+        // 任务进队
         QueuedWork.queue(writeToDiskRunnable, !isFromSyncCommit);
     }
-
+    
+    // 创建文件的输出流
     private static FileOutputStream createFileOutputStream(File file) {
         FileOutputStream str = null;
         try {
+            // 创建文件输出流
             str = new FileOutputStream(file);
         } catch (FileNotFoundException e) {
             File parent = file.getParentFile();
@@ -810,7 +830,8 @@ final class SharedPreferencesImpl implements SharedPreferences {
         }
         return str;
     }
-
+    
+    // 写入文件
     @GuardedBy("mWritingToDiskLock")
     private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
         long startTime = 0;
@@ -822,27 +843,21 @@ final class SharedPreferencesImpl implements SharedPreferences {
         long setPermTime = 0;
         long fstatTime = 0;
         long deleteTime = 0;
-
-        if (DEBUG) {
-            startTime = System.currentTimeMillis();
-        }
-
+        
+        // 原文件是否存在
         boolean fileExists = mFile.exists();
 
-        if (DEBUG) {
-            existsTime = System.currentTimeMillis();
-
-            // Might not be set, hence init them to a default value
-            backupExistsTime = existsTime;
-        }
-
         // Rename the current file so it may be used as a backup during the next read
+        // 重命名当前文件，以便在写一次读取时作为备份
         if (fileExists) {
             boolean needsWrite = false;
 
             // Only need to write if the disk state is older than this commit
+            // 仅在磁盘状态比这次提交的更旧时进行写入
             if (mDiskStateGeneration < mcr.memoryStateGeneration) {
+                // 同步写入
                 if (isFromSyncCommit) {
+                    // 需要写入
                     needsWrite = true;
                 } else {
                     synchronized (mLock) {
@@ -859,21 +874,20 @@ final class SharedPreferencesImpl implements SharedPreferences {
                 mcr.setDiskWriteResult(false, true);
                 return;
             }
-
+            
+            // 备份是否存在
             boolean backupFileExists = mBackupFile.exists();
-
-            if (DEBUG) {
-                backupExistsTime = System.currentTimeMillis();
-            }
-
+            
+            // 磁盘文件备份不存在
             if (!backupFileExists) {
+                // 把当前文件改名为备份文件
                 if (!mFile.renameTo(mBackupFile)) {
-                    Log.e(TAG, "Couldn't rename file " + mFile
-                          + " to backup file " + mBackupFile);
+                    // 重命名文件失败
                     mcr.setDiskWriteResult(false, false);
                     return;
                 }
             } else {
+                // 备份文件已存在，删除源文件
                 mFile.delete();
             }
         }
@@ -882,30 +896,24 @@ final class SharedPreferencesImpl implements SharedPreferences {
         // possible.  If any exception occurs, delete the new file; next time we will restore
         // from the backup.
         try {
+            // 创建写出流失败
             FileOutputStream str = createFileOutputStream(mFile);
-
-            if (DEBUG) {
-                outputStreamCreateTime = System.currentTimeMillis();
-            }
 
             if (str == null) {
                 mcr.setDiskWriteResult(false, false);
                 return;
             }
+            // 把内存中需要写入的数据按照Xml的格式写入到str
             XmlUtils.writeMapXml(mcr.mapToWriteToDisk, str);
 
-            writeTime = System.currentTimeMillis();
-
+            // 同步流
             FileUtils.sync(str);
-
-            fsyncTime = System.currentTimeMillis();
-
+            
+            // 关闭文件写入
             str.close();
+            
+            // 修改文件权限
             ContextImpl.setFilePermissionsFromMode(mFile.getPath(), mMode, 0);
-
-            if (DEBUG) {
-                setPermTime = System.currentTimeMillis();
-            }
 
             try {
                 final StructStat stat = Os.stat(mFile.getPath());
@@ -914,43 +922,18 @@ final class SharedPreferencesImpl implements SharedPreferences {
                     mStatSize = stat.st_size;
                 }
             } catch (ErrnoException e) {
-                // Do nothing
             }
 
-            if (DEBUG) {
-                fstatTime = System.currentTimeMillis();
-            }
-
-            // Writing was successful, delete the backup file if there is one.
+            // 等待并删除备份的文件
             mBackupFile.delete();
-
-            if (DEBUG) {
-                deleteTime = System.currentTimeMillis();
-            }
 
             mDiskStateGeneration = mcr.memoryStateGeneration;
 
             mcr.setDiskWriteResult(true, true);
 
-            if (DEBUG) {
-                Log.d(TAG, "write: " + (existsTime - startTime) + "/"
-                        + (backupExistsTime - startTime) + "/"
-                        + (outputStreamCreateTime - startTime) + "/"
-                        + (writeTime - startTime) + "/"
-                        + (fsyncTime - startTime) + "/"
-                        + (setPermTime - startTime) + "/"
-                        + (fstatTime - startTime) + "/"
-                        + (deleteTime - startTime));
-            }
-
-            long fsyncDuration = fsyncTime - writeTime;
             mSyncTimes.add(Long.valueOf(fsyncDuration).intValue());
             mNumSync++;
-
-            if (DEBUG || mNumSync % 1024 == 0 || fsyncDuration > MAX_FSYNC_DURATION_MILLIS) {
-                mSyncTimes.log(TAG, "Time required to fsync " + mFile + ": ");
-            }
-
+            
             return;
         } catch (XmlPullParserException e) {
             Log.w(TAG, "writeToFile: Got exception:", e);
@@ -958,7 +941,7 @@ final class SharedPreferencesImpl implements SharedPreferences {
             Log.w(TAG, "writeToFile: Got exception:", e);
         }
 
-        // Clean up an unsuccessfully written file
+        // 清除没用的已写入文件
         if (mFile.exists()) {
             if (!mFile.delete()) {
                 Log.e(TAG, "Couldn't clean up partially-written file " + mFile);
