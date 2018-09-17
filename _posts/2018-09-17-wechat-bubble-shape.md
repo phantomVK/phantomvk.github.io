@@ -31,6 +31,8 @@ enum class DIRECTION { START, END }
 
 ## 三、构造方法
 
+继承父类 __Shape__
+
 ```java
 class BubbleShape constructor(var arrowDirection: DIRECTION,
                               @ColorInt var solidColor: Int,
