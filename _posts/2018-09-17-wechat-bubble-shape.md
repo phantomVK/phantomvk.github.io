@@ -87,7 +87,7 @@ private val mUpperHeightFA = mUpperHeightNA + arrowHeight
 
 ### 5.2 onResize()
 
-由于宽度和气泡内部__TextView__文字长度高度有关，所以需要重写方法，实时计算宽高值。此方法中调用的，就是计算__气泡上部path__和__气泡下部path__。此外还有气泡中部，不过中部纯粹为一个的矩形，计算好高度直接绘制即可。
+由于宽度和气泡内部 __TextView__ 文字长度高度有关，所以需要重写方法，实时计算宽高值。此方法中调用的，就是计算 __气泡上部path__ 和 __气泡下部path__ 。此外还有气泡中部，不过中部纯粹为一个的矩形，计算好高度直接绘制即可。
 
 ```java
 override fun onResize(width: Float, height: Float) {
@@ -165,7 +165,7 @@ private fun resizeBottomPath(width: Float, height: Float) {
 
 ## 六、重写onDraw()
 
-定义好气泡__气泡上部path__和__气泡下部path__，就轮到__onDraw()__进行绘制了
+定义好气泡 __气泡上部path__ 和 __气泡下部path__ ，就轮到 __onDraw()__ 进行绘制了
 
 ### 6.1 onDraw()方法
 
@@ -256,7 +256,7 @@ override fun clone(): BubbleShape = super.clone() as BubbleShape
 
 ## 八、运行效果
 
-![bubble_screenshot_finish](/img/android/bubble_screenshot_finish.png)
+![bubble_screenshot_finish](/img/android/bubble_screenshot_result.png)
 
 ## 九、结语
 
