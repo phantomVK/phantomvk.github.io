@@ -70,6 +70,7 @@ public class PriorityQueue<E> extends AbstractQueue<E>
 ```
 
 ```java
+// 默认初始化容量
 private static final int DEFAULT_INITIAL_CAPACITY = 11;
 
 /**
@@ -80,24 +81,16 @@ private static final int DEFAULT_INITIAL_CAPACITY = 11;
  * heap and each descendant d of n, n <= d.  The element with the
  * lowest value is in queue[0], assuming the queue is nonempty.
  */
-transient Object[] queue; // non-private to simplify nested class access
+transient Object[] queue; // 非私有变量，以便简化嵌套类对其访问
 
-/**
- * The number of elements in the priority queue.
- */
+// 已保存在优先队列总的元素数量
 int size;
 
-/**
- * The comparator, or null if priority queue uses elements'
- * natural ordering.
- */
+// comparator，当优先队列使用元素自然排序时为空
 private final Comparator<? super E> comparator;
 
-/**
- * The number of times this priority queue has been
- * <i>structurally modified</i>.  See AbstractList for gory details.
- */
-transient int modCount;     // non-private to simplify nested class access
+// 优先队列出现结构性修改的次数，非私有属性以便嵌套类访问
+transient int modCount;
 ```
 
 ## 构造方法
@@ -277,11 +270,8 @@ private void initFromCollection(Collection<? extends E> c) {
  */
 private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
-/**
- * Increases the capacity of the array.
- *
- * @param minCapacity the desired minimum capacity
- */
+// 增加数组的容量
+// @param minCapacity 预期最低容量
 private void grow(int minCapacity) {
     int oldCapacity = queue.length;
     // Double size if small; else grow by 50%
@@ -295,7 +285,7 @@ private void grow(int minCapacity) {
 }
 
 private static int hugeCapacity(int minCapacity) {
-    if (minCapacity < 0) // overflow
+    if (minCapacity < 0) // 下溢
         throw new OutOfMemoryError();
     return (minCapacity > MAX_ARRAY_SIZE) ?
         Integer.MAX_VALUE :
@@ -560,18 +550,18 @@ private final class Itr implements Iterator<E> {
     }
 }
 
+// 返回已保存元素数量
 public int size() {
     return size;
 }
 
-/**
- * Removes all of the elements from this priority queue.
- * The queue will be empty after this call returns.
- */
+// 移除优先队列中所有元素
 public void clear() {
     modCount++;
+    // 逐个置空队列中的元素
     for (int i = 0; i < size; i++)
         queue[i] = null;
+    // 以保存元素数量置0
     size = 0;
 }
 
