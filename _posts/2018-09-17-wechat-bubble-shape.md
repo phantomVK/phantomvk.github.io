@@ -83,7 +83,7 @@ private val mUpperHeightFA = mUpperHeightNA + arrowHeight
 
 为了绘制方便，此类把一个气泡分为三个部分进行绘制。
 
-![bubble_screenshot](/img/android/bubble_screenshot.png)
+![bubble_screenshot](/img/android/bubble/bubble_screenshot.png)
 
 上图三个部分用不同的颜色填充，描边加粗并使用半透明的白色以便查看。
 
@@ -258,7 +258,7 @@ override fun clone(): BubbleShape = super.clone() as BubbleShape
 
 ## 八、运行效果
 
-![bubble_screenshot_finish](/img/android/bubble_screenshot_result.png)
+![bubble_screenshot_finish](/img/android/bubble/bubble_screenshot_result.png)
 
 ## 九、结语
 

@@ -321,7 +321,7 @@ Android触摸消息时长有三种类别：
 3. **Long press**：长按(long press)屏幕，时长大于DEFAULT_LONG_PRESS_TIMEOUT或LONG_PRESS_TIMEOUT；
 
 
-![img](/img/android/pressed.png)
+![img](/img/android/event/pressed.png)
 
 不同版本的Android API时间值可能不同，Android 6.0(23) `TAP_TIMEOUT`是100ms，部分旧版本是115ms，这里按照最新值解说。
 

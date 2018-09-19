@@ -15,7 +15,7 @@ tags:
 
 本文研究Activity事件分发，探究事件如何从Activity分发到ViewGroup，ViewGroup不拦截事件Activity又如何处理。文章最终解释Activity、ViewGroup、Group三者事件分发行为如何形成闭环。
 
-![Activity ViewGroup View](/img/android/Activity_ViewGroup_View.png)
+![Activity ViewGroup View](/img/android/event/Activity_ViewGroup_View.png)
 
 上图只是事件分发最基本的示意，实际分发细节要复杂得多。Activity事件分发源码基于Android 27。另外两篇文章已经说明ViewGroup和View，Activity再遇到相关知识不深究，请自行翻阅前文。
 
@@ -75,7 +75,7 @@ final void performUserLeaving() {
 
 #### 1.5 小结
 
-![Activity ViewGroup View](/img/android/activity_dispatchTouchEvent.png)
+![Activity ViewGroup View](/img/android/event/activity_dispatchTouchEvent.png)
 
 ## 二、window.superDispatchTouchEvent()
 
@@ -161,7 +161,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
 
 #### 2.5 小结
 
-![superDispatchTouchEvent](/img/android/superDispatchTouchEvent.png)
+![superDispatchTouchEvent](/img/android/event/superDispatchTouchEvent.png)
 
 ### 三、 Activity.onTouchEvent() 
 
