@@ -9,9 +9,9 @@ tags:
     - Android
 ---
 
-## 现象
+## 一、现象
 
-以下是DialogFragment的布局：
+DialogFragment的xml布局：
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -120,7 +120,7 @@ tags:
 </LinearLayout>
 ```
 
-以下是DialogFragment代码：
+DialogFragment类代码：
 ```java
 class CustomFragment : DialogFragment() {
 
@@ -149,7 +149,17 @@ class CustomFragment : DialogFragment() {
 }
 ```
 
-## 方法一
+在不做任何处理的前提下，运行效果如下。
+
+显然布局全部被挤在一起，没有达到 __android:layout_width="match_parent"__ 的要求
+
+![dialog_fragment_problem](/img/android/dialogFragment/dialog_fragment_problem.png)
+
+下面针对这个问题介绍两种处理方法。
+
+## 二、方法一
+
+这种方法最简单，设置一个 __style__ 。
 
 ```java
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -158,14 +168,15 @@ override fun onCreate(savedInstanceState: Bundle?) {
 }
 ```
 
-## 方法二
+设置效果如下，布局宽度会自动延伸，并在左右两侧保留一定边距。从 __DialogFragment.STYLE_NO_TITLE__ 可知样式配置为不使用标题。
+
+![dialog_fragment_method_1](/img/android/dialogFragment/dialog_fragment_method_1.png)
+
+## 三、方法二
+
+通过计算决定Window布局宽度。这种方法相比方法一具备一定灵活性，可以自定义两侧保留边距。
 
 ```java
-override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
-    super.onCreateView(inflater, container, savedInstanceState)
-    return inflater.inflate(R.layout.dialog_forward, container, false)
-}
-
 override fun onStart() {
     super.onStart()
     val dm = DisplayMetrics()
@@ -174,9 +185,13 @@ override fun onStart() {
 }
 ```
 
-## 去掉标签
+从代码可知，布局宽度设置为屏幕总宽度90%，剩下10%宽度被均分到两侧作为边距。或者，通过设计稿对两侧保留边距的像素密度，亦可反向计算主布局所需比例。
 
-基于方法二
+![dialog_fragment_method_2](/img/android/dialogFragment/dialog_fragment_method_2.png)
+
+## 四、移除标题
+
+需要注意的是，由于方法二没有设置关于 __title__ 的参数，所以上图的布局上方出现了一块空白区，需要定义 __Window__ 的特性移除标题。
 
 ```java
 override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
@@ -186,7 +201,13 @@ override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, saved
 }
 ```
 
-## 背景透明
+设置效果图：
+
+![dialog_fragment_notitle](/img/android/dialogFragment/dialog_fragment_notitle.png)
+
+## 五、背景透明
+
+由于背景默认非透明，设置了圆角后边距会有非透明的区域。通过以下代码配置，可与移除标题的代码同时使用：
 
 ```java
 override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
@@ -196,3 +217,6 @@ override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, saved
 }
 ```
 
+设置效果图：
+
+![dialog_fragment_transparent](/img/android/dialogFragment/dialog_fragment_transparent.png)
