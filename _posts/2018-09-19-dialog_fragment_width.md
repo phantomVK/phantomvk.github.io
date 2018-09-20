@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Android 自定义DialogFragment宽度控制"
+title:      "Android自定义DialogFragment宽度"
 date:       2018-09-19
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"

@@ -78,11 +78,16 @@ JDK10
  * @since 1.5
  * @author Doug Lea
  */
-public class ReentrantLock implements Lock, java.io.Serializable {
+public class ReentrantLock implements Lock, java.io.Serializable
+```
+
+```java
     private static final long serialVersionUID = 7373984872572414699L;
     /** Synchronizer providing all implementation mechanics */
     private final Sync sync;
+```
 
+```java
     /**
      * Base of synchronization control for this lock. Subclassed
      * into fair and nonfair versions below. Uses AQS state to
@@ -172,7 +177,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             return nonfairTryAcquire(acquires);
         }
     }
+```
 
+```java
     /**
      * Sync object for fair locks
      */
@@ -203,7 +210,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             return false;
         }
     }
+```
 
+```java
     /**
      * Creates an instance of {@code ReentrantLock}.
      * This is equivalent to using {@code ReentrantLock(false)}.
@@ -221,7 +230,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     public ReentrantLock(boolean fair) {
         sync = fair ? new FairSync() : new NonfairSync();
     }
+```
 
+```java
     /**
      * Acquires the lock.
      *
@@ -713,5 +724,4 @@ public class ReentrantLock implements Lock, java.io.Serializable {
                                    "[Unlocked]" :
                                    "[Locked by thread " + o.getName() + "]");
     }
-}
 ```
