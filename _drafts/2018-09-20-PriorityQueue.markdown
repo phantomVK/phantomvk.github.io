@@ -252,22 +252,14 @@ private void initElementsFromCollection(Collection<? extends E> c) {
     this.size = a.length;
 }
 
-/**
- * Initializes queue array with elements from the given Collection.
- *
- * @param c the collection
- */
+// 通过指定集合包含的元素，初始化队列的数组
 private void initFromCollection(Collection<? extends E> c) {
     initElementsFromCollection(c);
     heapify();
 }
 
-/**
- * The maximum size of array to allocate.
- * Some VMs reserve some header words in an array.
- * Attempts to allocate larger arrays may result in
- * OutOfMemoryError: Requested array size exceeds VM limit
- */
+// 最大申请数组长度。由于某些虚拟机实现在数组保留头部字，尝试申请更大的数据会导致异常：
+// OutOfMemoryError: Requested array size exceeds VM limit
 private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
 // 增加数组的容量
@@ -340,52 +332,37 @@ private int indexOf(Object o) {
     return -1;
 }
 
-/**
- * Removes a single instance of the specified element from this queue,
- * if it is present.  More formally, removes an element {@code e} such
- * that {@code o.equals(e)}, if this queue contains one or more such
- * elements.  Returns {@code true} if and only if this queue contained
- * the specified element (or equivalently, if this queue changed as a
- * result of the call).
- *
- * @param o element to be removed from this queue, if present
- * @return {@code true} if this queue changed as a result of the call
- */
+// 从队列存在指定的元素，则移除此元素。即使队列中存在多个相同元素，则每次只会移除其中一个
+// 如果队列有元素被移除，则返回true，否则返回false
 public boolean remove(Object o) {
+    // 获取元素索引
     int i = indexOf(o);
+    // 找不到对应元素
     if (i == -1)
         return false;
     else {
+        // 元素命中，移除此元素
         removeAt(i);
         return true;
     }
 }
 
-/**
- * Version of remove using reference equality, not equals.
- * Needed by iterator.remove.
- *
- * @param o element to be removed from this queue, if present
- * @return {@code true} if removed
- */
+// 通过引用对比，移除队列中引用相同的一个元素
 boolean removeEq(Object o) {
     for (int i = 0; i < size; i++) {
+        // 对比目标元素和队列中元素是否相同
         if (o == queue[i]) {
+            // 引用相同则移除元素
             removeAt(i);
+            // 移除后返回true
             return true;
         }
     }
+    // 没有任何元素移除返回false
     return false;
 }
 
-/**
- * Returns {@code true} if this queue contains the specified element.
- * More formally, returns {@code true} if and only if this queue contains
- * at least one element {@code e} such that {@code o.equals(e)}.
- *
- * @param o object to be checked for containment in this queue
- * @return {@code true} if this queue contains the specified element
- */
+// 检查队列是否包含指定元素。如果元素存在返回true，否则返回false
 public boolean contains(Object o) {
     return indexOf(o) >= 0;
 }
