@@ -284,28 +284,18 @@ private static int hugeCapacity(int minCapacity) {
         MAX_ARRAY_SIZE;
 }
 
-/**
- * Inserts the specified element into this priority queue.
- *
- * @return {@code true} (as specified by {@link Collection#add})
- * @throws ClassCastException if the specified element cannot be
- *         compared with elements currently in this priority queue
- *         according to the priority queue's ordering
- * @throws NullPointerException if the specified element is null
- */
+// 向此优先队列中插入指定元素
+// 插入成功返回true
+// 当插入元素和当前优先队列的顺序无法进行对比时，抛出ClassCastException
+// 当插入的指定元素为null时抛出NullPointerException
 public boolean add(E e) {
     return offer(e);
 }
 
-/**
- * Inserts the specified element into this priority queue.
- *
- * @return {@code true} (as specified by {@link Queue#offer})
- * @throws ClassCastException if the specified element cannot be
- *         compared with elements currently in this priority queue
- *         according to the priority queue's ordering
- * @throws NullPointerException if the specified element is null
- */
+// 向此优先队列中插入指定元素
+// 插入成功返回true
+// 当插入元素和当前优先队列的顺序无法进行对比时，抛出ClassCastException
+// 当插入的指定元素为null时抛出NullPointerException
 public boolean offer(E e) {
     if (e == null)
         throw new NullPointerException();
@@ -432,16 +422,17 @@ public <T> T[] toArray(T[] a) {
     return a;
 }
 
-/**
- * Returns an iterator over the elements in this queue. The iterator
- * does not return the elements in any particular order.
- *
- * @return an iterator over the elements in this queue
- */
+// 返回此队列元素的迭代器，此迭代器不按特定顺序返回元素
 public Iterator<E> iterator() {
     return new Itr();
 }
+```
 
+
+## Itr
+
+
+```java
 private final class Itr implements Iterator<E> {
     /**
      * Index (into queue array) of element to be returned by
