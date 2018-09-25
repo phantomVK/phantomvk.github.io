@@ -96,11 +96,7 @@ transient int modCount;
 ## 构造方法
 
 ```java
-/**
- * Creates a {@code PriorityQueue} with the default initial
- * capacity (11) that orders its elements according to their
- * {@linkplain Comparable natural ordering}.
- */
+// 使用默认初始化容量11构造实例，并根据元素的可比较自然顺序进行排序
 public PriorityQueue() {
     this(DEFAULT_INITIAL_CAPACITY, null);
 }
