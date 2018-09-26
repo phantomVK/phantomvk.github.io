@@ -11,6 +11,8 @@ tags:
 
 JDK10.0.1
 
+## 一、类签名
+
 ```java
 /**
  * An unbounded priority {@linkplain Queue queue} based on a priority heap.
@@ -56,18 +58,12 @@ JDK10.0.1
  * linear time for the {@code remove(Object)} and {@code contains(Object)}
  * methods; and constant time for the retrieval methods
  * ({@code peek}, {@code element}, and {@code size}).
- *
- * <p>This class is a member of the
- * <a href="{@docRoot}/java/util/package-summary.html#CollectionsFramework">
- * Java Collections Framework</a>.
- *
- * @since 1.5
- * @author Josh Bloch, Doug Lea
- * @param <E> the type of elements held in this queue
  */
 public class PriorityQueue<E> extends AbstractQueue<E>
     implements java.io.Serializable
 ```
+
+## 二、数据成员
 
 ```java
 // 默认初始化容量
@@ -93,7 +89,7 @@ private final Comparator<? super E> comparator;
 transient int modCount;
 ```
 
-## 构造方法
+## 三、构造方法
 
 ```java
 // 使用默认初始化容量11构造实例，并根据元素的可比较自然顺序进行排序
@@ -114,30 +110,13 @@ public PriorityQueue(int initialCapacity) {
     this(initialCapacity, null);
 }
 
-/**
- * Creates a {@code PriorityQueue} with the default initial capacity and
- * whose elements are ordered according to the specified comparator.
- *
- * @param  comparator the comparator that will be used to order this
- *         priority queue.  If {@code null}, the {@linkplain Comparable
- *         natural ordering} of the elements will be used.
- * @since 1.8
- */
+// 使用默认初始化容量11构造实例，并根据指定comparator对元素进行排序
 public PriorityQueue(Comparator<? super E> comparator) {
     this(DEFAULT_INITIAL_CAPACITY, comparator);
 }
 
-/**
- * Creates a {@code PriorityQueue} with the specified initial capacity
- * that orders its elements according to the specified comparator.
- *
- * @param  initialCapacity the initial capacity for this priority queue
- * @param  comparator the comparator that will be used to order this
- *         priority queue.  If {@code null}, the {@linkplain Comparable
- *         natural ordering} of the elements will be used.
- * @throws IllegalArgumentException if {@code initialCapacity} is
- *         less than 1
- */
+// 使用指定初始化容量构造实例，并根据指定comparator对元素进行排序
+// 若initialCapacity小于1，则抛出IllegalArgumentException
 public PriorityQueue(int initialCapacity,
                      Comparator<? super E> comparator) {
     // Note: This restriction of at least one is not actually needed,
@@ -222,7 +201,7 @@ public PriorityQueue(SortedSet<? extends E> c) {
 }
 ```
 
-## 成员方法
+## 四、成员方法
 
 ```java
 private void initFromPriorityQueue(PriorityQueue<? extends E> c) {
@@ -425,7 +404,7 @@ public Iterator<E> iterator() {
 ```
 
 
-## Itr
+## 五、Itr
 
 
 ```java
@@ -469,7 +448,7 @@ private final class Itr implements Iterator<E> {
      */
     private int expectedModCount = modCount;
 
-    Itr() {}                        // prevent access constructor creation
+    Itr() {} // 禁止通过默认构造方法构造实例
 
     public boolean hasNext() {
         return cursor < size ||
@@ -560,7 +539,7 @@ E removeAt(int i) {
     // assert i >= 0 && i < size;
     modCount++;
     int s = --size;
-    if (s == i) // removed last element
+    if (s == i) // 移除最后一个元素
         queue[i] = null;
     else {
         E moved = (E) queue[s];
@@ -722,7 +701,7 @@ public final Spliterator<E> spliterator() {
 }
 ```
 
-## PriorityQueueSpliterator
+## 六、PriorityQueueSpliterator
 
 ```java
 final class PriorityQueueSpliterator implements Spliterator<E> {
