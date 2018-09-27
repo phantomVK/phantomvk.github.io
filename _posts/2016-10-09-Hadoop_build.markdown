@@ -10,20 +10,19 @@ tags:
 
 ## 系统环境
 
-__运行环境：`Ubuntu 16.04 LTS AMD64` 、`OpenJDK 9`、`Hadoop-1.2.1`、`OpenSSH`__
-
+运行环境：__Ubuntu 16.04 LTS AMD64__、__OpenJDK 9__、__Hadoop-1.2.1__、__OpenSSH__
 
 ## 一、JDK安装及配置
 
 #### 1.1 安装JDK
 
-Hadoop依赖JDK，请确认系统已经安装JDK，具体请参考文章:  __[Ubuntu安装Oracle JDK8](http://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__ 
+Hadoop依赖JDK，请确认系统已安装JDK，具体设置请参考文章:  __[Ubuntu安装Oracle JDK8](https://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__ 
 
 ## 二、 Hadoop安装及配置
 
 ### 2.1 下载Hadoop
 
-通过`wget`在[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)下载Hadoop并解压到`/opt`
+通过wget在[清华大学镜像源](https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common)下载Hadoop并解压到`/opt`
 
 ```bash
 $ cd /opt
@@ -129,7 +128,7 @@ $ source /etc/profile
 
 ### 2.3 初始化NameNode
 
-运行命令后会自动开始格式化，最终NameNode会自动关闭
+运行命令后会自动开始格式化，最后NameNode自动关闭
 
 ```bash
 $ hadoop namenode -format 
@@ -193,7 +192,7 @@ localhost:
 localhost: starting tasktracker, logging to /opt/hadoop-1.2.1/libexec/../logs/hadoop-root-tasktracker-mike-virtual-machine.out
 ```
 
-用`jps`查看可知Hadoop已经启动
+用`jps`查看可知Hadoop已启动
 
 ```bash
 $ jps
