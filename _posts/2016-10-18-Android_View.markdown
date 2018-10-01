@@ -9,8 +9,6 @@ tags:
     - Android源码系列
 ---
 
-
-
 # 前言
 
 最近看View的事件分发源码，并做了一些笔记。笔记以注释的形式插入到代码中，请仔细阅读文章中给出的源码。源码基于Android 6.0，或有错漏之处，欢迎指正。
@@ -19,7 +17,7 @@ tags:
 
 #### 1.1 自定义Button
 
-为了能看见事件调用什么方法，先继承`Button`类并重载`dispatchTouchEvent()`和`onTouchEvent()`。而所有发送给View的事件，首先是由`dispatchTouchEvent()`接收。
+为了能看见事件调用什么方法，先继承 __Button__ 类并重载 __dispatchTouchEvent()__ 和 __onTouchEvent()__ 。而所有发送给View的事件，先由 __dispatchTouchEvent()__ 接收。
 
 ```java
 public class MyButton extends Button {
@@ -64,7 +62,7 @@ public class MyButton extends Button {
                 break;
             default:
                 break;
-        } 
+        }  
         return super.onTouchEvent(event);
     }
 }
@@ -72,7 +70,7 @@ public class MyButton extends Button {
 
 #### 1.2 xml布局
 
-在`main_activity.xml`中使用自定义的`Button`
+在 __main_activity.xml__ 中使用自定义的 __Button__
 
 ```xml
 <RelativeLayout 
@@ -89,7 +87,7 @@ public class MyButton extends Button {
 
 #### 1.3 MainActivity
 
-绑定按钮并给按钮设置一个监听器`OnTouchListener`，下文会说明这个监听器的用途。
+绑定按钮并给按钮设置一个监听器 __OnTouchListener__  ，下文会说明这个监听器的用途。
 
 ```java
 public class MainActivity extends AppCompatActivity {
@@ -120,28 +118,20 @@ public class MainActivity extends AppCompatActivity {
                     default:
                         break;
                 }
-                return false; // 返回值会影响事件的分发行为
+                return false; // 返回值会影响事件分发行为
             }
         });
     }
 }
 ```
 
-#### 1.4 梳理
-
-- `dispatchTouchEvent()`
-- `onTouchEvent()`
-- `OnTouchListener()`
-
-这三个被重写的方法都对`ACTION_DOWN`、`ACTION_MOVE`、`ACTION_UP`的动作显示信息。
-
 # 二、运行结果
 
-#### 2.1 OnTouchListener -> false
+#### 2.1 OnTouchListener 返回 false
 
-`View.OnTouchListener`返回`false`，点击按钮马上放开。如果手指一直在屏幕上滑动，Log的`ACTION_DOWN`和`ACTION_UP`之间会报告`ACTION_MOVE`的信息。我们并不关心`ACTION_MOVE`的状态，所以忽略它的消息。
+__View.OnTouchListener__ 返回 __false__ ，点击按钮马上放开。如果手指一直在屏幕上滑动，Log的 __ACTION_DOWN__ 和 __ACTION_UP__ 之间会报告 __ACTION_MOVE__ 的信息。我们并不关心 __ACTION_MOVE__ 的状态，所以忽略它的消息。
 
-结果按照`dispatchTouchEvent` -> `onTouch` -> `onTouchEvent`的顺序出现
+结果按照 __dispatchTouchEvent__ -> __onTouch__ -> __onTouchEvent__ 的顺序出现
 
 ```
 10-13 23:53:29.382 17840-17840/? E/MyButton: dispatchTouchEvent ACTION_DOWN
@@ -153,9 +143,9 @@ public class MainActivity extends AppCompatActivity {
 10-13 23:53:29.414 17840-17840/? E/MyButton: onTouchEvent ACTION_UP
 ```
 
-#### 2.2 OnTouchListener -> true
+#### 2.2 OnTouchListener 返回 true
 
-`View.OnTouchListener`的返回值返回`true`，点击按钮马上放开:`dispatchTouchEvent（）` -> `onTouch`
+__View.OnTouchListener__ 返回 __true__ ，点击按钮马上放开： __dispatchTouchEvent()__ ->  __onTouch__
 
 ```
 10-13 23:55:32.523 18106-18106/? E/MyButton: dispatchTouchEvent ACTION_DOWN
@@ -165,13 +155,13 @@ public class MainActivity extends AppCompatActivity {
 10-13 23:55:32.554 18106-18106/? E/MainActivity: onTouch ACTION_UP
 ```
 
-`View.OnTouchListener`返回`true`，则`onTouchEvent()`不会触发，说明事件没有分发到`onTouchEvent()`。
+__onTouchEvent()__ 没有触发，说明事件没有分发到 __onTouchEvent()__ 。
 
 # 三、源码分析
 
 #### 3.1 dispatchTouchEvent
 
-先看`dispatchTouchEvent`源码
+先看 __dispatchTouchEvent__ 源码
 
 ```java
 public boolean dispatchTouchEvent(MotionEvent event) {
@@ -191,25 +181,23 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 
     final int actionMasked = event.getActionMasked();
     if (actionMasked == MotionEvent.ACTION_DOWN) {
-        stopNestedScroll(); // 触摸时停止嵌套的滚动
+        stopNestedScroll(); // 新手势的防御性清理
     }
 
-    // 安全机制过滤触摸事件，控件被遮挡就要过滤该事件
     if (onFilterTouchEventForSecurity(event)) {
         ListenerInfo li = mListenerInfo; // 这里获取mListenerInfo
         
         // 所有条件成立执行此语句块:
-        //    1. mListenerInfo不为空，且已设置OnTouchListener
-        //    2. View模式是Enable，表明控件可用
-        //    3. mOnTouchListener.onTouch()尝试消费事件
+        //    1. mListenerInfo不为空，且已设置OnTouchListener;
+        //    2. View模式是Enable，表明控件可用;
+        //    3. mOnTouchListener.onTouch()尝试消费事件;
         if (li != null && li.mOnTouchListener != null
                 && (mViewFlags & ENABLED_MASK) == ENABLED
                 && li.mOnTouchListener.onTouch(this, event)) {
-            result = true; // mOnTouchListener.onTouch()拦截了该事件
+            result = true; // mOnTouchListener.onTouch()消费该事件
         }
         
-        // 若li.mOnTouchListener.onTouch(this, event)没有执行或返回值为false，
-        // 则result为false，并交给onTouchEvent()处理
+        // 若li.mOnTouchListener.onTouch(this, event)没有执行或返回false，交给onTouchEvent()处理
         if (!result && onTouchEvent(event)) {
             result = true;
         }
@@ -230,9 +218,9 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 }
 ```
 
-从上述源码可知，点击事件进入dispatchTouchEvent()，在此方法内先给mOnTouchListener()消费事件。如果mOnTouchListener()不消费该事件，则继续下发给onTouchEvent(event)。
+从上述源码可知，点击事件进入 __dispatchTouchEvent()__ ，在此方法内先给 __mOnTouchListener()__ 消费事件。如果 __mOnTouchListener()__ 不消费该事件，则继续下发给 __onTouchEvent(event)__ 。
 
-那么`li.mOnTouchListener`在哪里设定呢？从下面这段截取的代码可知：
+那么 __li.mOnTouchListener__ 在哪里设定呢？从下面这段截取的代码可知：
 
 ```java
 ListenerInfo li = mListenerInfo;
@@ -244,9 +232,9 @@ if (li != null && li.mOnTouchListener != null
 }  
 ```
 
-`li.mOnTouchListener`依赖`mButton.setOnTouchListener`，不设置后者则前者为空。
+__li.mOnTouchListener__ 依赖 __mButton.setOnTouchListener__ ，不设置后者则前者为空。
 
-在`MainActivity.onCreate()`中给`mButton.setOnTouchListener()`创建一个`OnTouchListener`实例的同时，这个实例会保存在`getListenerInfo().mOnTouchListener`。
+在 __MainActivity.onCreate()__ 中给 __mButton.setOnTouchListener()__ 创建一个 __OnTouchListener__ 实例的同时，这个实例会保存在 __getListenerInfo().mOnTouchListener__ 。
 
 ```java
 public void setOnTouchListener(OnTouchListener l) {
@@ -254,7 +242,7 @@ public void setOnTouchListener(OnTouchListener l) {
 }
 ```
 
-而`getListenInfo()`里面判断`mListenerInfo`是否为空，非空直接返回，否则创建新的`ListenerInfo`。
+而 __getListenInfo()__ 里面判断 __mListenerInfo__ 是否为空，非空直接返回，否则创建新的 __ListenerInfo__ 。
 
 ```java
 ListenerInfo getListenerInfo() {
@@ -268,7 +256,7 @@ ListenerInfo getListenerInfo() {
 
 #### 3.2 onTouchEvent
 
-上文提到，`View.OnTouchListener()`的返回值决定事件是否继续分发给`onTouchEvent`实例。假如`OnTouchListener()`返回`false`，则`onTouchEvent`接收事件。
+上文提到 __View.OnTouchListener()__ 的返回值决定事件是否继续分发给 __onTouchEvent__ 。假如 __OnTouchListener()__ 返回 __false__ ，则 __onTouchEvent__ 接收事件。
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
