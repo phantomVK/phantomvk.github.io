@@ -88,7 +88,6 @@ public class ReentrantLock implements Lock, java.io.Serializable
 ## 数据成员
 
 ```java
-private static final long serialVersionUID = 7373984872572414699L;
 /** Synchronizer providing all implementation mechanics */
 private final Sync sync;
 ```
@@ -172,17 +171,16 @@ abstract static class Sync extends AbstractQueuedSynchronizer {
     private void readObject(java.io.ObjectInputStream s)
         throws java.io.IOException, ClassNotFoundException {
         s.defaultReadObject();
-        setState(0); // reset to unlocked state
+        setState(0); // 重置为解锁状态
     }
 }
 ```
 
 ## NonfairSync
 
+非公平锁同步对象
+
 ```java
-/**
- * Sync object for non-fair locks
- */
 static final class NonfairSync extends Sync {
     private static final long serialVersionUID = 7316153563782823691L;
     protected final boolean tryAcquire(int acquires) {
@@ -193,10 +191,9 @@ static final class NonfairSync extends Sync {
 
 ## FairSync
 
+公平锁同步对象
+
 ```java
-/**
- * Sync object for fair locks
- */
 static final class FairSync extends Sync {
     private static final long serialVersionUID = -3000897897090466540L;
     /**
@@ -228,21 +225,17 @@ static final class FairSync extends Sync {
 
 ## 构造方法
 
+创建ReentrantLock实例，等价于调用 __ReentrantLock(false)__
+
 ```java
-/**
- * Creates an instance of {@code ReentrantLock}.
- * This is equivalent to using {@code ReentrantLock(false)}.
- */
 public ReentrantLock() {
     sync = new NonfairSync();
 }
+```
 
-/**
- * Creates an instance of {@code ReentrantLock} with the
- * given fairness policy.
- *
- * @param fair {@code true} if this lock should use a fair ordering policy
- */
+通过指定值创建ReentrantLock实例，fair表示是否使用公平顺序策略
+
+```java
 public ReentrantLock(boolean fair) {
     sync = fair ? new FairSync() : new NonfairSync();
 }
