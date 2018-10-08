@@ -20,11 +20,8 @@ view.getMeasuredHeight();
 view.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
     @Override
     public void onGlobalLayout() {
-        view.getViewTreeObserver().removeGlobalOnLayoutListener(this);
-        // view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+        view.getViewTreeObserver().removeOnGlobalLayoutListener(this);
         view.getHeight();
     }
 });
 ```
-
-

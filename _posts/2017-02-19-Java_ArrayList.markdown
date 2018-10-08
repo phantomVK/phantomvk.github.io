@@ -40,7 +40,7 @@ private static final Object[] EMPTY_ELEMENTDATA = {};
 private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
 ```
 
-`ArrayList`总长度此变量长度，如果构建前等于`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，第一个元素加入时构建序列长度初始化为10
+`ArrayList`总长度为此变量长度，如果构建前等于`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，第一个元素加入时构建序列长度初始化为10
 
 ```java
 transient Object[] elementData;
@@ -232,7 +232,7 @@ public boolean contains(Object o) {
 
 ### 4.6 元素查找
 
-查找指定元素的序号。若元素是空对象，则找数组遇到第一个null的下标。其他情况，找到元素返回下标，找不到返回`-1`  
+查找指定元素的序号。若元素是空对象，则找数组遇到第一个null的下标。其他情况，找到元素返回下标，找不到返回-1
 
 ```java
 public int indexOf(Object o) {
@@ -249,7 +249,7 @@ public int indexOf(Object o) {
 }
 ```
 
-查指定元素在列表中最后一次出现的索引值
+查指定元素在列表中最后一次出现的索引值，倒序查找
 
 ```java
 public int lastIndexOf(Object o) {
@@ -350,7 +350,9 @@ public E set(int index, E element) {
 
 ```java
 public boolean add(E e) {
-    ensureCapacityInternal(size + 1);  // 增加的修改操作
+    // 检查数组空间
+    ensureCapacityInternal(size + 1);
+    // 对应位置存入元素
     elementData[size++] = e;
     return true;
 }
@@ -362,7 +364,7 @@ public boolean add(E e) {
 public void add(int index, E element) {
     rangeCheckForAdd(index);
 
-    ensureCapacityInternal(size + 1);  // Increments modCount!!
+    ensureCapacityInternal(size + 1);
     System.arraycopy(elementData, index, elementData, index + 1,
                      size - index);
     elementData[index] = element;

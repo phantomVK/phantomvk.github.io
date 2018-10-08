@@ -81,7 +81,7 @@ public static void loop() {
     Binder.clearCallingIdentity(); // 确保线程就是本地线程，并实时跟踪线程身份
     final long ident = Binder.clearCallingIdentity();
     
-    // 循环遍历，从消息队列去消息
+    // 循环遍历，从消息队列取消息
     for (;;) {
         // 如果队列没有消息，会阻塞并等待有效消息
         Message msg = queue.next();

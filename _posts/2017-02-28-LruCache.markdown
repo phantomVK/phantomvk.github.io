@@ -12,7 +12,7 @@ tags:
 
 ## 一、类签名
 
-LruCache是Android提供的缓存工具类，根据最近最少使用算法缓存元素，避免因缓存过多导致内存占用过大，或内存释放不及时引起内存溢出。
+LruCache是Android提供的缓存工具类，根据最近最少使用算法缓存元素，避免缓存过多导致内存占用过大，或内存释放不及时引起内存溢出。
 
 ```java
 public class LruCache<K, V>
@@ -20,9 +20,9 @@ public class LruCache<K, V>
 
 资源缓存除了最近最少使用外，还巧妙利用Java对象引用类型完成内存回收。这4种类型分别是强、软、弱、虚。
 
-每次被操作元素都会被移到队列末位。一段时间后本来处于队列末位的元素，因为其他元素的操作逐渐前进到队头。如果队列空间足够，所有元素都不会移除。否则处于队头的元素优先移除，腾出空间容纳新元素。所以使用热度高的资源得到有效缓存，长时间没有使用的资源会被移出队列。这些操作均依赖LinkedHashMap，深入了解请阅读文章：[Java源码系列(11) -- LinkedHashMap](https://phantomvk.github.io/2018/07/09/LinkedHashMap/)
+被操作的元素会移到队列末位。一段时间后本来处于队列末位的元素，因为其他元素的操作逐渐前进到队头。如果队列空间足够，所有元素都不会移除。否则处于队头的元素优先移除，腾出空间容纳新元素。所以使用热度高的资源得到有效缓存，长时间没有使用的资源会被移出队列。这些操作均依赖[LinkedHashMap](https://phantomvk.github.io/2018/07/09/LinkedHashMap/)
 
-为了使该类适合实际应用，开发中多定义子类继承`LruCache`，重写`create()`、`entryRemoved()`和`sizeOf()`等方法。
+为了使该类适合实际应用，开发中多继承`LruCache`，重写`create()`、`entryRemoved()`和`sizeOf()`等方法。
 
 ## 二、数据成员
 
@@ -40,7 +40,7 @@ private int size;
 private int maxSize;
 ```
 
-用来保存各种操作统计次数，注释标示的操作会修改对应统计的次数。如：添加一个元素就会给`putCount`增加一次计数。
+用来保存各种操作统计次数，如：添加一个元素`putCount`递增一次。
 
 ```java
 private int putCount;     // 加入
@@ -52,9 +52,9 @@ private int missCount;    // 命中失败
 
 ## 三、构造方法
 
-`maxSize`记录整个列表最大保存数。为避免严重的哈希冲突，`LinkedHashMap`哈希因子设定为0.75且不能自定义。
+`maxSize`记录整个列表最大保存数。为避免严重的哈希冲突，`LinkedHashMap`哈希因子设定为0.75。
 
-`LinkedHashMap`构造函数参数`accessOrder`为`true`时，`LinkedHashMap`以访问顺序排列元素，否则以插入顺序排序元素。从源码可知`LruCache`使用`LinkedHashMap`时`accessOrder`为`true`。
+`LinkedHashMap`构造函数参数`accessOrder`为`true`时以访问顺序排列元素，否则以插入顺序排列元素。从源码可知`LruCache`使用`LinkedHashMap`时`accessOrder`为`true`。
 
 ```java
 public LruCache(int maxSize) {
@@ -108,7 +108,8 @@ public final V get(K key) {
         missCount++; // 命中失败
     }
 
-    // 命中失败后尝试构建Value。构建过程可能比较长且当create()返回值时，原队列顺序可能已发生改变。
+    // 命中失败后尝试构建Value
+    // 构建过程可能比较长且当create()返回值时，原队列顺序可能已发生改变。
     // 若发现一个Hash值相同的item已经进入队列，该值会保留下来并抛弃create()的对象
     V createdValue = create(key);
     if (createdValue == null) {
@@ -122,7 +123,7 @@ public final V get(K key) {
 
         // 如果mapValue不为空，证明原位置有值
         if (mapValue != null) {
-            // 把mapValue又替换回去，刚刚添加进去的createdValue被退出来，相当于原列表没有任何修改
+            // 把mapValue又替换回去，刚刚添加进去的createdValue被换出来，相当于没有任何修改
             map.put(key, mapValue);
         } else {
             // 没有冲突，新值成功插入，把新对象的大小加到总大小上
@@ -135,7 +136,7 @@ public final V get(K key) {
         entryRemoved(false, key, createdValue, mapValue);
         return mapValue;
     } else {
-        // 创建的新值插入成功，且没有旧的值被替换，trimToSize()检查是否需要裁剪空间
+        // 创建的新值插入成功，且没有旧的值被替换，trimToSize()检查是否需要调整空间
         trimToSize(maxSize);
         return createdValue;
     }
@@ -155,18 +156,21 @@ public final V put(K key, V value) {
         putCount++;
         // 添加新元素，把新元素的大小增加到size
         size += safeSizeOf(key, value);
-        previous = map.put(key, value // 被替换出来的元素
-        // 需要减去前一个元素空间占用
+        // 被替换出来的元素
+        previous = map.put(key, value);
+        // 减去上一个元素空间占用
         if (previous != null) {
             size -= safeSizeOf(key, previous);
         }
     }
 
     if (previous != null) {
-        entryRemoved(false, key, previous, value); // 执行移除操作
+        // 执行移除操作
+        entryRemoved(false, key, previous, value);
     }
 
-    trimToSize(maxSize); // 调整大小
+    // 调整大小
+    trimToSize(maxSize);
     return previous;
 }
 ```
@@ -198,8 +202,10 @@ public void trimToSize(int maxSize) {
 
             key = toEvict.getKey();
             value = toEvict.getValue();
-            map.remove(key); // 从LinkedHashMap中移除
-            size -= safeSizeOf(key, value); // 调整总大小
+            // 从LinkedHashMap中移除
+            map.remove(key);
+            // 调整总大小
+            size -= safeSizeOf(key, value);
             evictionCount++;
         }
 
@@ -220,6 +226,7 @@ public final V remove(K key) {
     synchronized (this) {
         // 根据key在LinkedHashMap中查找元素
         previous = map.remove(key);
+        // 元素成功移除，减去元素大小
         if (previous != null) {
             size -= safeSizeOf(key, previous);
         }
@@ -245,7 +252,7 @@ protected void entryRemoved(boolean evicted, K key, V oldValue, V newValue) {}
 
 #### 4.5.2 create()
 
-在子类选择性重写此方法，目的是键值命中失败时提供自定义创建功能，把新建item加入队列，默认返回null。
+在子类选择性重写此方法，目的是键值命中失败时把新建item加入队列，默认返回null。
 
 ```java
 protected V create(K key) {
@@ -255,7 +262,7 @@ protected V create(K key) {
 
 ### 4.6 值大小
 
-私有方法，对`sizeOf()`方法返回结果安全检查。假设item中存放的是Bitmap对象，需重写sizeof对象实现获取该对象的内存大小。为什么在已预设队列长度的情况下还要重写此方法？
+私有方法，对`sizeOf()`方法返回结果安全检查。假设item中存放的是Bitmap对象，需重写sizeof对象实现获取该对象的内存大小。
 
 ```java
 private int safeSizeOf(K key, V value) {
@@ -267,7 +274,7 @@ private int safeSizeOf(K key, V value) {
 }
 ```
 
-拿图片缓存为例：虽然我们可以控制图片在队列中缓存的数量，但却无法控制所有图片在内存中的占用。可能出现队列保存若干张图，每张图片占用多达16M内存，以至于为数不多的图片占用大量内存。为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阈值，也要强制释放队列最近最少使用资源，被释放图片以后使用时再重新加载。
+拿图片缓存为例：虽然可以控制图片在队列中缓存的数量，但却无法控制图片在内存中的占用。可能出现队列保存若干张图，每张图片占用多达16M内存，以至于为数不多的图片占用大量内存。为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阈值，也要强制释放队列最近最少使用资源，被释放图片以后使用时再重新加载。
 
 ```java
 protected int sizeOf(K key, V value) {
@@ -275,7 +282,7 @@ protected int sizeOf(K key, V value) {
 }
 ```
 
-元素大小返回默认值为1，表示元素占用一个单位。条目size在运行时不能改变，否则会导致数量控制失效。
+默认值为1，表示元素占用一个单位。条目size在运行时不能改变，否则会导致数量控制失效。
 
 ### 4.7 清空
 

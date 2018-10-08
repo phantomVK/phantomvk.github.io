@@ -48,7 +48,7 @@ __两种类型__:
 
 ### 2.1 程序计数器
 
-程序计数器可看做当前线程所执行字节码行号的指针，每个线程有独立的程序计数器，线程之间计数器互不影响。执行Java方法时，这个计数器记录执行字节码指令地址。如果当前线程执行的是Native方法，则计数器为空。
+程序计数器可看作当前线程所执行字节码行号的指针，每个线程有独立的程序计数器，线程之间计数器互不影响。执行Java方法时，这个计数器记录执行字节码指令地址。如果当前线程执行的是Native方法，则计数器为空。
 
 ### 2.2 虚拟机栈
 
@@ -72,13 +72,13 @@ __两种类型__:
 
 ![img](/img/jvm_memory/heap.png)
 
-虚拟机新生代中，`Eden`和`Survivor`内存比例一般是8：1，也就是说`Eden ：Survivor s0：Survivor s1= 8：1：1`，可根据线上实际运行环境调优。
+虚拟机新生代中， __Eden__ 和 __Survivor__ 内存比例一般是8: 1，即 __Eden: Survivor s0: Survivor s1= 8: 1: 1__ 。
 
 大部分对象生命周期很短，熬不过第一次垃圾收集。堆区分代回收根据对象不同生命周期，来做出合理的内存分配和回收操作。从分配的角度来看，线程本地缓冲区(Thread local allocation buffer, TLAB)有利于更高效地划分线程私有缓冲区，避免每次线程需要内存时都去请求堆区开辟新空间。
 
 #### 2.4.2 幸存者区域
 
-新创建对象先存放在Eden区，经过第一次垃圾回收且存活的对象会进入两个Survivor中的一个。此时这个Survivor区就称为`To Survivor`，而另一个区称为`From Survivor`。此时，From Survivor会把上次回收存活的对象移到To Survivor，然后清空。
+新创建对象先存放在Eden区，经过第一次垃圾回收且存活的对象会进入两个Survivor中的一个。此时这个Survivor区就称为 __To Survivor__ ，而另一个区称为 __From Survivor__ 。From Survivor把上次回收存活的对象移到To Survivor并清空。
 
 ![img](/img/jvm_memory/from_to_sur.png)
 

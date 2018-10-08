@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-相信看过 [Java源码系列(2) -- StringBuilder](http://phantomvk.coding.me/2017/02/23/StringBuilder/) 的读者都了解`StringBuilder`和`StringBuffer`的异同，这里我们再复习一次加深印象。
+相信看过 [StringBuilder](http://phantomvk.coding.me/2017/02/23/StringBuilder/) 的读者都了解`StringBuilder`和`StringBuffer`的异同，这里我们再重温一次。
 
 ```java
 public final class StringBuffer
@@ -19,12 +19,12 @@ public final class StringBuffer
     implements java.io.Serializable, CharSequence
 ```
 
-`StringBuilder`和`StringBuffer`同样继承自`AbstractStringBuilder`父类，字符串序列增删查改等主要操作由父类实现。`StringBuilder`调用父类方法线程不安全，而`StringBuffer`操作线程安全。除此之外都支持序列化。
+`StringBuilder`和`StringBuffer`同样继承自[AbstractStringBuilder](https://phantomvk.github.io/2017/03/25/AbstractStringBuilder/)父类，字符串序列增删查改等主要操作由父类实现。`StringBuilder`调用父类方法线程不安全，而`StringBuffer`操作线程安全，均支持序列化。
 
 ## 二、数据成员
 
 ```java
-// 当字符串被修改之后，值最新缓存会被toString返回
+// 当字符串被修改之后，此值会被更新
 private transient char[] toStringCache;
 ```
 
@@ -57,11 +57,11 @@ public StringBuffer(CharSequence seq) {
 
 为了保证线程安全，几乎所有方法都使用`synchronized`修饰符。同步锁加在字符串序列实例上，只要线程已经占用这个实例，其他线程只能等待线程释放同步锁再去竞争。
 
-`synchronied`锁有三种类别：
+__synchronied__ 锁有三种类别：
 
-- `对象锁`是类中有一个静态常量Object作代码块锁的锁对象，只要同步代码块已经持有该对象，其他同步代码块只能等待上一个锁释放；
-- `实例锁`的实例方法使用`synchronied`作为锁目标，只要该实例有一个同步方法在使用，其他线程对同一个实例同步操作只能等待上一个同步结束；
-- `类锁`针对类静态方法需要使用线程同步的情况。由于静态类不需要初始化就能访问，所以只能把整个类作为锁目标。
+- __对象锁__ 是类中有一个静态常量Object作代码块锁的锁对象，只要同步代码块已经持有该对象，其他同步代码块只能等待上一个锁释放；
+- __实例锁__ 的实例方法使用`synchronied`作为锁目标，只要该实例有一个同步方法在使用，其他线程对同一个实例同步操作只能等待上一个同步结束；
+- __类锁__ 针对类静态方法需要使用线程同步的情况。由于静态类不需要new就能访问，所以只能把整个类作为锁目标。
 
 #### 4.1 序列长度
 

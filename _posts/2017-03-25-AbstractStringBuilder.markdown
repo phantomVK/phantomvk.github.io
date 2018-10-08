@@ -17,7 +17,7 @@ tags:
 abstract class AbstractStringBuilder implements Appendable, CharSequence
 ```
 
-实现`CharSequence`，所以两个子类`StringBuilder`和`StringBuffer`的实例可以直接赋值给`CharSequence`。
+实现`CharSequence`接口，子类`StringBuilder`和`StringBuffer`实例可直接赋值给`CharSequence`。
 
 ## 二、数据成员
 
@@ -29,7 +29,7 @@ int count;    // 记录字符长度
 ## 三、构造方法
 
 ```java
-// 必要的无参构造方法，用于序列化和子类
+// 必要的无参构造方法，用于序列化
 AbstractStringBuilder() { }
 
 // 通过指定容量构造字符串数组
