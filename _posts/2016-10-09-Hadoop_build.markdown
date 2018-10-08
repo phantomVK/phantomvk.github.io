@@ -8,13 +8,9 @@ tags:
     - Tools
 ---
 
-## 系统环境
+## 一、环境及配置
 
 运行环境：__Ubuntu 16.04 LTS AMD64__、__OpenJDK 9__、__Hadoop-1.2.1__、__OpenSSH__
-
-## 一、JDK安装及配置
-
-#### 1.1 安装JDK
 
 Hadoop依赖JDK，请确认系统已安装JDK，具体设置请参考文章:  __[Ubuntu安装Oracle JDK8](https://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__ 
 
@@ -163,8 +159,6 @@ SHUTDOWN_MSG: Shutting down NameNode at mike-virtual-machine/127.0.1.1
 ```
 
 ## 三、 启动Hadoop服务
-
-#### 3.1 启动
 
 进入Hadoop目录，通过脚本启动Hadoop
 
