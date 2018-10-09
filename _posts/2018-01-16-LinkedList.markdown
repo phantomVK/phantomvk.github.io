@@ -43,6 +43,13 @@ transient Node<E> last;
 
 ## 三、构造方法
 
+默认构造方法
+
+```java
+public LinkedList() {
+}
+```
+
 用指定集合构建列表，传入集合元素访问顺序由集合迭代器决定：
 
 ```java

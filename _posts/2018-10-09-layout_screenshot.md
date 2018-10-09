@@ -1,31 +1,15 @@
 ---
 layout:     post
-title:      "Android布局截图"
-date:       2018-10-10
+title:      "Android布局截取"
+date:       2018-10-09
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    true
+catalog:    false
 tags:
     - Android
 ---
 
-```java
-class MainActivity : AppCompatActivity() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-        screenshotLayout.setOnClickListener { screenShot() }
-    }
-
-    private fun screenShot() {
-        screenshotLayout.isDrawingCacheEnabled = true
-        val bitmap = screenshotLayout.getDrawingCache(false)
-        screenshotLayout.destroyDrawingCache()
-        bitmap.toString() // Bitmap to save.
-    }
-}
-```
+布局 __activity_main.xml__
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -102,3 +86,22 @@ class MainActivity : AppCompatActivity() {
 </FrameLayout>
 ```
 
+执行逻辑
+
+```java
+class MainActivity : AppCompatActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_main)
+        screenshotLayout.setOnClickListener { screenShot() }
+    }
+
+    private fun screenShot() {
+        screenshotLayout.isDrawingCacheEnabled = true
+        val bitmap = screenshotLayout.getDrawingCache(false)
+        screenshotLayout.destroyDrawingCache()
+        bitmap.toString() // Bitmap to save.
+    }
+}
+```

@@ -149,9 +149,7 @@ class CustomFragment : DialogFragment() {
 }
 ```
 
-在不做任何处理的前提下，运行效果如下。
-
-显然布局全部被挤在一起，没有达到 __android:layout_width="match_parent"__ 的要求
+在不做任何处理的前提下，运行效果如下。显然布局全部被挤在一起，没有达到 __android:layout_width="match_parent"__ 的要求
 
 ![dialog_fragment_problem](/img/android/dialogFragment/dialog_fragment_problem.png)
 
@@ -159,7 +157,7 @@ class CustomFragment : DialogFragment() {
 
 ## 二、方法一
 
-这种方法最简单，设置一个 __style__ 。
+这种方法最简单，设置一个 __style__ 
 
 ```java
 override fun onCreate(savedInstanceState: Bundle?) {
@@ -185,7 +183,7 @@ override fun onStart() {
 }
 ```
 
-从代码可知，布局宽度设置为屏幕总宽度90%，剩下10%宽度被均分到两侧作为边距。或者，通过设计稿对两侧保留边距的像素密度，亦可反向计算主布局所需比例。
+从代码可知，布局宽度设置为屏幕总宽度90%，剩下10%宽度被均分到两侧作为边距。或通过设计稿边距的像素密度，反向计算主布局所需比例。
 
 ![dialog_fragment_method_2](/img/android/dialogFragment/dialog_fragment_method_2.png)
 
