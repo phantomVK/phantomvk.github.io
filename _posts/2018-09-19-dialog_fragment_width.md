@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Android自定义DialogFragment宽度"
+title:      "自定义DialogFragment宽度"
 date:       2018-09-19
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -144,12 +144,12 @@ class CustomFragment : DialogFragment() {
         adapter.setData(data)
 
         val v = layoutInflater.inflate(R.layout.view_forward_text, viewContainer, true)
-        v.findViewById<TextView>(R.id.text).text = "[文本] 三间中国科技公司"
+        v.findViewById<TextView>(R.id.text).text = "[文章] 三间中国科技公司"
     }
 }
 ```
 
-在不做任何处理的前提下，运行效果如下。显然布局全部被挤在一起，没有达到 __android:layout_width="match_parent"__ 的要求
+在不做任何处理的前提下，布局全部挤在一起。
 
 ![dialog_fragment_problem](/img/android/dialogFragment/dialog_fragment_problem.png)
 
@@ -166,13 +166,13 @@ override fun onCreate(savedInstanceState: Bundle?) {
 }
 ```
 
-设置效果如下，布局宽度会自动延伸，并在左右两侧保留一定边距。从 __DialogFragment.STYLE_NO_TITLE__ 可知样式配置为不使用标题。
+设置效果如下，布局宽度会自动延伸，并在左右两侧保留一定边距。从 __DialogFragment.STYLE_NO_TITLE__ 可知样式不使用标题。
 
 ![dialog_fragment_method_1](/img/android/dialogFragment/dialog_fragment_method_1.png)
 
 ## 三、方法二
 
-通过计算决定Window布局宽度。这种方法相比方法一具备一定灵活性，可以自定义两侧保留边距。
+通过计算决定Window布局宽度，这种方法相比 __方法一__ 更灵活性，可以自定义两侧保留边距。
 
 ```java
 override fun onStart() {
@@ -183,13 +183,13 @@ override fun onStart() {
 }
 ```
 
-从代码可知，布局宽度设置为屏幕总宽度90%，剩下10%宽度被均分到两侧作为边距。或通过设计稿边距的像素密度，反向计算主布局所需比例。
+从代码可知，布局宽度设置为屏幕总宽度90%，剩下10%宽度被均分到两侧作为边距。也可以通过设计稿边距像素密度，反向计算主布局所需比例。
 
 ![dialog_fragment_method_2](/img/android/dialogFragment/dialog_fragment_method_2.png)
 
 ## 四、移除标题
 
-需要注意的是，由于方法二没有设置关于 __title__ 的参数，所以上图的布局上方出现了一块空白区，需要定义 __Window__ 的特性移除标题。
+由于方法二没有设置 __title__ 参数，所以布局上方出现空白区，需要定义 __Window__ 特性移除标题。
 
 ```java
 override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {
@@ -205,7 +205,7 @@ override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, saved
 
 ## 五、背景透明
 
-由于背景默认非透明，设置了圆角后边距会有非透明的区域。通过以下代码配置，可与移除标题的代码同时使用：
+由于背景默认非透明，设置圆角后边角留有非透明区域。以下代码可与移除标题的代码同时使用：
 
 ```java
 override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View? {

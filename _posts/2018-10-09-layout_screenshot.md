@@ -97,13 +97,13 @@ class MainActivity : AppCompatActivity() {
     private fun screenShot() {
         screenshotLayout.isDrawingCacheEnabled = true
         screenshotLayout.buildDrawingCache()
-        val bitmap = screenshotLayout.getDrawingCache(false)
+        val bitmap = screenshotLayout.getDrawingCache(false) // Bitmap to save.
         screenshotLayout.destroyDrawingCache()
-        bitmap.toString() // Bitmap to save.
+        screenshotLayout.isDrawingCacheEnabled = false
     }
 }
 ```
 
-截取的就是下图中间卡片部分
+截取部分为下图中间卡片
 
 ![layout_screenshot](/img/android/layout_screenshot.png)
