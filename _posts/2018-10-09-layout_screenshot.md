@@ -38,14 +38,12 @@ tags:
             android:layout_marginTop="17dp">
 
             <ImageView
-                android:id="@+id/iv_avatar"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_centerVertical="true"
                 android:src="@drawable/qq" />
 
             <TextView
-                android:id="@+id/tv_name"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"
@@ -55,7 +53,6 @@ tags:
                 android:textSize="18sp" />
 
             <TextView
-                android:id="@+id/tv_id"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignStart="@id/tv_name"
@@ -99,9 +96,14 @@ class MainActivity : AppCompatActivity() {
 
     private fun screenShot() {
         screenshotLayout.isDrawingCacheEnabled = true
+        screenshotLayout.buildDrawingCache()
         val bitmap = screenshotLayout.getDrawingCache(false)
         screenshotLayout.destroyDrawingCache()
         bitmap.toString() // Bitmap to save.
     }
 }
 ```
+
+截取的就是下图中间卡片部分
+
+![layout_screenshot](/img/android/layout_screenshot.png)
