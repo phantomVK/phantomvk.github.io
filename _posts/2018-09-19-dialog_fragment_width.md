@@ -44,7 +44,6 @@ DialogFragment的xml布局：
         tools:listitem="@layout/item_forward_info_preview" />
 
     <View
-        android:id="@+id/dividerUpper"
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginEnd="15dp"
@@ -59,7 +58,6 @@ DialogFragment的xml布局：
         android:layout_marginStart="2dp" />
 
     <EditText
-        android:id="@+id/leavedMessage"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginEnd="15dp"
@@ -89,7 +87,6 @@ DialogFragment的xml布局：
         android:layout_marginStart="1dp">
 
         <View
-            android:id="@+id/hook"
             android:layout_width="1dp"
             android:layout_height="wrap_content"
             android:layout_alignBottom="@+id/btnCancel"
@@ -98,7 +95,6 @@ DialogFragment的xml布局：
             android:background="#d9d9d9" />
 
         <Button
-            android:id="@+id/btnCancel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_toStartOf="@+id/hook"
@@ -108,7 +104,6 @@ DialogFragment的xml布局：
             android:textSize="17sp" />
 
         <Button
-            android:id="@+id/btnConfirm"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_toEndOf="@+id/hook"

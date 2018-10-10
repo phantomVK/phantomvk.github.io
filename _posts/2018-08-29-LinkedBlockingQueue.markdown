@@ -23,8 +23,8 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 - 基于链表实现的阻塞队列，线程安全；
 - 队头元素是存活时间最长的元素，队尾元素是存活时间最短的元素；
 - 元素从队列尾进队，从队列头出队，符合FIFO；
-- 链表实现的队列一般比基于数组实现有更高吞吐量，但比大多数并发应用的理想性能低；
-- 默认队列最大长度为Integer.MAX_VALUE，新节点动态创建，已保存节点不会超过此值；
+- 链表实现的队列比基于数组实现有更高吞吐量，但比大多数并发应用的理想性能低；
+- 默认队列最大长度为Integer.MAX_VALUE，新节点动态创建，总节点不会超过此值；
 - 此类和其迭代器均实现了`Collection`和`Iterator`接口的可选方法；
 
 这是`two lock queue`算法的变体。putLock守卫元素的put、offer操作，且与等待存入的条件关联。takeLock原理类似。putLock和takeLock都依赖的`count`变量，被维护为一个原子变量，以避免多数情况下需同时请求两个锁。
@@ -199,7 +199,7 @@ public LinkedBlockingQueue() {
 }
 ```
 
-构造方法，初始化头结点引用和为节点引用，使用指定capacity
+使用指定capacity并初始化头结点引用和尾节点引用
 
 ```java
 public LinkedBlockingQueue(int capacity) {
@@ -224,15 +224,16 @@ public LinkedBlockingQueue(Collection<? extends E> c) {
         int n = 0;
         // 依次遍历集合c
         for (E e : c) {
+            // 集合元素为空抛出NullPointerException
             if (e == null)
-                // 集合元素为空抛出NullPointerException
                 throw new NullPointerException();
+            
+            // 队列已满
             if (n == capacity)
                 throw new IllegalStateException("Queue full");
-            // 在集合c中取元素，用元素创建节点存入队列
-            enqueue(new Node<E>(e));
-            // 添加元素递增
-            ++n;
+
+            enqueue(new Node<E>(e)); // 在集合c中取元素创建节点存入队列
+            ++n; // 添加元素递增
         }
         // 最后把总添加元素更新至原子值count
         count.set(n);
@@ -244,7 +245,7 @@ public LinkedBlockingQueue(Collection<? extends E> c) {
 
 ## 九、成员方法
 
-获取队已存元素数量
+队列已有元素数量
 
 ```java
 public int size() {
@@ -252,7 +253,7 @@ public int size() {
 }
 ```
 
-剩余可用队列容量
+剩余队列容量
 
 ```java
 public int remainingCapacity() {
@@ -275,7 +276,7 @@ public void put(E e) throws InterruptedException {
     // 此锁可以被中断
     putLock.lockInterruptibly();
     try {
-        // 队列已满则原地等待直到队列出现空余
+        // 队列已满则等待直到出现空余
         while (count.get() == capacity) {
             notFull.await();
         }
@@ -291,6 +292,7 @@ public void put(E e) throws InterruptedException {
         // 解除锁
         putLock.unlock();
     }
+    // 队列原来是空的，添加新元素后不为空，通知线程取出元素
     if (c == 0)
         signalNotEmpty();
 }
@@ -331,13 +333,14 @@ public boolean offer(E e, long timeout, TimeUnit unit)
     } finally {
         putLock.unlock();
     }
+    // 队列原来是空的，添加新元素后不为空，通知线程取出元素
     if (c == 0)
         signalNotEmpty();
     return true;
 }
 ```
 
-把指定元素插入到队尾，如果插入成功返回true，队列已满插入失败返回false。当使用有容量限制的队列时，这个方法是比add方法更好，因为add元素添加失败会抛出异常。存入元素e为空时抛出NullPointerException。
+把指定元素插入到队尾，如果插入成功返回true，队列已满插入失败返回false。当使用有容量限制的队列时，这个方法比add方法更好，因为add元素添加失败会抛出异常。存入元素e为空时抛出NullPointerException。
 
 ```java
 public boolean offer(E e) {
@@ -369,6 +372,7 @@ public boolean offer(E e) {
         // 解锁
         putLock.unlock();
     }
+    // 队列原来是空的，添加新元素后不为空，通知线程取出元素
     if (c == 0)
         signalNotEmpty();
     return c >= 0;
@@ -403,6 +407,7 @@ public E take() throws InterruptedException {
         // 解锁
         takeLock.unlock();
     }
+    // 队列原来已满，现已有元素被取出，可以加入新元素
     if (c == capacity)
         signalNotFull();
     return x;
@@ -442,6 +447,7 @@ public E poll(long timeout, TimeUnit unit) throws InterruptedException {
         // 解锁
         takeLock.unlock();
     }
+    // 队列原来已满，现已有元素被取出，可以加入新元素
     if (c == capacity)
         signalNotFull();
     return x;
@@ -476,6 +482,7 @@ public E poll() {
         // 解锁
         takeLock.unlock();
     }
+    // 队列原来已满，现已有元素被取出，可以加入新元素
     if (c == capacity)
         signalNotFull();
     return x;
@@ -518,7 +525,7 @@ void unlink(Node<E> p, Node<E> pred) {
 }
 ```
 
-如果队列中存在指定元素，则把该元素从队列中移除。即使队列中存在多个相同元素，此方法只会移除其中一个。移除成功返回true，否则返回false。
+如果队列中存在指定元素则从队列中移除。若队列中存在多个相同元素，此方法只会移除其中一个。移除成功返回true，否则返回false。
 
 ```java
 public boolean remove(Object o) {
