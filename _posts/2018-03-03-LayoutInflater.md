@@ -80,13 +80,12 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
         try {
             // 开始查找Root节点
             int type;
-            // 找遇到的第一个START_TAG
             while ((type = parser.next()) != XmlPullParser.START_TAG &&
                     type != XmlPullParser.END_DOCUMENT) {
                     // 跳过非START_TAG或END_DOCUMENT标签
             }
             
-            // 可能已找到START_TAG，也可能没有START_TAG而遇到END_DOCUMENT结束；
+            // 可能已找到START_TAG，也可能没有START_TAG而结束；
             if (type != XmlPullParser.START_TAG) {
                 // 没有发现START_TAG意味xml内容非法，上层捕捉异常终止inflate
                 throw new InflateException(parser.getPositionDescription()
