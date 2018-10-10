@@ -18,7 +18,7 @@ public class ConcurrentSkipListSet<E>
     implements NavigableSet<E>, Cloneable, java.io.Serializable
 ```
 
-此实现在contains、add、remove等操作上预计平均时间开销为`log(n)`。插入、移除、访问操作在多线程下操作都是线程安全的(注：保证最终一致性)。
+此实现在contains、add、remove等操作上预计平均时间开销为`log(n)`。插入、移除、访问操作在多线程下操作都是线程安全的。
 
 递增排序视图和其迭代器都比递减方式的速度要快。
 

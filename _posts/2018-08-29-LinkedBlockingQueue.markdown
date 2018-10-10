@@ -27,13 +27,13 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 - 默认队列最大长度为Integer.MAX_VALUE，新节点动态创建，总节点不会超过此值；
 - 此类和其迭代器均实现了`Collection`和`Iterator`接口的可选方法；
 
-这是`two lock queue`算法的变体。putLock守卫元素的put、offer操作，且与等待存入的条件关联。takeLock原理类似。putLock和takeLock都依赖的`count`变量，被维护为一个原子变量，以避免多数情况下需同时请求两个锁。
+这是`two lock queue`算法的变体。putLock守卫元素的put、offer操作，且与等待存入的条件关联。takeLock原理类似。putLock和takeLock都依赖的`count`变量为一个原子变量，以避免多数情况下需同时请求两个锁。
 
-为了最小化put时需获取takeLock，使用了层叠式通知。当put操作注意到至少一个take可以启动，就会通知获取者。如果有多个item在信号后进队，获取者将依次通知其他获取者。因此，有对称的取操作通知存操作。有些操作如remove和iterators会同时请求两个锁。
+为了最小化put时需获取takeLock，使用了层叠式通知。当put操作注意到至少一个take可以启动，就会通知taker。如果有更多item在信号后进队，taker将依次通知其他taker。因此有对称的取操作通知存操作。有些操作如remove和iterators会同时请求两个锁。
 
 读取者和写入者间可见性如下提供：
 
-当元素已进入队列，putLock已被获取，且count变量也更新。随后，读取者通过获取putLock或获取takeLock，得到入队元素的可见性，然后读取`n = count.get();`，令前n个元素变得可见。
+当元素已进入队列，putLock已被获取且count变量更新。随后，读取者通过获取putLock或获取takeLock，得到入队元素的可见性，然后读取`n = count.get();`令前n个元素变得可见。
 
 为实现弱一致性迭代器，显然要从前导出队节点上保持所有节点的GC可达性。这会引起两个问题：
 
@@ -659,12 +659,15 @@ public int drainTo(Collection<? super E> c) {
 ```java
 public int drainTo(Collection<? super E> c, int maxElements) {
     Objects.requireNonNull(c);
+    
     // 不能把本队列的元素添加到自己队列上
     if (c == this)
         throw new IllegalArgumentException();
+    
     // maxElements须为正数
     if (maxElements <= 0)
         return 0;
+    
     boolean signalNotFull = false;
     final ReentrantLock takeLock = this.takeLock;
     // takeLock上锁

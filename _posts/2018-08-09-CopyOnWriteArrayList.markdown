@@ -130,7 +130,7 @@ public void add(int index, E element) {
         int numMoved = len - index;
         // numMoved为0表示新元素插入到最后一个索引
         if (numMoved == 0)
-            // 创建新数组，同时存入原有元素
+            // 创建新数组
             newElements = Arrays.copyOf(elements, len + 1);
         else {
             // 创建新数组

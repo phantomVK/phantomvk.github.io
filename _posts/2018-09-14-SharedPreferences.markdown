@@ -275,7 +275,7 @@ private void loadFromDisk() {
         if (mLoaded) {
             return;
         }
-        // 备份文件存在，则把源文件删除，备份文件作为原文件
+        // 备份文件存在，把原文件删除，备份文件作为原文件
         if (mBackupFile.exists()) {
             mFile.delete();
             mBackupFile.renameTo(mFile);
@@ -306,13 +306,13 @@ private void loadFromDisk() {
 
     synchronized (mLock) {
         mLoaded = true;
-        // 读取的数据不为空，则把数据设置到mMap
+        // 读取的数据不为空，数据设置到mMap
         if (map != null) {
             mMap = map;
             mStatTimestamp = stat.st_mtim;
             mStatSize = stat.st_size;
         } else {
-            // 磁盘没有已保存数据，则创建新HashMap
+            // 磁盘没有已保存数据，创建新HashMap
             mMap = new HashMap<>();
         }
         // 释放锁，通知其他操作
@@ -486,50 +486,14 @@ public Editor edit() {
     return new EditorImpl();
 }
 
-// 从EditorImpl.commitToMemory()返回值
-private static class MemoryCommitResult {
-    // 内存状态代
-    final long memoryStateGeneration;
-    // 被修改的keys列表
-    @Nullable final List<String> keysModified;
-    // 修改事件监听器集合
-    @Nullable final Set<OnSharedPreferenceChangeListener> listeners;
-    // 需要写磁盘的Map
-    final Map<String, Object> mapToWriteToDisk;
-    final CountDownLatch writtenToDiskLatch = new CountDownLatch(1);
+private static class MemoryCommitResult { ... }
 
-    // 写磁盘结果
-    @GuardedBy("mWritingToDiskLock")
-    volatile boolean writeToDiskResult = false;
-    // 已写入标志位
-    boolean wasWritten = false;
-
-    private MemoryCommitResult(long memoryStateGeneration,
-            @Nullable List<String> keysModified,
-            @Nullable Set<OnSharedPreferenceChangeListener> listeners,
-            Map<String, Object> mapToWriteToDisk) {
-        this.memoryStateGeneration = memoryStateGeneration;
-        this.keysModified = keysModified;
-        this.listeners = listeners;
-        this.mapToWriteToDisk = mapToWriteToDisk;
-    }
-
-    // wasWritten：已写入
-    // result：结果
-    void setDiskWriteResult(boolean wasWritten, boolean result) {
-        this.wasWritten = wasWritten;
-        writeToDiskResult = result;
-        writtenToDiskLatch.countDown();
-    }
-}
-
-// 内部类
 public final class EditorImpl implements Editor { ... }
 
 // 从内存写入磁盘任务的排队队列，顺序是FIFO，依次执行
 // 如果参数postWriteRunnable非空，则执行apply()，writeToDiskRunnable完成后执行postWriteRunnable
 // 如果参数postWriteRunnable为空，则执行commit()，并允许数据在主线程写入磁盘
-// 这可减少内存申请和避免创建后台线程，并能通过StrictMode报告去把commit()改为apply()
+// commit()可减少内存申请和减少后台线程，并能通过StrictMode报告优化commit()为apply()
 private void enqueueDiskWrite(final MemoryCommitResult mcr,
                               final Runnable postWriteRunnable) {
     // postWriteRunnable为空，同步提交数据到磁盘
@@ -539,10 +503,11 @@ private void enqueueDiskWrite(final MemoryCommitResult mcr,
     final Runnable writeToDiskRunnable = new Runnable() {
             @Override
             public void run() {
+                // 写入文件，isFromSyncCommit是否同步写入
                 synchronized (mWritingToDiskLock) {
-                    // 写入文件，是否同步写入isFromSyncCommit
                     writeToFile(mcr, isFromSyncCommit);
                 }
+                // 等待写入任务数量递减
                 synchronized (mLock) {
                     mDiskWritesInFlight--;
                 }
@@ -553,7 +518,7 @@ private void enqueueDiskWrite(final MemoryCommitResult mcr,
             }
         };
 
-    // 典型的更少内存申请的commit()方式，并在当前线程写入
+    // 更少内存申请的commit()方式，在当前线程写入
     if (isFromSyncCommit) {
         boolean wasEmpty = false;
         synchronized (mLock) {
@@ -568,11 +533,11 @@ private void enqueueDiskWrite(final MemoryCommitResult mcr,
         }
     }
 
-    // 有多个任务在执行，所以需要把任务放入工作队列中
+    // apply()任务放入工作队列按序执行
     QueuedWork.queue(writeToDiskRunnable, !isFromSyncCommit);
 }
 
-// 创建文件的输出流
+// 创建文件的输出流，即保存内容的xml
 private static FileOutputStream createFileOutputStream(File file) {
     FileOutputStream str = null;
     try {
@@ -597,7 +562,7 @@ private static FileOutputStream createFileOutputStream(File file) {
     return str;
 }
 
-// 写入文件，由外部的mWritingToDiskLock进行线程保护
+// 写入文件
 @GuardedBy("mWritingToDiskLock")
 private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
     long startTime = 0;
@@ -613,17 +578,18 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
     // 原文件是否存在
     boolean fileExists = mFile.exists();
 
-    // 重命名当前文件，以便在下一次读取时作为备份
+    // 重命名当前文件，作为写入异常后还原备份
     if (fileExists) {
         boolean needsWrite = false;
 
-        // 仅在磁盘状态比这次提交的更旧时进行写入
+        // 仅在磁盘状态比这次提交旧时写入
         if (mDiskStateGeneration < mcr.memoryStateGeneration) {
-            // 同步写入
+            // commit()同步写入
             if (isFromSyncCommit) {
                 // 需要写入
                 needsWrite = true;
             } else {
+                // apply()异步写入
                 synchronized (mLock) {
                     // 中间状态不需要持久化，仅持久化最新状态
                     if (mCurrentMemoryStateGeneration == mcr.memoryStateGeneration) {
@@ -632,20 +598,21 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
                 }
             }
         }
-
+        
+        // 此次内存变更不需要进行磁盘回写
         if (!needsWrite) {
             mcr.setDiskWriteResult(false, true);
             return;
         }
 
-        // 备份是否存在
+        // 备份文件是否存在
         boolean backupFileExists = mBackupFile.exists();
 
         // 磁盘文件备份不存在
         if (!backupFileExists) {
             // 把当前文件改名为备份文件
             if (!mFile.renameTo(mBackupFile)) {
-                // 重命名文件失败
+                // 文件备份失败，新变更内容不得写入磁盘
                 mcr.setDiskWriteResult(false, false);
                 return;
             }
@@ -656,22 +623,22 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
     }
 
     // 尝试写入文件、删除备份和返回true时尽可能做到原子性
-    // 如果出现任何异常，删除新文件，并在下一次从备份文件中恢复
+    // 如果出现任何异常则删除新文件并在下一次从备份文件中恢复
     try {
         // 创建文件输出流失败
         FileOutputStream str = createFileOutputStream(mFile);
-
         if (str == null) {
             mcr.setDiskWriteResult(false, false);
             return;
         }
-        // 把内存中需要写入的数据按照Xml的格式写入到str
+
+        // 把内存中需要写入的数据按照xml格式写入到str流
         XmlUtils.writeMapXml(mcr.mapToWriteToDisk, str);
 
         // 同步流
         FileUtils.sync(str);
 
-        // 关闭文件写入
+        // 关闭文件写入流
         str.close();
 
         // 修改文件权限
@@ -687,7 +654,7 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
         } catch (ErrnoException e) {
         }
 
-        // 等待并删除备份的文件
+        // 删除备份文件
         mBackupFile.delete();
 
         // 磁盘状态代值更新
@@ -705,7 +672,8 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
         Log.w(TAG, "writeToFile: Got exception:", e);
     }
 
-    // 磁盘写文件操作出现异常，需要删除仅写入部分内容的文件
+    // 磁盘写文件操作出现异常，删除已写入文件
+    // 下次读取内容发现mFile不存在，会检查备份文件
     if (mFile.exists()) {
         if (!mFile.delete()) {
             Log.e(TAG, "Couldn't clean up partially-written file " + mFile);
@@ -715,7 +683,53 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
 }
 ```
 
-#### 2.2.6 内部类EditorImpl
+#### 2.2.6 MemoryCommitResult
+
+```java
+// 从EditorImpl.commitToMemory()返回值
+private static class MemoryCommitResult {
+    // 内存状态代
+    final long memoryStateGeneration;
+    
+    // 被修改的keys列表
+    @Nullable final List<String> keysModified;
+    
+    // 修改事件监听器集合
+    @Nullable final Set<OnSharedPreferenceChangeListener> listeners;
+    
+    // 需要写磁盘的Map
+    final Map<String, Object> mapToWriteToDisk;
+    
+    final CountDownLatch writtenToDiskLatch = new CountDownLatch(1);
+
+    // 写磁盘操作是否成功
+    @GuardedBy("mWritingToDiskLock")
+    volatile boolean writeToDiskResult = false;
+    
+    // 是否有实际内容写入磁盘
+    boolean wasWritten = false;
+
+    private MemoryCommitResult(long memoryStateGeneration,
+            @Nullable List<String> keysModified,
+            @Nullable Set<OnSharedPreferenceChangeListener> listeners,
+            Map<String, Object> mapToWriteToDisk) {
+        this.memoryStateGeneration = memoryStateGeneration;
+        this.keysModified = keysModified;
+        this.listeners = listeners;
+        this.mapToWriteToDisk = mapToWriteToDisk;
+    }
+
+    // wasWritten：已写入
+    // result：结果
+    void setDiskWriteResult(boolean wasWritten, boolean result) {
+        this.wasWritten = wasWritten;
+        writeToDiskResult = result;
+        writtenToDiskLatch.countDown();
+    }
+}
+```
+
+#### 2.2.7 EditorImpl
 
 ```java
 public final class EditorImpl implements Editor {
