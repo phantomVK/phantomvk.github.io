@@ -15,6 +15,6 @@ tags:
 
 最后通过以下方法解决，下面是MacOS的处理流程，Windows类似：
 
-__"File" -> "Invalidate Caches / Restart..." -> 点击"Invalidate and Restart"确认__
+__"File" -> "Invalidate Caches / Restart..." -> 点击 "Invalidate and Restart" 确认__
 
-IDE重启之后工程文件会重新索引，稍等索引完成即可。
+IDE重启之后等重新索引完成即可。
