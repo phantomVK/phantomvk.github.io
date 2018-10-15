@@ -1122,7 +1122,9 @@ final void runWorker(Worker w) {
         processWorkerExit(w, completedAbruptly);
     }
 }
+```
 
+```java
 // Public constructors and methods
 
 /**
@@ -1280,7 +1282,9 @@ public ThreadPoolExecutor(int corePoolSize,
     this.threadFactory = threadFactory;
     this.handler = handler;
 }
+```
 
+```java
 /**
  * Executes the given task sometime in the future.  The task
  * may execute in a new thread or in an existing pooled thread.
@@ -1980,7 +1984,9 @@ protected void afterExecute(Runnable r, Throwable t) { }
  * {@code super.terminated} within this method.
  */
 protected void terminated() { }
+```
 
+```java
 /* Predefined RejectedExecutionHandlers */
 
 /**
@@ -2008,7 +2014,9 @@ public static class CallerRunsPolicy implements RejectedExecutionHandler {
         }
     }
 }
+```
 
+```java
 /**
  * A handler for rejected tasks that throws a
  * {@link RejectedExecutionException}.
@@ -2035,7 +2043,9 @@ public static class AbortPolicy implements RejectedExecutionHandler {
                                              e.toString());
     }
 }
+```
 
+```java
 /**
  * A handler for rejected tasks that silently discards the
  * rejected task.
@@ -2055,7 +2065,9 @@ public static class DiscardPolicy implements RejectedExecutionHandler {
     public void rejectedExecution(Runnable r, ThreadPoolExecutor e) {
     }
 }
+```
 
+```java
 /**
  * A handler for rejected tasks that discards the oldest unhandled
  * request and then retries {@code execute}, unless the executor

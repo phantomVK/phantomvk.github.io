@@ -9,12 +9,7 @@ tags:
     - Java源码系列
 ---
 
-## 前言
-
-源码来自JDK10
-
-
-## 类签名
+JDK11
 
 ```java
 /**
@@ -200,7 +195,7 @@ tags:
  * <p>All arguments to all task methods must be non-null.
  *
  * <p>This class is a member of the
- * <a href="{@docRoot}/java/util/package-summary.html#CollectionsFramework">
+ * <a href="{@docRoot}/java.base/java/util/package-summary.html#CollectionsFramework">
  * Java Collections Framework</a>.
  *
  * @since 1.5
@@ -455,28 +450,24 @@ private static final long serialVersionUID = 7249069246763182397L;
  * because the top two bits of 32bit hash fields are used for
  * control purposes.
  */
-// 容纳元素最大数量
 private static final int MAXIMUM_CAPACITY = 1 << 30;
 
 /**
  * The default initial table capacity.  Must be a power of 2
  * (i.e., at least 1) and at most MAXIMUM_CAPACITY.
  */
-// 默认容量
 private static final int DEFAULT_CAPACITY = 16;
 
 /**
  * The largest possible (non-power of two) array size.
  * Needed by toArray and related methods.
  */
-// 最大哈希桶数组大小
 static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
 /**
  * The default concurrency level for this table. Unused but
  * defined for compatibility with previous versions of this class.
  */
-// 默认并发等级。只是为了旧版本JDK的兼容。
 private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
 
 /**
@@ -486,7 +477,6 @@ private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
  * simpler to use expressions such as {@code n - (n >>> 2)} for
  * the associated resizing threshold.
  */
-// 默认负载因子
 private static final float LOAD_FACTOR = 0.75f;
 
 /**
@@ -497,7 +487,6 @@ private static final float LOAD_FACTOR = 0.75f;
  * tree removal about conversion back to plain bins upon
  * shrinkage.
  */
-// 拉链树化的阈值
 static final int TREEIFY_THRESHOLD = 8;
 
 /**
@@ -505,7 +494,6 @@ static final int TREEIFY_THRESHOLD = 8;
  * resize operation. Should be less than TREEIFY_THRESHOLD, and at
  * most 6 to mesh with shrinkage detection under removal.
  */
-// 从树退化的阈值
 static final int UNTREEIFY_THRESHOLD = 6;
 
 /**
@@ -541,9 +529,7 @@ private static final int MAX_RESIZERS = (1 << (32 - RESIZE_STAMP_BITS)) - 1;
  * The bit shift for recording size stamp in sizeCtl.
  */
 private static final int RESIZE_STAMP_SHIFT = 32 - RESIZE_STAMP_BITS;
-```
 
-```java
 /*
  * Encodings for Node hash fields. See above for explanation.
  */
@@ -552,7 +538,7 @@ static final int TREEBIN   = -2; // hash for roots of trees
 static final int RESERVED  = -3; // hash for transient reservations
 static final int HASH_BITS = 0x7fffffff; // usable bits of normal node hash
 
-// 获取处理器核心数
+/** Number of CPUS, to place bounds on some sizings */
 static final int NCPU = Runtime.getRuntime().availableProcessors();
 
 /**
@@ -570,7 +556,9 @@ private static final ObjectStreamField[] serialPersistentFields = {
     new ObjectStreamField("segmentMask", Integer.TYPE),
     new ObjectStreamField("segmentShift", Integer.TYPE),
 };
+```
 
+```java
 /* ---------------- Nodes -------------- */
 
 /**
@@ -582,10 +570,10 @@ private static final ObjectStreamField[] serialPersistentFields = {
  * exported).  Otherwise, keys and vals are never null.
  */
 static class Node<K,V> implements Map.Entry<K,V> {
-    final int hash; // 不可变初始哈希值
-    final K key;    // 不可变key
-    volatile V val; // value
-    volatile Node<K,V> next; // 下一节点的引用
+    final int hash;
+    final K key;
+    volatile V val;
+    volatile Node<K,V> next;
 
     Node(int hash, K key, V val) {
         this.hash = hash;
@@ -635,9 +623,9 @@ static class Node<K,V> implements Map.Entry<K,V> {
 }
 ```
 
-## 静态工具
-
 ```java
+/* ---------------- Static utilities -------------- */
+
 /**
  * Spreads (XORs) higher bits of hash to lower and also forces top
  * bit to 0. Because the table uses power-of-two masking, sets of
@@ -663,12 +651,7 @@ static final int spread(int h) {
  * See Hackers Delight, sec 3.2
  */
 private static final int tableSizeFor(int c) {
-    int n = c - 1;
-    n |= n >>> 1;
-    n |= n >>> 2;
-    n |= n >>> 4;
-    n |= n >>> 8;
-    n |= n >>> 16;
+    int n = -1 >>> Integer.numberOfLeadingZeros(c - 1);
     return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
 }
 
@@ -678,12 +661,12 @@ private static final int tableSizeFor(int c) {
  */
 static Class<?> comparableClassFor(Object x) {
     if (x instanceof Comparable) {
-        Class<?> c; Type[] ts, as; Type t; ParameterizedType p;
+        Class<?> c; Type[] ts, as; ParameterizedType p;
         if ((c = x.getClass()) == String.class) // bypass checks
             return c;
         if ((ts = c.getGenericInterfaces()) != null) {
-            for (int i = 0; i < ts.length; ++i) {
-                if (((t = ts[i]) instanceof ParameterizedType) &&
+            for (Type t : ts) {
+                if ((t instanceof ParameterizedType) &&
                     ((p = (ParameterizedType)t).getRawType() ==
                      Comparable.class) &&
                     (as = p.getActualTypeArguments()) != null &&
@@ -736,8 +719,6 @@ static final <K,V> void setTabAt(Node<K,V>[] tab, int i, Node<K,V> v) {
 }
 ```
 
-## 成员变量
-
 ```java
 /* ---------------- Fields -------------- */
 
@@ -745,7 +726,6 @@ static final <K,V> void setTabAt(Node<K,V>[] tab, int i, Node<K,V> v) {
  * The array of bins. Lazily initialized upon first insertion.
  * Size is always a power of two. Accessed directly by iterators.
  */
-// 哈希桶数组，第一次插入时进行懒初始化。大小是2的整数次幂。
 transient volatile Node<K,V>[] table;
 
 /**
@@ -791,15 +771,12 @@ private transient ValuesView<K,V> values;
 private transient EntrySetView<K,V> entrySet;
 ```
 
-## 公共操作
-
 ```java
 /* ---------------- Public operations -------------- */
 
 /**
  * Creates a new, empty map with the default initial table size (16).
  */
-// 创建全新的map，表大小为默认值16
 public ConcurrentHashMap() {
 }
 
@@ -814,12 +791,7 @@ public ConcurrentHashMap() {
  * elements is negative
  */
 public ConcurrentHashMap(int initialCapacity) {
-    if (initialCapacity < 0)
-        throw new IllegalArgumentException();
-    int cap = ((initialCapacity >= (MAXIMUM_CAPACITY >>> 1)) ?
-               MAXIMUM_CAPACITY :
-               tableSizeFor(initialCapacity + (initialCapacity >>> 1) + 1));
-    this.sizeCtl = cap;
+    this(initialCapacity, LOAD_FACTOR, 1);
 }
 
 /**
@@ -827,7 +799,6 @@ public ConcurrentHashMap(int initialCapacity) {
  *
  * @param m the map
  */
-// 通过一个传入map完成初始化
 public ConcurrentHashMap(Map<? extends K, ? extends V> m) {
     this.sizeCtl = DEFAULT_CAPACITY;
     putAll(m);
@@ -854,8 +825,8 @@ public ConcurrentHashMap(int initialCapacity, float loadFactor) {
 
 /**
  * Creates a new, empty map with an initial table size based on
- * the given number of elements ({@code initialCapacity}), table
- * density ({@code loadFactor}), and number of concurrently
+ * the given number of elements ({@code initialCapacity}), initial
+ * table density ({@code loadFactor}), and number of concurrently
  * updating threads ({@code concurrencyLevel}).
  *
  * @param initialCapacity the initial capacity. The implementation
@@ -881,9 +852,7 @@ public ConcurrentHashMap(int initialCapacity,
         MAXIMUM_CAPACITY : tableSizeFor((int)size);
     this.sizeCtl = cap;
 }
-```
 
-```java
 // Original (since JDK1.2) Map methods
 
 /**
@@ -915,27 +884,16 @@ public boolean isEmpty() {
  * @throws NullPointerException if the specified key is null
  */
 public V get(Object key) {
-    // tab: 哈希表
-    // e: 哈希桶首元素
-    // p: 匹配的元素
-    // n: 哈希表长度
-    // eh: 元素哈希值，element's hash
-    // ek: 元素的key，element's key
     Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
-    // 元素高低分分散后的哈希值
     int h = spread(key.hashCode());
     if ((tab = table) != null && (n = tab.length) > 0 &&
-        (e = tabAt(tab, (n - 1) & h)) != null) { // 通过哈希值选桶
-        if ((eh = e.hash) == h) { // 桶首元素哈希值与目标元素匹配
-            // 确认元素的key是否一致
+        (e = tabAt(tab, (n - 1) & h)) != null) {
+        if ((eh = e.hash) == h) {
             if ((ek = e.key) == key || (ek != null && key.equals(ek)))
-                // 获取元素的value
                 return e.val;
         }
         else if (eh < 0)
             return (p = e.find(h, key)) != null ? p.val : null;
-        
-        // eh >= 0，像链表一样遍历
         while ((e = e.next) != null) {
             if (e.hash == h &&
                 ((ek = e.key) == key || (ek != null && key.equals(ek))))
@@ -945,7 +903,15 @@ public V get(Object key) {
     return null;
 }
 
-// 查找是否包含此key，key不能为null.
+/**
+ * Tests if the specified object is a key in this table.
+ *
+ * @param  key possible key
+ * @return {@code true} if and only if the specified object
+ *         is a key in this table, as determined by the
+ *         {@code equals} method; {@code false} otherwise
+ * @throws NullPointerException if the specified key is null
+ */
 public boolean containsKey(Object key) {
     return get(key) != null;
 }
@@ -961,7 +927,6 @@ public boolean containsKey(Object key) {
  * @throws NullPointerException if the specified value is null
  */
 public boolean containsValue(Object value) {
-    // 不支持value为空
     if (value == null)
         throw new NullPointerException();
     Node<K,V>[] t;
@@ -995,7 +960,6 @@ public V put(K key, V value) {
 
 /** Implementation for put and putIfAbsent */
 final V putVal(K key, V value, boolean onlyIfAbsent) {
-    // 不支持key或value为空
     if (key == null || value == null) throw new NullPointerException();
     int hash = spread(key.hashCode());
     int binCount = 0;
@@ -1369,6 +1333,151 @@ static class Segment<K,V> extends ReentrantLock implements Serializable {
     private static final long serialVersionUID = 2249069246763182397L;
     final float loadFactor;
     Segment(float lf) { this.loadFactor = lf; }
+}
+
+/**
+ * Saves this map to a stream (that is, serializes it).
+ *
+ * @param s the stream
+ * @throws java.io.IOException if an I/O error occurs
+ * @serialData
+ * the serialized fields, followed by the key (Object) and value
+ * (Object) for each key-value mapping, followed by a null pair.
+ * The key-value mappings are emitted in no particular order.
+ */
+private void writeObject(java.io.ObjectOutputStream s)
+    throws java.io.IOException {
+    // For serialization compatibility
+    // Emulate segment calculation from previous version of this class
+    int sshift = 0;
+    int ssize = 1;
+    while (ssize < DEFAULT_CONCURRENCY_LEVEL) {
+        ++sshift;
+        ssize <<= 1;
+    }
+    int segmentShift = 32 - sshift;
+    int segmentMask = ssize - 1;
+    @SuppressWarnings("unchecked")
+    Segment<K,V>[] segments = (Segment<K,V>[])
+        new Segment<?,?>[DEFAULT_CONCURRENCY_LEVEL];
+    for (int i = 0; i < segments.length; ++i)
+        segments[i] = new Segment<K,V>(LOAD_FACTOR);
+    java.io.ObjectOutputStream.PutField streamFields = s.putFields();
+    streamFields.put("segments", segments);
+    streamFields.put("segmentShift", segmentShift);
+    streamFields.put("segmentMask", segmentMask);
+    s.writeFields();
+
+    Node<K,V>[] t;
+    if ((t = table) != null) {
+        Traverser<K,V> it = new Traverser<K,V>(t, t.length, 0, t.length);
+        for (Node<K,V> p; (p = it.advance()) != null; ) {
+            s.writeObject(p.key);
+            s.writeObject(p.val);
+        }
+    }
+    s.writeObject(null);
+    s.writeObject(null);
+}
+
+/**
+ * Reconstitutes this map from a stream (that is, deserializes it).
+ * @param s the stream
+ * @throws ClassNotFoundException if the class of a serialized object
+ *         could not be found
+ * @throws java.io.IOException if an I/O error occurs
+ */
+private void readObject(java.io.ObjectInputStream s)
+    throws java.io.IOException, ClassNotFoundException {
+    /*
+     * To improve performance in typical cases, we create nodes
+     * while reading, then place in table once size is known.
+     * However, we must also validate uniqueness and deal with
+     * overpopulated bins while doing so, which requires
+     * specialized versions of putVal mechanics.
+     */
+    sizeCtl = -1; // force exclusion for table construction
+    s.defaultReadObject();
+    long size = 0L;
+    Node<K,V> p = null;
+    for (;;) {
+        @SuppressWarnings("unchecked")
+        K k = (K) s.readObject();
+        @SuppressWarnings("unchecked")
+        V v = (V) s.readObject();
+        if (k != null && v != null) {
+            p = new Node<K,V>(spread(k.hashCode()), k, v, p);
+            ++size;
+        }
+        else
+            break;
+    }
+    if (size == 0L)
+        sizeCtl = 0;
+    else {
+        long ts = (long)(1.0 + size / LOAD_FACTOR);
+        int n = (ts >= (long)MAXIMUM_CAPACITY) ?
+            MAXIMUM_CAPACITY : tableSizeFor((int)ts);
+        @SuppressWarnings("unchecked")
+        Node<K,V>[] tab = (Node<K,V>[])new Node<?,?>[n];
+        int mask = n - 1;
+        long added = 0L;
+        while (p != null) {
+            boolean insertAtFront;
+            Node<K,V> next = p.next, first;
+            int h = p.hash, j = h & mask;
+            if ((first = tabAt(tab, j)) == null)
+                insertAtFront = true;
+            else {
+                K k = p.key;
+                if (first.hash < 0) {
+                    TreeBin<K,V> t = (TreeBin<K,V>)first;
+                    if (t.putTreeVal(h, k, p.val) == null)
+                        ++added;
+                    insertAtFront = false;
+                }
+                else {
+                    int binCount = 0;
+                    insertAtFront = true;
+                    Node<K,V> q; K qk;
+                    for (q = first; q != null; q = q.next) {
+                        if (q.hash == h &&
+                            ((qk = q.key) == k ||
+                             (qk != null && k.equals(qk)))) {
+                            insertAtFront = false;
+                            break;
+                        }
+                        ++binCount;
+                    }
+                    if (insertAtFront && binCount >= TREEIFY_THRESHOLD) {
+                        insertAtFront = false;
+                        ++added;
+                        p.next = first;
+                        TreeNode<K,V> hd = null, tl = null;
+                        for (q = p; q != null; q = q.next) {
+                            TreeNode<K,V> t = new TreeNode<K,V>
+                                (q.hash, q.key, q.val, null, null);
+                            if ((t.prev = tl) == null)
+                                hd = t;
+                            else
+                                tl.next = t;
+                            tl = t;
+                        }
+                        setTabAt(tab, j, new TreeBin<K,V>(hd));
+                    }
+                }
+            }
+            if (insertAtFront) {
+                ++added;
+                p.next = first;
+                setTabAt(tab, j, p);
+            }
+            p = next;
+        }
+        table = tab;
+        sizeCtl = n - (n >>> 2);
+        baseCount = added;
+    }
 }
 
 // ConcurrentMap methods
@@ -2157,15 +2266,15 @@ private final Node<K,V>[] initTable() {
  * @param check if <0, don't check resize, if <= 1 only check if uncontended
  */
 private final void addCount(long x, int check) {
-    CounterCell[] as; long b, s;
-    if ((as = counterCells) != null ||
+    CounterCell[] cs; long b, s;
+    if ((cs = counterCells) != null ||
         !U.compareAndSetLong(this, BASECOUNT, b = baseCount, s = b + x)) {
-        CounterCell a; long v; int m;
+        CounterCell c; long v; int m;
         boolean uncontended = true;
-        if (as == null || (m = as.length - 1) < 0 ||
-            (a = as[ThreadLocalRandom.getProbe() & m]) == null ||
+        if (cs == null || (m = cs.length - 1) < 0 ||
+            (c = cs[ThreadLocalRandom.getProbe() & m]) == null ||
             !(uncontended =
-              U.compareAndSetLong(a, CELLVALUE, v = a.value, v + x))) {
+              U.compareAndSetLong(c, CELLVALUE, v = c.value, v + x))) {
             fullAddCount(x, uncontended);
             return;
         }
@@ -2262,12 +2371,12 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
     int n = tab.length, stride;
     if ((stride = (NCPU > 1) ? (n >>> 3) / NCPU : n) < MIN_TRANSFER_STRIDE)
         stride = MIN_TRANSFER_STRIDE; // subdivide range
-    if (nextTab == null) {
+    if (nextTab == null) {            // initiating
         try {
             @SuppressWarnings("unchecked")
             Node<K,V>[] nt = (Node<K,V>[])new Node<?,?>[n << 1];
             nextTab = nt;
-        } catch (Throwable ex) {      // 尝试应付OOME
+        } catch (Throwable ex) {      // try to cope with OOME
             sizeCtl = Integer.MAX_VALUE;
             return;
         }
@@ -2403,13 +2512,12 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
 }
 
 final long sumCount() {
-    CounterCell[] as = counterCells; CounterCell a;
+    CounterCell[] cs = counterCells;
     long sum = baseCount;
-    if (as != null) {
-        for (int i = 0; i < as.length; ++i) {
-            if ((a = as[i]) != null)
-                sum += a.value;
-        }
+    if (cs != null) {
+        for (CounterCell c : cs)
+            if (c != null)
+                sum += c.value;
     }
     return sum;
 }
@@ -2424,9 +2532,9 @@ private final void fullAddCount(long x, boolean wasUncontended) {
     }
     boolean collide = false;                // True if last slot nonempty
     for (;;) {
-        CounterCell[] as; CounterCell a; int n; long v;
-        if ((as = counterCells) != null && (n = as.length) > 0) {
-            if ((a = as[(n - 1) & h]) == null) {
+        CounterCell[] cs; CounterCell c; int n; long v;
+        if ((cs = counterCells) != null && (n = cs.length) > 0) {
+            if ((c = cs[(n - 1) & h]) == null) {
                 if (cellsBusy == 0) {            // Try to attach new Cell
                     CounterCell r = new CounterCell(x); // Optimistic create
                     if (cellsBusy == 0 &&
@@ -2452,21 +2560,17 @@ private final void fullAddCount(long x, boolean wasUncontended) {
             }
             else if (!wasUncontended)       // CAS already known to fail
                 wasUncontended = true;      // Continue after rehash
-            else if (U.compareAndSetLong(a, CELLVALUE, v = a.value, v + x))
+            else if (U.compareAndSetLong(c, CELLVALUE, v = c.value, v + x))
                 break;
-            else if (counterCells != as || n >= NCPU)
+            else if (counterCells != cs || n >= NCPU)
                 collide = false;            // At max size or stale
             else if (!collide)
                 collide = true;
             else if (cellsBusy == 0 &&
                      U.compareAndSetInt(this, CELLSBUSY, 0, 1)) {
                 try {
-                    if (counterCells == as) {// Expand table unless stale
-                        CounterCell[] rs = new CounterCell[n << 1];
-                        for (int i = 0; i < n; ++i)
-                            rs[i] = as[i];
-                        counterCells = rs;
-                    }
+                    if (counterCells == cs) // Expand table unless stale
+                        counterCells = Arrays.copyOf(cs, n << 1);
                 } finally {
                     cellsBusy = 0;
                 }
@@ -2475,11 +2579,11 @@ private final void fullAddCount(long x, boolean wasUncontended) {
             }
             h = ThreadLocalRandom.advanceProbe(h);
         }
-        else if (cellsBusy == 0 && counterCells == as &&
+        else if (cellsBusy == 0 && counterCells == cs &&
                  U.compareAndSetInt(this, CELLSBUSY, 0, 1)) {
             boolean init = false;
             try {                           // Initialize table
-                if (counterCells == as) {
+                if (counterCells == cs) {
                     CounterCell[] rs = new CounterCell[2];
                     rs[h & 1] = new CounterCell(x);
                     counterCells = rs;
@@ -2828,11 +2932,8 @@ static final class TreeBin<K,V> extends Node<K,V> {
      * @return true if now too small, so should be untreeified
      */
     final boolean removeTreeNode(TreeNode<K,V> p) {
-        // p节点的下一节点
         TreeNode<K,V> next = (TreeNode<K,V>)p.next;
-        // p节点的上一节点
         TreeNode<K,V> pred = p.prev;  // unlink traversal pointers
-        // root，rootLeft
         TreeNode<K,V> r, rl;
         if (pred == null)
             first = next;
@@ -6220,11 +6321,14 @@ static {
     ABASE = U.arrayBaseOffset(Node[].class);
     int scale = U.arrayIndexScale(Node[].class);
     if ((scale & (scale - 1)) != 0)
-        throw new Error("array index scale not a power of two");
+        throw new ExceptionInInitializerError("array index scale not a power of two");
     ASHIFT = 31 - Integer.numberOfLeadingZeros(scale);
 
     // Reduce the risk of rare disastrous classloading in first call to
     // LockSupport.park: https://bugs.openjdk.java.net/browse/JDK-8074773
     Class<?> ensureLoaded = LockSupport.class;
+
+    // Eager class load observed to help JIT during startup
+    ensureLoaded = ReservationNode.class;
 }
 ```
