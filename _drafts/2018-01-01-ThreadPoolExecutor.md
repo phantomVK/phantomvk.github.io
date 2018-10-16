@@ -11,6 +11,8 @@ tags:
 
 JDK 11
 
+## 一、类签名
+
 ```java
 /**
  * An {@link ExecutorService} that executes each submitted task using
@@ -286,8 +288,10 @@ JDK 11
  * @since 1.5
  * @author Doug Lea
  */
-public class ThreadPoolExecutor extends AbstractExecutorService {
+public class ThreadPoolExecutor extends AbstractExecutorService
 ```
+
+## 二、常量
 
 ```java
 /**
@@ -405,6 +409,8 @@ private void decrementWorkerCount() {
     ctl.addAndGet(-1);
 }
 ```
+
+## 成员方法
 
 ```java
 /**
@@ -553,6 +559,8 @@ private static final RejectedExecutionHandler defaultHandler =
 private static final RuntimePermission shutdownPerm =
     new RuntimePermission("modifyThread");
 ```
+
+## Worker
 
 ```java
 /**
