@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Java源码系列(12) -- ConcurrentHashMap"
-date:       2018-07-25
+date:       2018-10-11
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
@@ -904,7 +904,7 @@ public V get(Object key) {
 }
 
 /**
- * Tests if the specified object is a key in this table.
+ * 检查指定对象是否为保存在哈希表中的键
  *
  * @param  key possible key
  * @return {@code true} if and only if the specified object
@@ -5093,7 +5093,9 @@ static final class ForEachTransformedValueTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class ForEachTransformedEntryTask<K,V,U>
     extends BulkTask<K,V,Void> {
@@ -5126,7 +5128,9 @@ static final class ForEachTransformedEntryTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class ForEachTransformedMappingTask<K,V,U>
     extends BulkTask<K,V,Void> {
@@ -5160,7 +5164,9 @@ static final class ForEachTransformedMappingTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class SearchKeysTask<K,V,U>
     extends BulkTask<K,V,U> {
@@ -5204,7 +5210,9 @@ static final class SearchKeysTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class SearchValuesTask<K,V,U>
     extends BulkTask<K,V,U> {
@@ -5248,7 +5256,9 @@ static final class SearchValuesTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class SearchEntriesTask<K,V,U>
     extends BulkTask<K,V,U> {
@@ -5292,7 +5302,9 @@ static final class SearchEntriesTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class SearchMappingsTask<K,V,U>
     extends BulkTask<K,V,U> {
@@ -5336,7 +5348,9 @@ static final class SearchMappingsTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class ReduceKeysTask<K,V>
     extends BulkTask<K,V,K> {
@@ -5384,7 +5398,9 @@ static final class ReduceKeysTask<K,V>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class ReduceValuesTask<K,V>
     extends BulkTask<K,V,V> {
@@ -5432,7 +5448,9 @@ static final class ReduceValuesTask<K,V>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class ReduceEntriesTask<K,V>
     extends BulkTask<K,V,Map.Entry<K,V>> {
@@ -5478,7 +5496,9 @@ static final class ReduceEntriesTask<K,V>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceKeysTask<K,V,U>
     extends BulkTask<K,V,U> {
@@ -5532,7 +5552,9 @@ static final class MapReduceKeysTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceValuesTask<K,V,U>
     extends BulkTask<K,V,U> {
@@ -5586,7 +5608,9 @@ static final class MapReduceValuesTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceEntriesTask<K,V,U>
     extends BulkTask<K,V,U> {
@@ -5640,7 +5664,9 @@ static final class MapReduceEntriesTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceMappingsTask<K,V,U>
     extends BulkTask<K,V,U> {
@@ -5694,7 +5720,9 @@ static final class MapReduceMappingsTask<K,V,U>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceKeysToDoubleTask<K,V>
     extends BulkTask<K,V,Double> {
@@ -5994,7 +6022,9 @@ static final class MapReduceValuesToLongTask<K,V>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceEntriesToLongTask<K,V>
     extends BulkTask<K,V,Long> {
@@ -6094,7 +6124,9 @@ static final class MapReduceMappingsToLongTask<K,V>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceKeysToIntTask<K,V>
     extends BulkTask<K,V,Integer> {
@@ -6144,7 +6176,9 @@ static final class MapReduceKeysToIntTask<K,V>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceValuesToIntTask<K,V>
     extends BulkTask<K,V,Integer> {
@@ -6194,7 +6228,9 @@ static final class MapReduceValuesToIntTask<K,V>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceEntriesToIntTask<K,V>
     extends BulkTask<K,V,Integer> {
@@ -6244,7 +6280,9 @@ static final class MapReduceEntriesToIntTask<K,V>
         }
     }
 }
+```
 
+```java
 @SuppressWarnings("serial")
 static final class MapReduceMappingsToIntTask<K,V>
     extends BulkTask<K,V,Integer> {
@@ -6294,7 +6332,9 @@ static final class MapReduceMappingsToIntTask<K,V>
         }
     }
 }
+```
 
+```java
 // Unsafe mechanics
 private static final Unsafe U = Unsafe.getUnsafe();
 private static final long SIZECTL;
