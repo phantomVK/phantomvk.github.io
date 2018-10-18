@@ -11,9 +11,7 @@ tags:
 
 JDK11
 
-
-
-## 类签名
+## 一、类签名
 
 ```java
 /**
@@ -211,11 +209,9 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     implements ConcurrentMap<K,V>, Serializable
 ```
 
-## 常量
+## 二、常量
 
 ```java
-private static final long serialVersionUID = 7249069246763182397L;
-
 /*
  * Overview:
  *
@@ -564,7 +560,7 @@ private static final ObjectStreamField[] serialPersistentFields = {
 };
 ```
 
-## 节点
+## 三、Node
 
 ```java
 /* ---------------- Nodes -------------- */
@@ -631,9 +627,9 @@ static class Node<K,V> implements Map.Entry<K,V> {
 }
 ```
 
-```java
-/* ---------------- Static utilities -------------- */
+## 四、静态方法
 
+```java
 /**
  * Spreads (XORs) higher bits of hash to lower and also forces top
  * bit to 0. Because the table uses power-of-two masking, sets of
@@ -727,7 +723,7 @@ static final <K,V> void setTabAt(Node<K,V>[] tab, int i, Node<K,V> v) {
 }
 ```
 
-## 成员方法
+## 五、成员变量
 
 ```java
 /* ---------------- Fields -------------- */
@@ -776,7 +772,7 @@ private transient volatile int cellsBusy;
 private transient volatile CounterCell[] counterCells;
 ```
 
-## 构造方法
+## 六、构造方法
 
 ```java
 /* ---------------- Public operations -------------- */
@@ -861,14 +857,9 @@ public ConcurrentHashMap(int initialCapacity,
 }
 ```
 
-## 成员方法
+## 七、成员方法
 
 ```java
-// Original (since JDK1.2) Map methods
-
-/**
- * {@inheritDoc}
- */
 public int size() {
     long n = sumCount();
     return ((n < 0L) ? 0 :
@@ -1341,17 +1332,6 @@ public V getOrDefault(Object key, V defaultValue) {
     return (v = get(key)) == null ? defaultValue : v;
 }
 
-public void forEach(BiConsumer<? super K, ? super V> action) {
-    if (action == null) throw new NullPointerException();
-    Node<K,V>[] t;
-    if ((t = table) != null) {
-        Traverser<K,V> it = new Traverser<K,V>(t, t.length, 0, t.length);
-        for (Node<K,V> p; (p = it.advance()) != null; ) {
-            action.accept(p.key, p.val);
-        }
-    }
-}
-
 // Hashtable legacy methods
 
 /**
@@ -1374,30 +1354,6 @@ public boolean contains(Object value) {
     return containsValue(value);
 }
 
-/**
- * Returns an enumeration of the keys in this table.
- *
- * @return an enumeration of the keys in this table
- * @see #keySet()
- */
-public Enumeration<K> keys() {
-    Node<K,V>[] t;
-    int f = (t = table) == null ? 0 : t.length;
-    return new KeyIterator<K,V>(t, f, 0, f, this);
-}
-
-/**
- * Returns an enumeration of the values in this table.
- *
- * @return an enumeration of the values in this table
- * @see #values()
- */
-public Enumeration<V> elements() {
-    Node<K,V>[] t;
-    int f = (t = table) == null ? 0 : t.length;
-    return new ValueIterator<K,V>(t, f, 0, f, this);
-}
-
 // ConcurrentHashMap-only methods
 
 /**
@@ -1413,105 +1369,6 @@ public Enumeration<V> elements() {
 public long mappingCount() {
     long n = sumCount();
     return (n < 0L) ? 0L : n; // ignore transient negative values
-}
-
-/**
- * Creates a new {@link Set} backed by a ConcurrentHashMap
- * from the given type to {@code Boolean.TRUE}.
- *
- * @param <K> the element type of the returned set
- * @return the new set
- * @since 1.8
- */
-public static <K> KeySetView<K,Boolean> newKeySet() {
-    return new KeySetView<K,Boolean>
-        (new ConcurrentHashMap<K,Boolean>(), Boolean.TRUE);
-}
-
-/**
- * Creates a new {@link Set} backed by a ConcurrentHashMap
- * from the given type to {@code Boolean.TRUE}.
- *
- * @param initialCapacity The implementation performs internal
- * sizing to accommodate this many elements.
- * @param <K> the element type of the returned set
- * @return the new set
- * @throws IllegalArgumentException if the initial capacity of
- * elements is negative
- * @since 1.8
- */
-public static <K> KeySetView<K,Boolean> newKeySet(int initialCapacity) {
-    return new KeySetView<K,Boolean>
-        (new ConcurrentHashMap<K,Boolean>(initialCapacity), Boolean.TRUE);
-}
-
-/**
- * Returns a {@link Set} view of the keys in this map, using the
- * given common mapped value for any additions (i.e., {@link
- * Collection#add} and {@link Collection#addAll(Collection)}).
- * This is of course only appropriate if it is acceptable to use
- * the same value for all additions from this view.
- *
- * @param mappedValue the mapped value to use for any additions
- * @return the set view
- * @throws NullPointerException if the mappedValue is null
- */
-public KeySetView<K,V> keySet(V mappedValue) {
-    if (mappedValue == null)
-        throw new NullPointerException();
-    return new KeySetView<K,V>(this, mappedValue);
-}
-
-/* ---------------- Special Nodes -------------- */
-
-/**
- * A node inserted at head of bins during transfer operations.
- */
-static final class ForwardingNode<K,V> extends Node<K,V> {
-    final Node<K,V>[] nextTable;
-    ForwardingNode(Node<K,V>[] tab) {
-        super(MOVED, null, null);
-        this.nextTable = tab;
-    }
-
-    Node<K,V> find(int h, Object k) {
-        // loop to avoid arbitrarily deep recursion on forwarding nodes
-        outer: for (Node<K,V>[] tab = nextTable;;) {
-            Node<K,V> e; int n;
-            if (k == null || tab == null || (n = tab.length) == 0 ||
-                (e = tabAt(tab, (n - 1) & h)) == null)
-                return null;
-            for (;;) {
-                int eh; K ek;
-                if ((eh = e.hash) == h &&
-                    ((ek = e.key) == k || (ek != null && k.equals(ek))))
-                    return e;
-                if (eh < 0) {
-                    if (e instanceof ForwardingNode) {
-                        tab = ((ForwardingNode<K,V>)e).nextTable;
-                        continue outer;
-                    }
-                    else
-                        return e.find(h, k);
-                }
-                if ((e = e.next) == null)
-                    return null;
-            }
-        }
-    }
-}
-
-/**
- * A place-holder node used in computeIfAbsent and compute.
- */
-static final class ReservationNode<K,V> extends Node<K,V> {
-    ReservationNode() {
-        super(RESERVED, null, null);
-    }
-
-    Node<K,V> find(int h, Object k) {
-        return null;
-    }
 }
 
 /* ---------------- Table Initialization and Resizing -------------- */
@@ -1944,7 +1801,11 @@ static <K,V> Node<K,V> untreeify(Node<K,V> b) {
     }
     return hd;
 }
+```
 
+## 八、TreeNode
+
+```java
 /* ---------------- TreeNodes -------------- */
 
 /**
@@ -2001,6 +1862,8 @@ static final class TreeNode<K,V> extends Node<K,V> {
     }
 }
 ```
+
+## 九、TreeBin
 
 ```java
 /* ---------------- TreeBins -------------- */
@@ -2542,6 +2405,8 @@ static final class TreeBin<K,V> extends Node<K,V> {
             = U.objectFieldOffset(TreeBin.class, "lockState");
 }
 ```
+
+## 十、Unsafe机制
 
 ```java
 // Unsafe mechanics
