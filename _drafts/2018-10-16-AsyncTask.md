@@ -11,6 +11,8 @@ tags:
 
 Android 28
 
+## 类签名
+
 ```java
 /**
  * <p>AsyncTask enables proper and easy use of the UI thread. This class allows you
@@ -158,6 +160,8 @@ Android 28
 public abstract class AsyncTask<Params, Progress, Result>
 ```
 
+## 二、常量
+
 ```java
 private static final String LOG_TAG = "AsyncTask";
 
@@ -203,6 +207,8 @@ private static final int MESSAGE_POST_RESULT = 0x1;
 private static final int MESSAGE_POST_PROGRESS = 0x2;
 ```
 
+## 数据成员
+
 ```java
 private static volatile Executor sDefaultExecutor = SERIAL_EXECUTOR;
 private static InternalHandler sHandler;
@@ -217,6 +223,8 @@ private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
 
 private final Handler mHandler;
 ```
+
+## SerialExecutor
 
 ```java
 private static class SerialExecutor implements Executor {
@@ -244,7 +252,11 @@ private static class SerialExecutor implements Executor {
         }
     }
 }
+```
 
+## 状态枚举
+
+```java
 /**
  * Indicates the current status of the task. Each status will be set only once
  * during the lifetime of a task.
@@ -263,7 +275,9 @@ public enum Status {
      */
     FINISHED,
 }
+```
 
+```java
 private static Handler getMainHandler() {
     synchronized (AsyncTask.class) {
         if (sHandler == null) {
@@ -281,7 +295,11 @@ private Handler getHandler() {
 public static void setDefaultExecutor(Executor exec) {
     sDefaultExecutor = exec;
 }
+```
 
+## 构造方法
+
+```java
 /**
  * Creates a new asynchronous task. This constructor must be invoked on the UI thread.
  */
@@ -343,7 +361,9 @@ public AsyncTask(@Nullable Looper callbackLooper) {
         }
     };
 }
+```
 
+```java
 private void postResultIfNotInvoked(Result result) {
     final boolean wasTaskInvoked = mTaskInvoked.get();
     if (!wasTaskInvoked) {
@@ -681,7 +701,9 @@ private void finish(Result result) {
     }
     mStatus = Status.FINISHED;
 }
-
+```
+## InternalHandler
+```java
 private static class InternalHandler extends Handler {
     public InternalHandler(Looper looper) {
         super(looper);
@@ -702,11 +724,19 @@ private static class InternalHandler extends Handler {
         }
     }
 }
+```
 
+## WorkerRunnable
+
+```java
 private static abstract class WorkerRunnable<Params, Result> implements Callable<Result> {
     Params[] mParams;
 }
+```
 
+## AsyncTaskResult
+
+```java
 @SuppressWarnings({"RawUseOfParameterizedType"})
 private static class AsyncTaskResult<Data> {
     final AsyncTask mTask;

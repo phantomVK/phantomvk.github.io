@@ -443,8 +443,6 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
  * bulk operations.
  */
 
-/* ---------------- Constants -------------- */
-
 /**
  * The largest possible table capacity.  This value must be
  * exactly 1<<30 to stay within Java array allocation and indexing
@@ -563,8 +561,6 @@ private static final ObjectStreamField[] serialPersistentFields = {
 ## 三、Node
 
 ```java
-/* ---------------- Nodes -------------- */
-
 /**
  * Key-value entry.  This class is never exported out as a
  * user-mutable Map.Entry (i.e., one supporting setValue; see
@@ -726,8 +722,6 @@ static final <K,V> void setTabAt(Node<K,V>[] tab, int i, Node<K,V> v) {
 ## 五、成员变量
 
 ```java
-/* ---------------- Fields -------------- */
-
 /**
  * The array of bins. Lazily initialized upon first insertion.
  * Size is always a power of two. Accessed directly by iterators.
@@ -775,8 +769,6 @@ private transient volatile CounterCell[] counterCells;
 ## 六、构造方法
 
 ```java
-/* ---------------- Public operations -------------- */
-
 /**
  * Creates a new, empty map with the default initial table size (16).
  */
@@ -1185,39 +1177,6 @@ public int hashCode() {
             h += p.key.hashCode() ^ p.val.hashCode();
     }
     return h;
-}
-
-/**
- * Returns a string representation of this map.  The string
- * representation consists of a list of key-value mappings (in no
- * particular order) enclosed in braces ("{@code {}}").  Adjacent
- * mappings are separated by the characters {@code ", "} (comma
- * and space).  Each key-value mapping is rendered as the key
- * followed by an equals sign ("{@code =}") followed by the
- * associated value.
- *
- * @return a string representation of this map
- */
-public String toString() {
-    Node<K,V>[] t;
-    int f = (t = table) == null ? 0 : t.length;
-    Traverser<K,V> it = new Traverser<K,V>(t, f, 0, f);
-    StringBuilder sb = new StringBuilder();
-    sb.append('{');
-    Node<K,V> p;
-    if ((p = it.advance()) != null) {
-        for (;;) {
-            K k = p.key;
-            V v = p.val;
-            sb.append(k == this ? "(this Map)" : k);
-            sb.append('=');
-            sb.append(v == this ? "(this Map)" : v);
-            if ((p = it.advance()) == null)
-                break;
-            sb.append(',').append(' ');
-        }
-    }
-    return sb.append('}').toString();
 }
 
 /**
@@ -1753,9 +1712,9 @@ private final void fullAddCount(long x, boolean wasUncontended) {
 }
 ```
 
-```java
-/* ---------------- Conversion from/to TreeBins -------------- */
+## 链树互转
 
+```java
 /**
  * Replaces all linked nodes in bin at given index unless table is
  * too small, in which case resizes instead.
@@ -1806,8 +1765,6 @@ static <K,V> Node<K,V> untreeify(Node<K,V> b) {
 ## 八、TreeNode
 
 ```java
-/* ---------------- TreeNodes -------------- */
-
 /**
  * Nodes for use in TreeBins.
  */
@@ -1866,8 +1823,6 @@ static final class TreeNode<K,V> extends Node<K,V> {
 ## 九、TreeBin
 
 ```java
-/* ---------------- TreeBins -------------- */
-
 /**
  * TreeNodes used at the heads of bins. TreeBins do not hold user
  * keys or values, but instead point to list of TreeNodes and
@@ -2409,7 +2364,6 @@ static final class TreeBin<K,V> extends Node<K,V> {
 ## 十、Unsafe机制
 
 ```java
-// Unsafe mechanics
 private static final Unsafe U = Unsafe.getUnsafe();
 private static final long SIZECTL;
 private static final long TRANSFERINDEX;
