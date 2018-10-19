@@ -825,24 +825,13 @@ public int size() {
             (int)n);
 }
 
-/**
- * {@inheritDoc}
- */
+// 检查map映射数量是否为空
 public boolean isEmpty() {
     return sumCount() <= 0L; // ignore transient negative values
 }
 
-/**
- * Returns the value to which the specified key is mapped,
- * or {@code null} if this map contains no mapping for the key.
- *
- * <p>More formally, if this map contains a mapping from a key
- * {@code k} to a value {@code v} such that {@code key.equals(k)},
- * then this method returns {@code v}; otherwise it returns
- * {@code null}.  (There can be at most one such mapping.)
- *
- * @throws NullPointerException if the specified key is null
- */
+// 通过指定key获取映射value，若映射不存在返回null
+// 若key为空抛出NullPointerException
 public V get(Object key) {
     Node<K,V>[] tab; Node<K,V> e, p; int n, eh; K ek;
     int h = spread(key.hashCode());
@@ -1155,48 +1144,30 @@ static class Segment<K,V> extends ReentrantLock implements Serializable {
     Segment(float lf) { this.loadFactor = lf; }
 }
 
-// ConcurrentMap methods
-
-/**
- * {@inheritDoc}
- *
- * @return the previous value associated with the specified key,
- *         or {@code null} if there was no mapping for the key
- * @throws NullPointerException if the specified key or value is null
- */
+// 若key映射值不存在就存入value作为值，若旧值存在则不做处理
+// key或value为空抛出NullPointerException
 public V putIfAbsent(K key, V value) {
     return putVal(key, value, true);
 }
 
-/**
- * {@inheritDoc}
- *
- * @throws NullPointerException if the specified key is null
- */
+// 通过指定key和value移除键值对
+// 若key为空抛出NullPointerException
 public boolean remove(Object key, Object value) {
     if (key == null)
         throw new NullPointerException();
     return value != null && replaceNode(key, null, value) != null;
 }
 
-/**
- * {@inheritDoc}
- *
- * @throws NullPointerException if any of the arguments are null
- */
+// 用指定newValue替换key已映射的值oldValue
+// key、oldValue或newValue抛出NullPointerException
 public boolean replace(K key, V oldValue, V newValue) {
     if (key == null || oldValue == null || newValue == null)
         throw new NullPointerException();
     return replaceNode(key, newValue, oldValue) != null;
 }
 
-/**
- * {@inheritDoc}
- *
- * @return the previous value associated with the specified key,
- *         or {@code null} if there was no mapping for the key
- * @throws NullPointerException if the specified key or value is null
- */
+// 用value替换指定key的旧值
+// key或value为空抛出NullPointerException
 public V replace(K key, V value) {
     if (key == null || value == null)
         throw new NullPointerException();
@@ -1209,8 +1180,6 @@ public V getOrDefault(Object key, V defaultValue) {
     V v;
     return (v = get(key)) == null ? defaultValue : v;
 }
-
-// Hashtable legacy methods
 
 /**
  * Tests if some key maps into the specified value in this table.
@@ -1259,9 +1228,7 @@ static final int resizeStamp(int n) {
     return Integer.numberOfLeadingZeros(n) | (1 << (RESIZE_STAMP_BITS - 1));
 }
 
-/**
- * Initializes table, using the size recorded in sizeCtl.
- */
+// 使用保存在sizeCtl的值初始化表
 private final Node<K,V>[] initTable() {
     Node<K,V>[] tab; int sc;
     while ((tab = table) == null || tab.length == 0) {

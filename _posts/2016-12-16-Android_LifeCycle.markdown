@@ -186,4 +186,4 @@ __AndroidManifest.xml__
 
 运行截图如下
 
-![img](/img/android/onPause_onResume.png)
+![img](/img/android/images/onPause_onResume.png)

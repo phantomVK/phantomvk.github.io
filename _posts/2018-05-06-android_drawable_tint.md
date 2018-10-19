@@ -93,4 +93,4 @@ class MainActivity : AppCompatActivity() {
 
 ### 运行效果
 
-![运行效果](/img/android/android_drawable_tint.jpg)
+![运行效果](/img/android/images/android_drawable_tint.jpg)

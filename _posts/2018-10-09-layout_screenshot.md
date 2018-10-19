@@ -106,4 +106,4 @@ class MainActivity : AppCompatActivity() {
 
 截取部分为下图中间卡片
 
-![layout_screenshot](/img/android/layout_screenshot.png)
+![layout_screenshot](/img/android/images/layout_screenshot.png)

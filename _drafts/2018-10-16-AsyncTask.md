@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android源码系列 -- AsyncTask"
-date:       2017-01-01
+date:       2018-10-16
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -11,7 +11,7 @@ tags:
 
 Android 28
 
-## 类签名
+## 一、类签名
 
 ```java
 /**
@@ -162,33 +162,40 @@ public abstract class AsyncTask<Params, Progress, Result>
 
 ## 二、常量
 
-```java
-private static final String LOG_TAG = "AsyncTask";
+#### 2.1 并行线程池
 
+```java
+// 获取设备处理器核心数
 private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
-// We want at least 2 threads and at most 4 threads in the core pool,
-// preferring to have 1 less than the CPU count to avoid saturating
-// the CPU with background work
+
+// 线程池核心线程数最少2个线程，最多4个线程，在遵循此条件前提下更倾向核心
+// 线程数比处理器实际核心数少1个，避免影响处理器其他后台任务的执行
 private static final int CORE_POOL_SIZE = Math.max(2, Math.min(CPU_COUNT - 1, 4));
+
+// 线程池最大线程数
 private static final int MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
+
+// 非核心线程存活时间
 private static final int KEEP_ALIVE_SECONDS = 30;
 
+// 线程工厂，为并行执行任务的Executor构建线程
 private static final ThreadFactory sThreadFactory = new ThreadFactory() {
     private final AtomicInteger mCount = new AtomicInteger(1);
 
     public Thread newThread(Runnable r) {
+        // 设置线程名称，按照线程历史总数递增
         return new Thread(r, "AsyncTask #" + mCount.getAndIncrement());
     }
 };
 
+// 执行任务的Executor的阻塞队列，队列长度128
 private static final BlockingQueue<Runnable> sPoolWorkQueue =
         new LinkedBlockingQueue<Runnable>(128);
 
-/**
- * An {@link Executor} that can be used to execute tasks in parallel.
- */
+// 并行执行任务的Executor
 public static final Executor THREAD_POOL_EXECUTOR;
 
+// 初始化并行执行任务的Executor
 static {
     ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(
             CORE_POOL_SIZE, MAXIMUM_POOL_SIZE, KEEP_ALIVE_SECONDS, TimeUnit.SECONDS,
@@ -196,35 +203,50 @@ static {
     threadPoolExecutor.allowCoreThreadTimeOut(true);
     THREAD_POOL_EXECUTOR = threadPoolExecutor;
 }
-
-/**
- * An {@link Executor} that executes tasks one at a time in serial
- * order.  This serialization is global to a particular process.
- */
-public static final Executor SERIAL_EXECUTOR = new SerialExecutor();
-
-private static final int MESSAGE_POST_RESULT = 0x1;
-private static final int MESSAGE_POST_PROGRESS = 0x2;
 ```
 
-## 数据成员
+#### 2.2 串行线程池
 
 ```java
+// 同一进程共用一个Executor顺序执行任务，任务每次执行一个
+public static final Executor SERIAL_EXECUTOR = new SerialExecutor();
+````
+
+#### 2.3 消息类型
+
+```java
+// 消息类型为任务执行结果
+private static final int MESSAGE_POST_RESULT = 0x1;
+
+// 消息类型为主线程进度通知
+private static final int MESSAGE_POST_PROGRESS = 0x2;
+````
+
+## 三、数据成员
+
+```java
+// 顺序任务执行的Executor
 private static volatile Executor sDefaultExecutor = SERIAL_EXECUTOR;
+
+// 保存InternalHandler，内部使用主线程Looper或自定义Looper
 private static InternalHandler sHandler;
 
 private final WorkerRunnable<Params, Result> mWorker;
 private final FutureTask<Result> mFuture;
 
+// 任务状态，任务构建后默认处于Status.PENDING
 private volatile Status mStatus = Status.PENDING;
 
+// 任务是否已被取消
 private final AtomicBoolean mCancelled = new AtomicBoolean();
+
+// 任务是否已被触发
 private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
 
 private final Handler mHandler;
 ```
 
-## SerialExecutor
+## 四、SerialExecutor
 
 ```java
 private static class SerialExecutor implements Executor {
@@ -234,6 +256,7 @@ private static class SerialExecutor implements Executor {
     public synchronized void execute(final Runnable r) {
         mTasks.offer(new Runnable() {
             public void run() {
+                // 此任务运行完成后触发下一个任务执行
                 try {
                     r.run();
                 } finally {
@@ -241,110 +264,112 @@ private static class SerialExecutor implements Executor {
                 }
             }
         });
+        
+        // 顺序执行线程池首次执行，mActive为空
         if (mActive == null) {
             scheduleNext();
         }
     }
 
     protected synchronized void scheduleNext() {
+        // 从任务队列获取下一任务
         if ((mActive = mTasks.poll()) != null) {
+            // 向并行执行线程池添加任务
             THREAD_POOL_EXECUTOR.execute(mActive);
         }
     }
 }
 ```
 
-## 状态枚举
+## 五、状态枚举
+
+任务的状态枚举，用于表示指定任务当前处理状态
 
 ```java
-/**
- * Indicates the current status of the task. Each status will be set only once
- * during the lifetime of a task.
- */
 public enum Status {
-    /**
-     * Indicates that the task has not been executed yet.
-     */
+    // 任务正在尚未被执行，正在排队等待
     PENDING,
-    /**
-     * Indicates that the task is running.
-     */
+
+    // 任务正在执行(运算)标志
     RUNNING,
-    /**
-     * Indicates that {@link AsyncTask#onPostExecute} has finished.
-     */
+
+    // 任务已经执行完毕：先调用onPostExecute()，再把状态置为此值
     FINISHED,
 }
 ```
 
+所有任务按照此生命周期单向前进，每个状态只允许设置一次。
+
+![AsyncTask_Status](/img/android/images/AsyncTask_Status.png)
+
+
 ```java
+// 获取主线程Handler
 private static Handler getMainHandler() {
+    // AsyncTask共用同一InternalHandler
     synchronized (AsyncTask.class) {
+        // 初始化InternalHandler
         if (sHandler == null) {
+            // 向InternalHandler传递主线程的Looper
             sHandler = new InternalHandler(Looper.getMainLooper());
         }
         return sHandler;
     }
 }
 
-private Handler getHandler() {
-    return mHandler;
-}
-
-/** @hide */
+// 设置默认Executor
 public static void setDefaultExecutor(Executor exec) {
     sDefaultExecutor = exec;
 }
 ```
 
-## 构造方法
+## 六、构造方法
 
 ```java
-/**
- * Creates a new asynchronous task. This constructor must be invoked on the UI thread.
- */
+// 构建新异步任务，此构造方法必须在主线程调用
 public AsyncTask() {
     this((Looper) null);
 }
 
-/**
- * Creates a new asynchronous task. This constructor must be invoked on the UI thread.
- *
- * @hide
- */
+// 构建新异步任务，此构造方法必须在主线程调用
 public AsyncTask(@Nullable Handler handler) {
     this(handler != null ? handler.getLooper() : null);
 }
 
-/**
- * Creates a new asynchronous task. This constructor must be invoked on the UI thread.
- *
- * @hide
- */
+// 构建新异步任务，此构造方法必须在主线程调用
 public AsyncTask(@Nullable Looper callbackLooper) {
+    // 若没有传入其他Looper，构造方法会自动获取主线程Looper，用获取的Looper创建Handler
     mHandler = callbackLooper == null || callbackLooper == Looper.getMainLooper()
         ? getMainHandler()
         : new Handler(callbackLooper);
 
+    // 构建WorkerRunnable
     mWorker = new WorkerRunnable<Params, Result>() {
         public Result call() throws Exception {
+            // 设置任务已被触发
             mTaskInvoked.set(true);
+            // 任务执行结果
             Result result = null;
             try {
+                // 设置线程优先级
                 Process.setThreadPriority(Process.THREAD_PRIORITY_BACKGROUND);
-                //noinspection unchecked
+                // 把任务所需参数传入到后台线程执行并获取结果
                 result = doInBackground(mParams);
                 Binder.flushPendingCommands();
             } catch (Throwable tr) {
+                // 任务执行出现异常，则取消任务
                 mCancelled.set(true);
                 throw tr;
             } finally {
+                // 任务执行完成把结果传递给postResult
                 postResult(result);
             }
+            // 返回结果
             return result;
         }
     };
 
+    // 把WorkerRunnable封装到FutureTask
     mFuture = new FutureTask<Result>(mWorker) {
         @Override
         protected void done() {
@@ -363,6 +388,8 @@ public AsyncTask(@Nullable Looper callbackLooper) {
 }
 ```
 
+## 七、成员方法
+
 ```java
 private void postResultIfNotInvoked(Result result) {
     final boolean wasTaskInvoked = mTaskInvoked.get();
@@ -379,107 +406,52 @@ private Result postResult(Result result) {
     return result;
 }
 
-/**
- * Returns the current status of this task.
- *
- * @return The current status.
- */
+private Handler getHandler() {
+    return mHandler;
+}
+
+// 获取当前任务的执行状态
 public final Status getStatus() {
     return mStatus;
 }
 
-/**
- * Override this method to perform a computation on a background thread. The
- * specified parameters are the parameters passed to {@link #execute}
- * by the caller of this task.
- *
- * This method can call {@link #publishProgress} to publish updates
- * on the UI thread.
- *
- * @param params The parameters of the task.
- *
- * @return A result, defined by the subclass of this task.
- *
- * @see #onPreExecute()
- * @see #onPostExecute
- * @see #publishProgress
- */
+// 重写方法实现在后台线程中的计算逻辑
+// 参数params就是传给execute()的参数，execute()的参数由任务调用者提供
+// 在此方法内可调用publishProgress()，会自动在主线程上发布实时更新值
 @WorkerThread
 protected abstract Result doInBackground(Params... params);
 
-/**
- * Runs on the UI thread before {@link #doInBackground}.
- *
- * @see #onPostExecute
- * @see #doInBackground
- */
+// doInBackground调用前在主线程执行
 @MainThread
 protected void onPreExecute() {
 }
 
-/**
- * <p>Runs on the UI thread after {@link #doInBackground}. The
- * specified result is the value returned by {@link #doInBackground}.</p>
- * 
- * <p>This method won't be invoked if the task was cancelled.</p>
- *
- * @param result The result of the operation computed by {@link #doInBackground}.
- *
- * @see #onPreExecute
- * @see #doInBackground
- * @see #onCancelled(Object) 
- */
+// doInBackground()完成后会在主线程调用此方法，result是doInBackground()的返回结果
+// 如果任务被取消了，此方法不会触发
 @SuppressWarnings({"UnusedDeclaration"})
 @MainThread
 protected void onPostExecute(Result result) {
 }
 
-/**
- * Runs on the UI thread after {@link #publishProgress} is invoked.
- * The specified values are the values passed to {@link #publishProgress}.
- *
- * @param values The values indicating progress.
- *
- * @see #publishProgress
- * @see #doInBackground
- */
+// publishProgress()调用后会在主线程调用此方法，value表示任务处理的进度
+// 此方法参数values即是传递给publishProgress()的values
 @SuppressWarnings({"UnusedDeclaration"})
 @MainThread
 protected void onProgressUpdate(Progress... values) {
 }
 
-/**
- * <p>Runs on the UI thread after {@link #cancel(boolean)} is invoked and
- * {@link #doInBackground(Object[])} has finished.</p>
- * 
- * <p>The default implementation simply invokes {@link #onCancelled()} and
- * ignores the result. If you write your own implementation, do not call
- * <code>super.onCancelled(result)</code>.</p>
- *
- * @param result The result, if any, computed in
- *               {@link #doInBackground(Object[])}, can be null
- * 
- * @see #cancel(boolean)
- * @see #isCancelled()
- */
+// cancel(boolean)被调用，且doInBackground(Object[])已结束后，会在主线程调用此方法
+// 此方法默认只是简单回调onCancelled()并忽略结果
+// 如果需在子类重写其他实现，无需在重写方法内调用super.onCancelled(result)，result可为null
 @SuppressWarnings({"UnusedParameters"})
 @MainThread
 protected void onCancelled(Result result) {
     onCancelled();
 }    
 
-/**
- * <p>Applications should preferably override {@link #onCancelled(Object)}.
- * This method is invoked by the default implementation of
- * {@link #onCancelled(Object)}.</p>
- * 
- * <p>Runs on the UI thread after {@link #cancel(boolean)} is invoked and
- * {@link #doInBackground(Object[])} has finished.</p>
- *
- * @see #onCancelled(Object) 
- * @see #cancel(boolean)
- * @see #isCancelled()
- */
+// 应用最好能重写方法，以便在任务被取消后做出反应
+// 此方法由onCancelled(Object)的默认实现调用
+// cancel(boolean)被调用且doInBackground(Object[])已结束后，方法在主线程上调用
 @MainThread
 protected void onCancelled() {
 }
@@ -494,14 +466,13 @@ protected void onCancelled() {
  *
  * @see #cancel(boolean)
  */
+// 若任务在正常完成前被取消，此方法返回true
 public final boolean isCancelled() {
     return mCancelled.get();
 }
 
 /**
- * <p>Attempts to cancel execution of this task.  This attempt will
- * fail if the task has already completed, already been cancelled,
- * or could not be cancelled for some other reason. If successful,
+ * If successful,
  * and this task has not started when <tt>cancel</tt> is called,
  * this task should never run. If the task has already started,
  * then the <tt>mayInterruptIfRunning</tt> parameter determines
@@ -527,41 +498,31 @@ public final boolean isCancelled() {
  * @see #isCancelled()
  * @see #onCancelled(Object)
  */
+// 尝试取消此任务，若任务已执行完毕、取消、由于其他原因不能取消，则取消失败
+// 任务取消成功，且在cancel()调用是尚未开始，任务不会执行
+// 如果任务已经开始，参数mayInterruptIfRunning决定任务执行线程是否该被中断
+// 调用此方法，且doInBackground(Object[])结束后，会在主线程调用onCancelled(Object)
+// 调用此方法能保证onPostExecute(Object)永远不会执行
+// 此方法调用后，需从doInBackground(Object[])周期性检查由isCancelled()返回的值以尽快结束任务
+// 参数mayInterruptIfRunning为true，执行任务的线程应该被中断，否则允许任务执行直至完成
+// 方法返回false便是任务违背取消，也就是任务已经完全正常执行
 public final boolean cancel(boolean mayInterruptIfRunning) {
     mCancelled.set(true);
     return mFuture.cancel(mayInterruptIfRunning);
 }
 
-/**
- * Waits if necessary for the computation to complete, and then
- * retrieves its result.
- *
- * @return The computed result.
- *
- * @throws CancellationException If the computation was cancelled.
- * @throws ExecutionException If the computation threw an exception.
- * @throws InterruptedException If the current thread was interrupted
- *         while waiting.
- */
+// 等待计算完毕后获取执行结果
+// 任务被取消后调用此方法，抛出CancellationException
+// 当前线程在等待结果过程被中断，抛出InterruptedException
 public final Result get() throws InterruptedException, ExecutionException {
     return mFuture.get();
 }
 
-/**
- * Waits if necessary for at most the given time for the computation
- * to complete, and then retrieves its result.
- *
- * @param timeout Time to wait before cancelling the operation.
- * @param unit The time unit for the timeout.
- *
- * @return The computed result.
- *
- * @throws CancellationException If the computation was cancelled.
- * @throws ExecutionException If the computation threw an exception.
- * @throws InterruptedException If the current thread was interrupted
- *         while waiting.
- * @throws TimeoutException If the wait timed out.
- */
+// 等待计算完毕后获取执行结果，设置timeout作为等待超时时间
+// 任务被取消后调用此方法，抛出CancellationException
+// 任务执行过程中出现异常，抛出ExecutionException
+// 当前线程在等待结果过程被中断，抛出InterruptedException
+// 等待结果超时，抛出TimeoutException
 public final Result get(long timeout, TimeUnit unit) throws InterruptedException,
         ExecutionException, TimeoutException {
     return mFuture.get(timeout, unit);
@@ -595,6 +556,13 @@ public final Result get(long timeout, TimeUnit unit) throws InterruptedException
  * @see #executeOnExecutor(java.util.concurrent.Executor, Object[])
  * @see #execute(Runnable)
  */
+// 用指定参数执行任务，任务返回自身以便调用者获取引用
+// 此功能在单个后台线程执行，或根据具体平台版本决定
+// AsyncTask刚出来时，任务在一个顺序单后台线程执行；
+// 从VERSION_CODES#DONUT开始改为线程池以允许任务并行执行；
+// 从VERSION_CODES#HONEYCOMB回到单后台线程方式执行，已避免多线程并行执行错误；
+// 如果明确需要并行执行，可以是用executeOnExecutor()
+// getStatus()返回AsyncTask.Status#RUNNING或AsyncTask.Status#FINISHED时抛出IllegalStateException
 @MainThread
 public final AsyncTask<Params, Progress, Result> execute(Params... params) {
     return executeOnExecutor(sDefaultExecutor, params);
@@ -633,15 +601,22 @@ public final AsyncTask<Params, Progress, Result> execute(Params... params) {
  *
  * @see #execute(Object[])
  */
+// 用指定参数执行任务，任务返回自身以便调用者获取引用
+// 此方法用THREAD_POOL_EXECUTOR实现若任务并行处理，也可以用自定义Executor实现指定定制行为；
+// 并行任务执行不能保证任务键执行顺序的先后，如果多个任务需有序修改同一个变量，请使用顺序任务
+// getStatus()返回AsyncTask.Status#RUNNING或AsyncTask.Status#FINISHED时抛出IllegalStateException
 @MainThread
 public final AsyncTask<Params, Progress, Result> executeOnExecutor(Executor exec,
         Params... params) {
+    // 若任务默认状态不是PENDING状态，直接抛出异常
     if (mStatus != Status.PENDING) {
         switch (mStatus) {
             case RUNNING:
+                // 任务正在执行，不能再次开始任务
                 throw new IllegalStateException("Cannot execute task:"
                         + " the task is already running.");
             case FINISHED:
+                // 任务已经执行完毕，每个任务仅能被执行一次，不能再次开始
                 throw new IllegalStateException("Cannot execute task:"
                         + " the task has already been executed "
                         + "(a task can be executed only once)");
@@ -658,33 +633,15 @@ public final AsyncTask<Params, Progress, Result> executeOnExecutor(Executor exec
     return this;
 }
 
-/**
- * Convenience version of {@link #execute(Object...)} for use with
- * a simple Runnable object. See {@link #execute(Object[])} for more
- * information on the order of execution.
- *
- * @see #execute(Object[])
- * @see #executeOnExecutor(java.util.concurrent.Executor, Object[])
- */
+// 通过默认Executor执行单个Runnable
 @MainThread
 public static void execute(Runnable runnable) {
     sDefaultExecutor.execute(runnable);
 }
 
-/**
- * This method can be invoked from {@link #doInBackground} to
- * publish updates on the UI thread while the background computation is
- * still running. Each call to this method will trigger the execution of
- * {@link #onProgressUpdate} on the UI thread.
- *
- * {@link #onProgressUpdate} will not be called if the task has been
- * canceled.
- *
- * @param values The progress values to update the UI with.
- *
- * @see #onProgressUpdate
- * @see #doInBackground
- */
+// doInBackground()在后台线程运行过程中可(多次)调用此方法
+// 每次调用此方法，都会从子线程向主线程发布更新进度的Message，并在主线程触发onProgressUpdate()
+// 若任务已被取消，onProgressUpdate不会被调用
 @WorkerThread
 protected final void publishProgress(Progress... values) {
     if (!isCancelled()) {
@@ -702,23 +659,29 @@ private void finish(Result result) {
     mStatus = Status.FINISHED;
 }
 ```
-## InternalHandler
+## 八、InternalHandler
+
 ```java
 private static class InternalHandler extends Handler {
+    // 在构造此类时传入的是主线程Looper
     public InternalHandler(Looper looper) {
         super(looper);
     }
 
+    // 消息通过handleMessage在主线程执行分发运行逻辑
     @SuppressWarnings({"unchecked", "RawUseOfParameterizedType"})
     @Override
     public void handleMessage(Message msg) {
+        // 从Message中获取异步任务执行结果
         AsyncTaskResult<?> result = (AsyncTaskResult<?>) msg.obj;
+        // 按照消息不同类型执行逻辑
         switch (msg.what) {
             case MESSAGE_POST_RESULT:
-                // There is only one result
+                // 唯一结果传入finish()，内部再调用onPostExecute()
                 result.mTask.finish(result.mData[0]);
                 break;
             case MESSAGE_POST_PROGRESS:
+                // 通知主线程更新进度
                 result.mTask.onProgressUpdate(result.mData);
                 break;
         }
@@ -726,7 +689,9 @@ private static class InternalHandler extends Handler {
 }
 ```
 
-## WorkerRunnable
+## 九、WorkerRunnable
+
+WorkerRunnable实现Callable接口。相比Runnable接口，Callable会在运行成功完成后返回运行结果。此类是抽象类，子类需实现`call()`抽象方法
 
 ```java
 private static abstract class WorkerRunnable<Params, Result> implements Callable<Result> {
@@ -734,7 +699,9 @@ private static abstract class WorkerRunnable<Params, Result> implements Callable
 }
 ```
 
-## AsyncTaskResult
+## 十、AsyncTaskResult
+
+异步任务执行后结果
 
 ```java
 @SuppressWarnings({"RawUseOfParameterizedType"})
