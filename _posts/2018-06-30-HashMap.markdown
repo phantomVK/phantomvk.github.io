@@ -78,7 +78,7 @@ static final int MIN_TREEIFY_CAPACITY = 64;
 ## 四、数据成员
 
 ```java
-// 哈希表，长度为2的n次幂，不超过MAXIMUM_CAPACITY
+// 哈希桶表，长度为2的n次幂，不超过MAXIMUM_CAPACITY
 transient Node<K,V>[] table;
 
 // 已保存元素数量

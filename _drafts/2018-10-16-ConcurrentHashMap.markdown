@@ -450,12 +450,11 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
  * because the top two bits of 32bit hash fields are used for
  * control purposes.
  */
+// 最大容量，此值必须为1<<30以保证在Java数组分配和索引范围的2的n次幂
+// 整形2个高位用于控制目的所以不能使用
 private static final int MAXIMUM_CAPACITY = 1 << 30;
 
-/**
- * The default initial table capacity.  Must be a power of 2
- * (i.e., at least 1) and at most MAXIMUM_CAPACITY.
- */
+// 表默认初始容量，表容量必须为2的n次幂，最小为1，最大为MAXIMUM_CAPACITY
 private static final int DEFAULT_CAPACITY = 16;
 
 /**
@@ -464,10 +463,7 @@ private static final int DEFAULT_CAPACITY = 16;
  */
 static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
-/**
- * The default concurrency level for this table. Unused but
- * defined for compatibility with previous versions of this class.
- */
+// 默认哈希表并发等级，此版本没有使用，为旧版本兼容而保留
 private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
 
 /**
@@ -477,6 +473,7 @@ private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
  * simpler to use expressions such as {@code n - (n >>> 2)} for
  * the associated resizing threshold.
  */
+// 哈希表默认负载因子
 private static final float LOAD_FACTOR = 0.75f;
 
 /**
@@ -494,6 +491,7 @@ static final int TREEIFY_THRESHOLD = 8;
  * resize operation. Should be less than TREEIFY_THRESHOLD, and at
  * most 6 to mesh with shrinkage detection under removal.
  */
+// 二叉树退化为链表阈值
 static final int UNTREEIFY_THRESHOLD = 6;
 
 /**
@@ -538,7 +536,7 @@ static final int TREEBIN   = -2; // hash for roots of trees
 static final int RESERVED  = -3; // hash for transient reservations
 static final int HASH_BITS = 0x7fffffff; // usable bits of normal node hash
 
-/** Number of CPUS, to place bounds on some sizings */
+// 处理器线程数
 static final int NCPU = Runtime.getRuntime().availableProcessors();
 
 /**
@@ -605,9 +603,7 @@ static class Node<K,V> implements Map.Entry<K,V> {
                 (v == (u = val) || v.equals(u)));
     }
 
-    /**
-     * Virtualized support for map.get(); overridden in subclasses.
-     */
+    // 对map.get()的虚拟化支持，由子类重写
     Node<K,V> find(int h, Object k) {
         Node<K,V> e = this;
         if (k != null) {
@@ -624,6 +620,10 @@ static class Node<K,V> implements Map.Entry<K,V> {
 ```
 
 ## 四、静态方法
+
+#### 位分散
+
+把哈希值`高16位`与`低16位`进行异或运算。
 
 ```java
 /**
@@ -645,20 +645,37 @@ static class Node<K,V> implements Map.Entry<K,V> {
 static final int spread(int h) {
     return (h ^ (h >>> 16)) & HASH_BITS;
 }
+```
 
-/**
- * Returns a power of two table size for the given desired capacity.
- * See Hackers Delight, sec 3.2
- */
+下图展示hashCode高低位运算：
+
+![HashMap_bit_hashCode](/img/java/HashMap_bit_hashCode.png)
+
+这种运算方式有以下好处：
+
+* 满足速度、功效、位分散质量等条件；
+* 避免使用%操作的同时，令位运算发挥更好效果；
+* 避免性能损耗，开销较低
+
+#### 计算哈希表大小
+
+通过给定值计算获得`相等或更大`且`大小为2^n`的数值：
+
+```java
 private static final int tableSizeFor(int c) {
     int n = -1 >>> Integer.numberOfLeadingZeros(c - 1);
     return (n < 0) ? 1 : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
 }
+```
 
-/**
- * Returns x's Class if it is of the form "class C implements
- * Comparable<C>", else null.
- */
+下面假设cap为15，通过`tableSizeFor()`计算：
+
+![HashMap_tableSizeFor](/img/java/HashMap_tableSizeFor.png)
+
+从图中看出，当流程进行到`n|=n>>>4`，后续步骤运算结果已经固定不变。
+
+```java
+// 如果对象实现Comparable<C>接口，返回其类型，否则返回null
 static Class<?> comparableClassFor(Object x) {
     if (x instanceof Comparable) {
         Class<?> c; Type[] ts, as; ParameterizedType p;
@@ -722,15 +739,11 @@ static final <K,V> void setTabAt(Node<K,V>[] tab, int i, Node<K,V> v) {
 ## 五、成员变量
 
 ```java
-/**
- * The array of bins. Lazily initialized upon first insertion.
- * Size is always a power of two. Accessed directly by iterators.
- */
+// 哈希桶表，长度为2的n次幂，不超过MAXIMUM_CAPACITY
+// 首次插入时进行懒加载，变量能被iterators直接访问
 transient volatile Node<K,V>[] table;
 
-/**
- * The next table to use; non-null only while resizing.
- */
+// 下个可被使用的表，仅在resizing过程中为非空
 private transient volatile Node<K,V>[] nextTable;
 
 /**
@@ -750,92 +763,45 @@ private transient volatile long baseCount;
  */
 private transient volatile int sizeCtl;
 
-/**
- * The next table index (plus one) to split while resizing.
- */
+// resizing时分割的下个表索引值(+1)
 private transient volatile int transferIndex;
 
-/**
- * Spinlock (locked via CAS) used when resizing and/or creating CounterCells.
- */
+// resizing 和/或 创建CounterCells时由自旋锁使用(通过CAS上锁)
 private transient volatile int cellsBusy;
 
-/**
- * Table of counter cells. When non-null, size is a power of 2.
- */
+// CounterCell表。非空是大小为为2的n次幂
 private transient volatile CounterCell[] counterCells;
 ```
 
 ## 六、构造方法
 
 ```java
-/**
- * Creates a new, empty map with the default initial table size (16).
- */
+// 构建空Map，默认容量为16，默认负载因子为0.75
 public ConcurrentHashMap() {
 }
 
-/**
- * Creates a new, empty map with an initial table size
- * accommodating the specified number of elements without the need
- * to dynamically resize.
- *
- * @param initialCapacity The implementation performs internal
- * sizing to accommodate this many elements.
- * @throws IllegalArgumentException if the initial capacity of
- * elements is negative
- */
+// 通过指定的初始容量构造Map，避免后期多次动态扩容
+// 若initialCapacity为负数抛出IllegalArgumentException
 public ConcurrentHashMap(int initialCapacity) {
     this(initialCapacity, LOAD_FACTOR, 1);
 }
 
-/**
- * Creates a new map with the same mappings as the given map.
- *
- * @param m the map
- */
+// 通过给定Map创建新的Map，默认负载因子为0.75，容量值为足够保存m中键值对的大小
+// 若m为null抛出NullPointerException
 public ConcurrentHashMap(Map<? extends K, ? extends V> m) {
     this.sizeCtl = DEFAULT_CAPACITY;
     putAll(m);
 }
 
-/**
- * Creates a new, empty map with an initial table size based on
- * the given number of elements ({@code initialCapacity}) and
- * initial table density ({@code loadFactor}).
- *
- * @param initialCapacity the initial capacity. The implementation
- * performs internal sizing to accommodate this many elements,
- * given the specified load factor.
- * @param loadFactor the load factor (table density) for
- * establishing the initial table size
- * @throws IllegalArgumentException if the initial capacity of
- * elements is negative or the load factor is nonpositive
- *
- * @since 1.6
- */
+// 通过指定初始容量、负载因子构造Map
+// 若initialCapacity为负数或loadFactor不是非负数，抛出IllegalArgumentException
 public ConcurrentHashMap(int initialCapacity, float loadFactor) {
     this(initialCapacity, loadFactor, 1);
 }
 
-/**
- * Creates a new, empty map with an initial table size based on
- * the given number of elements ({@code initialCapacity}), initial
- * table density ({@code loadFactor}), and number of concurrently
- * updating threads ({@code concurrencyLevel}).
- *
- * @param initialCapacity the initial capacity. The implementation
- * performs internal sizing to accommodate this many elements,
- * given the specified load factor.
- * @param loadFactor the load factor (table density) for
- * establishing the initial table size
- * @param concurrencyLevel the estimated number of concurrently
- * updating threads. The implementation may use this value as
- * a sizing hint.
- * @throws IllegalArgumentException if the initial capacity is
- * negative or the load factor or concurrencyLevel are
- * nonpositive
- */
+// 通过指定初始容量、负载因子、和并发更新线程数构造Map
+// 若initialCapacity为负数，抛出IllegalArgumentException
+// 若loadFactor或concurrencyLevel不是非负数，抛出IllegalArgumentException
 public ConcurrentHashMap(int initialCapacity,
                          float loadFactor, int concurrencyLevel) {
     if (!(loadFactor > 0.0f) || initialCapacity < 0 || concurrencyLevel <= 0)
@@ -897,29 +863,15 @@ public V get(Object key) {
     return null;
 }
 
-/**
- * 检查指定对象是否为保存在哈希表中的键
- *
- * @param  key possible key
- * @return {@code true} if and only if the specified object
- *         is a key in this table, as determined by the
- *         {@code equals} method; {@code false} otherwise
- * @throws NullPointerException if the specified key is null
- */
+// 检查指定key是否为保存在哈希表中的键
+// 若指定key为空抛出NullPointerException
 public boolean containsKey(Object key) {
     return get(key) != null;
 }
 
-/**
- * Returns {@code true} if this map maps one or more keys to the
- * specified value. Note: This method may require a full traversal
- * of the map, and is much slower than method {@code containsKey}.
- *
- * @param value value whose presence in this map is to be tested
- * @return {@code true} if this map maps one or more keys to the
- *         specified value
- * @throws NullPointerException if the specified value is null
- */
+// 检查指定value是否由表中一个或多个key所映射
+// 方法可能需要对哈希表进行全遍历，因此会比方法containsKey慢很多
+// 若指定value为空抛出NullPointerException
 public boolean containsValue(Object value) {
     if (value == null)
         throw new NullPointerException();
@@ -935,31 +887,23 @@ public boolean containsValue(Object value) {
     return false;
 }
 
-/**
- * Maps the specified key to the specified value in this table.
- * Neither the key nor the value can be null.
- *
- * <p>The value can be retrieved by calling the {@code get} method
- * with a key that is equal to the original key.
- *
- * @param key key with which the specified value is to be associated
- * @param value value to be associated with the specified key
- * @return the previous value associated with {@code key}, or
- *         {@code null} if there was no mapping for {@code key}
- * @throws NullPointerException if the specified key or value is null
- */
+// 向map中存入键值对，若指定key或value为空抛出NullPointerException
 public V put(K key, V value) {
     return putVal(key, value, false);
 }
 
-/** Implementation for put and putIfAbsent */
+// put()和putIfAbsent()的实现
 final V putVal(K key, V value, boolean onlyIfAbsent) {
+    // key或value为空抛出NullPointerException
     if (key == null || value == null) throw new NullPointerException();
+    // key的哈希值还做了一次高低位操作
     int hash = spread(key.hashCode());
+    // 哈希桶数量
     int binCount = 0;
     for (Node<K,V>[] tab = table;;) {
         Node<K,V> f; int n, i, fh; K fk; V fv;
         if (tab == null || (n = tab.length) == 0)
+            // 哈希表不存在或长度为0，则需要初始化哈希表
             tab = initTable();
         else if ((f = tabAt(tab, i = (n - 1) & hash)) == null) {
             if (casTabAt(tab, i, null, new Node<K,V>(hash, key, value)))
@@ -967,7 +911,7 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
         }
         else if ((fh = f.hash) == MOVED)
             tab = helpTransfer(tab, f);
-        else if (onlyIfAbsent // check first node without acquiring lock
+        else if (onlyIfAbsent // 检查第一个节点时不获取锁
                  && fh == hash
                  && ((fk = f.key) == key || (fk != null && key.equals(fk)))
                  && (fv = f.val) != null)
@@ -1022,28 +966,15 @@ final V putVal(K key, V value, boolean onlyIfAbsent) {
     return null;
 }
 
-/**
- * Copies all of the mappings from the specified map to this one.
- * These mappings replace any mappings that this map had for any of the
- * keys currently in the specified map.
- *
- * @param m mappings to be stored in this map
- */
+// 从指定map中拷贝所有键值对到此map。若对应key已有值，则新值替换旧值
 public void putAll(Map<? extends K, ? extends V> m) {
     tryPresize(m.size());
     for (Map.Entry<? extends K, ? extends V> e : m.entrySet())
         putVal(e.getKey(), e.getValue(), false);
 }
 
-/**
- * Removes the key (and its corresponding value) from this map.
- * This method does nothing if the key is not in the map.
- *
- * @param  key the key that needs to be removed
- * @return the previous value associated with {@code key}, or
- *         {@code null} if there was no mapping for {@code key}
- * @throws NullPointerException if the specified key is null
- */
+// 根据key移除对应键值对，若价值对不存在则不做处理，否则返回key的映射值
+// 若key为空则抛出NullPointerException
 public V remove(Object key) {
     return replaceNode(key, null, null);
 }
@@ -1053,6 +984,7 @@ public V remove(Object key) {
  * Replaces node value with v, conditional upon match of cv if
  * non-null.  If resulting value is null, delete.
  */
+// 4个remove()/replace()方法的具体实现
 final V replaceNode(Object key, V value, Object cv) {
     int hash = spread(key.hashCode());
     for (Node<K,V>[] tab = table;;) {
@@ -1126,9 +1058,7 @@ final V replaceNode(Object key, V value, Object cv) {
     return null;
 }
 
-/**
- * Removes all of the mappings from this map.
- */
+// 把map中所有键值对映射移除
 public void clear() {
     long delta = 0L; // negative number of deletions
     int i = 0;
@@ -1273,19 +1203,8 @@ public V replace(K key, V value) {
     return replaceNode(key, value, null);
 }
 
-// Overrides of JDK8+ Map extension method defaults
-
-/**
- * Returns the value to which the specified key is mapped, or the
- * given default value if this map contains no mapping for the
- * key.
- *
- * @param key the key whose associated value is to be returned
- * @param defaultValue the value to return if this map contains
- * no mapping for the given key
- * @return the mapping for the key, if present; else the default value
- * @throws NullPointerException if the specified key is null
- */
+// 返回指定key映射的value，如果key没有对应映射值，则返回defaultValue
+// 若key为空抛出NullPointerException
 public V getOrDefault(Object key, V defaultValue) {
     V v;
     return (v = get(key)) == null ? defaultValue : v;
@@ -1535,7 +1454,7 @@ private final void transfer(Node<K,V>[] tab, Node<K,V>[] nextTab) {
         else if ((f = tabAt(tab, i)) == null)
             advance = casTabAt(tab, i, null, fwd);
         else if ((fh = f.hash) == MOVED)
-            advance = true; // already processed
+            advance = true; // 已完成处理
         else {
             synchronized (f) {
                 if (tabAt(tab, i) == f) {
@@ -1981,6 +1900,7 @@ static final class TreeBin<K,V> extends Node<K,V> {
      * Finds or adds a node.
      * @return null if added
      */
+    // 查找或添加节点，若已添加添加返回null
     final TreeNode<K,V> putTreeVal(int h, K k, V v) {
         Class<?> kc = null;
         boolean searched = false;
