@@ -19,16 +19,16 @@ AsyncTask令主线程的正确使用变得简单。无需维护线程或 __Handl
 public abstract class AsyncTask<Params, Progress, Result>
 ```
 
-AsyncTask设计为一个围绕着 __Thread__ 和 __Handler__ ，也不要构造普通线程框架的帮助类。合适执行(最多运算几秒的)短任务。如果任务导致线程长时间执行，强烈建议用由 __java.util.concurrent__ 包下 __Executor__、__ThreadPoolExecutor__ 和 __FutureTask__ 提供的APIs。
+AsyncTask设计为围绕着 __Thread__ 和 __Handler__、无需构造普通线程框架的帮助类。合适执行(最多运算几秒的)短任务。如果任务导致线程长时间执行，强烈建议用由 __java.util.concurrent__ 包下 __Executor__、__ThreadPoolExecutor__ 和 __FutureTask__ 提供的APIs。
 
 #### 1.2 组成
 
-通过一个执行在后台线程的运算来定义任务，其执行结果发布到主线程。异步任务的构成：
+通过一个在后台线程执行的工作定义任务，执行结果发布到主线程。异步任务构成：
  - 3个类型： __Params__、 __Progress__、 __Result__ 
  - 4个步骤： __onPreExecute__、 __doInBackground__、 __onProgressUpdate__、 __onPostExecute__
 
 
-AsyncTask由子类继承，至少重写方法 __doInBackground()__，也会基本重写另一个方法 __onPostExecute()__。
+AsyncTask由子类继承，至少重写方法 __doInBackground()__，通常也重写另一个方法 __onPostExecute()__。
 
 用法示例：
 
@@ -53,7 +53,7 @@ private class DownloadFilesTask extends AsyncTask(URL, Integer, Long) {
     protected void onPostExecute(Long result) {
         showDialog("Downloaded " + result + " bytes");
     }
- }
+}
 
 // 启动创建完成的任务，用法非常简单:
 new DownloadFilesTask().execute(url1, url2, url3);
@@ -61,7 +61,7 @@ new DownloadFilesTask().execute(url1, url2, url3);
 
 #### 1.3 3个参数类型
 
-有以下三个被异步任务使用的AsyncTask参数类型：
+有以下三个被异步任务使用的参数：
  - __Params：__ 送到任务执行参数的类型；
  - __Progress：__ 任务在后台计算时进度单元的类型，如Integer；
  - __Result：__ 后台计算结果返回类型；
@@ -74,14 +74,14 @@ private class MyTask extends AsyncTask<Void, Void, Void> { ... }
 
 #### 1.4 4个方法
 
-分别是 __onPreExecute__、 __doInBackground__ 、 __onProgressUpdate__ 、 __onPostExecute__
+分别是 __onPreExecute__、 __doInBackground__ 、 __onProgressUpdate__、 __onPostExecute__
 
-![AsyncTask_Execution](/img/android/images/AsyncTask_Execution.png)
-
-1. __onPreExecute()__ 在任务执行前在主线程调用，起配置任务的作用，如在界面上显示进度条；
+1. __onPreExecute()__ 在任务执行前于主线程调用，起配置任务的作用，如在界面上显示进度条；
 2. 随后，在后台线程调用 __doInBackground__。本步骤用来执行很长时间的后台计算任务，参数在此步骤传递到异步任务。计算结果也在这步骤返给上一步骤。在计算子线程过程中，能通过方法 __publishProgress__ 传递进度到主线程；
 3. 在子线程执行 __publishProgress__ 会触发主线程调用 __onProgressUpdate__，并向界面传递最新进度值；
 4. 后台线程执行完毕后，计算结果作为参数在主线程传给方法 __onPostExecute__ ；
+
+![AsyncTask_Execution](/img/android/images/AsyncTask_Execution.png)
 
 #### 1.5 取消任务
 
