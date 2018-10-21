@@ -11,6 +11,8 @@ tags:
 
 JDK11
 
+## 一、类签名
+
 ```java
 /**
  * An unbounded thread-safe {@linkplain Queue queue} based on linked nodes.
@@ -73,9 +75,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
         implements Queue<E>, java.io.Serializable
 ```
 
-```java
-private static final long serialVersionUID = 196745693267521676L;
-```
+## 二、节点
 
 ```java
 /*
@@ -179,6 +179,8 @@ static final class Node<E> {
 }
 ```
 
+## 三、成员变量
+
 ```java
 /**
  * A node from which the first live (non-deleted) node (if any)
@@ -208,6 +210,8 @@ transient volatile Node<E> head;
  */
 private transient volatile Node<E> tail;
 ```
+
+## 四、构造方法
 
 ```java
 /**
@@ -241,6 +245,8 @@ public ConcurrentLinkedQueue(Collection<? extends E> c) {
     tail = t;
 }
 ```
+
+## 五、成员方法
 
 ```java
 // Have to override just to update the javadoc
@@ -943,6 +949,8 @@ private boolean bulkRemove(Predicate<? super E> filter) {
     }
 }
 ```
+
+## 六、常量
 
 ```java
 // VarHandle mechanics
