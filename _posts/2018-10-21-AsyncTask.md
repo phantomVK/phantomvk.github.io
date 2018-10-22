@@ -23,7 +23,10 @@ AsyncTask设计为围绕着 __Thread__ 和 __Handler__、无需构造普通线�
 
 #### 1.2 组成
 
-通过一个在后台线程执行的工作定义任务，执行结果发布到主线程。异步任务构成：
+通过一个在后台线程执行的工作定义任务，执行结果发布到主线程。
+
+异步任务构成：
+
  - 3个类型： __Params__、 __Progress__、 __Result__ 
  - 4个步骤： __onPreExecute__、 __doInBackground__、 __onProgressUpdate__、 __onPostExecute__
 
@@ -76,10 +79,10 @@ private class MyTask extends AsyncTask<Void, Void, Void> { ... }
 
 分别是 __onPreExecute__、 __doInBackground__ 、 __onProgressUpdate__、 __onPostExecute__
 
-1. __onPreExecute()__ 在任务执行前于主线程调用，起配置任务的作用，如在界面上显示进度条；
-2. 随后，在后台线程调用 __doInBackground__。本步骤用来执行很长时间的后台计算任务，参数在此步骤传递到异步任务。计算结果也在这步骤返给上一步骤。在计算子线程过程中，能通过方法 __publishProgress__ 传递进度到主线程；
-3. 在子线程执行 __publishProgress__ 会触发主线程调用 __onProgressUpdate__，并向界面传递最新进度值；
-4. 后台线程执行完毕后，计算结果作为参数在主线程传给方法 __onPostExecute__ ；
+1. __onPreExecute()__ 在任务执行前于主线程调用，起配置任务作用，如在界面上显示进度条；
+2. 随后，在后台线程调用 __doInBackground__。在本步骤执行较长时间的后台计算任务，参数在此步骤传递到异步任务。计算结果也在这步骤返给上一步骤。在子线程计算过程中，可通过 __publishProgress()__ 传送进度到主线程；
+3. 子线程执行 __publishProgress__ 会触发主线程调用 __onProgressUpdate__，并向界面传送进度值；
+4. 后台线程执行完毕，计算结果作为参数在主线程传给方法 __onPostExecute__ ；
 
 ![AsyncTask_Execution](/img/android/images/AsyncTask_Execution.png)
 
@@ -87,7 +90,7 @@ private class MyTask extends AsyncTask<Void, Void, Void> { ... }
 
 任何时候都可通过 __cancel(boolean)__ 取消任务，方法会继续调起 __isCancelled()__ 并返回 __true__。
 
-调用 __cancel(boolean)__ 后，__doInBackground(Object[])__返回后的下一个执行方法是 __onCancelled(Object)__，而不是 __onPostExecute(Object)__ 。
+调用 __cancel(boolean)__ 后，__doInBackground(Object[])__ 返回后的下一个执行方法是 __onCancelled(Object)__，而不是 __onPostExecute(Object)__ 。
 
 如果可以，为了保证任务能尽早被取消，需周期性地在 __doInBackground(Object[])__ 中检查 __isCancelled()__ 方法的返回值。
 
@@ -110,13 +113,13 @@ __AsyncTask__ 保证所有回调通过以下安全、不需显式同步的方式
 
 #### 1.8 执行的顺序
 
-历史版本：
+历史实现：
 
 - 首次引入 __AsyncTasks__ 类时，任务在单个串行后台线程中执行；
 
-- 从 __VERSION_CODES.DONUT__ 开始改为线程池，并在多线程同时并行执行；
+- 从 __VERSION_CODES.DONUT__ 开始改为线程池，并在多线程并行执行；
 
-- 因为避免并行计算导致错误，从 __VERSION_CODES.HONEYCOMB__ 始任务回到单后台线程执行；
+- 为避免并行计算导致错误，从 __VERSION_CODES.HONEYCOMB__ 始任务回到单线程执行；
 
 如果确实需要并行执行，可以通过 __executeOnExecutor(java.util.concurrent.Executor, Object[])__ 达到使用 __THREAD_POOL_EXECUTOR__ 的目的。
 
