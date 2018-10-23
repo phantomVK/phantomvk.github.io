@@ -9,7 +9,35 @@ tags:
     - Java源码系列
 ---
 
-```package java.util;
+JDK11
+
+```java
+/*
+ * Copyright (c) 2009, 2016, Oracle and/or its affiliates. All rights reserved.
+ * ORACLE PROPRIETARY/CONFIDENTIAL. Use is subject to license terms.
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
+
+package java.util;
 
 /**
  * This class implements the Dual-Pivot Quicksort algorithm by
@@ -45,11 +73,6 @@ final class DualPivotQuicksort {
      * The maximum number of runs in merge sort.
      */
     private static final int MAX_RUN_COUNT = 67;
-
-    /**
-     * The maximum length of run in merge sort.
-     */
-    private static final int MAX_RUN_LENGTH = 33;
 
     /**
      * If the length of an array to be sorted is less than this
@@ -107,20 +130,24 @@ final class DualPivotQuicksort {
 
         // Check if the array is nearly sorted
         for (int k = left; k < right; run[count] = k) {
+            // Equal items in the beginning of the sequence
+            while (k < right && a[k] == a[k + 1])
+                k++;
+            if (k == right) break;  // Sequence finishes with equal items
             if (a[k] < a[k + 1]) { // ascending
                 while (++k <= right && a[k - 1] <= a[k]);
             } else if (a[k] > a[k + 1]) { // descending
                 while (++k <= right && a[k - 1] >= a[k]);
+                // Transform into an ascending sequence
                 for (int lo = run[count] - 1, hi = k; ++lo < --hi; ) {
                     int t = a[lo]; a[lo] = a[hi]; a[hi] = t;
                 }
-            } else { // equal
-                for (int m = MAX_RUN_LENGTH; ++k <= right && a[k - 1] == a[k]; ) {
-                    if (--m == 0) {
-                        sort(a, left, right, true);
-                        return;
-                    }
-                }
+            }
+
+            // Merge a transformed descending sequence followed by an
+            // ascending sequence
+            if (run[count] > left && a[run[count]] >= a[run[count] - 1]) {
+                count--;
             }
 
             /*
@@ -133,12 +160,26 @@ final class DualPivotQuicksort {
             }
         }
 
-        // Check special cases
-        // Implementation note: variable "right" is increased by 1.
-        if (run[count] == right++) { // The last run contains one element
-            run[++count] = right;
-        } else if (count == 1) { // The array is already sorted
+        // These invariants should hold true:
+        //    run[0] = 0
+        //    run[<last>] = right + 1; (terminator)
+
+        if (count == 0) {
+            // A single equal run
             return;
+        } else if (count == 1 && run[count] > right) {
+            // Either a single ascending or a transformed descending run.
+            // Always check that a final run is a proper terminator, otherwise
+            // we have an unterminated trailing run, to handle downstream.
+            return;
+        }
+        right++;
+        if (run[count] < right) {
+            // Corner case: the final run is not a terminator. This may happen
+            // if a final run is an equals run, or there is a single-element run
+            // at the end. Fix up by adding a proper terminator at the end.
+            // Note that we terminate with (right + 1), incremented earlier.
+            run[++count] = right;
         }
 
         // Determine alternation base for merge
@@ -555,20 +596,24 @@ final class DualPivotQuicksort {
 
         // Check if the array is nearly sorted
         for (int k = left; k < right; run[count] = k) {
+            // Equal items in the beginning of the sequence
+            while (k < right && a[k] == a[k + 1])
+                k++;
+            if (k == right) break;  // Sequence finishes with equal items
             if (a[k] < a[k + 1]) { // ascending
                 while (++k <= right && a[k - 1] <= a[k]);
             } else if (a[k] > a[k + 1]) { // descending
                 while (++k <= right && a[k - 1] >= a[k]);
+                // Transform into an ascending sequence
                 for (int lo = run[count] - 1, hi = k; ++lo < --hi; ) {
                     long t = a[lo]; a[lo] = a[hi]; a[hi] = t;
                 }
-            } else { // equal
-                for (int m = MAX_RUN_LENGTH; ++k <= right && a[k - 1] == a[k]; ) {
-                    if (--m == 0) {
-                        sort(a, left, right, true);
-                        return;
-                    }
-                }
+            }
+
+            // Merge a transformed descending sequence followed by an
+            // ascending sequence
+            if (run[count] > left && a[run[count]] >= a[run[count] - 1]) {
+                count--;
             }
 
             /*
@@ -581,12 +626,26 @@ final class DualPivotQuicksort {
             }
         }
 
-        // Check special cases
-        // Implementation note: variable "right" is increased by 1.
-        if (run[count] == right++) { // The last run contains one element
-            run[++count] = right;
-        } else if (count == 1) { // The array is already sorted
+        // These invariants should hold true:
+        //    run[0] = 0
+        //    run[<last>] = right + 1; (terminator)
+
+        if (count == 0) {
+            // A single equal run
             return;
+        } else if (count == 1 && run[count] > right) {
+            // Either a single ascending or a transformed descending run.
+            // Always check that a final run is a proper terminator, otherwise
+            // we have an unterminated trailing run, to handle downstream.
+            return;
+        }
+        right++;
+        if (run[count] < right) {
+            // Corner case: the final run is not a terminator. This may happen
+            // if a final run is an equals run, or there is a single-element run
+            // at the end. Fix up by adding a proper terminator at the end.
+            // Note that we terminate with (right + 1), incremented earlier.
+            run[++count] = right;
         }
 
         // Determine alternation base for merge
@@ -1039,20 +1098,24 @@ final class DualPivotQuicksort {
 
         // Check if the array is nearly sorted
         for (int k = left; k < right; run[count] = k) {
+            // Equal items in the beginning of the sequence
+            while (k < right && a[k] == a[k + 1])
+                k++;
+            if (k == right) break;  // Sequence finishes with equal items
             if (a[k] < a[k + 1]) { // ascending
                 while (++k <= right && a[k - 1] <= a[k]);
             } else if (a[k] > a[k + 1]) { // descending
                 while (++k <= right && a[k - 1] >= a[k]);
+                // Transform into an ascending sequence
                 for (int lo = run[count] - 1, hi = k; ++lo < --hi; ) {
                     short t = a[lo]; a[lo] = a[hi]; a[hi] = t;
                 }
-            } else { // equal
-                for (int m = MAX_RUN_LENGTH; ++k <= right && a[k - 1] == a[k]; ) {
-                    if (--m == 0) {
-                        sort(a, left, right, true);
-                        return;
-                    }
-                }
+            }
+
+            // Merge a transformed descending sequence followed by an
+            // ascending sequence
+            if (run[count] > left && a[run[count]] >= a[run[count] - 1]) {
+                count--;
             }
 
             /*
@@ -1065,12 +1128,26 @@ final class DualPivotQuicksort {
             }
         }
 
-        // Check special cases
-        // Implementation note: variable "right" is increased by 1.
-        if (run[count] == right++) { // The last run contains one element
-            run[++count] = right;
-        } else if (count == 1) { // The array is already sorted
+        // These invariants should hold true:
+        //    run[0] = 0
+        //    run[<last>] = right + 1; (terminator)
+
+        if (count == 0) {
+            // A single equal run
             return;
+        } else if (count == 1 && run[count] > right) {
+            // Either a single ascending or a transformed descending run.
+            // Always check that a final run is a proper terminator, otherwise
+            // we have an unterminated trailing run, to handle downstream.
+            return;
+        }
+        right++;
+        if (run[count] < right) {
+            // Corner case: the final run is not a terminator. This may happen
+            // if a final run is an equals run, or there is a single-element run
+            // at the end. Fix up by adding a proper terminator at the end.
+            // Note that we terminate with (right + 1), incremented earlier.
+            run[++count] = right;
         }
 
         // Determine alternation base for merge
@@ -1523,20 +1600,24 @@ final class DualPivotQuicksort {
 
         // Check if the array is nearly sorted
         for (int k = left; k < right; run[count] = k) {
+            // Equal items in the beginning of the sequence
+            while (k < right && a[k] == a[k + 1])
+                k++;
+            if (k == right) break;  // Sequence finishes with equal items
             if (a[k] < a[k + 1]) { // ascending
                 while (++k <= right && a[k - 1] <= a[k]);
             } else if (a[k] > a[k + 1]) { // descending
                 while (++k <= right && a[k - 1] >= a[k]);
+                // Transform into an ascending sequence
                 for (int lo = run[count] - 1, hi = k; ++lo < --hi; ) {
                     char t = a[lo]; a[lo] = a[hi]; a[hi] = t;
                 }
-            } else { // equal
-                for (int m = MAX_RUN_LENGTH; ++k <= right && a[k - 1] == a[k]; ) {
-                    if (--m == 0) {
-                        sort(a, left, right, true);
-                        return;
-                    }
-                }
+            }
+
+            // Merge a transformed descending sequence followed by an
+            // ascending sequence
+            if (run[count] > left && a[run[count]] >= a[run[count] - 1]) {
+                count--;
             }
 
             /*
@@ -1549,12 +1630,26 @@ final class DualPivotQuicksort {
             }
         }
 
-        // Check special cases
-        // Implementation note: variable "right" is increased by 1.
-        if (run[count] == right++) { // The last run contains one element
-            run[++count] = right;
-        } else if (count == 1) { // The array is already sorted
+        // These invariants should hold true:
+        //    run[0] = 0
+        //    run[<last>] = right + 1; (terminator)
+
+        if (count == 0) {
+            // A single equal run
             return;
+        } else if (count == 1 && run[count] > right) {
+            // Either a single ascending or a transformed descending run.
+            // Always check that a final run is a proper terminator, otherwise
+            // we have an unterminated trailing run, to handle downstream.
+            return;
+        }
+        right++;
+        if (run[count] < right) {
+            // Corner case: the final run is not a terminator. This may happen
+            // if a final run is an equals run, or there is a single-element run
+            // at the end. Fix up by adding a proper terminator at the end.
+            // Note that we terminate with (right + 1), incremented earlier.
+            run[++count] = right;
         }
 
         // Determine alternation base for merge
@@ -2103,20 +2198,24 @@ final class DualPivotQuicksort {
 
         // Check if the array is nearly sorted
         for (int k = left; k < right; run[count] = k) {
+            // Equal items in the beginning of the sequence
+            while (k < right && a[k] == a[k + 1])
+                k++;
+            if (k == right) break;  // Sequence finishes with equal items
             if (a[k] < a[k + 1]) { // ascending
                 while (++k <= right && a[k - 1] <= a[k]);
             } else if (a[k] > a[k + 1]) { // descending
                 while (++k <= right && a[k - 1] >= a[k]);
+                // Transform into an ascending sequence
                 for (int lo = run[count] - 1, hi = k; ++lo < --hi; ) {
                     float t = a[lo]; a[lo] = a[hi]; a[hi] = t;
                 }
-            } else { // equal
-                for (int m = MAX_RUN_LENGTH; ++k <= right && a[k - 1] == a[k]; ) {
-                    if (--m == 0) {
-                        sort(a, left, right, true);
-                        return;
-                    }
-                }
+            }
+
+            // Merge a transformed descending sequence followed by an
+            // ascending sequence
+            if (run[count] > left && a[run[count]] >= a[run[count] - 1]) {
+                count--;
             }
 
             /*
@@ -2129,12 +2228,26 @@ final class DualPivotQuicksort {
             }
         }
 
-        // Check special cases
-        // Implementation note: variable "right" is increased by 1.
-        if (run[count] == right++) { // The last run contains one element
-            run[++count] = right;
-        } else if (count == 1) { // The array is already sorted
+        // These invariants should hold true:
+        //    run[0] = 0
+        //    run[<last>] = right + 1; (terminator)
+
+        if (count == 0) {
+            // A single equal run
             return;
+        } else if (count == 1 && run[count] > right) {
+            // Either a single ascending or a transformed descending run.
+            // Always check that a final run is a proper terminator, otherwise
+            // we have an unterminated trailing run, to handle downstream.
+            return;
+        }
+        right++;
+        if (run[count] < right) {
+            // Corner case: the final run is not a terminator. This may happen
+            // if a final run is an equals run, or there is a single-element run
+            // at the end. Fix up by adding a proper terminator at the end.
+            // Note that we terminate with (right + 1), incremented earlier.
+            run[++count] = right;
         }
 
         // Determine alternation base for merge
@@ -2642,20 +2755,24 @@ final class DualPivotQuicksort {
 
         // Check if the array is nearly sorted
         for (int k = left; k < right; run[count] = k) {
+            // Equal items in the beginning of the sequence
+            while (k < right && a[k] == a[k + 1])
+                k++;
+            if (k == right) break;  // Sequence finishes with equal items
             if (a[k] < a[k + 1]) { // ascending
                 while (++k <= right && a[k - 1] <= a[k]);
             } else if (a[k] > a[k + 1]) { // descending
                 while (++k <= right && a[k - 1] >= a[k]);
+                // Transform into an ascending sequence
                 for (int lo = run[count] - 1, hi = k; ++lo < --hi; ) {
                     double t = a[lo]; a[lo] = a[hi]; a[hi] = t;
                 }
-            } else { // equal
-                for (int m = MAX_RUN_LENGTH; ++k <= right && a[k - 1] == a[k]; ) {
-                    if (--m == 0) {
-                        sort(a, left, right, true);
-                        return;
-                    }
-                }
+            }
+
+            // Merge a transformed descending sequence followed by an
+            // ascending sequence
+            if (run[count] > left && a[run[count]] >= a[run[count] - 1]) {
+                count--;
             }
 
             /*
@@ -2668,12 +2785,26 @@ final class DualPivotQuicksort {
             }
         }
 
-        // Check special cases
-        // Implementation note: variable "right" is increased by 1.
-        if (run[count] == right++) { // The last run contains one element
-            run[++count] = right;
-        } else if (count == 1) { // The array is already sorted
+        // These invariants should hold true:
+        //    run[0] = 0
+        //    run[<last>] = right + 1; (terminator)
+
+        if (count == 0) {
+            // A single equal run
             return;
+        } else if (count == 1 && run[count] > right) {
+            // Either a single ascending or a transformed descending run.
+            // Always check that a final run is a proper terminator, otherwise
+            // we have an unterminated trailing run, to handle downstream.
+            return;
+        }
+        right++;
+        if (run[count] < right) {
+            // Corner case: the final run is not a terminator. This may happen
+            // if a final run is an equals run, or there is a single-element run
+            // at the end. Fix up by adding a proper terminator at the end.
+            // Note that we terminate with (right + 1), incremented earlier.
+            run[++count] = right;
         }
 
         // Determine alternation base for merge
