@@ -157,11 +157,11 @@ static final class Node<E> {
      * Constructs a node holding item.  Uses relaxed write because
      * item can only be seen after piggy-backing publication via CAS.
      */
+    // 构建一个节点，并通过此节点持有实例item
     Node(E item) {
         ITEM.set(this, item);
     }
 
-    /** Constructs a dead dummy node. */
     Node() {}
 
     void appendRelaxed(Node<E> next) {
@@ -213,14 +213,17 @@ private transient volatile Node<E> tail;
 
 ## 四、构造方法
 
+构造空队列实例
+
 ```java
-/**
- * Creates a {@code ConcurrentLinkedQueue} that is initially empty.
- */
 public ConcurrentLinkedQueue() {
     head = tail = new Node<E>();
 }
+```
 
+通过一个包含实例的集合构建新队列，元素的顺序由集合迭代器决定。如果c为空，抛出NullPointerException
+
+```java
 /**
  * Creates a {@code ConcurrentLinkedQueue}
  * initially containing the elements of the given collection,
@@ -249,20 +252,6 @@ public ConcurrentLinkedQueue(Collection<? extends E> c) {
 ## 五、成员方法
 
 ```java
-// Have to override just to update the javadoc
-
-/**
- * Inserts the specified element at the tail of this queue.
- * As the queue is unbounded, this method will never throw
- * {@link IllegalStateException} or return {@code false}.
- *
- * @return {@code true} (as specified by {@link Collection#add})
- * @throws NullPointerException if the specified element is null
- */
-public boolean add(E e) {
-    return offer(e);
-}
-
 /**
  * Tries to CAS head to p. If successful, repoint old head to itself
  * as sentinel for succ(), below.
@@ -272,7 +261,9 @@ final void updateHead(Node<E> h, Node<E> p) {
     if (h != p && HEAD.compareAndSet(this, h, p))
         NEXT.setRelease(h, h);
 }
+```
 
+```java
 /**
  * Returns the successor of p, or the head node if p.next has been
  * linked to self, which will only be true if traversing with a
@@ -283,7 +274,9 @@ final Node<E> succ(Node<E> p) {
         p = head;
     return p;
 }
+```
 
+```java
 /**
  * Tries to CAS pred.next (or head, if pred is null) from c to p.
  * Caller must ensure that we're not unlinking the trailing node.
@@ -300,7 +293,9 @@ private boolean tryCasSuccessor(Node<E> pred, Node<E> c, Node<E> p) {
     }
     return false;
 }
+```
 
+```java
 /**
  * Collapse dead nodes between pred and q.
  * @param pred the last known live node, or null if none
@@ -323,7 +318,9 @@ private Node<E> skipDeadNodes(Node<E> pred, Node<E> c, Node<E> p, Node<E> q) {
             && (pred == null || ITEM.get(pred) != null))
         ? pred : p;
 }
+```
 
+```java
 /**
  * Inserts the specified element at the tail of this queue.
  * As the queue is unbounded, this method will never return {@code false}.
@@ -359,7 +356,9 @@ public boolean offer(E e) {
             p = (p != t && t != (t = tail)) ? t : q;
     }
 }
+```
 
+```java
 public E poll() {
     restartFromHead: for (;;) {
         for (Node<E> h = head, p = h, q;; p = q) {
@@ -380,7 +379,9 @@ public E poll() {
         }
     }
 }
+```
 
+```java
 public E peek() {
     restartFromHead: for (;;) {
         for (Node<E> h = head, p = h, q;; p = q) {
@@ -395,7 +396,9 @@ public E peek() {
         }
     }
 }
+```
 
+```java
 /**
  * Returns the first live (non-deleted) node on list, or null if none.
  * This is yet another variant of poll/peek; here returning the
@@ -417,7 +420,9 @@ Node<E> first() {
         }
     }
 }
+```
 
+```java
 /**
  * Returns {@code true} if this queue contains no elements.
  *
@@ -426,7 +431,9 @@ Node<E> first() {
 public boolean isEmpty() {
     return first() == null;
 }
+```
 
+```java
 /**
  * Returns the number of elements in this queue.  If this queue
  * contains more than {@code Integer.MAX_VALUE} elements, returns
@@ -486,7 +493,9 @@ public boolean contains(Object o) {
         return false;
     }
 }
+```
 
+```java
 /**
  * Removes a single instance of the specified element from this queue,
  * if it is present.  More formally, removes an element {@code e} such
@@ -521,7 +530,9 @@ public boolean remove(Object o) {
         return false;
     }
 }
+```
 
+```java
 /**
  * Appends all of the elements in the specified collection to the end of
  * this queue, in the order that they are returned by the specified
@@ -582,33 +593,6 @@ public boolean addAll(Collection<? extends E> c) {
     }
 }
 
-public String toString() {
-    String[] a = null;
-    restartFromHead: for (;;) {
-        int charLength = 0;
-        int size = 0;
-        for (Node<E> p = first(); p != null;) {
-            final E item;
-            if ((item = p.item) != null) {
-                if (a == null)
-                    a = new String[4];
-                else if (size == a.length)
-                    a = Arrays.copyOf(a, 2 * size);
-                String s = item.toString();
-                a[size++] = s;
-                charLength += s.length();
-            }
-            if (p == (p = p.next))
-                continue restartFromHead;
-        }
-
-        if (size == 0)
-            return "[]";
-
-        return Helpers.toString(a, size, charLength);
-    }
-}
-
 private Object[] toArrayInternal(Object[] a) {
     Object[] x = a;
     restartFromHead: for (;;) {
@@ -636,64 +620,6 @@ private Object[] toArrayInternal(Object[] a) {
         }
         return (size == x.length) ? x : Arrays.copyOf(x, size);
     }
-}
-
-/**
- * Returns an array containing all of the elements in this queue, in
- * proper sequence.
- *
- * <p>The returned array will be "safe" in that no references to it are
- * maintained by this queue.  (In other words, this method must allocate
- * a new array).  The caller is thus free to modify the returned array.
- *
- * <p>This method acts as bridge between array-based and collection-based
- * APIs.
- *
- * @return an array containing all of the elements in this queue
- */
-public Object[] toArray() {
-    return toArrayInternal(null);
-}
-
-/**
- * Returns an array containing all of the elements in this queue, in
- * proper sequence; the runtime type of the returned array is that of
- * the specified array.  If the queue fits in the specified array, it
- * is returned therein.  Otherwise, a new array is allocated with the
- * runtime type of the specified array and the size of this queue.
- *
- * <p>If this queue fits in the specified array with room to spare
- * (i.e., the array has more elements than this queue), the element in
- * the array immediately following the end of the queue is set to
- * {@code null}.
- *
- * <p>Like the {@link #toArray()} method, this method acts as bridge between
- * array-based and collection-based APIs.  Further, this method allows
- * precise control over the runtime type of the output array, and may,
- * under certain circumstances, be used to save allocation costs.
- *
- * <p>Suppose {@code x} is a queue known to contain only strings.
- * The following code can be used to dump the queue into a newly
- * allocated array of {@code String}:
- *
- * <pre> {@code String[] y = x.toArray(new String[0]);}</pre>
- *
- * Note that {@code toArray(new Object[0])} is identical in function to
- * {@code toArray()}.
- *
- * @param a the array into which the elements of the queue are to
- *          be stored, if it is big enough; otherwise, a new array of the
- *          same runtime type is allocated for this purpose
- * @return an array containing all of the elements in this queue
- * @throws ArrayStoreException if the runtime type of the specified array
- *         is not a supertype of the runtime type of every element in
- *         this queue
- * @throws NullPointerException if the specified array is null
- */
-@SuppressWarnings("unchecked")
-public <T> T[] toArray(T[] a) {
-    Objects.requireNonNull(a);
-    return (T[]) toArrayInternal(a);
 }
 ```
 
