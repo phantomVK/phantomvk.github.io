@@ -28,7 +28,9 @@ public interface RejectedExecutionHandler {
 
 ## 二、默认策略
 
-Java预定义了以下4种拒绝策略
+Java预定义4种拒绝策略，需要定制其他策略可自行继承接口 __RejectedExecutionHandler__ 并实现抽象方法
+
+![RejectedExecutionHandlers](/img/java/RejectedExecutionHandlers.png)
 
 #### 2.1 CallerRunsPolicy
 
