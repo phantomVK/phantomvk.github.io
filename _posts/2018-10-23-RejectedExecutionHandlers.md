@@ -23,18 +23,17 @@ public interface RejectedExecutionHandler {
     // ThreadPoolExecutor.execute拒绝执行任务后，此方法由ThreadPoolExecutor调用
     void rejectedExecution(Runnable r, ThreadPoolExecutor executor);
 }
-
 ```
 
 ## 二、默认策略
 
-Java预定义4种拒绝策略，需要定制其他策略可自行继承接口 __RejectedExecutionHandler__ 并实现抽象方法
+Java预定义4种拒绝策略，定制其他策略需实现接口 __RejectedExecutionHandler__ 的抽象方法
 
 ![RejectedExecutionHandlers](/img/java/RejectedExecutionHandlers.png)
 
 #### 2.1 CallerRunsPolicy
 
-当任务添加到线程池被拒绝时，只要线程池尚在运行，该任务就会在调用者所在线程上直接执行。显然，此种策略并没有丢弃任务，并且可能会影响调用者线程其他功能的执行。
+当任务添加到线程池被拒绝时，只要线程池尚在运行，该任务就会在调用者所在线程上直接执行。显然，此种策略并没有丢弃任务，且可能会影响调用者线程其他功能的执行。
 
 ```java
 public static class CallerRunsPolicy implements RejectedExecutionHandler {
@@ -52,9 +51,7 @@ public static class CallerRunsPolicy implements RejectedExecutionHandler {
 
 #### 2.2 AbortPolicy
 
-当任务添加到线程池被拒绝时，此策略直接抛出 __RejectedExecutionException__ 异常。
-
-这是 __ThreadPoolExecutor__ 和 __ScheduledThreadPoolExecutor__ 的默认策略。
+当任务添加到线程池被拒绝时，此策略直接抛出 __RejectedExecutionException__ 异常。是 __ThreadPoolExecutor__ 和 __ScheduledThreadPoolExecutor__ 的默认策略。
 
 ```java
 public static class AbortPolicy implements RejectedExecutionHandler {
