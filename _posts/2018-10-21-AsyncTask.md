@@ -19,11 +19,11 @@ AsyncTask令主线程的正确使用变得简单。无需维护线程或 __Handl
 public abstract class AsyncTask<Params, Progress, Result>
 ```
 
-AsyncTask设计为围绕着 __Thread__ 和 __Handler__、无需构造普通线程框架的帮助类。合适执行(最多运算几秒的)短任务。如果任务导致线程长时间执行，强烈建议用由 __java.util.concurrent__ 包下 __Executor__、__ThreadPoolExecutor__ 和 __FutureTask__ 提供的APIs。
+AsyncTask设计为围绕着 __Thread__ 和 __Handler__，且无需构造普通线程框架的帮助类。适合执行(最多运算几秒的)短任务。如果任务导致线程长时间执行，强烈建议用由 __java.util.concurrent__ 包下 __Executor__、__ThreadPoolExecutor__ 和 __FutureTask__ 提供的APIs。
 
 #### 1.2 组成
 
-通过一个在后台线程执行的工作定义任务，执行结果发布到主线程。
+通过一个在后台线程执行的工作任务，把执行结果发布到主线程。
 
 异步任务构成：
 
@@ -36,36 +36,40 @@ AsyncTask由子类继承，至少重写方法 __doInBackground()__，通常也�
 用法示例：
 
 ```java
+// 任务执行参数为URL，进度值类型为Integer，执行结果类型为Long
 private class DownloadFilesTask extends AsyncTask(URL, Integer, Long) {
     protected Long doInBackground(URL... urls) {
         int count = urls.length;
         long totalSize = 0;
         for (int i = 0; i < count; i++) {
             totalSize += Downloader.downloadFile(urls[i]);
+            // 把下载进度传递到主线程更新UI
             publishProgress((int) ((i / (float) count) * 100));
-            // Escape early if cancel() is called
+            // 通过isCancelled()判断已调用cancel()，尽快跳出本方法
             if (isCancelled()) break;
         }
         return totalSize;
     }
-
+    
+    // 本方法在主线程调用
     protected void onProgressUpdate(Integer... progress) {
         setProgressPercent(progress[0]);
     }
-
+    
+    // 本方法在主线程调用
     protected void onPostExecute(Long result) {
         showDialog("Downloaded " + result + " bytes");
     }
 }
 
-// 启动创建完成的任务，用法非常简单:
+// 用法：启动已创建的任务，用法非常简单:
 new DownloadFilesTask().execute(url1, url2, url3);
 ```
 
 #### 1.3 3个参数类型
 
 有以下三个被异步任务使用的参数：
- - __Params：__ 送到任务执行参数的类型；
+ - __Params：__ 任务执行所需参数的类型；
  - __Progress：__ 任务在后台计算时进度单元的类型，如Integer；
  - __Result：__ 后台计算结果返回类型；
 
@@ -79,26 +83,26 @@ private class MyTask extends AsyncTask<Void, Void, Void> { ... }
 
 分别是 __onPreExecute__、 __doInBackground__ 、 __onProgressUpdate__、 __onPostExecute__
 
-1. __onPreExecute()__ 在任务执行前于主线程调用，起配置任务作用，如在界面上显示进度条；
-2. 随后，在后台线程调用 __doInBackground__。在本步骤执行较长时间的后台计算任务，参数在此步骤传递到异步任务。计算结果也在这步骤返给上一步骤。在子线程计算过程中，可通过 __publishProgress()__ 传送进度到主线程；
+![AsyncTask_Execution](/img/android/images/AsyncTask_Execution.png)
+
+1. __onPreExecute__ 在任务执行前于主线程调用，起配置任务的作用：如在界面上显示进度条；
+2. 随后，在后台线程调用 __doInBackground__。本步骤负责执行时间较长的计算任务，参数在此步骤传递到异步任务。计算结果也在这步骤返给上一步骤。在子线程计算过程中，可通过 __publishProgress__ 传送进度到主线程；
 3. 子线程执行 __publishProgress__ 会触发主线程调用 __onProgressUpdate__，并向界面传送进度值；
 4. 后台线程执行完毕，计算结果作为参数在主线程传给方法 __onPostExecute__ ；
-
-![AsyncTask_Execution](/img/android/images/AsyncTask_Execution.png)
 
 #### 1.5 取消任务
 
 任何时候都可通过 __cancel(boolean)__ 取消任务，方法会继续调起 __isCancelled()__ 并返回 __true__。
 
-调用 __cancel(boolean)__ 后，__doInBackground(Object[])__ 返回后的下一个执行方法是 __onCancelled(Object)__，而不是 __onPostExecute(Object)__ 。
+调用 __cancel(boolean)__ 后，__doInBackground(Object[])__ 返回后的下一个执行方法是 __onCancelled(Object)__，而不是 __onPostExecute(Object)__ 。(参考[小节1.4](https://phantomvk.github.io/2018/10/21/AsyncTask/#14-4个方法)示意图)
 
-如果可以，为了保证任务能尽早被取消，需周期性地在 __doInBackground(Object[])__ 中检查 __isCancelled()__ 方法的返回值。
+如果可以，为了保证任务能尽早被取消，需周期性地在 __doInBackground(Object[])__ 中检查 __isCancelled()__ 方法的返回值。(参考[小节1.2](https://phantomvk.github.io/2018/10/21/AsyncTask/#12-组成)示例代码)
 
 #### 1.6 线程规则
 
 为保证类正常运行，有些线程规则需要遵守：
 
-- __AsyncTask__ 必须在主线程载入。VERSION_CODES.JELLY_BEAN中此过程自动完成；
+- __AsyncTask__ 必须在主线程载入。__VERSION_CODES.JELLY_BEAN__ 中此过程自动完成；
 - 任务实例必须在主线程中创建；
 - __execute__ 方法必须在主线程调用；
 - 不得手动调用 __onPreExecute()__ 、__onPostExecute()__、 __doInBackground()__、 __onProgressUpdate()__ ；
