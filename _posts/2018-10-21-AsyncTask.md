@@ -250,6 +250,7 @@ private final Handler mHandler;
 private static class SerialExecutor implements Executor {
     // 存放Runnable的任务队列，ArrayDeque本身非线程安全
     final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>();
+    // 下一个被执行的Runnable
     Runnable mActive;
 
     public synchronized void execute(final Runnable r) {
@@ -273,7 +274,6 @@ private static class SerialExecutor implements Executor {
 
     protected synchronized void scheduleNext() {
         // 从任务队列获取下一任务
-        // 暂时没有任务则阻塞等待新任务，队列已关闭则返回null并退出
         if ((mActive = mTasks.poll()) != null) {
             // 向并行执行线程池添加任务
             THREAD_POOL_EXECUTOR.execute(mActive);
