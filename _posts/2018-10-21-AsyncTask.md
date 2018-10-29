@@ -153,7 +153,7 @@ private static final int CORE_POOL_SIZE = Math.max(2, Math.min(CPU_COUNT - 1, 4)
 private static final int MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
 ```
 
-非核心线程存活时间
+非核心线程存活时间，单位为秒
 
 ```java
 private static final int KEEP_ALIVE_SECONDS = 30;
@@ -233,10 +233,10 @@ private final FutureTask<Result> mFuture;
 // 任务状态，任务构建后默认处于Status.PENDING
 private volatile Status mStatus = Status.PENDING;
 
-// 任务是否已被取消
+// 任务是否已被取消，注意类型是AtomicBoolean
 private final AtomicBoolean mCancelled = new AtomicBoolean();
 
-// 任务是否已被触发
+// 任务是否已被触发，注意类型是AtomicBoolean
 private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
 
 private final Handler mHandler;
@@ -244,12 +244,16 @@ private final Handler mHandler;
 
 ## 四、SerialExecutor
 
+串行任务执行器
+
 ```java
 private static class SerialExecutor implements Executor {
+    // 存放Runnable的任务队列，ArrayDeque本身非线程安全
     final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>();
     Runnable mActive;
 
     public synchronized void execute(final Runnable r) {
+       // 把新任务r放入队列中
         mTasks.offer(new Runnable() {
             public void run() {
                 // 此任务运行完成后触发下一个任务执行
@@ -269,6 +273,7 @@ private static class SerialExecutor implements Executor {
 
     protected synchronized void scheduleNext() {
         // 从任务队列获取下一任务
+        // 暂时没有任务则阻塞等待新任务，队列已关闭则返回null并退出
         if ((mActive = mTasks.poll()) != null) {
             // 向并行执行线程池添加任务
             THREAD_POOL_EXECUTOR.execute(mActive);

@@ -1,15 +1,13 @@
 ---
 layout:     post
 title:      "Android源码系列 -- MessageQueue"
-date:       2018-07-12
+date:       2018-10-12
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
     - Android源码系列
 ---
-
-Android 28
 
 # 一、类签名
 
@@ -29,13 +27,16 @@ MessageQueue是个低级类，持有将要被Looper分发的消息队列。但�
 public final class MessageQueue
 ```
 
-## 数据成员
+源码来自Android 28
+
+## 二、数据成员
 
 ```java
 private static final String TAG = "MessageQueue";
 private static final boolean DEBUG = false;
 
 // True if the message queue can be quit.
+// 消息队列允许退出则为true
 private final boolean mQuitAllowed;
 
 @SuppressWarnings("unused")
@@ -55,7 +56,7 @@ private boolean mBlocked;
 private int mNextBarrierToken;
 ```
 
-## 原生方法
+## 三、原生方法
 
 ```java
 private native static long nativeInit();
@@ -66,7 +67,7 @@ private native static boolean nativeIsPolling(long ptr);
 private native static void nativeSetFileDescriptorEvents(long ptr, int fd, int events);
 ```
 
-## 构造方法
+## 四、构造方法
 
 ```java
 MessageQueue(boolean quitAllowed) {
@@ -74,6 +75,8 @@ MessageQueue(boolean quitAllowed) {
     mPtr = nativeInit();
 }
 ```
+
+## 五、成员方法
 
 ```java
 @Override
@@ -101,6 +104,7 @@ private void dispose() {
  *
  * @return True if the looper is idle.
  */
+// 当Looper空闲时返回true，方法可在任何线程调用
 public boolean isIdle() {
     synchronized (this) {
         final long now = SystemClock.uptimeMillis();
@@ -807,7 +811,13 @@ void writeToProto(ProtoOutputStream proto, long fieldId) {
     }
     proto.end(messageQueueToken);
 }
+```
 
+## IdleHandler
+
+用于发现当线程在等待需处理的消息而阻塞的回调接口
+
+```java
 /**
  * Callback interface for discovering when a thread is going to block
  * waiting for more messages.
@@ -822,7 +832,13 @@ public static interface IdleHandler {
      */
     boolean queueIdle();
 }
+```
 
+## OnFileDescriptorEventListener
+
+当文件描述符相关事件发生时，相关监听器被回调
+
+```java
 /**
  * A listener which is invoked when file descriptor related events occur.
  */
@@ -897,7 +913,11 @@ public interface OnFileDescriptorEventListener {
      */
     @Events int onFileDescriptorEvents(@NonNull FileDescriptor fd, @Events int events);
 }
+```
 
+## FileDescriptorRecord
+
+```java
 private static final class FileDescriptorRecord {
     public final FileDescriptor mDescriptor;
     public int mEvents;
