@@ -244,34 +244,36 @@ private final Handler mHandler;
 
 ## 四、SerialExecutor
 
-串行任务执行器
+在方法 __execute(final Runnable r)__ 中把新任务r包装到Runnable，达到完成执行任务r后调度下一个任务的目的。
 
 ```java
 private static class SerialExecutor implements Executor {
     // 存放Runnable的任务队列，ArrayDeque本身非线程安全
     final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>();
+
     // 下一个被执行的Runnable
     Runnable mActive;
 
+    // SerialExecutor进程内只有一个实例，方法使用synchronized修饰，保证mTasks操作线程安全
     public synchronized void execute(final Runnable r) {
-       // 把新任务r放入队列中
         mTasks.offer(new Runnable() {
             public void run() {
-                // 此任务运行完成后触发下一个任务执行
                 try {
                     r.run();
                 } finally {
+                    // 此任务运行完成后触发下一个任务执行
                     scheduleNext();
                 }
             }
         });
         
-        // 顺序执行线程池首次执行，mActive为空
+        // 线程池首次执行时mActive为空，在此开始调度第一个任务
         if (mActive == null) {
             scheduleNext();
         }
     }
 
+    // SerialExecutor进程内只有一个实例，方法使用synchronized修饰，保证mTasks操作线程安全
     protected synchronized void scheduleNext() {
         // 从任务队列获取下一任务
         if ((mActive = mTasks.poll()) != null) {
@@ -281,6 +283,8 @@ private static class SerialExecutor implements Executor {
     }
 }
 ```
+
+任务虽然由并行执行线程池负责执行，但是所有任务都由串行执行线程池提供，从上一个已完成任务调用 __scheduleNext()__ 唤醒下一个等待任务。除非主动调用其他方法，否则每次默认只有一个任务在并行执行线程池内执行。
 
 ## 五、状态枚举
 
