@@ -218,6 +218,7 @@ private static final int MESSAGE_POST_RESULT = 0x1;
 private static final int MESSAGE_POST_PROGRESS = 0x2;
 ```
 
+
 ## 三、数据成员
 
 ```java
@@ -240,6 +241,32 @@ private final AtomicBoolean mCancelled = new AtomicBoolean();
 private final AtomicBoolean mTaskInvoked = new AtomicBoolean();
 
 private final Handler mHandler;
+```
+
+设置 __sHandler__
+
+```java
+// 获取主线程Handler
+private static Handler getMainHandler() {
+    // AsyncTask共用同一InternalHandler
+    synchronized (AsyncTask.class) {
+        // 初始化InternalHandler
+        if (sHandler == null) {
+            // 向InternalHandler传递主线程的Looper
+            sHandler = new InternalHandler(Looper.getMainLooper());
+        }
+        return sHandler;
+    }
+}
+```
+
+设置 __sDefaultExecutor__ 
+
+```java
+// 设置默认Executor
+public static void setDefaultExecutor(Executor exec) {
+    sDefaultExecutor = exec;
+}
 ```
 
 ## 四、SerialExecutor
@@ -303,27 +330,6 @@ public enum Status {
 所有任务按照此生命周期单向前进，每个状态只允许设置一次。
 
 ![AsyncTask_Status](/img/android/images/AsyncTask_Status.png)
-
-
-```java
-// 获取主线程Handler
-private static Handler getMainHandler() {
-    // AsyncTask共用同一InternalHandler
-    synchronized (AsyncTask.class) {
-        // 初始化InternalHandler
-        if (sHandler == null) {
-            // 向InternalHandler传递主线程的Looper
-            sHandler = new InternalHandler(Looper.getMainLooper());
-        }
-        return sHandler;
-    }
-}
-
-// 设置默认Executor
-public static void setDefaultExecutor(Executor exec) {
-    sDefaultExecutor = exec;
-}
-```
 
 ## 六、构造方法
 
