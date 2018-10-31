@@ -347,11 +347,10 @@ public AsyncTask(@Nullable Handler handler) {
     this(handler != null ? handler.getLooper() : null);
 }
 ```
-通过指定Looper构建实例
+若没有传入其他Looper，构造方法会主动获取主线程Looper并创建Handler
 
 ```java
 public AsyncTask(@Nullable Looper callbackLooper) {
-    // 若没有传入其他Looper，构造方法会自动获取主线程Looper，用获取的Looper创建Handler
     mHandler = callbackLooper == null || callbackLooper == Looper.getMainLooper()
         ? getMainHandler()
         : new Handler(callbackLooper);
@@ -403,6 +402,8 @@ public AsyncTask(@Nullable Looper callbackLooper) {
 
 ## 七、成员方法
 
+如果任务没有被调用过，通过此方法返回结果
+
 ```java
 private void postResultIfNotInvoked(Result result) {
     final boolean wasTaskInvoked = mTaskInvoked.get();
@@ -411,6 +412,8 @@ private void postResultIfNotInvoked(Result result) {
     }
 }
 ```
+
+首先，把结果封装到 __AsyncTaskResult__ 中，结果类型为 __Result__，然后放到Message.obj中发送到目标 __Handler__
 
 ```java
 private Result postResult(Result result) {
@@ -422,14 +425,17 @@ private Result postResult(Result result) {
 }
 ```
 
+获取构造方法传入的自定义 __Handler__ 或主线程 __Looper__ 的 __Handler__，详情见小节[六、构造方法](https://phantomvk.github.io/2018/10/21/AsyncTask/#六构造方法)
+
 ```java
 private Handler getHandler() {
     return mHandler;
 }
 ```
 
+获取当前任务的执行状态
+
 ```java
-// 获取当前任务的执行状态
 public final Status getStatus() {
     return mStatus;
 }
@@ -459,7 +465,7 @@ protected void onPostExecute(Result result) {
 }
 ```
 
-__publishProgress()__ 运行后在主线程调用此方法，__value__ 表示任务处理的进度，参数 __values__ 是传递给__publishProgress()__ 的 __values__ 值
+__publishProgress()__ 运行后切换到主线程调用此方法，__values__ 表示任务处理的进度
 
 ```java
 @SuppressWarnings({"UnusedDeclaration"})
@@ -496,7 +502,7 @@ public final boolean isCancelled() {
 }
 ```
 
-尝试取消任务，如果任务已执行完毕、取消、由于其他原因不能取消的，则取消失败。任务取消成功，且在 __cancel()__ 调用是尚未开始，任务不会执行。
+尝试取消任务，如果任务已执行完毕、已经取消、由于其他原因不能取消的，则取消失败。任务取消成功，且在 __cancel()__ 调用时尚未开始，任务不会执行。
 
 如果任务已经开始，参数 __mayInterruptIfRunning__ 决定任务执行线程是否该被中断。调用此方法，且 __doInBackground(Object[])__ 结束后，会在主线程调用 __onCancelled(Object)__。调用此方法能保证 __onPostExecute(Object)__ 不会执行。
 
@@ -547,7 +553,7 @@ public final AsyncTask<Params, Progress, Result> execute(Params... params) {
 }
 ```
 
-用指定参数执行任务，任务返回自身以便调用者获取引用。方法用 __THREAD_POOL_EXECUTOR__ 实现多任务并行处理，也可以用自定义Executor实现定制。并行执行不能保证任务运行顺序的先后，如果多个任务需有序执行，请使用顺序任务。
+方法用 __THREAD_POOL_EXECUTOR__ 实现多任务并行处理，也可以用自定义Executor实现定制。并行执行不能保证任务运行顺序的先后，如果多个任务需有序执行，请使用顺序任务。
 
 ```java
 @MainThread
@@ -572,8 +578,8 @@ public final AsyncTask<Params, Progress, Result> executeOnExecutor(Executor exec
 
     onPreExecute();
 
-    mWorker.mParams = params;
-    exec.execute(mFuture);
+    mWorker.mParams = params; // 配置参数
+    exec.execute(mFuture);    // 向线程池添加任务
 
     return this;
 }
@@ -614,9 +620,10 @@ private void finish(Result result) {
 ```
 ## 八、InternalHandler
 
+构造AsyncTask实例时默认主线程Looper
+
 ```java
 private static class InternalHandler extends Handler {
-    // 构造AsyncTask实例时默认主线程Looper
     public InternalHandler(Looper looper) {
         super(looper);
     }

@@ -11,32 +11,41 @@ tags:
 
 ## 一、类签名
 
-__IntentService__ 是用于异步处理 __Intent__ 的 __Service__ 抽象子类。客户端通过 __startService(Intent)__ 发送请求，服务根据需要启动，轮流处理工作线程内 __Intent__ ，所有任务处理完后服务自行结束。
-
-这种 “工作队列处理器” 模式主要适用于从应用主线程转移任务。 __IntentService__ 是简化这种模式和关注处理者的类，只需继承此类并实现 __onHandleIntent(Intent)__。__IntentService__ 会接收Intent，启动工作线程进行处理，并在适当时候关闭Service（没有任务时）。
-
-所有工作仅由一个工作线程处理，每次处理一个任务，且不会阻塞主线程。
-
+__IntentService__ 是异步处理 __Intent__ 的 __Service__ 抽象子类。客户端通过 __startService(Intent)__ 发送请求，服务根据需要启动，轮流处理收到的 __Intent__ ，所有任务处理完后服务自行结束。
 
 ```java
 public abstract class IntentService extends Service
 ```
 
+这种 “工作队列处理器” 模式主要适用于从应用主线程转移任务。 __IntentService__ 是简化这种模式和关注处理者的类，只需继承此类并实现 __onHandleIntent(Intent)__。__IntentService__ 会接收Intent，启动工作线程进行处理，并在适当时候关闭Service（没有任务时）。
+
+所有工作由一个工作线程串行处理，不会阻塞主线程。处理逻辑需要实现抽象方法 __onHandleIntent__ 实现。
+
 源码来自Android 28
 
 ## 二、数据成员
 
+线程包含的Looper
+
 ```java
-// 线程包含的Looper
 private volatile Looper mServiceLooper;
+```
 
-// 使用Looper的Handler
+使用Looper的Handler
+
+```java
 private volatile ServiceHandler mServiceHandler;
+```
 
-// 工作线程名称
+工作线程名称
+
+```java
 private String mName;
+```
 
-// 重分发标志位
+重分发标志位
+
+```java
 private boolean mRedelivery;
 ```
 
@@ -53,7 +62,7 @@ private final class ServiceHandler extends Handler {
     @Override
     public void handleMessage(Message msg) {
         onHandleIntent((Intent)msg.obj);
-        stopSelf(msg.arg1);
+        stopSelf(msg.arg1); // 方法内检查是否需要结束
     }
 }
 ```
