@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android源码系列 -- MessageQueue"
-date:       2018-10-12
+date:       2018-10-30
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
@@ -11,7 +11,7 @@ tags:
 
 # 一、类签名
 
-MessageQueue是个低级类，持有将要被Looper分发的消息队列。但消息并不是直接加入到MessageQueue中，而是通过一个Looper相对应的Handler加入。
+MessageQueue是个低级类，持有由Looper分发的消息队列。但消息并不是直接加入到MessageQueue中，而是通过一个Looper相对应的Handler加入。
 
 通过方法Looper.myQueue()，可以获取当前线程的MessageQueue。
 
@@ -35,12 +35,11 @@ public final class MessageQueue
 private static final String TAG = "MessageQueue";
 private static final boolean DEBUG = false;
 
-// True if the message queue can be quit.
-// 消息队列允许退出则为true
+// 消息队列允许退出为true
 private final boolean mQuitAllowed;
 
 @SuppressWarnings("unused")
-private long mPtr; // used by native code
+private long mPtr; // 由c原生代码使用
 
 Message mMessages;
 private final ArrayList<IdleHandler> mIdleHandlers = new ArrayList<IdleHandler>();
@@ -78,6 +77,8 @@ MessageQueue(boolean quitAllowed) {
 
 ## 五、成员方法
 
+#### 5.1 finalize
+
 ```java
 @Override
 protected void finalize() throws Throwable {
@@ -96,32 +97,26 @@ private void dispose() {
         mPtr = 0;
     }
 }
+```
 
-/**
- * Returns true if the looper has no pending messages which are due to be processed.
- *
- * <p>This method is safe to call from any thread.
- *
- * @return True if the looper is idle.
- */
-// 当Looper空闲时返回true，方法可在任何线程调用
+#### 5.2 idle
+
+当Looper空闲时返回true，方法可在任何线程调用
+
+```java
 public boolean isIdle() {
     synchronized (this) {
         final long now = SystemClock.uptimeMillis();
         return mMessages == null || now < mMessages.when;
     }
 }
+```
 
-/**
- * Add a new {@link IdleHandler} to this message queue.  This may be
- * removed automatically for you by returning false from
- * {@link IdleHandler#queueIdle IdleHandler.queueIdle()} when it is
- * invoked, or explicitly removing it with {@link #removeIdleHandler}.
- *
- * <p>This method is safe to call from any thread.
- *
- * @param handler The IdleHandler to be added.
- */
+ 向消息队列添加新 __IdleHandler__。当方法 __IdleHandler.queueIdle()__ 被调用且返回 __false__ 时，__IdleHandler__ 可能会被自动移除，或通过方法 __removeIdleHandler__ 手动移除。
+
+__handler__ 不能为空，否则直接抛出 __NullPointerException__ 异常
+
+```java
 public void addIdleHandler(@NonNull IdleHandler handler) {
     if (handler == null) {
         throw new NullPointerException("Can't add a null IdleHandler");
@@ -130,7 +125,11 @@ public void addIdleHandler(@NonNull IdleHandler handler) {
         mIdleHandlers.add(handler);
     }
 }
+```
 
+从消息队列中移除一个之前已经添加的 __IdleHandler__，如果指定的 __IdleHandler__ 不存在，则不进行任何操作。
+
+```java
 /**
  * Remove an {@link IdleHandler} from the queue that was previously added
  * with {@link #addIdleHandler}.  If the given object is not currently
@@ -145,7 +144,11 @@ public void removeIdleHandler(@NonNull IdleHandler handler) {
         mIdleHandlers.remove(handler);
     }
 }
+```
 
+#### 5.3 polling
+
+```java
 /**
  * Returns whether this looper's thread is currently polling for more work to do.
  * This is a good signal that the loop is still alive rather than being stuck
@@ -168,7 +171,11 @@ private boolean isPollingLocked() {
     // We can assume mPtr != 0 when mQuitting is false.
     return !mQuitting && nativeIsPolling(mPtr);
 }
+```
 
+#### 5.4 FileDescriptor
+
+```java
 /**
  * Adds a file descriptor listener to receive notification when file descriptor
  * related events occur.
@@ -206,7 +213,9 @@ public void addOnFileDescriptorEventListener(@NonNull FileDescriptor fd,
         updateOnFileDescriptorEventListenerLocked(fd, events, listener);
     }
 }
+```
 
+```java
 /**
  * Removes a file descriptor listener.
  * <p>
@@ -228,7 +237,9 @@ public void removeOnFileDescriptorEventListener(@NonNull FileDescriptor fd) {
         updateOnFileDescriptorEventListenerLocked(fd, 0, null);
     }
 }
+```
 
+```java
 private void updateOnFileDescriptorEventListenerLocked(FileDescriptor fd, int events,
         OnFileDescriptorEventListener listener) {
     final int fdNum = fd.getInt$();
@@ -265,7 +276,9 @@ private void updateOnFileDescriptorEventListenerLocked(FileDescriptor fd, int ev
         nativeSetFileDescriptorEvents(mPtr, fdNum, 0);
     }
 }
+```
 
+```java
 // Called from native code.
 private int dispatchEvents(int fd, int events) {
     // Get the file descriptor record and any state that might change.
@@ -314,7 +327,11 @@ private int dispatchEvents(int fd, int events) {
     // Return the new set of events to watch for native code to take care of.
     return newWatchedEvents;
 }
+```
 
+#### 5.4 next
+
+```java
 Message next() {
     // Return here if the message loop has already quit and been disposed.
     // This can happen if the application tries to restart a looper after quit
@@ -363,7 +380,7 @@ Message next() {
                     return msg;
                 }
             } else {
-                // No more messages.
+                // 没有更多消息
                 nextPollTimeoutMillis = -1;
             }
 
@@ -420,7 +437,11 @@ Message next() {
         nextPollTimeoutMillis = 0;
     }
 }
+```
 
+#### 5.5 quit
+
+```java
 void quit(boolean safe) {
     if (!mQuitAllowed) {
         throw new IllegalStateException("Main thread not allowed to quit.");
@@ -442,7 +463,11 @@ void quit(boolean safe) {
         nativeWake(mPtr);
     }
 }
+```
 
+#### 5.6 SyncBarrier
+
+```java
 /**
  * Posts a synchronization barrier to the Looper's message queue.
  *
@@ -469,7 +494,9 @@ void quit(boolean safe) {
 public int postSyncBarrier() {
     return postSyncBarrier(SystemClock.uptimeMillis());
 }
+```
 
+```java
 private int postSyncBarrier(long when) {
     // Enqueue a new sync barrier token.
     // We don't need to wake the queue because the purpose of a barrier is to stall it.
@@ -498,17 +525,11 @@ private int postSyncBarrier(long when) {
         return token;
     }
 }
+```
 
-/**
- * Removes a synchronization barrier.
- *
- * @param token The synchronization barrier token that was returned by
- * {@link #postSyncBarrier}.
- *
- * @throws IllegalStateException if the barrier was not found.
- *
- * @hide
- */
+根据 __toekn__ 移除 __SyncBarrier__。当找不到对应 __SyncBarrier__ 时抛出 __IllegalStateException__ 异常。
+
+```java
 public void removeSyncBarrier(int token) {
     // Remove a sync barrier token from the queue.
     // If the queue is no longer stalled by a barrier then wake it.
@@ -540,7 +561,11 @@ public void removeSyncBarrier(int token) {
         }
     }
 }
+```
 
+#### 5.7 Messages
+
+```java
 boolean enqueueMessage(Message msg, long when) {
     if (msg.target == null) {
         throw new IllegalArgumentException("Message must have a target.");
@@ -594,7 +619,9 @@ boolean enqueueMessage(Message msg, long when) {
     }
     return true;
 }
+```
 
+```java
 boolean hasMessages(Handler h, int what, Object object) {
     if (h == null) {
         return false;
@@ -611,7 +638,9 @@ boolean hasMessages(Handler h, int what, Object object) {
         return false;
     }
 }
+```
 
+```java
 boolean hasMessages(Handler h, Runnable r, Object object) {
     if (h == null) {
         return false;
@@ -628,7 +657,11 @@ boolean hasMessages(Handler h, Runnable r, Object object) {
         return false;
     }
 }
+```
 
+查找是否有目标为指定 __Handler__ 的消息
+
+```java
 boolean hasMessages(Handler h) {
     if (h == null) {
         return false;
@@ -645,7 +678,9 @@ boolean hasMessages(Handler h) {
         return false;
     }
 }
+```
 
+```java
 void removeMessages(Handler h, int what, Object object) {
     if (h == null) {
         return;
@@ -784,7 +819,11 @@ private void removeAllFutureMessagesLocked() {
         }
     }
 }
+```
 
+#### 5.8 dump
+
+```java
 void dump(Printer pw, String prefix, Handler h) {
     synchronized (this) {
         long now = SystemClock.uptimeMillis();
@@ -799,7 +838,10 @@ void dump(Printer pw, String prefix, Handler h) {
                 + ", quitting=" + mQuitting + ")");
     }
 }
+```
 
+#### 5.9 writeToProto
+```java
 void writeToProto(ProtoOutputStream proto, long fieldId) {
     final long messageQueueToken = proto.start(fieldId);
     synchronized (this) {
@@ -813,15 +855,11 @@ void writeToProto(ProtoOutputStream proto, long fieldId) {
 }
 ```
 
-## IdleHandler
+## 六、IdleHandler
 
-用于发现当线程在等待需处理的消息而阻塞的回调接口
+用于发现线程在等待消息而阻塞的回调接口
 
 ```java
-/**
- * Callback interface for discovering when a thread is going to block
- * waiting for more messages.
- */
 public static interface IdleHandler {
     /**
      * Called when the message queue has run out of messages and will now
@@ -834,14 +872,11 @@ public static interface IdleHandler {
 }
 ```
 
-## OnFileDescriptorEventListener
+## 七、OnFileDescriptorEventListener
 
-当文件描述符相关事件发生时，相关监听器被回调
+当文件描述符相关事件发生时，监听器被回调
 
 ```java
-/**
- * A listener which is invoked when file descriptor related events occur.
- */
 public interface OnFileDescriptorEventListener {
     /**
      * File descriptor event: Indicates that the file descriptor is ready for input
@@ -915,7 +950,7 @@ public interface OnFileDescriptorEventListener {
 }
 ```
 
-## FileDescriptorRecord
+## 八、FileDescriptorRecord
 
 ```java
 private static final class FileDescriptorRecord {
