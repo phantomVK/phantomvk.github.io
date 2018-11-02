@@ -21,7 +21,7 @@ __MessageQueue__、__Looper__ 和 __Thread__ 的关系图解：
 
 ![MessageQueue](/img/android/images/MessageQueue.png)
 
-学习 __MessageQueue__ 源码前，建议先学习 [Android源码系列(4) -- Handler](https://phantomvk.github.io/2016/12/01/Android_Handler/) 和 [Android源码系列(5) -- Looper](https://phantomvk.github.io/2016/12/01/Android_Looper)，有助于了解 __Message__ 如何在 __Handler__ 、__Looper__、__MessageQueue__ 三者间流动。
+学习 __MessageQueue__ 源码前，建议先学习 [Android源码系列(4) -- Handler](https://phantomvk.github.io/2016/12/01/Android_Handler/) 和 [Android源码系列(5) -- Looper](https://phantomvk.github.io/2016/12/03/Android_Looper)，有助于了解 __Message__ 如何在 __Handler__ 、__Looper__、__MessageQueue__ 三者间流动。
 
 由于 __MessageQueue__ 是个低层次类，本次源码阅读只针对Java源码进行分析，没有涉及 __Android Framework__ 源码，以后会补全这部分知识。源码来自Android 28
 
