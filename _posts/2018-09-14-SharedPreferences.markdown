@@ -29,7 +29,7 @@ editor.putString("String", "SharedPreferences String");
 editor.apply();
 ```
 
-Android Studio右下角有Device File Explorer，按照以下路径找出保存的 `<PrefsName>.xml`。文件名为getSharedPreferences("PrefsName", MODE_PRIVATE)中的实参值。
+__Android Studio__ 右下角有 __Device File Explorer__，按照以下路径找出保存的 `<PrefsName>.xml` 。文件名为 __getSharedPreferences("PrefsName", MODE_PRIVATE)__ 中的实参值。
 
 `/data/data/<Application Package Name>/shared_prefs/<PrefsName>.xml`
 
@@ -54,14 +54,15 @@ Android Studio右下角有Device File Explorer，按照以下路径找出保存�
 
 __SharedPreferences__ 是接口，源码在 __/frameworks/base/core/java/android/content__
 
+读写由getSharedPreferences返回的数据。修改操作需通过Editor对象，以保证数据一致性并控制回写的时机。此类不建议作为IPC使用，但在相同进程不同线程调用时线程安全
+
 ```java
-// 读写由getSharedPreferences返回的数据
-// 修改操作需通过Editor对象，以保证数据一致性和控制回写的时机
-// 此类不能用在多进程中，但在相同进程不同线程调用线程安全
 public interface SharedPreferences {
 
+    // SharedPreference变化事件监听器，源码在后面解释
     public interface OnSharedPreferenceChangeListener { ... }
 
+    // 编辑SharedPreference的Editor
     public interface Editor { ... }
 
     // 从preferences获得所有值，且不得修改这个Map的数据，否则会导致已存储数据不一致
@@ -92,28 +93,26 @@ public interface SharedPreferences {
     // 如果key存在但不是boolean类型，则直接抛出ClassCastException
     boolean getBoolean(String key, boolean defValue);
 
-    // 检查是否已包含此键代表的preference
+    // 检查是否存在此键代表的preference
     boolean contains(String key);
 
     // 给preferences创建新Editor
     Editor edit();
     
-    // 新增未注册的监听器
+    // 新增事件监听器
     void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener);
     
-    // 移除已注册的监听器
+    // 移除事件监听器
     void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener);
 }
 ```
 
 #### 2.1.2 OnSharedPreferenceChangeListener接口
 
-__OnSharedPreferenceChangeListener__ 是 __SharedPreferences__ 的内部接口
+__OnSharedPreferenceChangeListener__ 是 __SharedPreferences__ 的内部接口，当 __SharedPreference__ 发生变化时回调的监听器，方法执行在主线程
 
 ```java
-// 当SharedPreference发生变化时回调的监听器
 public interface OnSharedPreferenceChangeListener {
-    // 当SharedPreference发生修改、新增、移除时回调，执行在主线程
     // @param sharedPreferences 发生变化的SharedPreferences
     // @param key 发生修改、新增、移除的key
     void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String key);
@@ -122,10 +121,9 @@ public interface OnSharedPreferenceChangeListener {
 
 #### 2.1.3 Editor接口
 
-__Editor__ 是 __SharedPreferences__ 的内部接口
+__Editor__ 是 __SharedPreferences__ 的内部接口，用于修改 __SharedPreferences__ 的值。所有操作均为批处理，只在调用commit()或apply()后才回写到磁盘
 
 ```java
-// 修改SharedPreferences中值的接口，所有操作均为批处理，只在调用commit或apply后才回写到磁盘
 public interface Editor {
     // 向编辑器设置一个String类型的键值对，并在commit或apply方法调用时进行回写
     Editor putString(String key, @Nullable String value);
@@ -159,9 +157,9 @@ public interface Editor {
     boolean commit();
 
     // 执行所有preferences修改，当有两个editors同时修改preferences，最后一个被调用的总能被执行
-    // apply所有提交保存在内存中，并异步回写，回写失败不会有任何提示
+    // apply所有提交保存在内存中，并异步回写，回写失败不会提示
     // 当apply还没完成，其他editor的commit操作会阻塞并等待异步回写完成
-    // SharedPreferences进程内为单例，且线程安全，不关心返回值时可用apply代替commit
+    // SharedPreferences进程内为单例且线程安全，不关心返回值时可用apply代替commit
     // apply的写入安全由Android Framework保证，不受组件生命周期或交互影响
     void apply();
 }
@@ -171,7 +169,7 @@ public interface Editor {
 
 #### 2.2.1 类签名
 
-类文件在`/frameworks/base/core/java/android/app`中
+类文件在 __/frameworks/base/core/java/android/app__ 中，是 __SharedPreferences__ 的实现类
 
 ```java
 final class SharedPreferencesImpl implements SharedPreferences
@@ -180,10 +178,12 @@ final class SharedPreferencesImpl implements SharedPreferences
 #### 2.2.2 常量
 
 ```java
-private static final String TAG = "SharedPreferencesImpl";
 private static final Object CONTENT = new Object();
+```
 
-/** If a fsync takes more than {@value #MAX_FSYNC_DURATION_MILLIS} ms, warn */
+全同步时间超过此值(ms)时发出警告
+
+```java
 private static final long MAX_FSYNC_DURATION_MILLIS = 256;
 ```
 
@@ -191,18 +191,22 @@ private static final long MAX_FSYNC_DURATION_MILLIS = 256;
 
 锁顺序规则：
 
-- 在EditorImpl.mLock前先获取SharedPreferencesImpl.mLock
-- 在EditorImpl.mLock前先获取mWritingToDiskLock
+- 在 __EditorImpl.mLock__ 前先获取 __SharedPreferencesImpl.mLock__
+- 在 __EditorImpl.mLock__ 前先获取 __mWritingToDiskLock__
 
 ```java
-// 当前的文件
+// 当前操作文件
 private final File mFile;
-// 备份的文件
+
+// 已备份文件
 private final File mBackupFile;
+
 // 模式
 private final int mMode;
+
 // 锁
 private final Object mLock = new Object();
+
 // 磁盘写入锁
 private final Object mWritingToDiskLock = new Object();
 
@@ -262,6 +266,8 @@ private void startLoadFromDisk() {
     synchronized (mLock) {
         mLoaded = false;
     }
+
+    // 从子线程加载数据到内存
     new Thread("SharedPreferencesImpl-load") {
         public void run() {
             loadFromDisk();
@@ -271,10 +277,11 @@ private void startLoadFromDisk() {
 
 private void loadFromDisk() {
     synchronized (mLock) {
-        // 如果已经加载过，跳出
+        // 如果别的线程已经完成加载则直接跳出
         if (mLoaded) {
             return;
         }
+
         // 备份文件存在，把原文件删除，备份文件作为原文件
         if (mBackupFile.exists()) {
             mFile.delete();
@@ -297,6 +304,7 @@ private void loadFromDisk() {
             } catch (Exception e) {
                 Log.w(TAG, "Cannot read " + mFile.getAbsolutePath(), e);
             } finally {
+                // 关闭流
                 IoUtils.closeQuietly(str);
             }
         }
@@ -306,7 +314,7 @@ private void loadFromDisk() {
 
     synchronized (mLock) {
         mLoaded = true;
-        // 读取的数据不为空，数据设置到mMap
+        // 读取数据不为空，数据设置到mMap
         if (map != null) {
             mMap = map;
             mStatTimestamp = stat.st_mtim;
@@ -388,6 +396,8 @@ private void awaitLoadedLocked() {
         // thread and otherwise ignored by StrictMode.
         BlockGuard.getThreadPolicy().onReadFromDisk();
     }
+    
+    // 阻塞等待数据加载完毕
     while (!mLoaded) {
         try {
             mLock.wait();
@@ -427,7 +437,7 @@ public Set<String> getStringSet(String key, @Nullable Set<String> defValues) {
     }
 }
 
-// 获取Int
+// 获取int
 @Override
 public int getInt(String key, int defValue) {
     synchronized (mLock) {
@@ -437,7 +447,7 @@ public int getInt(String key, int defValue) {
     }
 }
 
-// 获取Long
+// 获取long
 @Override
 public long getLong(String key, long defValue) {
     synchronized (mLock) {
@@ -447,7 +457,7 @@ public long getLong(String key, long defValue) {
     }
 }
 
-// 获取Float
+// 获取float
 @Override
 public float getFloat(String key, float defValue) {
     synchronized (mLock) {
@@ -457,7 +467,7 @@ public float getFloat(String key, float defValue) {
     }
 }
 
-// 获取Boolean
+// 获取boolean
 @Override
 public boolean getBoolean(String key, boolean defValue) {
     synchronized (mLock) {
@@ -490,12 +500,13 @@ private static class MemoryCommitResult { ... }
 
 public final class EditorImpl implements Editor { ... }
 
-// 从内存写入磁盘任务的排队队列，顺序是FIFO，依次执行
-// 如果参数postWriteRunnable非空，则执行apply()，writeToDiskRunnable完成后执行postWriteRunnable
-// 如果参数postWriteRunnable为空，则执行commit()，并允许数据在主线程写入磁盘
-// commit()可减少内存申请和减少后台线程，并能通过StrictMode报告优化commit()为apply()
+// 从内存写入磁盘任务的队列，顺序是FIFO，依次执行
+// 参数postWriteRunnable非空执行apply()，writeToDiskRunnable完成后执行postWriteRunnable
+// 参数postWriteRunnable为空执行commit()，并允许数据在主线程写入磁盘
+// commit()可减少内存申请和减少后台回写线程，并能通过StrictMode报告优化commit()为apply()
 private void enqueueDiskWrite(final MemoryCommitResult mcr,
                               final Runnable postWriteRunnable) {
+
     // postWriteRunnable为空，同步提交数据到磁盘
     final boolean isFromSyncCommit = (postWriteRunnable == null);
 
@@ -685,6 +696,8 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
 
 #### 2.2.6 MemoryCommitResult
 
+是 __SharedPreferencesImpl__ 的内部类
+
 ```java
 // 从EditorImpl.commitToMemory()返回值
 private static class MemoryCommitResult {
@@ -730,6 +743,8 @@ private static class MemoryCommitResult {
 ```
 
 #### 2.2.7 EditorImpl
+
+__Editor__ 接口实现类，且是 __SharedPreferencesImpl__ 的内部类
 
 ```java
 public final class EditorImpl implements Editor {
