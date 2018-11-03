@@ -164,5 +164,3 @@ public boolean isCurrentThread() {
     return Thread.currentThread() == mThread;
 }
 ```
-
-
