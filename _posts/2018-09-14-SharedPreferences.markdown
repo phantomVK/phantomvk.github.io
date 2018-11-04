@@ -514,10 +514,12 @@ private void enqueueDiskWrite(final MemoryCommitResult mcr,
                 synchronized (mWritingToDiskLock) {
                     writeToFile(mcr, isFromSyncCommit);
                 }
-                // 等待写入任务数量递减
+
+                // 写入任务数量递减，因为本任务已经完成
                 synchronized (mLock) {
                     mDiskWritesInFlight--;
                 }
+
                 // 仅apply()时执行
                 if (postWriteRunnable != null) {
                     postWriteRunnable.run();
@@ -540,7 +542,7 @@ private void enqueueDiskWrite(final MemoryCommitResult mcr,
         }
     }
 
-    // apply()任务放入工作队列按序执行
+    // 否则把任务放入工作队列按序执行
     QueuedWork.queue(writeToDiskRunnable, !isFromSyncCommit);
 }
 
@@ -629,8 +631,8 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
         }
     }
 
-    // 尝试写入文件、删除备份和返回true时尽可能做到原子性
-    // 如果出现任何异常则删除新文件并在下一次从备份文件中恢复
+    // 尝试写入文件、删除备份和返回true时，尽可能做到原子性
+    // 如果出现任何异常则删除新文件，并在下一次从备份文件中恢复
     try {
         // 创建文件输出流失败
         FileOutputStream str = createFileOutputStream(mFile);
@@ -740,7 +742,7 @@ private static class MemoryCommitResult {
 
 #### 2.2.7 EditorImpl
 
-__Editor__ 接口实现类，且是 __SharedPreferencesImpl__ 的内部类
+__Editor__ 接口实现类，是 __SharedPreferencesImpl__ 的内部类
 
 ```java
 public final class EditorImpl implements Editor {
@@ -776,7 +778,7 @@ public final class EditorImpl implements Editor {
         }
     }
 
-    // 存入Int
+    // 存入int
     @Override
     public Editor putInt(String key, int value) {
         synchronized (mEditorLock) {
@@ -786,7 +788,7 @@ public final class EditorImpl implements Editor {
         }
     }
 
-    // 存入Long
+    // 存入long
     @Override
     public Editor putLong(String key, long value) {
         synchronized (mEditorLock) {
@@ -796,7 +798,7 @@ public final class EditorImpl implements Editor {
         }
     }
 
-    // 存入Float
+    // 存入float
     @Override
     public Editor putFloat(String key, float value) {
         synchronized (mEditorLock) {
@@ -806,7 +808,7 @@ public final class EditorImpl implements Editor {
         }
     }
 
-    // 存入Boolean
+    // 存入boolean
     @Override
     public Editor putBoolean(String key, boolean value) {
         synchronized (mEditorLock) {
@@ -838,6 +840,7 @@ public final class EditorImpl implements Editor {
 
     @Override
     public void apply() {
+        // 获取内存提交结果
         final MemoryCommitResult mcr = commitToMemory();
         final Runnable awaitCommit = new Runnable() {
                 @Override
@@ -854,16 +857,20 @@ public final class EditorImpl implements Editor {
         Runnable postWriteRunnable = new Runnable() {
                 @Override
                 public void run() {
+                    // 任务完成后移除Finisher
                     awaitCommit.run();
                     QueuedWork.removeFinisher(awaitCommit);
                 }
             };
-
+            
+        // 提交到磁盘写入队列
         SharedPreferencesImpl.this.enqueueDiskWrite(mcr, postWriteRunnable);
 
         notifyListeners(mcr);
+        // 这里不像commit()，不需要返回值
     }
-
+    
+    // 把mMap暂存的修改提交到mapToWriteToDisk，mapToWriteToDisk提交到磁盘
     private MemoryCommitResult commitToMemory() {
         long memoryStateGeneration;
         List<String> keysModified = null;
@@ -871,12 +878,13 @@ public final class EditorImpl implements Editor {
         Map<String, Object> mapToWriteToDisk;
 
         synchronized (SharedPreferencesImpl.this.mLock) {
-            // 一般不对mMap进行深拷贝，除非磁盘在回写过程中又有内存提交
+            // 一般不对mMap进行深拷贝，除非磁盘在回写时中又有新内存提交
             if (mDiskWritesInFlight > 0) {
-                // 磁盘写入正使用一份mMap，内存修改需要克隆新拷贝再修改内容
+                // 磁盘写入正使用原始mMap，内存修改需要克隆获得新拷贝，再修改拷贝的内容
                 mMap = new HashMap<String, Object>(mMap);
             }
             mapToWriteToDisk = mMap;
+            // 磁盘待写入任务数递增
             mDiskWritesInFlight++;
 
             // 监听器数量
@@ -918,6 +926,7 @@ public final class EditorImpl implements Editor {
                         // 检查已修改的key是否需要加入到mapToWriteToDisk
                         if (mapToWriteToDisk.containsKey(k)) {
                             Object existingValue = mapToWriteToDisk.get(k);
+                            // 新旧值相同，不需要更新到磁盘
                             if (existingValue != null && existingValue.equals(v)) {
                                 continue;
                             }
@@ -934,7 +943,8 @@ public final class EditorImpl implements Editor {
                 // 已修改的列表置空，所有修改过的k-v均已加入mapToWriteToDisk
                 // 而mapToWriteToDisk则准备被回写到磁盘中
                 mModified.clear();
-
+                
+                // 内存状态版本递增
                 if (changesMade) {
                     mCurrentMemoryStateGeneration++;
                 }
@@ -942,25 +952,33 @@ public final class EditorImpl implements Editor {
                 memoryStateGeneration = mCurrentMemoryStateGeneration;
             }
         }
+        
+        // 给apply()和commit()返回mcr
         return new MemoryCommitResult(memoryStateGeneration, keysModified, listeners,
                 mapToWriteToDisk);
     }
 
+    // 如果SharedPreferences没有磁盘写入任务在执行，commit()直接执行在调用者线程
+    // 否则commit()的任务会像apply()一样，添加到任务队列等待执行
     @Override
     public boolean commit() {
         // 获取提交到内存的结果
         MemoryCommitResult mcr = commitToMemory();
+
         // 数据写入到磁盘，并在当前线程进行磁盘写入操作
         SharedPreferencesImpl.this.enqueueDiskWrite(mcr, null);
+
         try {
-            // 等待所有磁盘写入任务完成
+            // 等待所有磁盘写入任务完成，直接阻塞在本线程上
             mcr.writtenToDiskLatch.await();
         } catch (InterruptedException e) {
             return false;
         } finally {
         }
+
         // 发送通知
         notifyListeners(mcr);
+
         // 返回写入磁盘的结果
         return mcr.writeToDiskResult;
     }
