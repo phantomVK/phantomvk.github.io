@@ -959,7 +959,7 @@ public final class EditorImpl implements Editor {
     }
 
     // 如果SharedPreferences没有磁盘写入任务在执行，commit()直接执行在调用者线程
-    // 否则commit()的任务会像apply()一样，添加到任务队列等待执行
+    // 否则commit()的任务会添加到任务队列等待执行，同时调用者线程阻塞等待任务完成
     @Override
     public boolean commit() {
         // 获取提交到内存的结果
