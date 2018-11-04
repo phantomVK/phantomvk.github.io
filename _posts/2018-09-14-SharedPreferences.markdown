@@ -496,10 +496,6 @@ public Editor edit() {
     return new EditorImpl();
 }
 
-private static class MemoryCommitResult { ... }
-
-public final class EditorImpl implements Editor { ... }
-
 // 从内存写入磁盘任务的队列，顺序是FIFO，依次执行
 // 参数postWriteRunnable非空执行apply()，writeToDiskRunnable完成后执行postWriteRunnable
 // 参数postWriteRunnable为空执行commit()，并允许数据在主线程写入磁盘

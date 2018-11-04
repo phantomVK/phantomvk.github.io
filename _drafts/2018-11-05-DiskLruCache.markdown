@@ -149,7 +149,9 @@ private final Callable<Void> cleanupCallable = new Callable<Void>() {
     return null;
   }
 };
+```
 
+```java
 private DiskLruCache(File directory, int appVersion, int valueCount, long maxSize) {
   this.directory = directory;
   this.appVersion = appVersion;
@@ -218,6 +220,8 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
 }
 ```
 
+
+
 ```java
 private void readJournal() throws IOException {
   StrictLineReader reader = new StrictLineReader(new FileInputStream(journalFile), Util.US_ASCII);
@@ -258,7 +262,9 @@ private void readJournal() throws IOException {
     Util.closeQuietly(reader);
   }
 }
+```
 
+```java
 private void readJournalLine(String line) throws IOException {
   int firstSpace = line.indexOf(' ');
   if (firstSpace == -1) {
@@ -297,7 +303,9 @@ private void readJournalLine(String line) throws IOException {
     throw new IOException("unexpected journal line: " + line);
   }
 }
+```
 
+```java
 /**
  * Computes the initial size and collects garbage as a part of opening the
  * cache. Dirty entries are assumed to be inconsistent and will be deleted.
@@ -320,7 +328,9 @@ private void processJournal() throws IOException {
     }
   }
 }
+```
 
+```java
 /**
  * Creates a new journal that omits redundant information. This replaces the
  * current journal if it exists.
@@ -363,13 +373,17 @@ private synchronized void rebuildJournal() throws IOException {
   journalWriter = new BufferedWriter(
       new OutputStreamWriter(new FileOutputStream(journalFile, true), Util.US_ASCII));
 }
+```
 
+```java
 private static void deleteIfExists(File file) throws IOException {
   if (file.exists() && !file.delete()) {
     throw new IOException();
   }
 }
+```
 
+```java
 private static void renameTo(File from, File to, boolean deleteDestination) throws IOException {
   if (deleteDestination) {
     deleteIfExists(to);
@@ -378,7 +392,9 @@ private static void renameTo(File from, File to, boolean deleteDestination) thro
     throw new IOException();
   }
 }
+```
 
+```java
 /**
  * Returns a snapshot of the entry named {@code key}, or null if it doesn't
  * exist is not currently readable. If a value is returned, it is moved to
@@ -413,7 +429,9 @@ public synchronized Value get(String key) throws IOException {
 
   return new Value(key, entry.sequenceNumber, entry.cleanFiles, entry.lengths);
 }
+```
 
+```java
 /**
  * Returns an editor for the entry named {@code key}, or null if another
  * edit is in progress.
@@ -421,7 +439,9 @@ public synchronized Value get(String key) throws IOException {
 public Editor edit(String key) throws IOException {
   return edit(key, ANY_SEQUENCE_NUMBER);
 }
+```
 
+```java
 private synchronized Editor edit(String key, long expectedSequenceNumber) throws IOException {
   checkNotClosed();
   Entry entry = lruEntries.get(key);
@@ -447,7 +467,9 @@ private synchronized Editor edit(String key, long expectedSequenceNumber) throws
   journalWriter.flush();
   return editor;
 }
+```
 
+```java
 /** Returns the directory where this cache stores its data. */
 public File getDirectory() {
   return directory;
@@ -460,7 +482,9 @@ public File getDirectory() {
 public synchronized long getMaxSize() {
   return maxSize;
 }
+```
 
+```java
 /**
  * Changes the maximum number of bytes the cache can store and queues a job
  * to trim the existing store, if necessary.
@@ -469,7 +493,9 @@ public synchronized void setMaxSize(long maxSize) {
   this.maxSize = maxSize;
   executorService.submit(cleanupCallable);
 }
+```
 
+```java
 /**
  * Returns the number of bytes currently being used to store the values in
  * this cache. This may be greater than the max size if a background
@@ -478,7 +504,9 @@ public synchronized void setMaxSize(long maxSize) {
 public synchronized long size() {
   return size;
 }
+```
 
+```java
 private synchronized void completeEdit(Editor editor, boolean success) throws IOException {
   Entry entry = editor.entry;
   if (entry.currentEditor != editor) {
@@ -551,7 +579,9 @@ private boolean journalRebuildRequired() {
   return redundantOpCount >= redundantOpCompactThreshold //
       && redundantOpCount >= lruEntries.size();
 }
+```
 
+```java
 /**
  * Drops the entry for {@code key} if it exists and can be removed. Entries
  * actively being edited cannot be removed.
