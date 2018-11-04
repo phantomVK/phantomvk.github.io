@@ -162,9 +162,9 @@ protected abstract void onHandleIntent(@Nullable Intent intent);
 
 ## 六、相关链接
 
-[Android源码系列(4) -- Handler](https://phantomvk.github.io/2016/12/01/Android_Handler/)
+[Android源码系列(4) -- Handler](/2016/12/01/Android_Handler/)
 
-[Android源码系列(5) -- Looper](https://phantomvk.github.io/2016/12/03/Android_Looper/)
+[Android源码系列(5) -- Looper](/2016/12/03/Android_Looper/)
 
-[Android源码系列(11) -- HandlerThread](https://phantomvk.github.io/2018/06/13/HandlerThread/)
+[Android源码系列(11) -- HandlerThread](/2018/06/13/HandlerThread/)
 

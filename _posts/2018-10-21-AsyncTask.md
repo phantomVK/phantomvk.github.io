@@ -94,9 +94,9 @@ private class MyTask extends AsyncTask<Void, Void, Void> { ... }
 
 任何时候都可通过 __cancel(boolean)__ 取消任务，方法会继续调起 __isCancelled()__ 并返回 __true__。
 
-调用 __cancel(boolean)__ 后，__doInBackground(Object[])__ 返回后的下一个执行方法是 __onCancelled(Object)__，而不是 __onPostExecute(Object)__ 。(参考[小节1.4](https://phantomvk.github.io/2018/10/21/AsyncTask/#14-4个方法)示意图)
+调用 __cancel(boolean)__ 后，__doInBackground(Object[])__ 返回后的下一个执行方法是 __onCancelled(Object)__，而不是 __onPostExecute(Object)__ 。(参考[小节1.4](/2018/10/21/AsyncTask/#14-4个方法)示意图)
 
-如果可以，为了保证任务能尽早被取消，需周期性地在 __doInBackground(Object[])__ 中检查 __isCancelled()__ 方法的返回值。(参考[小节1.2](https://phantomvk.github.io/2018/10/21/AsyncTask/#12-组成)示例代码)
+如果可以，为了保证任务能尽早被取消，需周期性地在 __doInBackground(Object[])__ 中检查 __isCancelled()__ 方法的返回值。(参考[小节1.2](/2018/10/21/AsyncTask/#12-组成)示例代码)
 
 #### 1.6 线程规则
 
@@ -425,7 +425,7 @@ private Result postResult(Result result) {
 }
 ```
 
-获取构造方法传入的自定义 __Handler__ 或主线程 __Looper__ 的 __Handler__，详情见小节[六、构造方法](https://phantomvk.github.io/2018/10/21/AsyncTask/#六构造方法)
+获取构造方法传入的自定义 __Handler__ 或主线程 __Looper__ 的 __Handler__，详情见小节[六、构造方法](/2018/10/21/AsyncTask/#六构造方法)
 
 ```java
 private Handler getHandler() {
