@@ -878,7 +878,7 @@ public final class EditorImpl implements Editor {
         Map<String, Object> mapToWriteToDisk;
 
         synchronized (SharedPreferencesImpl.this.mLock) {
-            // 一般不对mMap进行深拷贝，除非磁盘在回写时中又有新内存提交
+            // 一般不对mMap进行深拷贝，除非磁盘在回写时又有新内存变更提交
             if (mDiskWritesInFlight > 0) {
                 // 磁盘写入正使用原始mMap，内存修改需要克隆获得新拷贝，再修改拷贝的内容
                 mMap = new HashMap<String, Object>(mMap);
@@ -969,7 +969,7 @@ public final class EditorImpl implements Editor {
         SharedPreferencesImpl.this.enqueueDiskWrite(mcr, null);
 
         try {
-            // 等待所有磁盘写入任务完成，直接阻塞在本线程上
+            // 等待所有磁盘写入任务完成，直接阻塞在调用者线程上
             mcr.writtenToDiskLatch.await();
         } catch (InterruptedException e) {
             return false;
