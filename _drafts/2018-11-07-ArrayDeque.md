@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "ArrayDeque"
-date:       2017-01-01
+title:      "Java源码系列(20) -- ArrayDeque"
+date:       2018-11-07
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -162,38 +162,29 @@ private int newCapacity(int needed, int jump) {
 
 ## 构造方法
 
+构造默认队列，初始容量为16
+
 ```java
-/**
- * Constructs an empty array deque with an initial capacity
- * sufficient to hold 16 elements.
- */
 public ArrayDeque() {
     elements = new Object[16];
 }
+```
 
-/**
- * Constructs an empty array deque with an initial capacity
- * sufficient to hold the specified number of elements.
- *
- * @param numElements lower bound on initial capacity of the deque
- */
+通过指定容量值构造双端数组队列
+
+```java
 public ArrayDeque(int numElements) {
+    // 若numElements大于1小于MAX_VALUE，大小为numElements+1
     elements =
         new Object[(numElements < 1) ? 1 :
                    (numElements == Integer.MAX_VALUE) ? Integer.MAX_VALUE :
                    numElements + 1];
 }
+```
 
-/**
- * Constructs a deque containing the elements of the specified
- * collection, in the order they are returned by the collection's
- * iterator.  (The first element returned by the collection's
- * iterator becomes the first element, or <i>front</i> of the
- * deque.)
- *
- * @param c the collection whose elements are to be placed into the deque
- * @throws NullPointerException if the specified collection is null
- */
+通过指定集合构造双端数组队列，初始队列大小为执行集合元素数量值
+
+```java
 public ArrayDeque(Collection<? extends E> c) {
     this(c.size());
     copyElements(c);
@@ -242,9 +233,7 @@ static final int sub(int i, int j, int modulus) {
     if ((i -= j) < 0) i += modulus;
     return i;
 }
-```
 
-```java
 /**
  * Returns element at array index i.
  * This is a slight abuse of generics, accepted by javac.
@@ -491,9 +480,9 @@ public boolean removeLastOccurrence(Object o) {
 }
 ```
 
-```java
-// *** Queue methods ***
+#### 队列方法
 
+```java
 /**
  * Inserts the specified element at the end of this deque.
  *
@@ -576,9 +565,11 @@ public E element() {
 public E peek() {
     return peekFirst();
 }
+```
 
-// *** Stack methods ***
+#### 栈方法
 
+```java
 /**
  * Pushes an element onto the stack represented by this deque.  In other
  * words, inserts the element at the front of this deque.
@@ -652,9 +643,9 @@ boolean delete(int i) {
 }
 ```
 
-```java
-// *** Collection Methods ***
+#### 集合方法
 
+```java
 /**
  * Returns the number of elements in this deque.
  *
@@ -672,291 +663,9 @@ public int size() {
 public boolean isEmpty() {
     return head == tail;
 }
-
-/**
- * Returns an iterator over the elements in this deque.  The elements
- * will be ordered from first (head) to last (tail).  This is the same
- * order that elements would be dequeued (via successive calls to
- * {@link #remove} or popped (via successive calls to {@link #pop}).
- *
- * @return an iterator over the elements in this deque
- */
-public Iterator<E> iterator() {
-    return new DeqIterator();
-}
-
-public Iterator<E> descendingIterator() {
-    return new DescendingIterator();
-}
 ```
 
 ```java
-private class DeqIterator implements Iterator<E> {
-    /** Index of element to be returned by subsequent call to next. */
-    int cursor;
-
-    /** Number of elements yet to be returned. */
-    int remaining = size();
-
-    /**
-     * Index of element returned by most recent call to next.
-     * Reset to -1 if element is deleted by a call to remove.
-     */
-    int lastRet = -1;
-
-    DeqIterator() { cursor = head; }
-
-    public final boolean hasNext() {
-        return remaining > 0;
-    }
-
-    public E next() {
-        if (remaining <= 0)
-            throw new NoSuchElementException();
-        final Object[] es = elements;
-        E e = nonNullElementAt(es, cursor);
-        cursor = inc(lastRet = cursor, es.length);
-        remaining--;
-        return e;
-    }
-
-    void postDelete(boolean leftShifted) {
-        if (leftShifted)
-            cursor = dec(cursor, elements.length);
-    }
-
-    public final void remove() {
-        if (lastRet < 0)
-            throw new IllegalStateException();
-        postDelete(delete(lastRet));
-        lastRet = -1;
-    }
-
-    public void forEachRemaining(Consumer<? super E> action) {
-        Objects.requireNonNull(action);
-        int r;
-        if ((r = remaining) <= 0)
-            return;
-        remaining = 0;
-        final Object[] es = elements;
-        if (es[cursor] == null || sub(tail, cursor, es.length) != r)
-            throw new ConcurrentModificationException();
-        for (int i = cursor, end = tail, to = (i <= end) ? end : es.length;
-             ; i = 0, to = end) {
-            for (; i < to; i++)
-                action.accept(elementAt(es, i));
-            if (to == end) {
-                if (end != tail)
-                    throw new ConcurrentModificationException();
-                lastRet = dec(end, es.length);
-                break;
-            }
-        }
-    }
-}
-```
-
-```java
-private class DescendingIterator extends DeqIterator {
-    DescendingIterator() { cursor = dec(tail, elements.length); }
-
-    public final E next() {
-        if (remaining <= 0)
-            throw new NoSuchElementException();
-        final Object[] es = elements;
-        E e = nonNullElementAt(es, cursor);
-        cursor = dec(lastRet = cursor, es.length);
-        remaining--;
-        return e;
-    }
-
-    void postDelete(boolean leftShifted) {
-        if (!leftShifted)
-            cursor = inc(cursor, elements.length);
-    }
-
-    public final void forEachRemaining(Consumer<? super E> action) {
-        Objects.requireNonNull(action);
-        int r;
-        if ((r = remaining) <= 0)
-            return;
-        remaining = 0;
-        final Object[] es = elements;
-        if (es[cursor] == null || sub(cursor, head, es.length) + 1 != r)
-            throw new ConcurrentModificationException();
-        for (int i = cursor, end = head, to = (i >= end) ? end : 0;
-             ; i = es.length - 1, to = end) {
-            // hotspot generates faster code than for: i >= to !
-            for (; i > to - 1; i--)
-                action.accept(elementAt(es, i));
-            if (to == end) {
-                if (end != head)
-                    throw new ConcurrentModificationException();
-                lastRet = end;
-                break;
-            }
-        }
-    }
-}
-```
-
-```java
-/**
- * Creates a <em><a href="Spliterator.html#binding">late-binding</a></em>
- * and <em>fail-fast</em> {@link Spliterator} over the elements in this
- * deque.
- *
- * <p>The {@code Spliterator} reports {@link Spliterator#SIZED},
- * {@link Spliterator#SUBSIZED}, {@link Spliterator#ORDERED}, and
- * {@link Spliterator#NONNULL}.  Overriding implementations should document
- * the reporting of additional characteristic values.
- *
- * @return a {@code Spliterator} over the elements in this deque
- * @since 1.8
- */
-public Spliterator<E> spliterator() {
-    return new DeqSpliterator();
-}
-```
-
-```java
-final class DeqSpliterator implements Spliterator<E> {
-    private int fence;      // -1 until first use
-    private int cursor;     // current index, modified on traverse/split
-
-    /** Constructs late-binding spliterator over all elements. */
-    DeqSpliterator() {
-        this.fence = -1;
-    }
-
-    /** Constructs spliterator over the given range. */
-    DeqSpliterator(int origin, int fence) {
-        // assert 0 <= origin && origin < elements.length;
-        // assert 0 <= fence && fence < elements.length;
-        this.cursor = origin;
-        this.fence = fence;
-    }
-
-    /** Ensures late-binding initialization; then returns fence. */
-    private int getFence() { // force initialization
-        int t;
-        if ((t = fence) < 0) {
-            t = fence = tail;
-            cursor = head;
-        }
-        return t;
-    }
-
-    public DeqSpliterator trySplit() {
-        final Object[] es = elements;
-        final int i, n;
-        return ((n = sub(getFence(), i = cursor, es.length) >> 1) <= 0)
-            ? null
-            : new DeqSpliterator(i, cursor = inc(i, n, es.length));
-    }
-
-    public void forEachRemaining(Consumer<? super E> action) {
-        if (action == null)
-            throw new NullPointerException();
-        final int end = getFence(), cursor = this.cursor;
-        final Object[] es = elements;
-        if (cursor != end) {
-            this.cursor = end;
-            // null check at both ends of range is sufficient
-            if (es[cursor] == null || es[dec(end, es.length)] == null)
-                throw new ConcurrentModificationException();
-            for (int i = cursor, to = (i <= end) ? end : es.length;
-                 ; i = 0, to = end) {
-                for (; i < to; i++)
-                    action.accept(elementAt(es, i));
-                if (to == end) break;
-            }
-        }
-    }
-
-    public boolean tryAdvance(Consumer<? super E> action) {
-        Objects.requireNonNull(action);
-        final Object[] es = elements;
-        if (fence < 0) { fence = tail; cursor = head; } // late-binding
-        final int i;
-        if ((i = cursor) == fence)
-            return false;
-        E e = nonNullElementAt(es, i);
-        cursor = inc(i, es.length);
-        action.accept(e);
-        return true;
-    }
-
-    public long estimateSize() {
-        return sub(getFence(), cursor, elements.length);
-    }
-
-    public int characteristics() {
-        return Spliterator.NONNULL
-            | Spliterator.ORDERED
-            | Spliterator.SIZED
-            | Spliterator.SUBSIZED;
-    }
-}
-
-/**
- * @throws NullPointerException {@inheritDoc}
- */
-public void forEach(Consumer<? super E> action) {
-    Objects.requireNonNull(action);
-    final Object[] es = elements;
-    for (int i = head, end = tail, to = (i <= end) ? end : es.length;
-         ; i = 0, to = end) {
-        for (; i < to; i++)
-            action.accept(elementAt(es, i));
-        if (to == end) {
-            if (end != tail) throw new ConcurrentModificationException();
-            break;
-        }
-    }
-}
-
-/**
- * @throws NullPointerException {@inheritDoc}
- */
-public boolean removeIf(Predicate<? super E> filter) {
-    Objects.requireNonNull(filter);
-    return bulkRemove(filter);
-}
-
-/**
- * @throws NullPointerException {@inheritDoc}
- */
-public boolean removeAll(Collection<?> c) {
-    Objects.requireNonNull(c);
-    return bulkRemove(e -> c.contains(e));
-}
-
-/**
- * @throws NullPointerException {@inheritDoc}
- */
-public boolean retainAll(Collection<?> c) {
-    Objects.requireNonNull(c);
-    return bulkRemove(e -> !c.contains(e));
-}
-
-/** Implementation of bulk remove methods. */
-private boolean bulkRemove(Predicate<? super E> filter) {
-    final Object[] es = elements;
-    // Optimize for initial run of survivors
-    for (int i = head, end = tail, to = (i <= end) ? end : es.length;
-         ; i = 0, to = end) {
-        for (; i < to; i++)
-            if (filter.test(elementAt(es, i)))
-                return bulkRemoveModified(filter, i);
-        if (to == end) {
-            if (end != tail) throw new ConcurrentModificationException();
-            break;
-        }
-    }
-    return false;
-}
-
 // A tiny bit set implementation
 
 private static long[] nBits(int n) {
@@ -967,51 +676,6 @@ private static void setBit(long[] bits, int i) {
 }
 private static boolean isClear(long[] bits, int i) {
     return (bits[i >> 6] & (1L << i)) == 0;
-}
-
-/**
- * Helper for bulkRemove, in case of at least one deletion.
- * Tolerate predicates that reentrantly access the collection for
- * read (but writers still get CME), so traverse once to find
- * elements to delete, a second pass to physically expunge.
- *
- * @param beg valid index of first element to be deleted
- */
-private boolean bulkRemoveModified(
-    Predicate<? super E> filter, final int beg) {
-    final Object[] es = elements;
-    final int capacity = es.length;
-    final int end = tail;
-    final long[] deathRow = nBits(sub(end, beg, capacity));
-    deathRow[0] = 1L;   // set bit 0
-    for (int i = beg + 1, to = (i <= end) ? end : es.length, k = beg;
-         ; i = 0, to = end, k -= capacity) {
-        for (; i < to; i++)
-            if (filter.test(elementAt(es, i)))
-                setBit(deathRow, i - k);
-        if (to == end) break;
-    }
-    // a two-finger traversal, with hare i reading, tortoise w writing
-    int w = beg;
-    for (int i = beg + 1, to = (i <= end) ? end : es.length, k = beg;
-         ; w = 0) { // w rejoins i on second leg
-        // In this loop, i and w are on the same leg, with i > w
-        for (; i < to; i++)
-            if (isClear(deathRow, i - k))
-                es[w++] = es[i];
-        if (to == end) break;
-        // In this loop, w is on the first leg, i on the second
-        for (i = 0, to = end, k -= capacity; i < to && w < capacity; i++)
-            if (isClear(deathRow, i - k))
-                es[w++] = es[i];
-        if (i >= to) {
-            if (w == capacity) w = 0; // "corner" case
-            break;
-        }
-    }
-    if (end != tail) throw new ConcurrentModificationException();
-    circularClear(es, tail = w, end);
-    return true;
 }
 
 /**
@@ -1076,6 +740,8 @@ private static void circularClear(Object[] es, int i, int end) {
     }
 }
 ```
+
+#### toArray
 
 ```java
 /**
@@ -1165,8 +831,9 @@ public <T> T[] toArray(T[] a) {
 }
 ```
 
+#### checkInvariants
+
 ```java
-/** debugging */
 void checkInvariants() {
     // Use head and tail fields with empty slot at tail strategy.
     // head == tail disambiguates to "empty".
