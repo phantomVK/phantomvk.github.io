@@ -629,10 +629,6 @@ public <T> T[] toArray(T[] a) {
 ```
 
 ```java
-public String toString() {
-    return Helpers.collectionToString(this);
-}
-
 /**
  * Atomically removes all of the elements from this queue.
  * The queue will be empty after this call returns.
@@ -1596,25 +1592,6 @@ private boolean invariantsSatisfied() {
         && (count == 0 || items[takeIndex] != null)
         && (count == capacity || items[putIndex] == null)
         && (count == 0 || items[dec(putIndex, capacity)] != null);
-}
-
-/**
- * Reconstitutes this queue from a stream (that is, deserializes it).
- *
- * @param s the stream
- * @throws ClassNotFoundException if the class of a serialized object
- *         could not be found
- * @throws java.io.InvalidObjectException if invariants are violated
- * @throws java.io.IOException if an I/O error occurs
- */
-private void readObject(java.io.ObjectInputStream s)
-    throws java.io.IOException, ClassNotFoundException {
-
-    // Read in items array and various fields
-    s.defaultReadObject();
-
-    if (!invariantsSatisfied())
-        throw new java.io.InvalidObjectException("invariants violated");
 }
 ```
 

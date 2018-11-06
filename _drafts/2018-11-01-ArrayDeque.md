@@ -1,18 +1,17 @@
 ---
 layout:     post
-title:      ""
-subtitle:   ""
+title:      "ArrayDeque"
 date:       2017-01-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - tags
+    - Java源码系列
 ---
 
 JDK11
 
-
+## 类签名
 
 ```java
 /**
@@ -66,6 +65,8 @@ public class ArrayDeque<E> extends AbstractCollection<E>
                            implements Deque<E>, Cloneable, Serializable
 ```
 
+## 数据成员
+
 ```java
 /*
  * VMs excel at optimizing simple array loops where indices are
@@ -102,6 +103,8 @@ transient int head;
  */
 transient int tail;
 ```
+
+## 常量
 
 ```java
 /**
@@ -157,6 +160,8 @@ private int newCapacity(int needed, int jump) {
 }
 ```
 
+## 构造方法
+
 ```java
 /**
  * Constructs an empty array deque with an initial capacity
@@ -194,6 +199,8 @@ public ArrayDeque(Collection<? extends E> c) {
     copyElements(c);
 }
 ```
+
+## 静态方法
 
 ```java
 /**
@@ -259,6 +266,8 @@ static final <E> E nonNullElementAt(Object[] es, int i) {
     return e;
 }
 ```
+
+## 成员方法
 
 ```java
 // The main insertion and extraction methods are addFirst,
@@ -679,7 +688,9 @@ public Iterator<E> iterator() {
 public Iterator<E> descendingIterator() {
     return new DescendingIterator();
 }
+```
 
+```java
 private class DeqIterator implements Iterator<E> {
     /** Index of element to be returned by subsequent call to next. */
     int cursor;
@@ -806,7 +817,9 @@ private class DescendingIterator extends DeqIterator {
 public Spliterator<E> spliterator() {
     return new DeqSpliterator();
 }
+```
 
+```java
 final class DeqSpliterator implements Spliterator<E> {
     private int fence;      // -1 until first use
     private int cursor;     // current index, modified on traverse/split
@@ -1149,76 +1162,6 @@ public <T> T[] toArray(T[] a) {
     if (size < a.length)
         a[size] = null;
     return a;
-}
-```
-
-```java
-// *** Object methods ***
-
-/**
- * Returns a copy of this deque.
- *
- * @return a copy of this deque
- */
-public ArrayDeque<E> clone() {
-    try {
-        @SuppressWarnings("unchecked")
-        ArrayDeque<E> result = (ArrayDeque<E>) super.clone();
-        result.elements = Arrays.copyOf(elements, elements.length);
-        return result;
-    } catch (CloneNotSupportedException e) {
-        throw new AssertionError();
-    }
-}
-
-private static final long serialVersionUID = 2340985798034038923L;
-
-/**
- * Saves this deque to a stream (that is, serializes it).
- *
- * @param s the stream
- * @throws java.io.IOException if an I/O error occurs
- * @serialData The current size ({@code int}) of the deque,
- * followed by all of its elements (each an object reference) in
- * first-to-last order.
- */
-private void writeObject(java.io.ObjectOutputStream s)
-        throws java.io.IOException {
-    s.defaultWriteObject();
-
-    // Write out size
-    s.writeInt(size());
-
-    // Write out elements in order.
-    final Object[] es = elements;
-    for (int i = head, end = tail, to = (i <= end) ? end : es.length;
-         ; i = 0, to = end) {
-        for (; i < to; i++)
-            s.writeObject(es[i]);
-        if (to == end) break;
-    }
-}
-
-/**
- * Reconstitutes this deque from a stream (that is, deserializes it).
- * @param s the stream
- * @throws ClassNotFoundException if the class of a serialized object
- *         could not be found
- * @throws java.io.IOException if an I/O error occurs
- */
-private void readObject(java.io.ObjectInputStream s)
-        throws java.io.IOException, ClassNotFoundException {
-    s.defaultReadObject();
-
-    // Read in size and allocate array
-    int size = s.readInt();
-    SharedSecrets.getJavaObjectInputStreamAccess().checkArray(s, Object[].class, size + 1);
-    elements = new Object[size + 1];
-    this.tail = size;
-
-    // Read in all elements in the proper order.
-    for (int i = 0; i < size; i++)
-        elements[i] = s.readObject();
 }
 ```
 

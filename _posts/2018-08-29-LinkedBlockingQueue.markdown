@@ -27,7 +27,7 @@ public class LinkedBlockingQueue<E> extends AbstractQueue<E>
 - 默认队列最大长度为Integer.MAX_VALUE，新节点动态创建，总节点不会超过此值；
 - 此类和其迭代器均实现了`Collection`和`Iterator`接口的可选方法；
 
-这是`two lock queue`算法的变体。putLock守卫元素的put、offer操作，且与等待存入的条件关联。takeLock原理类似。putLock和takeLock都依赖的`count`变量为一个原子变量，以避免多数情况下需同时请求两个锁。
+这是`two lock queue`算法的变体。putLock守卫元素的put、offer操作，且与等待存入的条件关联。takeLock原理类似。putLock和takeLock都依赖原子变量`count`，避免多数情况下需同时请求两个锁。
 
 为了最小化put时需获取takeLock，使用了层叠式通知。当put操作注意到至少一个take可以启动，就会通知taker。如果有更多item在信号后进队，taker将依次通知其他taker。因此有对称的取操作通知存操作。有些操作如remove和iterators会同时请求两个锁。
 

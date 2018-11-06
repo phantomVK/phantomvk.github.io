@@ -9,6 +9,8 @@ tags:
     - Android源码系列
 ---
 
+## 类签名
+
 ```java
 /**
 * A cache that uses a bounded amount of space on a filesystem. Each cache
@@ -57,6 +59,8 @@ tags:
 public final class DiskLruCache implements Closeable
 ```
 
+## 常量
+
 ```java
 static final String JOURNAL_FILE = "journal";
 static final String JOURNAL_FILE_TEMP = "journal.tmp";
@@ -69,6 +73,8 @@ private static final String DIRTY = "DIRTY";
 private static final String REMOVE = "REMOVE";
 private static final String READ = "READ";
 ```
+
+## 数据成员
 
 ```java
 /*
@@ -163,6 +169,10 @@ private DiskLruCache(File directory, int appVersion, int valueCount, long maxSiz
 }
 ```
 
+## 成员方法
+
+#### open
+
 ```java
 /**
  * Opens the cache in {@code directory}, creating a cache if none exists
@@ -220,7 +230,7 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
 }
 ```
 
-
+#### readJournal
 
 ```java
 private void readJournal() throws IOException {
@@ -264,6 +274,8 @@ private void readJournal() throws IOException {
 }
 ```
 
+#### readJournalLine
+
 ```java
 private void readJournalLine(String line) throws IOException {
   int firstSpace = line.indexOf(' ');
@@ -305,6 +317,8 @@ private void readJournalLine(String line) throws IOException {
 }
 ```
 
+#### processJournal
+
 ```java
 /**
  * Computes the initial size and collects garbage as a part of opening the
@@ -329,6 +343,8 @@ private void processJournal() throws IOException {
   }
 }
 ```
+
+#### rebuildJournal
 
 ```java
 /**
@@ -375,6 +391,8 @@ private synchronized void rebuildJournal() throws IOException {
 }
 ```
 
+#### deleteIfExists
+
 ```java
 private static void deleteIfExists(File file) throws IOException {
   if (file.exists() && !file.delete()) {
@@ -382,6 +400,8 @@ private static void deleteIfExists(File file) throws IOException {
   }
 }
 ```
+
+#### renameTo
 
 ```java
 private static void renameTo(File from, File to, boolean deleteDestination) throws IOException {
@@ -393,6 +413,8 @@ private static void renameTo(File from, File to, boolean deleteDestination) thro
   }
 }
 ```
+
+#### get
 
 ```java
 /**
@@ -430,6 +452,8 @@ public synchronized Value get(String key) throws IOException {
   return new Value(key, entry.sequenceNumber, entry.cleanFiles, entry.lengths);
 }
 ```
+
+#### edit
 
 ```java
 /**
@@ -469,6 +493,8 @@ private synchronized Editor edit(String key, long expectedSequenceNumber) throws
 }
 ```
 
+#### getter
+
 ```java
 /** Returns the directory where this cache stores its data. */
 public File getDirectory() {
@@ -482,7 +508,18 @@ public File getDirectory() {
 public synchronized long getMaxSize() {
   return maxSize;
 }
+
+/**
+ * Returns the number of bytes currently being used to store the values in
+ * this cache. This may be greater than the max size if a background
+ * deletion is pending.
+ */
+public synchronized long size() {
+  return size;
+}
 ```
+
+#### setter
 
 ```java
 /**
@@ -495,16 +532,7 @@ public synchronized void setMaxSize(long maxSize) {
 }
 ```
 
-```java
-/**
- * Returns the number of bytes currently being used to store the values in
- * this cache. This may be greater than the max size if a background
- * deletion is pending.
- */
-public synchronized long size() {
-  return size;
-}
-```
+#### completeEdit
 
 ```java
 private synchronized void completeEdit(Editor editor, boolean success) throws IOException {
@@ -569,7 +597,9 @@ private synchronized void completeEdit(Editor editor, boolean success) throws IO
     executorService.submit(cleanupCallable);
   }
 }
-
+```
+#### journalRebuildRequired
+```java
 /**
  * We only rebuild the journal when it will halve the size of the journal
  * and eliminate at least 2000 ops.
@@ -580,6 +610,8 @@ private boolean journalRebuildRequired() {
       && redundantOpCount >= lruEntries.size();
 }
 ```
+
+#### remove
 
 ```java
 /**
@@ -618,25 +650,33 @@ public synchronized boolean remove(String key) throws IOException {
 
   return true;
 }
+```
 
+```java
 /** Returns true if this cache has been closed. */
 public synchronized boolean isClosed() {
   return journalWriter == null;
 }
+```
 
+```java
 private void checkNotClosed() {
   if (journalWriter == null) {
     throw new IllegalStateException("cache is closed");
   }
 }
+```
 
+```java
 /** Force buffered operations to the filesystem. */
 public synchronized void flush() throws IOException {
   checkNotClosed();
   trimToSize();
   journalWriter.flush();
 }
+```
 
+```java
 /** Closes this cache. Stored values will remain on the filesystem. */
 public synchronized void close() throws IOException {
   if (journalWriter == null) {
@@ -651,14 +691,18 @@ public synchronized void close() throws IOException {
   journalWriter.close();
   journalWriter = null;
 }
+```
 
+```java
 private void trimToSize() throws IOException {
   while (size > maxSize) {
     Map.Entry<String, Entry> toEvict = lruEntries.entrySet().iterator().next();
     remove(toEvict.getKey());
   }
 }
+```
 
+```java
 /**
  * Closes the cache and deletes all of its stored values. This will delete
  * all files in the cache directory including files that weren't created by
@@ -668,11 +712,15 @@ public void delete() throws IOException {
   close();
   Util.deleteContents(directory);
 }
+```
 
+```java
 private static String inputStreamToString(InputStream in) throws IOException {
   return Util.readFully(new InputStreamReader(in, Util.UTF_8));
 }
 ```
+
+## Value
 
 ```java
 /** A snapshot of the values for an entry. */
@@ -814,6 +862,8 @@ public final class Editor {
 }
 ```
 
+## Entry
+
 ```java
 private final class Entry {
   private final String key;
@@ -888,5 +938,3 @@ private final class Entry {
   }
 }
 ```
-
-
