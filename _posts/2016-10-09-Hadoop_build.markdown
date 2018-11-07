@@ -12,7 +12,7 @@ tags:
 
 运行环境：__Ubuntu 16.04 LTS AMD64__、__OpenJDK 9__、__Hadoop-1.2.1__、__OpenSSH__
 
-Hadoop依赖JDK，请确认系统已安装JDK，具体设置请参考文章:  __[Ubuntu安装Oracle JDK8](https://phantomvk.coding.me/2016/11/23/Ubuntu_Install_JDK/)__ 
+Hadoop依赖JDK，请确认系统已安装JDK，具体设置请参考文章:  __[Ubuntu安装Oracle JDK8](/2016/11/23/Ubuntu_Install_JDK/)__ 
 
 ## 二、 Hadoop安装及配置
 

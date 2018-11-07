@@ -13,6 +13,10 @@ JDK11
 
 ## 类签名
 
+__Deque__ 接口的可变大小的数组实现。数组双端队列没有容量限制，会在需要的时候扩容。本实现线程不安全，如果没有外界的同步约束，就不能支持多线程并发访问。本双端队列不接收为null的元素。此类作为栈使用时，看起来要比 __Stack__ 快；作为队列使用要比 __LinkedList__ 快。
+
+大多数 __ArrayDeque__ 才做消耗常量级时间，除了__remove(Object)__，__removeFirstOccurrence__，__removeLastOccurrence__，__contains__，__iterator__ 和 批量操作是线性时间消耗。
+
 ```java
 /**
  * Resizable-array implementation of the {@link Deque} interface.  Array
@@ -52,14 +56,6 @@ JDK11
  * <p>This class and its iterator implement all of the
  * <em>optional</em> methods of the {@link Collection} and {@link
  * Iterator} interfaces.
- *
- * <p>This class is a member of the
- * <a href="{@docRoot}/java.base/java/util/package-summary.html#CollectionsFramework">
- * Java Collections Framework</a>.
- *
- * @author  Josh Bloch and Doug Lea
- * @param <E> the type of elements held in this deque
- * @since   1.6
  */
 public class ArrayDeque<E> extends AbstractCollection<E>
                            implements Deque<E>, Cloneable, Serializable
@@ -234,10 +230,7 @@ static final int sub(int i, int j, int modulus) {
     return i;
 }
 
-/**
- * Returns element at array index i.
- * This is a slight abuse of generics, accepted by javac.
- */
+// 返回数组中索引值为i的元素
 @SuppressWarnings("unchecked")
 static final <E> E elementAt(Object[] es, int i) {
     return (E) es[i];
@@ -263,12 +256,7 @@ static final <E> E nonNullElementAt(Object[] es, int i) {
 // addLast, pollFirst, pollLast. The other methods are defined in
 // terms of these.
 
-/**
- * Inserts the specified element at the front of this deque.
- *
- * @param e the element to add
- * @throws NullPointerException if the specified element is null
- */
+// 把执行元素插入到队列头部，若元素为空抛出NullPointerException
 public void addFirst(E e) {
     if (e == null)
         throw new NullPointerException();
@@ -278,14 +266,7 @@ public void addFirst(E e) {
         grow(1);
 }
 
-/**
- * Inserts the specified element at the end of this deque.
- *
- * <p>This method is equivalent to {@link #add}.
- *
- * @param e the element to add
- * @throws NullPointerException if the specified element is null
- */
+// 把执行元素插入到队列尾部，若元素为空抛出NullPointerException
 public void addLast(E e) {
     if (e == null)
         throw new NullPointerException();
@@ -295,16 +276,7 @@ public void addLast(E e) {
         grow(1);
 }
 
-/**
- * Adds all of the elements in the specified collection at the end
- * of this deque, as if by calling {@link #addLast} on each one,
- * in the order that they are returned by the collection's iterator.
- *
- * @param c the elements to be inserted into this deque
- * @return {@code true} if this deque changed as a result of the call
- * @throws NullPointerException if the specified collection or any
- *         of its elements are null
- */
+// 把指定集合的所有元素添加到队列的尾部
 public boolean addAll(Collection<? extends E> c) {
     final int s, needed;
     if ((needed = (s = size()) + c.size() + 1 - elements.length) > 0)
@@ -319,25 +291,13 @@ private void copyElements(Collection<? extends E> c) {
     c.forEach(this::addLast);
 }
 
-/**
- * Inserts the specified element at the front of this deque.
- *
- * @param e the element to add
- * @return {@code true} (as specified by {@link Deque#offerFirst})
- * @throws NullPointerException if the specified element is null
- */
+// 把指定元素插入到队列头部
 public boolean offerFirst(E e) {
     addFirst(e);
     return true;
 }
 
-/**
- * Inserts the specified element at the end of this deque.
- *
- * @param e the element to add
- * @return {@code true} (as specified by {@link Deque#offerLast})
- * @throws NullPointerException if the specified element is null
- */
+// 把指定元素插入到队列头部
 public boolean offerLast(E e) {
     addLast(e);
     return true;
@@ -414,6 +374,8 @@ public E peekLast() {
 }
 ```
 
+移出第一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个元素。每次查找从的头部开始，逐个遍历元素寻找匹配项。
+
 ```java
 /**
  * Removes the first occurrence of the specified element in this
@@ -442,7 +404,11 @@ public boolean removeFirstOccurrence(Object o) {
     }
     return false;
 }
+```
 
+移出最后一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个元素。
+
+```java
 /**
  * Removes the last occurrence of the specified element in this
  * deque (when traversing the deque from head to tail).
@@ -475,85 +441,33 @@ public boolean removeLastOccurrence(Object o) {
 #### 队列方法
 
 ```java
-/**
- * Inserts the specified element at the end of this deque.
- *
- * <p>This method is equivalent to {@link #addLast}.
- *
- * @param e the element to add
- * @return {@code true} (as specified by {@link Collection#add})
- * @throws NullPointerException if the specified element is null
- */
+// 把指定元素插入到队列尾部
 public boolean add(E e) {
     addLast(e);
     return true;
 }
 
-/**
- * Inserts the specified element at the end of this deque.
- *
- * <p>This method is equivalent to {@link #offerLast}.
- *
- * @param e the element to add
- * @return {@code true} (as specified by {@link Queue#offer})
- * @throws NullPointerException if the specified element is null
- */
+// 把指定元素插入到队列尾部
 public boolean offer(E e) {
     return offerLast(e);
 }
 
-/**
- * Retrieves and removes the head of the queue represented by this deque.
- *
- * This method differs from {@link #poll() poll()} only in that it
- * throws an exception if this deque is empty.
- *
- * <p>This method is equivalent to {@link #removeFirst}.
- *
- * @return the head of the queue represented by this deque
- * @throws NoSuchElementException {@inheritDoc}
- */
+// 获取并移除队列头元素，若队列没有元素则抛出NoSuchElementException
 public E remove() {
     return removeFirst();
 }
 
-/**
- * Retrieves and removes the head of the queue represented by this deque
- * (in other words, the first element of this deque), or returns
- * {@code null} if this deque is empty.
- *
- * <p>This method is equivalent to {@link #pollFirst}.
- *
- * @return the head of the queue represented by this deque, or
- *         {@code null} if this deque is empty
- */
+// 获取并移除队列头元素，如果元素不存在返回null
 public E poll() {
     return pollFirst();
 }
 
-/**
- * Retrieves, but does not remove, the head of the queue represented by
- * this deque.  This method differs from {@link #peek peek} only in
- * that it throws an exception if this deque is empty.
- *
- * <p>This method is equivalent to {@link #getFirst}.
- *
- * @return the head of the queue represented by this deque
- * @throws NoSuchElementException {@inheritDoc}
- */
+// 仅获取元素队列头元素，但不从队列中不会移除。如果队列为空，则此方法会抛出异常
 public E element() {
     return getFirst();
 }
 
-/**
- * Retrieves, but does not remove, the head of the queue represented by
- * this deque, or returns {@code null} if this deque is empty.
- *
- * <p>This method is equivalent to {@link #peekFirst}.
- *
- * @return the head of the queue represented by this deque, or
- *         {@code null} if this deque is empty
- */
+// 仅获取元素队列头元素，但不从队列中不会移除。如果队列为空，则此方法返回null
 public E peek() {
     return peekFirst();
 }
@@ -562,29 +476,12 @@ public E peek() {
 #### 栈方法
 
 ```java
-/**
- * Pushes an element onto the stack represented by this deque.  In other
- * words, inserts the element at the front of this deque.
- *
- * <p>This method is equivalent to {@link #addFirst}.
- *
- * @param e the element to push
- * @throws NullPointerException if the specified element is null
- */
+// 向栈中压入元素，即向本队列头部插入元素。若指定元素为空抛出NullPointerException
 public void push(E e) {
     addFirst(e);
 }
 
-/**
- * Pops an element from the stack represented by this deque.  In other
- * words, removes and returns the first element of this deque.
- *
- * <p>This method is equivalent to {@link #removeFirst()}.
- *
- * @return the element at the front of this deque (which is the top
- *         of the stack represented by this deque)
- * @throws NoSuchElementException {@inheritDoc}
- */
+// 从栈中弹出元素，即从本队列头部移除并返回元素。若队列为空抛出NoSuchElementException
 public E pop() {
     return removeFirst();
 }
@@ -599,6 +496,7 @@ public E pop() {
  *
  * @return true if elements near tail moved backwards
  */
+// 从元素数组中移除指定索引值的元素。
 boolean delete(int i) {
     final Object[] es = elements;
     final int capacity = es.length;
@@ -670,6 +568,8 @@ private static boolean isClear(long[] bits, int i) {
  * @param o object to be checked for containment in this deque
  * @return {@code true} if this deque contains the specified element
  */
+// 如果队列包含指定元素，则返回true。一般来说，队列可能存在多个相同的元素
+// 所以本方法返回true是表示队列至少存在一个与指定元素相等的元素
 public boolean contains(Object o) {
     if (o != null) {
         final Object[] es = elements;
@@ -697,14 +597,13 @@ public boolean contains(Object o) {
  * @param o element to be removed from this deque, if present
  * @return {@code true} if this deque contained the specified element
  */
+// 从队列中移除指定元素。如果队列不含该元素，则队列不会改变。
+// 一般来说，队列可能会含有多和相同的元素
 public boolean remove(Object o) {
     return removeFirstOccurrence(o);
 }
 
-/**
- * Removes all of the elements from this deque.
- * The deque will be empty after this call returns.
- */
+// 从移除队列中所有元素
 public void clear() {
     circularClear(elements, head, tail);
     head = tail = 0;
@@ -726,6 +625,8 @@ private static void circularClear(Object[] es, int i, int end) {
 ```
 
 #### toArray
+
+返回包含双端队列所有元素的数组，元素顺序和双端队列元素顺序一致。
 
 ```java
 /**
@@ -761,7 +662,18 @@ private <T> T[] toArray(Class<T[]> klazz) {
         System.arraycopy(es, 0, a, es.length - head, tail);
     return a;
 }
+```
 
+传入目标数组，并把双端队列所有元素放入该数组，元素顺序和双端队列元素顺序一致。返回数组的类型和传入数组类型相同。如果传入数组大小不足容纳所有元素，方法会创建新数组，且新容量和所放入元素数量一致，然后放入所有元素并返回。所以，会出现传入数组和返回数组不是同一个对象的现象。
+
+如果传入数组空间足够存入所有元素，该数组的下一个空间会被置为 __null__。
+
+本方法可以实现队列转数组的功能：__String[] y = x.toArray(new String[0]);__。且值得注意的是，传入 __toArray(new Object[0])__ 和 传入 __toArray()__ 的效果完全相同。
+
+指定数组元素的运行时类型不是双端队列元素的运行时类型的子类时抛出 __ArrayStoreException__；
+指定数组为空抛出 __NullPointerException__；
+
+```java
 /**
  * Returns an array containing all of the elements in this deque in
  * proper sequence (from first to last element); the runtime type of the
@@ -839,4 +751,3 @@ void checkInvariants() {
     }
 }
 ```
-
