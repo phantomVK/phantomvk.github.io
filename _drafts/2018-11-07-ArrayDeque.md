@@ -345,9 +345,7 @@ public boolean offerLast(E e) {
 ```
 
 ```java
-/**
- * @throws NoSuchElementException {@inheritDoc}
- */
+// 若找不到头元素就抛出NoSuchElementException
 public E removeFirst() {
     E e = pollFirst();
     if (e == null)
@@ -355,9 +353,7 @@ public E removeFirst() {
     return e;
 }
 
-/**
- * @throws NoSuchElementException {@inheritDoc}
- */
+// 若找不到最后一个元素就抛出NoSuchElementException
 public E removeLast() {
     E e = pollLast();
     if (e == null)
@@ -389,9 +385,7 @@ public E pollLast() {
 ```
 
 ```java
-/**
- * @throws NoSuchElementException {@inheritDoc}
- */
+// 找不到元素抛出NoSuchElementException
 public E getFirst() {
     E e = elementAt(elements, head);
     if (e == null)
@@ -399,9 +393,7 @@ public E getFirst() {
     return e;
 }
 
-/**
- * @throws NoSuchElementException {@inheritDoc}
- */
+// 找不到元素抛出NoSuchElementException
 public E getLast() {
     final Object[] es = elements;
     E e = elementAt(es, dec(tail, es.length));
@@ -646,20 +638,12 @@ boolean delete(int i) {
 #### 集合方法
 
 ```java
-/**
- * Returns the number of elements in this deque.
- *
- * @return the number of elements in this deque
- */
+// 返回双端队列包含元素的数量
 public int size() {
     return sub(tail, head, elements.length);
 }
 
-/**
- * Returns {@code true} if this deque contains no elements.
- *
- * @return {@code true} if this deque contains no elements
- */
+// 若双端队列不含任何元素返回true
 public boolean isEmpty() {
     return head == tail;
 }
