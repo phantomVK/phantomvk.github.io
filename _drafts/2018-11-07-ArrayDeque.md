@@ -9,57 +9,26 @@ tags:
     - Java源码系列
 ---
 
-JDK11
-
 ## 类签名
 
-__Deque__ 接口的可变大小的数组实现。数组双端队列没有容量限制，会在需要的时候扩容。本实现线程不安全，如果没有外界的同步约束，就不能支持多线程并发访问。本双端队列不接收为null的元素。此类作为栈使用时，看起来要比 __Stack__ 快；作为队列使用要比 __LinkedList__ 快。
+这是 __Deque__ 接口且大小可变的数组实现。数组双端队列没有容量限制，在需要的时候进行扩容。本实现类线程不安全，如果没有额外的同步约束，就不能支持多线程并发访问。本双端队列不接收为null的元素。此类作为栈使用时比 __Stack__ 快；作为队列使用时比 __LinkedList__ 快。
 
-大多数 __ArrayDeque__ 才做消耗常量级时间，除了__remove(Object)__，__removeFirstOccurrence__，__removeLastOccurrence__，__contains__，__iterator__ 和 批量操作是线性时间消耗。
+大多数 __ArrayDeque__ 方法执行消耗常量时间，除了__remove(Object)__， __removeFirstOccurrence__， __removeLastOccurrence__， __contains__， __iterator__ 和批量操作是线性时间消耗的。
 
 ```java
-/**
- * Resizable-array implementation of the {@link Deque} interface.  Array
- * deques have no capacity restrictions; they grow as necessary to support
- * usage.  They are not thread-safe; in the absence of external
- * synchronization, they do not support concurrent access by multiple threads.
- * Null elements are prohibited.  This class is likely to be faster than
- * {@link Stack} when used as a stack, and faster than {@link LinkedList}
- * when used as a queue.
- *
- * <p>Most {@code ArrayDeque} operations run in amortized constant time.
- * Exceptions include
- * {@link #remove(Object) remove},
- * {@link #removeFirstOccurrence removeFirstOccurrence},
- * {@link #removeLastOccurrence removeLastOccurrence},
- * {@link #contains contains},
- * {@link #iterator iterator.remove()},
- * and the bulk operations, all of which run in linear time.
- *
- * <p>The iterators returned by this class's {@link #iterator() iterator}
- * method are <em>fail-fast</em>: If the deque is modified at any time after
- * the iterator is created, in any way except through the iterator's own
- * {@code remove} method, the iterator will generally throw a {@link
- * ConcurrentModificationException}.  Thus, in the face of concurrent
- * modification, the iterator fails quickly and cleanly, rather than risking
- * arbitrary, non-deterministic behavior at an undetermined time in the
- * future.
- *
- * <p>Note that the fail-fast behavior of an iterator cannot be guaranteed
- * as it is, generally speaking, impossible to make any hard guarantees in the
- * presence of unsynchronized concurrent modification.  Fail-fast iterators
- * throw {@code ConcurrentModificationException} on a best-effort basis.
- * Therefore, it would be wrong to write a program that depended on this
- * exception for its correctness: <i>the fail-fast behavior of iterators
- * should be used only to detect bugs.</i>
- *
- * <p>This class and its iterator implement all of the
- * <em>optional</em> methods of the {@link Collection} and {@link
- * Iterator} interfaces.
- */
 public class ArrayDeque<E> extends AbstractCollection<E>
                            implements Deque<E>, Cloneable, Serializable
 ```
+
+其次，虚拟机擅长基于优化在简单的数组循环上有效切片的递增、递减索引。例如：
+
+```java
+for (int i = start; i < end; i++) ... elements[i]
+```
+
+因为在环形数组中，元素全部保存在两个互不相交如切片的集合，帮助虚拟机在元素上全遍历的非寻常嵌套环。只有一个热内环，而不是两个或三个，简化人维护并促使虚拟机循环内联到调用者内。
+
+源码来自 JDK11
 
 ## 数据成员
 
@@ -77,57 +46,55 @@ public class ArrayDeque<E> extends AbstractCollection<E>
  * maintenance and encourages VM loop inlining into the caller.
  */
 
-/**
- * The array in which the elements of the deque are stored.
- * All array cells not holding deque elements are always null.
- * The array always has at least one null slot (at tail).
- */
+// 保存双端数组队列的变量
+// 当数组单个块没有持有双端队列元素时为空
+// 数组存在至少一个空块，作为队列的尾部
 transient Object[] elements;
 
-/**
- * The index of the element at the head of the deque (which is the
- * element that would be removed by remove() or pop()); or an
- * arbitrary number 0 <= head < elements.length equal to tail if
- * the deque is empty.
- */
+// 头元素在数组中的索引值，下标值对应元素由remove()或pop()方法移除
+// 若队列没有元素，head为[0, elements.length)间任意值，与尾引用值相同
 transient int head;
 
-/**
- * The index at which the next element would be added to the tail
- * of the deque (via addLast(E), add(E), or push(E));
- * elements[tail] is always null.
- */
+// 下一个元素存入数组尾部的索引值，所以elements[tail]一直为空
 transient int tail;
 ```
 
 ## 常量
 
+可申请数组的最大容量值。因为有些虚拟机实现会在数组中保留 __header words__。所以尝试更大数组空间会导致 __OutOfMemoryError__。使用此值就是为了避免这种问题。
+
 ```java
-/**
- * The maximum size of array to allocate.
- * Some VMs reserve some header words in an array.
- * Attempts to allocate larger arrays may result in
- * OutOfMemoryError: Requested array size exceeds VM limit
- */
 private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 ```
 
+#### 扩容
+
+增加至少 __needed__ 个数组空间，值必须为正数。方法计算新容量值时，已经进行整形值向上溢出的处理
+
 ```java
-/**
- * Increases the capacity of this deque by at least the given amount.
- *
- * @param needed the required minimum extra capacity; must be positive
- */
 private void grow(int needed) {
     // overflow-conscious code
+    // 获取原数组容量值
     final int oldCapacity = elements.length;
+    
+    // 可为 newCapacity = oldCapacity + jump 
+    // 或为 newCapacity = oldCapacity + needed
+    // 或为 newCapacity = MAX_ARRAY_SIZE
+    // 或为 newCapacity = Integer.MAX_VALUE
     int newCapacity;
+
     // Double capacity if small; else grow by 50%
+    // 若原容量值小于64，则jump为原值两倍再加2，否则jump为原值一半
     int jump = (oldCapacity < 64) ? (oldCapacity + 2) : (oldCapacity >> 1);
+
+    // 计算jump是否比理想扩容值needed小
     if (jump < needed
         || (newCapacity = (oldCapacity + jump)) - MAX_ARRAY_SIZE > 0)
         newCapacity = newCapacity(needed, jump);
+
+    // 根据newCapacity创建新数组，并把原数组元素拷贝到新数组
     final Object[] es = elements = Arrays.copyOf(elements, newCapacity);
+
     // Exceptionally, here tail == head needs to be disambiguated
     if (tail < head || (tail == head && es[head] != null)) {
         // wrap around; slide first leg forward to end of array
@@ -143,13 +110,20 @@ private void grow(int needed) {
 /** Capacity calculation for edge conditions, especially overflow. */
 private int newCapacity(int needed, int jump) {
     final int oldCapacity = elements.length, minCapacity;
+    
     if ((minCapacity = oldCapacity + needed) - MAX_ARRAY_SIZE > 0) {
+        // 最大容量值溢出
         if (minCapacity < 0)
             throw new IllegalStateException("Sorry, deque too big");
+        
+        // 设置为最大值
         return Integer.MAX_VALUE;
     }
+    
     if (needed > jump)
         return minCapacity;
+
+    // needed <= jump
     return (oldCapacity + jump - MAX_ARRAY_SIZE < 0)
         ? oldCapacity + jump
         : MAX_ARRAY_SIZE;
@@ -251,11 +225,9 @@ static final <E> E nonNullElementAt(Object[] es, int i) {
 
 ## 成员方法
 
-```java
-// The main insertion and extraction methods are addFirst,
-// addLast, pollFirst, pollLast. The other methods are defined in
-// terms of these.
+元素主要的插入、获取方法是 __addFirst__、__addLast__、 __pollFirst__、 __pollLast__，其他方法都在此基础上实现
 
+```java
 // 把执行元素插入到队列头部，若元素为空抛出NullPointerException
 public void addFirst(E e) {
     if (e == null)
@@ -287,10 +259,15 @@ public boolean addAll(Collection<? extends E> c) {
 ```
 
 ```java
+// 把集合C的元素添加到本队列尾部
 private void copyElements(Collection<? extends E> c) {
     c.forEach(this::addLast);
 }
+```
 
+#### offer
+
+```java
 // 把指定元素插入到队列头部
 public boolean offerFirst(E e) {
     addFirst(e);
@@ -303,6 +280,8 @@ public boolean offerLast(E e) {
     return true;
 }
 ```
+
+#### remove
 
 ```java
 // 若找不到头元素就抛出NoSuchElementException
@@ -321,6 +300,8 @@ public E removeLast() {
     return e;
 }
 ```
+
+#### poll
 
 ```java
 public E pollFirst() {
@@ -363,6 +344,8 @@ public E getLast() {
 }
 ```
 
+#### peek
+
 ```java
 public E peekFirst() {
     return elementAt(elements, head);
@@ -374,21 +357,9 @@ public E peekLast() {
 }
 ```
 
-移出第一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个元素。每次查找从的头部开始，逐个遍历元素寻找匹配项。
+移出第一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个。每次查找均从的头部开始，逐个遍历元素寻找匹配项。元素名并移除成功返回 __true__，元素为null或不包含该元素返回 __false__。
 
 ```java
-/**
- * Removes the first occurrence of the specified element in this
- * deque (when traversing the deque from head to tail).
- * If the deque does not contain the element, it is unchanged.
- * More formally, removes the first element {@code e} such that
- * {@code o.equals(e)} (if such an element exists).
- * Returns {@code true} if this deque contained the specified element
- * (or equivalently, if this deque changed as a result of the call).
- *
- * @param o element to be removed from this deque, if present
- * @return {@code true} if the deque contained the specified element
- */
 public boolean removeFirstOccurrence(Object o) {
     if (o != null) {
         final Object[] es = elements;
@@ -406,21 +377,9 @@ public boolean removeFirstOccurrence(Object o) {
 }
 ```
 
-移出最后一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个元素。
+移出最后一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个。元素名并移除成功返回 __true__，元素为null或不包含该元素返回 __false__。
 
 ```java
-/**
- * Removes the last occurrence of the specified element in this
- * deque (when traversing the deque from head to tail).
- * If the deque does not contain the element, it is unchanged.
- * More formally, removes the last element {@code e} such that
- * {@code o.equals(e)} (if such an element exists).
- * Returns {@code true} if this deque contained the specified element
- * (or equivalently, if this deque changed as a result of the call).
- *
- * @param o element to be removed from this deque, if present
- * @return {@code true} if the deque contained the specified element
- */
 public boolean removeLastOccurrence(Object o) {
     if (o != null) {
         final Object[] es = elements;
@@ -547,29 +506,29 @@ public boolean isEmpty() {
 }
 ```
 
+#### 位操作
+
 ```java
 // A tiny bit set implementation
 
 private static long[] nBits(int n) {
     return new long[((n - 1) >> 6) + 1];
 }
+
 private static void setBit(long[] bits, int i) {
     bits[i >> 6] |= 1L << i;
 }
+
 private static boolean isClear(long[] bits, int i) {
     return (bits[i >> 6] & (1L << i)) == 0;
 }
+```
 
-/**
- * Returns {@code true} if this deque contains the specified element.
- * More formally, returns {@code true} if and only if this deque contains
- * at least one element {@code e} such that {@code o.equals(e)}.
- *
- * @param o object to be checked for containment in this deque
- * @return {@code true} if this deque contains the specified element
- */
-// 如果队列包含指定元素，则返回true。一般来说，队列可能存在多个相同的元素
-// 所以本方法返回true是表示队列至少存在一个与指定元素相等的元素
+#### contains
+
+如果队列包含指定元素返回true。一般来说，队列可能存在多个相同的元素。所以本方法返回true表示队列至少存在一个元素与指定元素相等
+
+```java
 public boolean contains(Object o) {
     if (o != null) {
         final Object[] es = elements;
@@ -583,32 +542,28 @@ public boolean contains(Object o) {
     }
     return false;
 }
+```
 
-/**
- * Removes a single instance of the specified element from this deque.
- * If the deque does not contain the element, it is unchanged.
- * More formally, removes the first element {@code e} such that
- * {@code o.equals(e)} (if such an element exists).
- * Returns {@code true} if this deque contained the specified element
- * (or equivalently, if this deque changed as a result of the call).
- *
- * <p>This method is equivalent to {@link #removeFirstOccurrence(Object)}.
- *
- * @param o element to be removed from this deque, if present
- * @return {@code true} if this deque contained the specified element
- */
-// 从队列中移除指定元素。如果队列不含该元素，则队列不会改变。
-// 一般来说，队列可能会含有多和相同的元素
+从队列中移除指定单个元素。如果队列不含该元素，则队列不会改变。一般来说，队列可能会含有多和相同的元素，每次仅移除其中一个。
+
+```java
 public boolean remove(Object o) {
     return removeFirstOccurrence(o);
 }
+```
 
-// 从移除队列中所有元素
+#### clear
+
+从移除队列中所有元素
+
+```java
 public void clear() {
     circularClear(elements, head, tail);
     head = tail = 0;
 }
+```
 
+```java
 /**
  * Nulls out slots starting at array index i, upto index end.
  * Condition i == end means "empty" - nothing to do.
@@ -629,19 +584,6 @@ private static void circularClear(Object[] es, int i, int end) {
 返回包含双端队列所有元素的数组，元素顺序和双端队列元素顺序一致。
 
 ```java
-/**
- * Returns an array containing all of the elements in this deque
- * in proper sequence (from first to last element).
- *
- * <p>The returned array will be "safe" in that no references to it are
- * maintained by this deque.  (In other words, this method must allocate
- * a new array).  The caller is thus free to modify the returned array.
- *
- * <p>This method acts as bridge between array-based and collection-based
- * APIs.
- *
- * @return an array containing all of the elements in this deque
- */
 public Object[] toArray() {
     return toArray(Object[].class);
 }
@@ -654,7 +596,7 @@ private <T> T[] toArray(Class<T[]> klazz) {
         // Uses null extension feature of copyOfRange
         a = Arrays.copyOfRange(es, head, end, klazz);
     } else {
-        // integer overflow!
+        // 整形上溢
         a = Arrays.copyOfRange(es, 0, end - head, klazz);
         System.arraycopy(es, head, a, 0, es.length - head);
     }
