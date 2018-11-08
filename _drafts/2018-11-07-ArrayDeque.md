@@ -9,7 +9,7 @@ tags:
     - Java源码系列
 ---
 
-## 类签名
+## 一、类签名
 
 这是 __Deque__ 接口且大小可变的数组实现。数组双端队列没有容量限制，在需要的时候进行扩容。本实现类线程不安全，如果没有额外的同步约束，就不能支持多线程并发访问。本双端队列不接收为null的元素。此类作为栈使用时比 __Stack__ 快；作为队列使用时比 __LinkedList__ 快。
 
@@ -20,17 +20,17 @@ public class ArrayDeque<E> extends AbstractCollection<E>
                            implements Deque<E>, Cloneable, Serializable
 ```
 
-其次，虚拟机擅长基于优化在简单的数组循环上有效切片的递增、递减索引。例如：
+其次，虚拟机擅长基于简单的数组循环上，有效切片的递增、递减索引的优化。例如：
 
 ```java
 for (int i = start; i < end; i++) ... elements[i]
 ```
 
-因为在环形数组中，元素全部保存在两个互不相交如切片的集合，帮助虚拟机在元素上全遍历的非寻常嵌套环。只有一个热内环，而不是两个或三个，简化人维护并促使虚拟机循环内联到调用者内。
+因为在环形数组，元素全部保存在两个互不相交如的切片，帮助虚拟机在元素上全遍历的非寻常嵌套环。只有一个热内部循环体，而不是两个或三个，简化人维护并促使虚拟机循环内联到调用者内。
 
 源码来自 JDK11
 
-## 数据成员
+## 二、数据成员
 
 ```java
 /*
@@ -59,7 +59,7 @@ transient int head;
 transient int tail;
 ```
 
-## 常量
+## 三、常量
 
 可申请数组的最大容量值。因为有些虚拟机实现会在数组中保留 __header words__。所以尝试更大数组空间会导致 __OutOfMemoryError__。使用此值就是为了避免这种问题。
 
@@ -67,7 +67,7 @@ transient int tail;
 private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 ```
 
-#### 扩容
+## 四、扩容方法
 
 增加至少 __needed__ 个数组空间，值必须为正数。方法计算新容量值时，已经进行整形值向上溢出的处理
 
@@ -77,10 +77,10 @@ private void grow(int needed) {
     // 获取原数组容量值
     final int oldCapacity = elements.length;
     
-    // 可为 newCapacity = oldCapacity + jump 
-    // 或为 newCapacity = oldCapacity + needed
-    // 或为 newCapacity = MAX_ARRAY_SIZE
-    // 或为 newCapacity = Integer.MAX_VALUE
+    // 可 newCapacity = oldCapacity + jump 
+    // 或 newCapacity = oldCapacity + needed
+    // 或 newCapacity = MAX_ARRAY_SIZE
+    // 或 newCapacity = Integer.MAX_VALUE
     int newCapacity;
 
     // Double capacity if small; else grow by 50%
@@ -130,7 +130,7 @@ private int newCapacity(int needed, int jump) {
 }
 ```
 
-## 构造方法
+## 五、构造方法
 
 构造默认队列，初始容量为16
 
@@ -161,7 +161,7 @@ public ArrayDeque(Collection<? extends E> c) {
 }
 ```
 
-## 静态方法
+## 六、静态方法
 
 ```java
 /**
@@ -223,7 +223,7 @@ static final <E> E nonNullElementAt(Object[] es, int i) {
 }
 ```
 
-## 成员方法
+## 七、成员方法
 
 元素主要的插入、获取方法是 __addFirst__、__addLast__、 __pollFirst__、 __pollLast__，其他方法都在此基础上实现
 
@@ -446,7 +446,6 @@ public E pop() {
 }
 
 /**
- * Removes the element at the specified position in the elements array.
  * This can result in forward or backwards motion of array elements.
  * We optimize for least element motion.
  *
@@ -455,7 +454,7 @@ public E pop() {
  *
  * @return true if elements near tail moved backwards
  */
-// 从元素数组中移除指定索引值的元素。
+// 从元素数组中移除指定索引的元素。
 boolean delete(int i) {
     final Object[] es = elements;
     final int capacity = es.length;
