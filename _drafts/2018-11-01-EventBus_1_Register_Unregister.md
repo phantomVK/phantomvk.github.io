@@ -1,7 +1,6 @@
 ---
 layout:     post
-title:      "EventBus源码"
-subtitle:   ""
+title:      "EventBus源码解析 -- 一、注册订阅与注销订阅"
 date:       2017-01-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -16,7 +15,7 @@ tags:
 
 __EventBus__ 是为 __Android__ 而设的中心化 __publish/subscribe (发布者/订阅者)__ 事件系统。消息通过 __post(Object)__ 把消息提交到总线，总线把消息分发给订阅者，而该订阅者需拥有匹配消息类型的处理方法。
 
-![EventBus-Publish-Subscribe](/Users/tanwenkang/github/phantomvk.github.io/img/android/EventBus/EventBus-Publish-Subscribe.png)
+![EventBus-Publish-Subscribe](/img/android/EventBus/EventBus-Publish-Subscribe.png)
 
 为能接收消息，订阅者需要通过 __register(Object)__ 把自己注册到总线上。一旦成功注册，订阅者将一直接收对应消息，直到订阅者通过 __unregister(Object)__ 注销监听。处理消息的方法一定需要标注为 __Subscribe__ 注解，且被注解方法为 __Subscribe__、方法返回值为 __void__，且必须只含有一个变量，用于接收来自总线的消息。
 
@@ -36,19 +35,27 @@ __EventBus__ 是为 __Android__ 而设的中心化 __publish/subscribe (发布�
 
 #### 1.2 优点
 
- * simplifies the communication between components
-    * decouples event senders and receivers
-    * performs well with Activities, Fragments, and background threads
-    * avoids complex and error-prone dependencies and life cycle issues
- * makes your code simpler
- * is fast
- * is tiny (~50k jar)
- * is proven in practice by apps with 100,000,000+ installs
- * has advanced features like delivery threads, subscriber priorities, etc.s
+* 简化不同组件间的通讯
+   *  对事件发送者和接收者两者进行解耦
+   *  与Activities、 Fragments、和 background threads 运行得很好
+   *  避免复杂、易错的依赖和生命周期问题
+* 令实现代码更简洁
+* 运行速度快
+* 库体积小 (约50KB)
+* 已经过累计 100,000,000+ 安装量的应用验证
+* 有消息分发线程、订阅者优先级等的高级特性
 
 ## 二、用法
 
 #### 2.1 订阅者
+
+订阅者需要在合适的生命周期把自己注册到消息总线上以便接收关心的事件。同时，由于事件的基础接收单位是方法，所以需要把接收事件的方法添加注解，以便 __EventBus__ 把事件发送到该方法上。
+
+接收者方法需要遵循以下规则：
+
+-  使用 __EventBus__ 的注册修饰方法；
+- 方法不能为 __private__，才能让  __EventBus__ 获取该方法；
+- 方法必须只有一个参数，且参数类型就是所关心事件的类型；
 
 ```java
 class MainActivity : AppCompatActivity() {
@@ -66,7 +73,7 @@ class MainActivity : AppCompatActivity() {
     fun onEventReceived(event: UserEvent) {
         val name = event.name
         val age = event.age
-        Log.i(TAG, "Name: $name, Age: $age.")
+        Log.i(TAG, "Event received, Name: $name, Age: $age.")
     }
     
     override fun onDestroy() {
@@ -76,13 +83,31 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
+除了把实例注册到 __EventBus__ ，如果接收者类对事件不再关心，也需要在合适时间点移除注册。每个接收者类只需向 __EventBus__ 注册一次。为避免多次注册，可以向上述代码一样，在注册前检查是否已注册。
+
 #### 2.2 发布者
+
+对事件发布者来说，工作就不叫简单了。只需要构建目标事件，把数据或负载内容构建到事件中发出即可。如果事件只是为了发出通知，事件实现类可以不带任何数据成员。
 
 ```java
 fun postEvent() {
     val user =UserEvent("Mike", 24)
     EventBus.getDefault().post(user)
 }
+```
+
+#### 2.3 事件消息体
+
+这是示例的消息体，消息体重包含用户的名字和年龄。
+
+```java
+class UserEvent(val name: String, val age: Int)
+```
+
+如果消息只是为了发出简单通知，事件消息体可以不含任何数据成员。例如在 __Kotlin__ 中：
+
+```java
+class Notification
 ```
 
 ## 三、初始化
@@ -124,6 +149,8 @@ public EventBus() {
 ```
 
 #### 3.3 深入构造
+
+构造过程对以下数据成员进行赋值
 
 ```java
 private final Map<Class<?>, CopyOnWriteArrayList<Subscription>> subscriptionsByEventType;
@@ -221,7 +248,7 @@ public void register(Object subscriber) {
 #### 4.2 subscribe
 
 ```java
-// Must be called in synchronized block
+// 此方法必须在同步块中调用
 private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
     Class<?> eventType = subscriberMethod.eventType;
     Subscription newSubscription = new Subscription(subscriber, subscriberMethod);

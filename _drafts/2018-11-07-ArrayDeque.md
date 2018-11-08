@@ -20,42 +20,33 @@ public class ArrayDeque<E> extends AbstractCollection<E>
                            implements Deque<E>, Cloneable, Serializable
 ```
 
-其次，虚拟机擅长基于简单的数组循环上，有效切片的递增、递减索引的优化。例如：
+其次，虚拟机擅长基于有效切片中索引的递增、递减操作，对简单数组循环进行优化。例如：
 
 ```java
 for (int i = start; i < end; i++) ... elements[i]
 ```
 
-因为在环形数组，元素全部保存在两个互不相交如的切片，帮助虚拟机在元素上全遍历的非寻常嵌套环。只有一个热内部循环体，而不是两个或三个，简化人维护并促使虚拟机循环内联到调用者内。
+因为在环形数组，元素全部保存在两个互不相交的切片，通过给元素的遍历写出与众不同的嵌套循环，来帮助虚拟机。仅一个热的内圈循环体而不是两、三个，简化了维护人手，并促使虚拟机把循环内联到调用者内。
 
 源码来自 JDK11
 
 ## 二、数据成员
 
+保存双端数组队列的变量。当数组单个块没有持有双端队列元素时为空。数组存在至少一个空块，作为队列的尾部
+
 ```java
-/*
- * VMs excel at optimizing simple array loops where indices are
- * incrementing or decrementing over a valid slice, e.g.
- *
- * for (int i = start; i < end; i++) ... elements[i]
- *
- * Because in a circular array, elements are in general stored in
- * two disjoint such slices, we help the VM by writing unusual
- * nested loops for all traversals over the elements.  Having only
- * one hot inner loop body instead of two or three eases human
- * maintenance and encourages VM loop inlining into the caller.
- */
-
-// 保存双端数组队列的变量
-// 当数组单个块没有持有双端队列元素时为空
-// 数组存在至少一个空块，作为队列的尾部
 transient Object[] elements;
+```
 
+```java
 // 头元素在数组中的索引值，下标值对应元素由remove()或pop()方法移除
 // 若队列没有元素，head为[0, elements.length)间任意值，与尾引用值相同
 transient int head;
+```
 
-// 下一个元素存入数组尾部的索引值，所以elements[tail]一直为空
+下一个元素存入数组尾部的索引值，所以elements[tail]一直为空
+
+```java
 transient int tail;
 ```
 
@@ -73,7 +64,6 @@ private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
 ```java
 private void grow(int needed) {
-    // overflow-conscious code
     // 获取原数组容量值
     final int oldCapacity = elements.length;
     
@@ -83,7 +73,6 @@ private void grow(int needed) {
     // 或 newCapacity = Integer.MAX_VALUE
     int newCapacity;
 
-    // Double capacity if small; else grow by 50%
     // 若原容量值小于64，则jump为原值两倍再加2，否则jump为原值一半
     int jump = (oldCapacity < 64) ? (oldCapacity + 2) : (oldCapacity >> 1);
 
@@ -107,7 +96,7 @@ private void grow(int needed) {
     }
 }
 
-/** Capacity calculation for edge conditions, especially overflow. */
+// 为边缘条件进行容量计算，尤其是向上移除的情况
 private int newCapacity(int needed, int jump) {
     final int oldCapacity = elements.length, minCapacity;
     
@@ -164,29 +153,21 @@ public ArrayDeque(Collection<? extends E> c) {
 ## 六、静态方法
 
 ```java
-/**
- * Circularly increments i, mod modulus.
- * Precondition and postcondition: 0 <= i < modulus.
- */
+// 循环递增i，实现对i取模的能力。先决条件和事后条件为：0 <= i < modulus
 static final int inc(int i, int modulus) {
     if (++i >= modulus) i = 0;
     return i;
 }
 
-/**
- * Circularly decrements i, mod modulus.
- * Precondition and postcondition: 0 <= i < modulus.
- */
+// 循环递减i，实现对i取模的能力。先决条件和事后条件为：0 <= i < modulus
 static final int dec(int i, int modulus) {
     if (--i < 0) i = modulus - 1;
     return i;
 }
 
-/**
- * Circularly adds the given distance to index i, mod modulus.
- * Precondition: 0 <= i < modulus, 0 <= distance <= modulus.
- * @return index 0 <= i < modulus
- */
+// 循环增加指定距离值到i，实现对i取模的能力
+// 先决条件: 0 <= i < modulus, 0 <= distance <= modulus
+// 返回值：index 0 <= i < modulus
 static final int inc(int i, int distance, int modulus) {
     if ((i += distance) - modulus >= 0) i -= modulus;
     return i;
@@ -199,6 +180,10 @@ static final int inc(int i, int distance, int modulus) {
  * @return the "circular distance" from j to i; corner case i == j
  * is disambiguated to "empty", returning 0.
  */
+// 从i减去j，并对i取模的能力
+// 索引i必须在逻辑上在索引j之前
+// 先决条件: 0 <= i < modulus, 0 <= j < modulus； 
+// 返回值：j到i之间的环形距离；
 static final int sub(int i, int j, int modulus) {
     if ((i -= j) < 0) i += modulus;
     return i;
@@ -210,11 +195,6 @@ static final <E> E elementAt(Object[] es, int i) {
     return (E) es[i];
 }
 
-/**
- * A version of elementAt that checks for null elements.
- * This check doesn't catch all possible comodifications,
- * but does catch ones that corrupt traversal.
- */
 static final <E> E nonNullElementAt(Object[] es, int i) {
     @SuppressWarnings("unchecked") E e = (E) es[i];
     if (e == null)
@@ -226,6 +206,8 @@ static final <E> E nonNullElementAt(Object[] es, int i) {
 ## 七、成员方法
 
 元素主要的插入、获取方法是 __addFirst__、__addLast__、 __pollFirst__、 __pollLast__，其他方法都在此基础上实现
+
+#### 7.1 add
 
 ```java
 // 把执行元素插入到队列头部，若元素为空抛出NullPointerException
@@ -258,14 +240,17 @@ public boolean addAll(Collection<? extends E> c) {
 }
 ```
 
+#### 7.2 copyElements
+
+把集合C的元素添加到本队列尾部
+
 ```java
-// 把集合C的元素添加到本队列尾部
 private void copyElements(Collection<? extends E> c) {
     c.forEach(this::addLast);
 }
 ```
 
-#### offer
+#### 7.3 offer
 
 ```java
 // 把指定元素插入到队列头部
@@ -281,7 +266,7 @@ public boolean offerLast(E e) {
 }
 ```
 
-#### remove
+#### 7.4 remove
 
 ```java
 // 若找不到头元素就抛出NoSuchElementException
@@ -301,7 +286,7 @@ public E removeLast() {
 }
 ```
 
-#### poll
+#### 7.5 poll
 
 ```java
 public E pollFirst() {
@@ -325,6 +310,8 @@ public E pollLast() {
 }
 ```
 
+#### 7.6 get
+
 ```java
 // 找不到元素抛出NoSuchElementException
 public E getFirst() {
@@ -344,7 +331,7 @@ public E getLast() {
 }
 ```
 
-#### peek
+#### 7.7 peek
 
 ```java
 public E peekFirst() {
@@ -356,6 +343,8 @@ public E peekLast() {
     return elementAt(es = elements, dec(tail, es.length));
 }
 ```
+
+#### 7.8 firstOccurrence
 
 移出第一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个。每次查找均从的头部开始，逐个遍历元素寻找匹配项。元素名并移除成功返回 __true__，元素为null或不包含该元素返回 __false__。
 
@@ -397,7 +386,7 @@ public boolean removeLastOccurrence(Object o) {
 }
 ```
 
-#### 队列方法
+#### 7.9 队列方法
 
 ```java
 // 把指定元素插入到队列尾部
@@ -432,7 +421,7 @@ public E peek() {
 }
 ```
 
-#### 栈方法
+#### 7.10 栈方法
 
 ```java
 // 向栈中压入元素，即向本队列头部插入元素。若指定元素为空抛出NullPointerException
@@ -491,7 +480,7 @@ boolean delete(int i) {
 }
 ```
 
-#### 集合方法
+#### 7.11 集合方法
 
 ```java
 // 返回双端队列包含元素的数量
@@ -505,7 +494,7 @@ public boolean isEmpty() {
 }
 ```
 
-#### 位操作
+#### 7.12 位操作
 
 ```java
 // A tiny bit set implementation
@@ -523,7 +512,7 @@ private static boolean isClear(long[] bits, int i) {
 }
 ```
 
-#### contains
+#### 7.13 contains
 
 如果队列包含指定元素返回true。一般来说，队列可能存在多个相同的元素。所以本方法返回true表示队列至少存在一个元素与指定元素相等
 
@@ -543,6 +532,8 @@ public boolean contains(Object o) {
 }
 ```
 
+#### 7.14 remove
+
 从队列中移除指定单个元素。如果队列不含该元素，则队列不会改变。一般来说，队列可能会含有多和相同的元素，每次仅移除其中一个。
 
 ```java
@@ -551,7 +542,7 @@ public boolean remove(Object o) {
 }
 ```
 
-#### clear
+#### 7.14clear
 
 从移除队列中所有元素
 
@@ -561,6 +552,8 @@ public void clear() {
     head = tail = 0;
 }
 ```
+
+调用了以下方法
 
 ```java
 /**
@@ -578,7 +571,7 @@ private static void circularClear(Object[] es, int i, int end) {
 }
 ```
 
-#### toArray
+#### 7.15 toArray
 
 返回包含双端队列所有元素的数组，元素顺序和双端队列元素顺序一致。
 
@@ -668,7 +661,7 @@ public <T> T[] toArray(T[] a) {
 }
 ```
 
-#### checkInvariants
+#### 7.16 checkInvariants
 
 ```java
 void checkInvariants() {
