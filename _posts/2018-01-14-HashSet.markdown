@@ -21,7 +21,7 @@ public class HashSet<E>
 
 ## 二、数据成员
 
-HashSet利用[HashMap](https://phantomvk.github.io/2018/06/30/HashMap/)实现特性，通过HashMap存储key哈希值去重，key对应值非空表明key存在。
+HashSet利用[HashMap](/2018/06/30/HashMap/)实现特性，通过HashMap存储key哈希值去重，key对应值非空表明key存在。
 
 ```java
 private transient HashMap<E,Object> map;

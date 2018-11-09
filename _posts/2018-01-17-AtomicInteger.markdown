@@ -59,13 +59,17 @@ private static final long valueOffset;
 
 ## 五、构造方法
 
+用一个给定的整形值初始化实例
+
 ```java
-// 用一个给定的整形值初始化实例
 public AtomicInteger(int initialValue) {
     value = initialValue;
 }
+```
 
-// 初始化一个值为0的实例
+初始化一个值为0的实例
+
+```java
 public AtomicInteger() {
 }
 ```

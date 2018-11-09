@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-`AbstractStringBuilder`是[StringBuilder](http://phantomvk.github.io/2017/02/23/StringBuilder/)和[StringBuffer](http://phantomvk.github.io/2017/03/06/StringBuffer/)的父类，包含字符串操作的实现逻辑，子类根据各自需求对方法调用做同步处理，类本身线程不安全。作为可变字符串的父类，借助字符数组的形式实现可变字符串，类中大部分方法是字符修改、插入、追加等操作。
+`AbstractStringBuilder`是[StringBuilder](/2017/02/23/StringBuilder/)和[StringBuffer](/2017/03/06/StringBuffer/)的父类，包含字符串操作的实现逻辑，子类根据各自需求对方法调用做同步处理，类本身线程不安全。作为可变字符串的父类，借助字符数组的形式实现可变字符串，类中大部分方法是字符修改、插入、追加等操作。
 
 ```java
 abstract class AbstractStringBuilder implements Appendable, CharSequence
@@ -21,18 +21,29 @@ abstract class AbstractStringBuilder implements Appendable, CharSequence
 
 ## 二、数据成员
 
+保存字符串的数组
+
 ```java
-char[] value; // 保存字符串的数组
-int count;    // 记录字符长度
+char[] value;
+```
+
+记录字符长度
+
+```java
+int count;
 ```
 
 ## 三、构造方法
 
-```java
-// 必要的无参构造方法，用于序列化
-AbstractStringBuilder() { }
+必要的无参构造方法，用于序列化
 
-// 通过指定容量构造字符串数组
+```java
+AbstractStringBuilder() { }
+```
+
+通过指定容量构造字符串数组
+
+```java
 AbstractStringBuilder(int capacity) {
     value = new char[capacity];
 }
@@ -73,15 +84,21 @@ public void ensureCapacity(int minimumCapacity) {
     if (minimumCapacity > 0)
         ensureCapacityInternal(minimumCapacity);
 }
+```
 
-// 包含参数检查，最小容量不得小于已有字符串数组长度，没有同步特性
+包含参数检查，最小容量不得小于已有字符串数组长度，没有同步特性
+
+```java
 private void ensureCapacityInternal(int minimumCapacity) {
     // 仅minimumCapacity大于数组长度可用
     if (minimumCapacity - value.length > 0)
         expandCapacity(minimumCapacity);
 }
+```
 
-// 容量扩增方法，没有大小检查或加入同步特性
+容量扩增方法，没有大小检查或加入同步特性
+
+```java
 void expandCapacity(int minimumCapacity) {
     int newCapacity = value.length * 2 + 2;
     if (newCapacity - minimumCapacity < 0)

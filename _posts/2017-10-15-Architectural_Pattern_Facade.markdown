@@ -35,7 +35,7 @@ tags:
 根据上述需求可以整理以下抽象接口，这些接口虽然已经投入到生产环境，但设计不一定合理，还在进一步演进，请酌情参考。方法具体能力在注释中已经写得很明确，不再复述。
 
 ```java
-// Global avatar loading repository interface.
+// Global avatar loading facade interface.
 public interface IUserAvatarLoader {
 
     // Load avatar into ImageView if exists, else load the default drawable.

@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-相信看过 [StringBuilder](http://phantomvk.coding.me/2017/02/23/StringBuilder/) 的读者都了解`StringBuilder`和`StringBuffer`的异同，这里我们再重温一次。
+相信看过 [StringBuilder](/2017/02/23/StringBuilder/) 的读者都了解`StringBuilder`和`StringBuffer`的异同，这里我们再重温一次。
 
 ```java
 public final class StringBuffer
@@ -19,12 +19,13 @@ public final class StringBuffer
     implements java.io.Serializable, CharSequence
 ```
 
-`StringBuilder`和`StringBuffer`同样继承自[AbstractStringBuilder](https://phantomvk.github.io/2017/03/25/AbstractStringBuilder/)父类，字符串序列增删查改等主要操作由父类实现。`StringBuilder`调用父类方法线程不安全，而`StringBuffer`操作线程安全，均支持序列化。
+`StringBuilder`和`StringBuffer`同样继承自[AbstractStringBuilder](/2017/03/25/AbstractStringBuilder/)父类，字符串序列增删查改等主要操作由父类实现。`StringBuilder`调用父类方法线程不安全，而`StringBuffer`操作线程安全，均支持序列化。
 
 ## 二、数据成员
 
+当字符串被修改之后，此值会被更新
+
 ```java
-// 当字符串被修改之后，此值会被更新
 private transient char[] toStringCache;
 ```
 

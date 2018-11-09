@@ -71,7 +71,7 @@ protected void onCreate(@Nullable Bundle savedInstanceState) {
 }
 ```
 
-`RxLifecycle`缺点这篇文章不会详细说，有兴趣的可以阅读原作者写的文章(英文)：[为什么不用RxLifecycle](http://blog.danlew.net/2017/08/02/why-not-rxlifecycle/)。
+`RxLifecycle`缺点这篇文章不会详细说，有兴趣的可以阅读原作者写的文章(英文)：[为什么不要用RxLifecycle](http://blog.danlew.net/2017/08/02/why-not-rxlifecycle/)。
 
 # 二、源码
 
