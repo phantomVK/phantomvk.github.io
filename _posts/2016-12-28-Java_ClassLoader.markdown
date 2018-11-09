@@ -11,7 +11,7 @@ tags:
 
 # 类加载
 
-Java类通过编译生成对应.class文件，JVM根据运行需要把所需类从.class动态加载到内存并创建实例，ClassLoader负责完成这个加载任务。有了ClassLoader，Java运行时系统不需要知道文件与文件系统的设置。
+Java类通过编译生成对应.class文件，JVM根据运行需要，把所需类从.class动态加载到内存并创建实例，ClassLoader负责完成这个加载任务。有了ClassLoader，Java运行时系统不需要知道文件与文件系统的设置。
 
 正是因为Java类必须由某个类加载器装入到内存，我们也可以在运行时才指定类文件。
 

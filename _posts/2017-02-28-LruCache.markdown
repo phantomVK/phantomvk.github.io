@@ -185,6 +185,7 @@ public void trimToSize(int maxSize) {
         K key;
         V value;
         synchronized (this) {
+            // 出现map以保存元素数量和size值不对应
             if (size < 0 || (map.isEmpty() && size != 0)) {
                 throw new IllegalStateException(getClass().getName()
                         + ".sizeOf() is reporting inconsistent results!");
@@ -195,14 +196,16 @@ public void trimToSize(int maxSize) {
             }
             
             // 获取最近最少使用的元素
+            // 其实就是LinkedHashMap的头节点
             Map.Entry<K, V> toEvict = map.eldest();
+            // LinkedHashMap已空，退出清理
             if (toEvict == null) {
                 break;
             }
 
             key = toEvict.getKey();
             value = toEvict.getValue();
-            // 从LinkedHashMap中移除
+            // 把该元素从LinkedHashMap中移除
             map.remove(key);
             // 调整总大小
             size -= safeSizeOf(key, value);
@@ -262,7 +265,7 @@ protected V create(K key) {
 
 ### 4.6 值大小
 
-私有方法，对`sizeOf()`方法返回结果安全检查。假设item中存放的是Bitmap对象，需重写sizeof对象实现获取该对象的内存大小。
+私有方法，对`sizeOf()`方法返回结果安全检查。假设item中存放的是Bitmap对象，需重写sizeof方法获取该对象占用内存大小。
 
 ```java
 private int safeSizeOf(K key, V value) {
@@ -274,7 +277,7 @@ private int safeSizeOf(K key, V value) {
 }
 ```
 
-拿图片缓存为例：虽然可以控制图片在队列中缓存的数量，但却无法控制图片在内存中的占用。可能出现队列保存若干张图，每张图片占用多达16M内存，以至于为数不多的图片占用大量内存。为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阈值，也要强制释放队列最近最少使用资源，被释放图片以后使用时再重新加载。
+拿图片缓存为例：虽然可以控制图片在队列中缓存的数量，但却无法控制图片在内存中的占用。可能出现队列保存若干张图，每张图片占用多达16M内存，以至于为数不多的图片占用大量内存。为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阈值，也要强制释放队列最近最少使用资源，被释放图片以后使用时通过create(K key)重新加载。
 
 ```java
 protected int sizeOf(K key, V value) {
@@ -282,11 +285,11 @@ protected int sizeOf(K key, V value) {
 }
 ```
 
-默认值为1，表示元素占用一个单位。条目size在运行时不能改变，否则会导致数量控制失效。
+默认值为1，表示元素占用一个单位。条目的size在运行时不能改变，否则会导致数量控制失效。
 
 ### 4.7 清空
 
-调用方法会移除队列保存所有的item。
+调用方法会移除队列保存所有的item
 
 ```java
 public final void evictAll() {
@@ -298,14 +301,14 @@ public final void evictAll() {
 获取队列统计和容量大小的数据
 
 ```java
-// 方法没有重载，返回缓存元素数量;
-// 对于其他类型元素，方法返回所有元素体积总大小.
+// 方法没有重载，返回缓存元素数量
+// 对于其他类型元素，方法返回所有元素体积总大小
 public synchronized final int size() {
     return size;
 }
 
-// 方法没有被重载，返回缓存元素数量最大值;
-// 对于其他类型元素，方法返回所有元素体积最大值.
+// 方法没有被重载，返回缓存元素数量最大值
+// 对于其他类型元素，方法返回缓存元素体积最大值
 public synchronized final int maxSize() {
     return maxSize;
 }
@@ -320,7 +323,7 @@ public synchronized final int missCount() {
     return missCount;
 }
 
-// 新元素被创建次数
+// 新元素创建次数
 public synchronized final int createCount() {
     return createCount;
 }
@@ -338,7 +341,7 @@ public synchronized final int evictionCount() {
 
 ### 4.9 队列快照
 
-返回队列快照的浅拷贝，且保留所有元素最近访问的顺序。
+返回队列快照的浅拷贝，且保留所有元素最近访问顺序
 
 ```java
 public synchronized final Map<K, V> snapshot() {

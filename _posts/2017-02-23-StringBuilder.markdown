@@ -11,7 +11,7 @@ tags:
 
 # 一、前言
 
-`StringBuilder`是可变字符串序列，API和[StringBuffer](http://phantomvk.github.io/2017/03/06/StringBuffer/)兼容。`StringBuilder`不保证线程安全，而[StringBuffer](http://phantomvk.github.io/2017/03/06/StringBuffer/)可以。
+`StringBuilder`是可变字符串序列，API和[StringBuffer](/2017/03/06/StringBuffer/)兼容。`StringBuilder`不保证线程安全，而[StringBuffer](/2017/03/06/StringBuffer/)可以。
 
 由于单线程没有线程同步的要求，所以`StringBuilder`在单线程中比`StringBuffer`拥有更好的性能。同样道理，多线程中应该使用`StringBuffer`保证字符串修改的安全。
 
@@ -25,7 +25,7 @@ public final class StringBuilder
     implements java.io.Serializable, CharSequence
 ```
 
-`StringBuffer`同样继承自`AbstractStringBuilder`，调用方法时增加了`synchronized`同步锁。这是`StringBuilder`和`StringBuffer`在API互相兼容、线程安全存在差异的原因。由此可知，阅读[AbstractStringBuilder](https://phantomvk.github.io/2017/03/25/AbstractStringBuilder/)才能了解可变字符串如何实现，仅看`StringBuffer`和`StringBuilder`没有太大帮助。
+`StringBuffer`同样继承自`AbstractStringBuilder`，调用方法时增加了`synchronized`同步锁。这是`StringBuilder`和`StringBuffer`在API互相兼容、线程安全存在差异的原因。由此可知，阅读[AbstractStringBuilder](/2017/03/25/AbstractStringBuilder/)才能了解可变字符串如何实现，仅看`StringBuffer`和`StringBuilder`没有太大帮助。
 
 # 三、构造方法
 

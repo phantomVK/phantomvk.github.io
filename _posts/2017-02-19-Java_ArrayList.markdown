@@ -13,7 +13,7 @@ tags:
 
 ## 一、类签名
 
-源码版本为JDK8，ArrayList实现了`随机存储`、`克隆`、`序列化`接口，且多线程操作不安全，需要线程安全请参考：[CopyOnWriteArrayList](https://phantomvk.github.io/2018/08/09/CopyOnWriteArrayList/)。
+源码版本为JDK8，ArrayList实现了 __随机存储__、__克隆__、__序列化__ 接口，且多线程操作不安全，需要线程安全请参考：[CopyOnWriteArrayList](/2018/08/09/CopyOnWriteArrayList/)。
 
 ```java
 public class ArrayList<E> extends AbstractList<E>
@@ -92,7 +92,8 @@ public ArrayList(Collection<? extends E> c) {
         if (elementData.getClass() != Object[].class)
             elementData = Arrays.copyOf(elementData, size, Object[].class);
     } else {
-        this.elementData = EMPTY_ELEMENTDATA; // 空集合构建为空数组列表，等同initialCapacity为0的情况
+        // 空集合构建为空数组列表，等同initialCapacity为0的情况 
+        this.elementData = EMPTY_ELEMENTDATA;
     }
 }
 ```
@@ -122,6 +123,8 @@ public void trimToSize() {
 
 ```java
 public void ensureCapacity(int minCapacity) {
+    // DEFAULTCAPACITY_EMPTY_ELEMENTDATA -> 10
+    // EMPTY_ELEMENTDATA -> 0
     int minExpand = (elementData != DEFAULTCAPACITY_EMPTY_ELEMENTDATA) ? 
             0 : DEFAULT_CAPACITY;
 
@@ -183,6 +186,7 @@ private void grow(int minCapacity) {
     // 上溢检查
     if (newCapacity - MAX_ARRAY_SIZE > 0)
         newCapacity = hugeCapacity(minCapacity);
+
     // 选择minCapacity是因为其更接近Size
     elementData = Arrays.copyOf(elementData, newCapacity);
 }
@@ -195,6 +199,7 @@ private static int hugeCapacity(int minCapacity) {
     // 下溢检查
     if (minCapacity < 0)
         throw new OutOfMemoryError();
+
     return (minCapacity > MAX_ARRAY_SIZE) ?
         Integer.MAX_VALUE :
         MAX_ARRAY_SIZE;

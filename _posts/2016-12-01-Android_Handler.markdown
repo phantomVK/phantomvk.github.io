@@ -13,7 +13,7 @@ tags:
 
 Handler有两个主要用法：
 
- * 计划在将来某个时间点处理Message和Runnable
+ * 计划在将来某个时间点处理[Message](/2016/11/13/Android_Message/)和Runnable
  * 在不同线程里将一个动作加入Handler所对应的队列去执行
 
 # 二、成员变量
@@ -21,16 +21,23 @@ Handler有两个主要用法：
 Handler有4个不可变成员变量：
 
 ```java
-final MessageQueue mQueue;   // 消息队列
-final Looper mLooper;        // 消息队列所属Looper
-final Callback mCallback;    // 可选Handler回调
-final boolean mAsynchronous; // 可选异步标志
+// 消息队列
+final MessageQueue mQueue;
+
+// 消息队列所属Looper
+final Looper mLooper;
+
+// 可选Handler回调
+final Callback mCallback;
+
+// 可选异步标志
+final boolean mAsynchronous;
 ```
 
 
 # 三、构造方法
 
-如果线程已经开启Looper，Handler可以使用下列构造方法。
+如果线程已经启动[Looper](/2016/12/03/Android_Looper/)，Handler可以使用下列构造方法。
 
 ```java
 public Handler() {
@@ -44,10 +51,13 @@ public Handler(Callback callback) {
 public Handler(boolean async) {
     this(null, async);
 }
+```
 
+判断是否匿名类、本地类、成员类，判断修饰符是否static，避免内存泄漏。只要是静态内部类，就不会持有外部类引用从而造成内存泄漏
+​    
+```java
 public Handler(Callback callback, boolean async) {
-    // 判断是否匿名类、本地类、成员类，判断修饰符是否static，避免内存泄漏
-    // 只要是静态内部类，就不会持有外部类引用从而造成内存泄漏
+    // FIND_POTENTIAL_LEAKS默认为false
     if (FIND_POTENTIAL_LEAKS) {
         final Class<? extends Handler> klass = getClass();
         if ((klass.isAnonymousClass() || klass.isMemberClass() || klass.isLocalClass()) &&
@@ -114,16 +124,21 @@ private static Message getPostMessage(Runnable r, Object token) {
 
 ```java
 public final boolean post(Runnable r) {
-   return sendMessageDelayed(getPostMessage(r), 0); //delayMillis = 0 
+    // 把runnable封装为Message
+    return sendMessageDelayed(getPostMessage(r), 0); //delayMillis = 0 
 }
+```
 
-// 时间单位毫秒，如:delayMillis = 1000
+时间单位毫秒，如:delayMillis = 1000
+
+```java
 public final boolean postDelayed(Runnable r, long delayMillis) {
+    // 把runnable封装为Message
     return sendMessageDelayed(getPostMessage(r), delayMillis);
 }
 ```
 
-方法形参是`msg`或`msg.what`，方法名组成是 `sendMessage()`：
+方法形参是`msg`或`msg.what`，方法名组成是 __sendMessage()__：
 
 ```java
 public final boolean sendMessage(Message msg) {
@@ -138,11 +153,11 @@ public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
 }
 ```
 
-以上方法带`Delayed`可设置延迟时间，带`EmptyMessage`为创建空消息。共同点是都调用了`sendMessageDelayed()`，并返回这个调用的结果。
+以上方法带 __Delayed__ 可设置延迟时间，带 __EmptyMessage__ 为创建空消息。共同点是都调用 __sendMessageDelayed()__，并返回这个调用的结果。
 
-`SystemClock.uptimeMillis()`从开机到现在的毫秒数，不包括手机睡眠时间。可能为了避免用户调整系统时间后影响消息分发时间。
+__SystemClock.uptimeMillis()__ 从开机到现在的毫秒数，不包括手机睡眠时间。可能为了避免用户调整系统时间后影响消息分发时间。
 
-`postAtTime()`重载方法调用了`sendMessageAtTime()`。
+__postAtTime()__ 重载方法调用了 __sendMessageAtTime()__。
 
 ```java
 public final boolean postAtTime(Runnable r, long uptimeMillis){
@@ -154,7 +169,9 @@ public final boolean postAtTime(Runnable r, Object token, long uptimeMillis){
 }
 ```
 
-`sendEmptyMessage()`调`sendEmptyMessageDelayed()`，`sendEmptyMessageDelayed()`和`sendEmptyMessageAtTime`最终调用`sendMessageAtTime()`。
+__sendEmptyMessage()__ 调 __sendEmptyMessageDelayed()__
+
+__sendEmptyMessageDelayed()__ 和 __sendEmptyMessageAtTime__ 最终调用 __sendMessageAtTime()__。
 
 ```java
 public final boolean sendEmptyMessage(int what) {
@@ -175,7 +192,7 @@ public final boolean sendEmptyMessageAtTime(int what, long uptimeMillis) {
 }
 ```
 
-总而言之，上面所有post和send都终结在`sendMessageAtTime()`，把消息确定一个具体执行时间点，然后送进消息队列中。
+总而言之，上面所有post和send都终结在 __sendMessageAtTime()__，把消息确定一个具体执行时间点，然后送进消息队列中。
 
 ```java
 public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
@@ -190,7 +207,7 @@ public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
 }
 ```
 
-消息默认放在消息队列的队尾处，返回`true`代表成功进入队列，不代表消息会被调度。一般消息队列都会等待所有消息完成才退出。如果手动关闭消息队列，滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
+消息默认放在消息队列的队尾处，返回`true`代表成功进入队列，但不代表消息已被调度。一般消息队列都会等待所有消息完成才退出。如果手动关闭消息队列，滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
 
 ```java
 private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
@@ -217,6 +234,7 @@ public final boolean sendMessageAtFrontOfQueue(Message msg) {
         Log.w("Looper", e.getMessage(), e);
         return false;
     }
+    // 消息送入消息队列
     return enqueueMessage(queue, msg, 0);
 }
 ```
