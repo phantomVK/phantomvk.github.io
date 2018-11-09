@@ -9,66 +9,92 @@ tags:
     - Android源码系列
 ---
 
-Handler是Android中一种处理线程消息循环的机制，而 [Message](https://developer.android.com/reference/android/os/Message.html) 是Handler放消息的包装。
+[Handler](/2016/12/01/Android_Handler/)是Android中一种处理线程消息循环的机制，而[Message](https://developer.android.com/reference/android/os/Message.html)是Handler放消息的包装。
 
 ```java
 public final class Message implements Parcelable
 ```
 
-Android常用序列化有 Serializable 和 [Parcelable](https://developer.android.com/reference/android/os/Parcelable.html) 两种，该类实现了后者。前者用的时间比较长且范围更广，但是序列化过程中产生大量小对象。后者性能好，但是需要手动实现序列化实现方法，只可在Android中使用。
+Android常用序列化有 Serializable 和[Parcelable](https://developer.android.com/reference/android/os/Parcelable.html)两种，该类实现了后者。前者用的时间比较长且范围更广，但是序列化过程中产生大量小对象。后者性能好，但需要手动实现序列化实现方法，只在Android中使用。
 
 
 # 一、成员变量
 
-用一个标志来区分不同消息的身份，不同Handler使用相同值的消息不会弄混。一般用十六进制形式表示，阅读起来比较容易。
+用一个标志来区分不同消息的身份，不同Handler使用相同值的消息不会弄混。因为日志输出时，该值以16进制的形式显示，所以设置该值时建议用16进制。
 
 ```java
 public int what; // 0x01
 ```
 
-`arg1`和`arg2`都是类中可选变量，用于存放两个整形值，不访问`obj`对象即可读取变量。
+`arg1`和`arg2`是类中可选变量，用于存放两个整形值，无需访问`obj`对象即可使用。
 
 ```java
 public int arg1; 
 public int arg2;
 ```
 
-`obj`用来保存对象，接受消息后取出获得传送的对象。
+`obj`用来保存对象(负载)，接受消息后取出获得传送的对象。
 
 ```java
-public Object obj; // 用来保存对象
-public Messenger replyTo; // 回复跨进程的Messenger
-public int sendingUid = -1; // Messenger发送时使用
+// 用来保存对象
+public Object obj;
+
+// 回复跨进程的Messenger
+public Messenger replyTo;
+
+// Messenger发送时使用
+public int sendingUid = -1;
 ```
 相关标志位：
 
 ```java
-static final int FLAG_IN_USE = 1 << 0; // 正在使用标志值
-static final int FLAG_ASYNCHRONOUS = 1 << 1; // 异步标志值
+// 正在使用标志值
+static final int FLAG_IN_USE = 1 << 0;
+
+// 异步标志值
+static final int FLAG_ASYNCHRONOUS = 1 << 1;
+
 static final int FLAGS_TO_CLEAR_ON_COPY_FROM = FLAG_IN_USE;
 
-int flags; // 消息标志，上面三个常量 FLAG_* 用在这里
-long when; // 存时间戳
+// 消息标志，上面三个常量 FLAG_* 用在这里
+int flags;
+
+// 消息时间戳，消息可以分发的时间点
+long when;
 ```
 其他数据成员：
 ```java
-Bundle data;    // 存放Bundle
-Handler target; // 存放Handler实例
-Runnable callback; // 消息回调操作
-Message next;   // 消息池用链表的方式存储
+// 存放Bundle
+Bundle data;
 
-private static final Object sPoolSync = new Object(); // 消息池同步锁对象
-private static Message sPool; // 消息池
-private static int sPoolSize = 0; // 已缓存消息数量
-private static final int MAX_POOL_SIZE = 50; // 消息池最大容量
-private static boolean gCheckRecycle = true; // 该版本系统是否支持回收标志位
+// 存放所属Handler实例
+Handler target;
+
+// 消息回调操作
+Runnable callback;
+
+// 消息池用链表的方式存储
+Message next;
+
+// 消息池同步锁对象
+private static final Object sPoolSync = new Object();
+
+// 消息池
+private static Message sPool;
+
+// 已缓存消息数量
+private static int sPoolSize = 0;
+
+// 消息池最大容量
+private static final int MAX_POOL_SIZE = 50;
+
+// 该版本系统是否支持回收标志位
+private static boolean gCheckRecycle = true;
 ```
 
 # 二、消息体获取
 
-从消息池中获得可复用消息对象。方法体有一个同步代码块，`sPoolSync`作为锁标志，避免不同线程取同一个空消息体导致使用紊乱。如果没有可复用对象，则创建新Message对象。
-
-可手动创建一个消息对象，但是最好的方式还是从`obtain()`中获取缓存好的空消息体，避免创建多余对象。
+从消息池中获得可复用消息对象。方法体有一个以`sPoolSync`作为锁标志的同步代码块，避免不同线程取同一个空消息体导致使用紊乱。没有可复用对象则直接创建新Message对象。当然也可以手动创建新消息对象，但是最好的方式还是从`obtain()`中获取缓存好的空消息体。
 
 ```java
 public static Message obtain() {
@@ -194,13 +220,14 @@ public static void updateCheckRecycle(int targetSdkVersion) {
 ```java
 public void recycle() {
     if (isInUse()) {
+        // 低于Android 5.0为false
         if (gCheckRecycle) {
             throw new IllegalStateException("This message cannot be recycled because it "
                     + "is still in use.");
         }
         return;
     }
-    // 没有回收过，送去回收
+
     recycleUnchecked();
 }
 ```
@@ -209,7 +236,7 @@ public void recycle() {
 
 ```java
 void recycleUnchecked() {
-    flags = FLAG_IN_USE; // 添加正在使用标志位，其他情况就清除掉
+    flags = FLAG_IN_USE;
     what = 0;
     arg1 = 0;
     arg2 = 0;
@@ -221,7 +248,7 @@ void recycleUnchecked() {
     callback = null;
     data = null;
     
-    // 最多缓存50个空消息体
+    // 把消息加入到缓存池，最多缓存50个空消息体
     synchronized (sPoolSync) {
         if (sPoolSize < MAX_POOL_SIZE) {
             next = sPool;
@@ -295,6 +322,7 @@ public void sendToTarget() {
     target.sendMessage(this);
 }
 
+// async为true将不受MessageQueue中SyncBarrier的影响
 public void setAsynchronous(boolean async) {
     if (async) {
         flags |= FLAG_ASYNCHRONOUS;
@@ -319,68 +347,3 @@ void markInUse() {
     flags |= FLAG_IN_USE;
 }
 ```
-
-# 七、Parcelable实现
-
-实现Parcelable接口的方法`describeContents()`、`writeToParcel()`、`readFromParcel()`
-
-```java
-public static final Parcelable.Creator<Message> CREATOR
-        = new Parcelable.Creator<Message>() {
-    // 通过Parcelable构造一个Message
-    public Message createFromParcel(Parcel source) {
-        Message msg = Message.obtain();
-        msg.readFromParcel(source);
-        return msg;
-    }
-    
-    public Message[] newArray(int size) {
-        return new Message[size];
-    }
-};
-    
-public int describeContents() {
-    return 0;
-}
-
-public void writeToParcel(Parcel dest, int flags) {
-    if (callback != null) {
-        throw new RuntimeException(
-            "Can't marshal callbacks across processes.");
-    }
-    dest.writeInt(what);
-    dest.writeInt(arg1);
-    dest.writeInt(arg2);
-    // obj对象一定要实现了Parcelable，否则无法支持跨进程通讯
-    if (obj != null) {
-        try {
-            Parcelable p = (Parcelable)obj;
-            dest.writeInt(1);
-            dest.writeParcelable(p, flags);
-        } catch (ClassCastException e) {
-            throw new RuntimeException(
-                "Can't marshal non-Parcelable objects across processes.");
-        }
-    } else {
-        dest.writeInt(0);
-    }
-    dest.writeLong(when);
-    dest.writeBundle(data);
-    Messenger.writeMessengerOrNullToParcel(replyTo, dest);
-    dest.writeInt(sendingUid);
-}
-
-private void readFromParcel(Parcel source) {
-    what = source.readInt();
-    arg1 = source.readInt();
-    arg2 = source.readInt();
-    if (source.readInt() != 0) {
-        obj = source.readParcelable(getClass().getClassLoader());
-    }
-    when = source.readLong();
-    data = source.readBundle();
-    replyTo = Messenger.readMessengerOrNullFromParcel(source);
-    sendingUid = source.readInt();
-}
-```
-

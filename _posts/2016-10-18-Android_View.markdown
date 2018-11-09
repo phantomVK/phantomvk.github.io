@@ -17,7 +17,7 @@ tags:
 
 #### 1.1 自定义Button
 
-为了能看见事件调用什么方法，先继承 __Button__ 类并重载 __dispatchTouchEvent()__ 和 __onTouchEvent()__ 。而所有发送给View的事件，先由 __dispatchTouchEvent()__ 接收。
+为能看见事件调用方法，所以继承 __Button__ 类，并重载 __dispatchTouchEvent()__ 和 __onTouchEvent()__ 。
 
 ```java
 public class MyButton extends Button {
@@ -35,12 +35,15 @@ public class MyButton extends Button {
             case MotionEvent.ACTION_DOWN:
                 Log.e(TAG, "dispatchTouchEvent ACTION_DOWN");
                 break;
+
             case MotionEvent.ACTION_MOVE:
                 Log.e(TAG, "dispatchTouchEvent ACTION_MOVE");
                 break;
+
             case MotionEvent.ACTION_UP:
                 Log.e(TAG, "dispatchTouchEvent ACTION_UP");
                 break;
+
             default:
                 break;
         }
@@ -54,12 +57,15 @@ public class MyButton extends Button {
             case MotionEvent.ACTION_DOWN:
                 Log.e(TAG, "onTouchEvent ACTION_DOWN");
                 break;
+
             case MotionEvent.ACTION_MOVE:
                 Log.e(TAG, "onTouchEvent ACTION_MOVE");
                 break;
+
             case MotionEvent.ACTION_UP:
                 Log.e(TAG, "onTouchEvent ACTION_UP");
                 break;
+
             default:
                 break;
         }  
@@ -70,7 +76,7 @@ public class MyButton extends Button {
 
 #### 1.2 xml布局
 
-在 __main_activity.xml__ 中使用自定义的 __Button__
+在 __main_activity.xml__ 使用自定义 __MyButton__
 
 ```xml
 <RelativeLayout 
@@ -85,22 +91,21 @@ public class MyButton extends Button {
 </RelativeLayout>
 ```
 
-#### 1.3 MainActivity
+#### 1.3 初始化
 
-绑定按钮并给按钮设置一个监听器 __OnTouchListener__  ，下文会说明这个监听器的用途。
+绑定按钮并给按钮设置一个监听器 __OnTouchListener__  ，下文会说明这个监听器的作用。
 
 ```java
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "MainActivity";
-    private Button mButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        mButton = (Button) findViewById(R.id.MyButton);
+        Button mButton = (Button) findViewById(R.id.MyButton);
         mButton.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
@@ -109,12 +114,15 @@ public class MainActivity extends AppCompatActivity {
                     case MotionEvent.ACTION_DOWN:
                         Log.e(TAG, "onTouch ACTION_DOWN");
                         break;
+
                     case MotionEvent.ACTION_MOVE:
                         Log.e(TAG, "onTouch ACTION_MOVE");
                         break;
+
                     case MotionEvent.ACTION_UP:
                         Log.e(TAG, "onTouch ACTION_UP");
                         break;
+
                     default:
                         break;
                 }
@@ -129,9 +137,11 @@ public class MainActivity extends AppCompatActivity {
 
 #### 2.1 OnTouchListener 返回 false
 
-__View.OnTouchListener__ 返回 __false__ ，点击按钮马上放开。如果手指一直在屏幕上滑动，Log的 __ACTION_DOWN__ 和 __ACTION_UP__ 之间会报告 __ACTION_MOVE__ 的信息。我们并不关心 __ACTION_MOVE__ 的状态，所以忽略它的消息。
+__View.OnTouchListener__ 返回 __false__ ，点击按钮马上放开。
 
-结果按照 __dispatchTouchEvent__ -> __onTouch__ -> __onTouchEvent__ 的顺序出现
+如果手指一直在屏幕上滑动，Log的 __ACTION_DOWN__ 和 __ACTION_UP__ 之间会报告 __ACTION_MOVE__ 的信息。我们并不关心 __ACTION_MOVE__ 的状态，所以忽略它的消息。
+
+可见，结果按照 __dispatchTouchEvent()__ -> __onTouch()__ -> __onTouchEvent()__ 的顺序出现
 
 ```
 10-13 23:53:29.382 17840-17840/? E/MyButton: dispatchTouchEvent ACTION_DOWN
@@ -145,7 +155,7 @@ __View.OnTouchListener__ 返回 __false__ ，点击按钮马上放开。如果�
 
 #### 2.2 OnTouchListener 返回 true
 
-__View.OnTouchListener__ 返回 __true__ ，点击按钮马上放开： __dispatchTouchEvent()__ ->  __onTouch__
+__View.OnTouchListener__ 返回 __true__ ，点击按钮马上放开： __dispatchTouchEvent()__ ->  __onTouch()__
 
 ```
 10-13 23:55:32.523 18106-18106/? E/MyButton: dispatchTouchEvent ACTION_DOWN
@@ -155,13 +165,13 @@ __View.OnTouchListener__ 返回 __true__ ，点击按钮马上放开： __dispat
 10-13 23:55:32.554 18106-18106/? E/MainActivity: onTouch ACTION_UP
 ```
 
-__onTouchEvent()__ 没有触发，说明事件没有分发到 __onTouchEvent()__ 。
+对比2.1节的日志，__onTouchEvent()__ 没有触发，说明事件没有分发到 __onTouchEvent()__ 。
 
 # 三、源码分析
 
 #### 3.1 dispatchTouchEvent
 
-先看 __dispatchTouchEvent__ 源码
+先看 __dispatchTouchEvent__ 源码，这是所有 __View__ 最先接收触摸事件的方法。
 
 ```java
 public boolean dispatchTouchEvent(MotionEvent event) {
@@ -181,7 +191,8 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 
     final int actionMasked = event.getActionMasked();
     if (actionMasked == MotionEvent.ACTION_DOWN) {
-        stopNestedScroll(); // 新手势的防御性清理
+        // Defensive cleanup for new gesture
+        stopNestedScroll();
     }
 
     if (onFilterTouchEventForSecurity(event)) {
@@ -194,16 +205,18 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         if (li != null && li.mOnTouchListener != null
                 && (mViewFlags & ENABLED_MASK) == ENABLED
                 && li.mOnTouchListener.onTouch(this, event)) {
-            result = true; // mOnTouchListener.onTouch()消费该事件
+            // li.mOnTouchListener.onTouch()消费该事件
+            result = true;
         }
         
-        // 若li.mOnTouchListener.onTouch(this, event)没有执行或返回false，交给onTouchEvent()处理
+        // 若li.mOnTouchListener.onTouch()没有执行
+        // 或消费事件后返回false，事件将交给onTouchEvent()处理
         if (!result && onTouchEvent(event)) {
             result = true;
         }
     }
 
-    // mOnTouchListener.onTouch()和onTouchEvent(event)都没有消费事件
+    // li.mOnTouchListener.onTouch()和onTouchEvent(event)都没有消费事件
     if (!result && mInputEventConsistencyVerifier != null) {
         mInputEventConsistencyVerifier.onUnhandledEvent(event, 0);
     }
@@ -219,6 +232,12 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 ```
 
 从上述源码可知，点击事件进入 __dispatchTouchEvent()__ ，在此方法内先给 __mOnTouchListener()__ 消费事件。如果 __mOnTouchListener()__ 不消费该事件，则继续下发给 __onTouchEvent(event)__ 。
+
+流程图解：
+
+![View_dispatchTouchEvent](/img/android/event/View_dispatchTouchEvent.png)
+
+#### 3.2 li.mOnTouchListener
 
 那么 __li.mOnTouchListener__ 在哪里设定呢？从下面这段截取的代码可知：
 
@@ -242,7 +261,7 @@ public void setOnTouchListener(OnTouchListener l) {
 }
 ```
 
-而 __getListenInfo()__ 里面判断 __mListenerInfo__ 是否为空，非空直接返回，否则创建新的 __ListenerInfo__ 。
+ __getListenInfo()__ 里面判断 __mListenerInfo__ 非空返回结果，否则创建新 __ListenerInfo__ 。
 
 ```java
 ListenerInfo getListenerInfo() {
@@ -254,13 +273,13 @@ ListenerInfo getListenerInfo() {
 }
 ```
 
-#### 3.2 onTouchEvent
+#### 3.3 onTouchEvent
 
 上文提到 __View.OnTouchListener()__ 的返回值决定事件是否继续分发给 __onTouchEvent__ 。假如 __OnTouchListener()__ 返回 __false__ ，则 __onTouchEvent__ 接收事件。
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
-    // 获取动作点击屏幕的位置
+    // 获取动作点击屏幕的坐标
     final float x = event.getX();
     final float y = event.getY();
 
@@ -274,7 +293,7 @@ public boolean onTouchEvent(MotionEvent event) {
             setPressed(false);
         }  
          
-        // 可点击或长按不可用的View仅消费事件，不触发具体动作
+        // 点击或长按仅消费事件，不触发具体动作
        	return (((viewFlags & CLICKABLE) == CLICKABLE
                 || (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE)
                 || (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE);
@@ -283,7 +302,8 @@ public boolean onTouchEvent(MotionEvent event) {
     // 触摸代理处理事件
     if (mTouchDelegate != null) {
         if (mTouchDelegate.onTouchEvent(event)) {
-            return true; // 代理处理成功
+            // 代理处理成功
+            return true;
         }
     }
     
@@ -296,7 +316,9 @@ public boolean onTouchEvent(MotionEvent event) {
         } 
         return true;
     }
-    return false; // OnTouchEvent没有消费事件，最终dispatchTouchEvent()返回false
+    
+    // OnTouchEvent没有消费事件，最终dispatchTouchEvent()返回false
+    return false;
 }
 ```
 
@@ -334,7 +356,8 @@ private static final int DEFAULT_LONG_PRESS_TIMEOUT = 500;
 
 #### 4.1 MotionEvent.ACTION_DOWN
 ```java
-mHasPerformedLongPress = false; // 长按事件默认为false;
+// 长按事件默认为false
+mHasPerformedLongPress = false;
 
 if (performButtonActionOnTouchDown(event)) {
     break;
@@ -345,7 +368,8 @@ boolean isInScrollingContainer = isInScrollingContainer();
 
 // 在可滚动的视图中会增加点击的检查
 if (isInScrollingContainer) {
-    mPrivateFlags |= PFLAG_PREPRESSED; // 增加PREPRESSED标志
+    // 增加PREPRESSED标志
+    mPrivateFlags |= PFLAG_PREPRESSED;
 
     // 创建CheckForTap()实例
     if (mPendingCheckForTap == null) {
@@ -357,8 +381,10 @@ if (isInScrollingContainer) {
     // 100ms后检查能否达到PRESSED状态
     postDelayed(mPendingCheckForTap, ViewConfiguration.getTapTimeout());
 } else {
-    setPressed(true, x, y); // 不在滚动容器就改变PRESSED状态
-    checkForLongClick(0);   // 开始检测长按动作
+    // 不在滚动容器就改变PRESSED状态
+    setPressed(true, x, y);
+    // 开始检测长按动作
+    checkForLongClick(0);
 }
 ```
 
@@ -374,10 +400,10 @@ private final class CheckForTap implements Runnable {
         // 取消PFLAG_PREPRESSED标志
         mPrivateFlags &= ~PFLAG_PREPRESSED;
         
-        // 点击位置没有移动就变为PRESSED标志
+        // 触摸位置没有变化，状态变为PRESSED
         setPressed(true, x, y);
         
-        // 开始长按动检查
+        // 开始长按检查
         checkForLongClick(ViewConfiguration.getTapTimeout());
     }
 }
@@ -385,7 +411,7 @@ private final class CheckForTap implements Runnable {
 
 **checkForLongClick**
 
-仅在View支持长按时执行有效，否则直接退出方法
+仅在View支持长按时有效，否则直接退出方法
 
 ```java
 private void checkForLongClick(int delayOffset) {
@@ -431,7 +457,7 @@ private final class CheckForLongPress implements Runnable {
 }
 ```
 
-在run里面调用的`performLongClick()`，如果设置长按监听会在以下方法调用。方法返回handled值，直接控制`CheckForLongPress()`的**mHasPerformedLongPress**。
+在run里面调用的`performLongClick()`，设置的长按监听在以下方法调用。方法返回handled值，直接控制`CheckForLongPress()`的**mHasPerformedLongPress**。
 
 
 ```java

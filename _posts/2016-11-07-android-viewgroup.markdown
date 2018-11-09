@@ -34,12 +34,15 @@ public class MyLinearLayout extends LinearLayout {
             case MotionEvent.ACTION_DOWN:
                 Log.e(TAG, "dispatchTouchEvent ACTION_DOWN");
                 break;
+
             case MotionEvent.ACTION_MOVE:
                 Log.e(TAG, "dispatchTouchEvent ACTION_MOVE");
                 break;
+
             case MotionEvent.ACTION_UP:
                 Log.e(TAG, "dispatchTouchEvent ACTION_UP");
                 break;
+
             default:
                 break;
         }
@@ -53,12 +56,15 @@ public class MyLinearLayout extends LinearLayout {
             case MotionEvent.ACTION_DOWN:
                 Log.e(TAG, "onInterceptTouchEvent ACTION_DOWN");
                 break;
+
             case MotionEvent.ACTION_MOVE:
                 Log.e(TAG, "onInterceptTouchEvent ACTION_MOVE");
                 break;
+
             case MotionEvent.ACTION_UP:
                 Log.e(TAG, "onInterceptTouchEvent ACTION_UP");
                 break;
+
             default:
                 break;
         }
@@ -72,12 +78,15 @@ public class MyLinearLayout extends LinearLayout {
             case MotionEvent.ACTION_DOWN:
                 Log.e(TAG, "onTouchEvent ACTION_DOWN");
                 break;
+
             case MotionEvent.ACTION_MOVE:
                 Log.e(TAG, "onTouchEvent ACTION_MOVE");
                 break;
+
             case MotionEvent.ACTION_UP:
                 Log.e(TAG, "onTouchEvent ACTION_UP");
                 break;
+
             default:
                 break;
         }
@@ -138,6 +147,10 @@ demoproject E/MyButton: dispatchTouchEvent ACTION_UP
 demoproject E/MyButton: onTouchEvent ACTION_UP
 ```
 
+流程图：
+
+![ViewGroup_View_dispatchTouchEvent](/img/android/event/ViewGroup_View_dispatchTouchEvent.png)
+
 # 三、源码剖析
 
 #### 3.1 dispatchTouchEvent
@@ -165,7 +178,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 
         // 有MotionEvent.ACTION_DOWN事件
         if (actionMasked == MotionEvent.ACTION_DOWN) {
-            // 开始一个新的触摸动作时先丢弃之前所有的状态
+            // 开始新触摸动作时先丢弃之前所有状态
             // 框架可能由于APP切换、ANR或其他状态改变，结束了先前抬起或取消事件
             cancelAndClearTouchTargets(ev); // 取消并清除触摸的Targets
             resetTouchState(); // 重置触摸状态
@@ -387,19 +400,23 @@ public boolean onFilterTouchEventForSecurity(MotionEvent event) {
 
 #### 3.3 requestDisallowInterceptTouchEvent
 
+禁止 __ViewGroup__ 拦截事件
+
 ```java
 public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
-
+    // 如果disallowIntercept和ViewGroup的值一致，则不需要改变该值
     if (disallowIntercept == ((mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0)) {
         return;
     }
 
+    // 改变该ViewGroup对应标志位
     if (disallowIntercept) {
         mGroupFlags |= FLAG_DISALLOW_INTERCEPT;
     } else {
         mGroupFlags &= ~FLAG_DISALLOW_INTERCEPT;
     }
 
+    // 通知该ViewGroup的父ViewGroup逐层向上修改disallowIntercept
     if (mParent != null) {
         mParent.requestDisallowInterceptTouchEvent(disallowIntercept);
     }
@@ -407,7 +424,7 @@ public void requestDisallowInterceptTouchEvent(boolean disallowIntercept) {
 ```
 
 
-#### 3.4 buildOrderedChildList()
+#### 3.4 buildOrderedChildList
 
 建立一个视图组的列表，通过虚拟的Z轴来进行排序。
 
@@ -417,8 +434,10 @@ ArrayList<View> buildOrderedChildList() {
     if (count <= 1 || !hasChildWithZ()) return null;
 
     if (mPreSortedChildren == null) {
+        // 创建新列表
         mPreSortedChildren = new ArrayList<View>(count);
     } else {
+        // 检查已有列表容量是否足够，容量不足则进行扩容
         mPreSortedChildren.ensureCapacity(count);
     }
 
@@ -440,6 +459,8 @@ ArrayList<View> buildOrderedChildList() {
 ```
 
 #### 3.5 dispatchTransformedTouchEvent
+
+分发已变换的点击事件
 
 ```java
 private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
@@ -530,7 +551,6 @@ private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
 #### 3.6 addTouchTarget
 
 调用该方法获取了TouchTarget。同时mFirstTouchTarget被赋予相同对象。
-    
 ```java
 private TouchTarget addTouchTarget(View child, int pointerIdBits) {
     TouchTarget target = TouchTarget.obtain(child, pointerIdBits);
@@ -540,7 +560,7 @@ private TouchTarget addTouchTarget(View child, int pointerIdBits) {
 }
 ```
 
-#### 3.7 onInterceptTouchEvent()
+#### 3.7 onInterceptTouchEvent
 
 方法默认返回false，表示继续执行事件分发。如果该方法被重写并返回true，事件被拦截并不再分发。
 
@@ -550,11 +570,11 @@ public boolean onInterceptTouchEvent(MotionEvent ev) {
 }
 ```
 
-#### 3.8 cancelAndClearTouchTargets() 
+#### 3.8 cancelAndClearTouchTargets 
 
 取消并移除所有触控目标
 
-```Java
+```java
 private void cancelAndClearTouchTargets(MotionEvent event) {
     if (mFirstTouchTarget != null) {
         boolean syntheticEvent = false;
@@ -579,7 +599,7 @@ private void cancelAndClearTouchTargets(MotionEvent event) {
 }
 ```
 
-#### 3.9 resetTouchState() 
+#### 3.9 resetTouchState
 
 ```java
 private void resetTouchState() {
@@ -590,7 +610,38 @@ private void resetTouchState() {
 }
 ```
 
+#### 3.10 findChildWithAccessibilityFocus
 
+查找拥有焦点的子视图
+
+```java
+private View findChildWithAccessibilityFocus() {
+    // 获取ViewRoot
+    ViewRootImpl viewRoot = getViewRootImpl();
+    if (viewRoot == null) {
+        return null;
+    }
+
+    // 获取当前焦点的View
+    View current = viewRoot.getAccessibilityFocusedHost();
+    if (current == null) {
+        return null;
+    }
+
+    // 查找View的父类，看其直接或间接父类视为被文本ViewGroup
+    ViewParent parent = current.getParent();
+    while (parent instanceof View) {
+        if (parent == this) {
+            return current;
+        }
+        current = (View) parent;
+        parent = current.getParent();
+    }
+
+    // 焦点View的父类不是本ViewGroup，返回null
+    return null;
+}
+```
 
 
 
