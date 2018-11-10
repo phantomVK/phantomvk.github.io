@@ -11,13 +11,13 @@ tags:
 
 ## 前言
 
-这篇文章将深入介绍`CAS`在`JDK`具体的实现方式，填补[Java源码系列(7) -- AtomicInteger](https://phantomvk.github.io/2018/01/17/AtomicInteger/)中相关内容的空缺，主要从高层调用开始，经历JDK、JNI和asm汇编，最终调用处理器CAS指令集，带你浏览整个实现过程。
+这篇文章将深入介绍`CAS`在`JDK`具体的实现方式，填补[Java源码系列(7) -- AtomicInteger](/2018/01/17/AtomicInteger/)中相关内容的空缺，主要从高层调用开始，经历JDK、JNI和asm汇编，最终调用处理器CAS指令集，带你浏览整个实现过程。
 
 阅读需扎实Java基本功，了解或能看懂JNI和C语言。汇编没看过也没有关系，文章参考链接附带本文涉及所有汇编知识点以供查阅。
 
 ## 一、什么是CAS
 
-多处理、多线程不可避免带来了更多的元素同步处理。要在多线程环境中构成同步原语（如信号量和互斥），我们经常会提到被称为比较和交换 (CAS) 的原子操作。
+多线程不可避免带来了更多的元素同步处理。要在多线程环境中构成同步原语（如信号量和互斥），我们经常会提到被称为比较和交换 (CAS) 的原子操作。
 
 CAS的伪代码：
 
@@ -30,7 +30,7 @@ compare_and_swap (*p, oldval, newval):
          fail;
 ```
 
-首先比较内存位置 p (*p) 的内容与已知值 oldval（这应该是当前线程中 *p 的值）。只有当它们是相同值时，才会将 newval 写入 *p。若其他线程之前已经修改了内存位置，那么比较操作会失败。
+首先比较内存位置 p (*p) 的内容与已知值 oldval（这应该是当前线程中 *p 的值）。只有当它们是相同值时，才会将 newval 写入 *p。若其他线程之前已经修改该内存位置，那么比较操作会失败。
 
 > 参考自[内联汇编 - 从头开始](https://www.ibm.com/developerworks/cn/aix/library/au-inline_assembly/index.html)，有删改
 
@@ -48,9 +48,7 @@ JDK9命名为`compareAndSetInt`，也在Unsafe类中：
 public final native boolean compareAndSetInt(Object var1, long var2, int var4, int var5);
 ```
 
-本文用JDK9来介绍。如果你看的是JDK8也没关系，我也稍微看了JDK8u的源码，两者JVM源码文件路径通用，实现或方法所在行数一致，只是方法签名稍有差别。
-
-进入正题，首先看该方法的原生实现，对应unsafe.cpp文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
+本文用JDK9来介绍。进入正题，首先看该方法的原生实现，对应unsafe.cpp文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
 
 下面unsafe.cpp尾段有个保存方法对应关系的静态数组：
 

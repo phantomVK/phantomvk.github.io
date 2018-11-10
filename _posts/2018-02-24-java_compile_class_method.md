@@ -51,6 +51,7 @@ private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifier
     GraalHotSpotVMConfig c = compiler.getGraalRuntime().getVMConfig();
     // 如果c.dontCompileHugeMethods为true，根据c.hugeMethodLimit判断该方法是否为巨型方法
     if (c.dontCompileHugeMethods && javaMethod.getCodeSize() > c.hugeMethodLimit) {
+        // 判断为巨型方法，打出日志并退出方法
         println(verbose || methodFilters != null,
                         String.format("CompileTheWorld (%d) : Skipping huge method %s (use -XX:-DontCompileHugeMethods or -XX:HugeMethodLimit=%d to include it)",
                                         classFileCounter,
@@ -93,6 +94,7 @@ if (classFileCounter >= startAt) {
     // 循环遍历构造方法，判断能否JIT编译
     for (Constructor<?> constructor : javaClass.getDeclaredConstructors()) {
         HotSpotResolvedJavaMethod javaMethod = (HotSpotResolvedJavaMethod) metaAccess.lookupJavaMethod(constructor);
+        // 逐个检查构造方法
         if (canBeCompiled(javaMethod, constructor.getModifiers())) {
             compileMethod(javaMethod);
         }
@@ -101,6 +103,7 @@ if (classFileCounter >= startAt) {
     // 循环遍历实例方法，判断能否JIT编译
     for (Method method : javaClass.getDeclaredMethods()) {
         HotSpotResolvedJavaMethod javaMethod = (HotSpotResolvedJavaMethod) metaAccess.lookupJavaMethod(method);
+        // 逐个检查实例方法
         if (canBeCompiled(javaMethod, method.getModifiers())) {
             compileMethod(javaMethod);
         }
@@ -119,9 +122,12 @@ if (classFileCounter >= startAt) {
 ```java
 private void compileMethod(HotSpotResolvedJavaMethod method, int counter) {
     try {
+        // 编译开始时间
         long start = System.currentTimeMillis();
+        // 编译开始时线程内存已开辟空间
         long allocatedAtStart = MemUseTrackerImpl.getCurrentThreadAllocatedBytes();
         int entryBCI = JVMCICompiler.INVOCATION_ENTRY_BCI;
+        // 构建方法编译请求实例
         HotSpotCompilationRequest request = new HotSpotCompilationRequest(method, entryBCI, 0L);
 
         // For more stable CTW execution, disable use of profiling information
@@ -140,10 +146,14 @@ private void compileMethod(HotSpotResolvedJavaMethod method, int counter) {
             installedCode.invalidate();
         }
 
+        // 统计累计内存占用
         memoryUsed.getAndAdd(MemUseTrackerImpl.getCurrentThreadAllocatedBytes() - allocatedAtStart);
+        // 统计累计编译时长
         compileTime.getAndAdd(System.currentTimeMillis() - start);
+        // 统计成功编译方法数
         compiledMethodsCounter.incrementAndGet();
     } catch (Throwable t) {
+        // 编译方法过程中出现Throwable
         println("CompileTheWorld (%d) : Error compiling method: %s", counter, method.format("%H.%n(%p):%r"));
         printStackTrace(t);
     }
