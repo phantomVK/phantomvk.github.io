@@ -9,9 +9,9 @@ tags:
     - Android源码系列
 ---
 
-## 前言
+## 零、前言
 
-之前介绍了 [View事件分发](https://phantomvk.github.io/2016/10/18/Android_View/) 和 [ViewGroup事件分发](https://phantomvk.github.io/2016/11/07/android-viewgroup/) ，了解点击事件如何在ViewGroup和View内部流动。如果把两者联系起来，容易知道ViewGroup把事件分发给View，当View不拦截事件时又把事件返回给ViewGroup。
+发布的文章已经详细介绍 [View事件分发](/2016/10/18/Android_View/) 和 [ViewGroup事件分发](/2016/11/07/android-viewgroup/) ，了解点击事件如何在ViewGroup和View内部流动。如果把两者联系起来，容易知道ViewGroup把事件分发给View，当View不拦截事件时又把事件返回给ViewGroup。
 
 本文研究Activity事件分发，探究事件如何从Activity分发到ViewGroup，ViewGroup不拦截事件Activity又如何处理。文章最终解释Activity、ViewGroup、Group三者事件分发行为如何形成闭环。
 
@@ -46,21 +46,23 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 
 无论是按钮、触摸还是轨迹球事件都会分发给Activity。可以重写此方法，在activity运行过程中捕获用户与设备的交互事件。方法相当于一个回调，和`onUserLeaveHint()`一样，是为了帮助activity智能地管理状态栏的通知，尤其是在合适时间点取消一个与之相关的通知。
 
-所有对`onUserLeaveHint()`的调用会同时伴随着对`onUserInteraction()`的调用，确保activity在一些关于用户操作，如向下拉并点击了通知时得到告知。方法只在`ACTION_DOWN`才会触发。
-
 ```java
 public void onUserInteraction() {
 }
 ```
 
+所有对`onUserLeaveHint()`的调用会同时伴随着对`onUserInteraction()`的调用，确保activity在一些关于用户操作，如向下拉并点击了通知时得到告知。方法只在`ACTION_DOWN`才会触发。
+
 #### 1.3 onUserLeaveHint()
 
-和`onUserInteraction()`有关的方法。作为activity生命周期的一部分，用户把activity推到后台的时候调用方法。例如用户点击Home键`onUserLeaveHint()`就会被调用。但显示来电导致activity被中断并推到后台时`onUserLeaveHint()`不会调用。在`onPause()`生命周期调用前先触发此方法。
+和`onUserInteraction()`有关的方法。作为activity生命周期的一部分，用户把activity推到后台的时候调用方法。例如用户点击Home键`onUserLeaveHint()`就会被调用。
 
 ```java
 protected void onUserLeaveHint() {
 }
 ```
+
+但显示来电导致activity被中断并推到后台时，`onUserLeaveHint()`不会调用。在`onPause()`生命周期调用前先触发此方法。
 
 #### 1.4 performUserLeaving()
 
@@ -90,18 +92,18 @@ public abstract boolean superDispatchTouchEvent(MotionEvent event);
 #### 2.2 PhoneWindow.superDispatchTouchEvent()
 window的实现类是PhoneWindow，实际调用`PhoneWindow.superDispatchTouchEvent()`，进而调用`mDecor.superDispatchTouchEvent(event)`。
 
-DecorView是一个保存在PhoneWindow的成员变量。有很多文章提到DecorView是PhoneWindow内部类。但从`Android27`看来，DecorView是独立的类而不是一个内部类。
+DecorView是一个在PhoneWindow内的成员变量。有很多文章提到DecorView是PhoneWindow内部类。但从`Android27`看来，DecorView是独立的类而不是一个内部类。
 
 ```java
-// This is the top-level view of the window, containing the window decor.
+// 这是windows的的顶级视图，包含了window decor
 private DecorView mDecor;
 
-// Constructor for main window of an activity.
+// activity中主window的构造方法
 public PhoneWindow(Context context, Window preservedWindow,
         ActivityConfigCallback activityConfigCallback) {
     this(context);
-    // Only main activity windows use decor context, all the other windows depend on whatever
-    // context that was given to them.
+
+    // 只有主windows可使用decor context，其他windows则由传递给它们的context决定
     mUseDecorContext = true;
     if (preservedWindow != null) {
         mDecor = (DecorView) preservedWindow.getDecorView();
@@ -113,15 +115,19 @@ public PhoneWindow(Context context, Window preservedWindow,
         // the token will not be updated as for a new window.
         getAttributes().token = preservedWindow.getAttributes().token;
     }
-    // Even though the device doesn't support picture-in-picture mode,
-    // an user can force using it through developer options.
+    
+    // 即使设备不支持画中画模式，用户也可通过开发者选项强行使用
     boolean forceResizable = Settings.Global.getInt(context.getContentResolver(),
             DEVELOPMENT_FORCE_RESIZABLE_ACTIVITIES, 0) != 0;
     mSupportsPictureInPicture = forceResizable || context.getPackageManager().hasSystemFeature(
             PackageManager.FEATURE_PICTURE_IN_PICTURE);
     mActivityConfigCallback = activityConfigCallback;
 }
+```
 
+调用DecorView的superDispatchTouchEvent()
+
+```java
 @Override
 public boolean superDispatchTouchEvent(MotionEvent event) {
     return mDecor.superDispatchTouchEvent(event);
@@ -137,6 +143,7 @@ final void attach(Context context, ....){
     mWindow.setWindowControllerCallback(this);
     mWindow.setCallback(this);
     mWindow.setOnWindowDismissedCallback(this);
+    // 初始化了LayoutInflater配置
     mWindow.getLayoutInflater().setPrivateFactory(this);
     ....
 }
@@ -151,13 +158,15 @@ public boolean superDispatchTouchEvent(MotionEvent event) {
     return super.dispatchTouchEvent(event);
 }
 ```
+
 #### 2.4 FrameLayout.dispatchTouchEvent()
+
 由DecorView父类FrameLayout可知：
 
 ```java
 public class DecorView extends FrameLayout implements RootViewSurfaceTaker, WindowCallbacks
 ```
-调用super.dispatchTouchEvent(event)即是FrameLayout.dispatchTouchEvent(event)
+调用super.dispatchTouchEvent(event)即调用FrameLayout.dispatchTouchEvent(event)
 
 #### 2.5 小结
 
@@ -167,7 +176,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
 
 #### 3.1 onTouchEvent()
 
-ViewGroup和View都没有消费事件，该事件最终回到activity，交给activity.onTouchEvent()。
+ViewGroup和View都没有消费事件，该事件最终回到activity，并交给activity.onTouchEvent()。
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
@@ -175,30 +184,44 @@ public boolean onTouchEvent(MotionEvent event) {
         finish();
         return true;
     }
-    // activity也不消费事件，事件的分发流程终结
+
+    // activity也不消费事件，事件分发流程终结
     return false;
 }
 ```
+
 #### 3.2 Windos.shouldCloseOnTouch()
-事件点击在DecorVIew外，且点击事件没有被其他组件消费时，支持关闭activity
+
+事件点击在DecorView外且点击事件没有被其他组件消费时，支持关闭activity
+
 ```java
 public boolean shouldCloseOnTouch(Context context, MotionEvent event) {
     final boolean isOutside =
-            event.getAction() == MotionEvent.ACTION_DOWN && isOutOfBounds(context, event)
+            event.getAction() == MotionEvent.ACTION_DOWN
+            && isOutOfBounds(context, event)
             || event.getAction() == MotionEvent.ACTION_OUTSIDE;
     if (mCloseOnTouchOutside && peekDecorView() != null && isOutside) {
         return true;
     }
     return false;
 }
+```
 
+mCloseOnTouchOutside的setter
+
+```java
 private boolean mCloseOnTouchOutside = false;
-private boolean mSetCloseOnTouchOutside = false;
 
 public void setCloseOnTouchOutside(boolean close) {
     mCloseOnTouchOutside = close;
     mSetCloseOnTouchOutside = true;
 }
+```
+
+mSetCloseOnTouchOutside的setter
+
+```java
+private boolean mSetCloseOnTouchOutside = false;
 
 public void setCloseOnTouchOutsideIfNotSet(boolean close) {
     if (!mSetCloseOnTouchOutside) {
@@ -207,7 +230,9 @@ public void setCloseOnTouchOutsideIfNotSet(boolean close) {
     }
 }
 ```
+
 检查点击事件是否落在decorView外
+
 ```java
 private boolean isOutOfBounds(Context context, MotionEvent event) {
     final int x = (int) event.getX();
@@ -219,15 +244,19 @@ private boolean isOutOfBounds(Context context, MotionEvent event) {
             || (y > (decorView.getHeight()+slop));
 }
 ```
+
 #### 3.3 window.peekDecorView()
-获取已经当前已经创建的顶层decorView，否则返回null。已知Window是抽象类，所以看实现类PhoneWindow。
+
+获取当前已经创建的顶层decorView。已知Window是抽象类，所以看实现类PhoneWindow
 
 ```java
 public abstract View peekDecorView();
 ```
 
 #### 3.4 PhoneWindow.peekDecorView()
+
 仅仅是返回持有的DecorView
+
 ```java
 private DecorView mDecor;
 

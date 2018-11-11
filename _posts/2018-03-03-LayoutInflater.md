@@ -9,7 +9,7 @@ tags:
     - Android源码系列
 ---
 
-### 前言
+## 一、基础用法
 
 `inflate()`把传入的layout_res_id获得构建后的实例：
 
@@ -27,7 +27,7 @@ TAG_REQUEST_FOCUS = "requestFocus";
 TAG_TAG = "tag";
 ```
 
-### inflate
+## 二、方法入口
 
 `inflate()`为指定的xml资源文件构建视图布局
 
@@ -158,9 +158,20 @@ public View inflate(XmlPullParser parser, @Nullable ViewGroup root, boolean atta
 }
 ```
 
-### rInflate
+## 三、递归填充子视图
 
-`r`原意为`recursive`，深度递归xml布局初始化view，一并初始化此view的子view。
+此方法用于递归填充非根的内部子视图。父context作为填充context，调用方法 __rInflate__
+
+```java
+final void rInflateChildren(XmlPullParser parser, View parent, AttributeSet attrs,
+        boolean finishInflate) throws XmlPullParserException, IOException {
+    rInflate(parser, parent, parent.getContext(), attrs, finishInflate);
+}
+```
+
+## 四、填充子视图
+
+__r__ 原意为 __recursive__，深度递归xml布局初始化view，一并初始化此view的子view。
 
 ```java
 void rInflate(XmlPullParser parser, View parent, Context context,
@@ -189,7 +200,7 @@ void rInflate(XmlPullParser parser, View parent, Context context,
             // 解析View的tag
             parseViewTag(parser, parent, attrs);
         } else if (TAG_INCLUDE.equals(name)) {
-            // include不能作为根元素
+            // include仅能作为子元素
             if (parser.getDepth() == 0) {
                 throw new InflateException("<include /> cannot be the root element");
             }
@@ -221,9 +232,9 @@ void rInflate(XmlPullParser parser, View parent, Context context,
 ```
 
 
-### createViewFromTag
+## 五、从tag构建视图
 
-根据标签名创建view。
+根据标签名创建view
 
 ```java
 View createViewFromTag(View parent, String name, Context context, AttributeSet attrs,
@@ -300,15 +311,17 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
 }
 ```
 
-### createView
+## 六、视图创建
 
-View最终通过其全路径名在`ClassLoader`中反射出对应的View.
-
+全局静态HashMap缓存，缓存View的构造方法
 ```java
-// 全局静态HashMap缓存，缓存View的构造方法
 private static final HashMap<String, Constructor<? extends View>> sConstructorMap =
         new HashMap<String, Constructor<? extends View>>();
+```
 
+View最终通过其全路径名在`ClassLoader`中反射出对应的View
+
+```java
 public final View createView(String name, String prefix, AttributeSet attrs)
         throws ClassNotFoundException, InflateException {
     
@@ -372,9 +385,11 @@ public final View createView(String name, String prefix, AttributeSet attrs)
         
         // 创建类实例，args是自定义主题相关变量
         final View view = constructor.newInstance(args);
+
         // 类型是ViewStub
         if (view instanceof ViewStub) {
             // 使用同一个Context给ViewStub设置LayoutInflater
+            // 后面View填充是会使用此LayoutInflater
             final ViewStub viewStub = (ViewStub) view;
             viewStub.setLayoutInflater(cloneInContext((Context) args[0]));
         }
@@ -382,19 +397,20 @@ public final View createView(String name, String prefix, AttributeSet attrs)
         return view;
 
     } catch (NoSuchMethodException e) {
+        // 无法找到构造方法
         final InflateException ie = new InflateException(attrs.getPositionDescription()
                 + ": Error inflating class " + (prefix != null ? (prefix + name) : name), e);
         ie.setStackTrace(EMPTY_STACK_TRACE);
         throw ie;
 
     } catch (ClassCastException e) {
-        // If loaded class is not a View subclass
+        // 填充类不是View的子类
         final InflateException ie = new InflateException(attrs.getPositionDescription()
                 + ": Class is not a View " + (prefix != null ? (prefix + name) : name), e);
         ie.setStackTrace(EMPTY_STACK_TRACE);
         throw ie;
     } catch (ClassNotFoundException e) {
-        // If loadClass fails, we should propagate the exception.
+        // 类加载失败，抛出异常
         throw e;
     } catch (Exception e) {
         final InflateException ie = new InflateException(
@@ -408,7 +424,7 @@ public final View createView(String name, String prefix, AttributeSet attrs)
 }
 ```
 
-### verifyClassLoader
+## 七、验证类加载器
 
 ```java
 private final boolean verifyClassLoader(Constructor<? extends View> constructor) {
@@ -430,14 +446,14 @@ private final boolean verifyClassLoader(Constructor<? extends View> constructor)
 }
 ```
 
-### 总结
+## 八、总结
 
 整个过程最耗时间部分有两个：
 
-- 读取并分析xml标签数据;
-- 类反射获得全路径名的View实例.
+- 读取并分析xml标签数据；
+- 类反射获得全路径名的View实例；
 
-从开始`LayoutInflater.inflate`填充布局，调用`rInflate`递归遍历子View，每个子View在`createViewFromTag`通过全限定名调用`createView`反射实例，层层处理结束后返回构建完成的View。
+从开始`LayoutInflater.inflate`填充布局，调用`rInflate`递归遍历子View，每个子View在`createViewFromTag`通过全限定名调用`createView`反射实例，层层处理结束后返回视图。
 
 最后总结`attachToRoot`:
 

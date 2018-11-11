@@ -11,13 +11,13 @@ tags:
 
 ## 一、ThreadLocal的作用
 
-`ThreadLocal`类提供线程局部变量，以数据成员的形式存放在Thread中，线程与线程之间副本相互独立。这些副本存放在`Thread.ThreadLocalMap`中，避免线程竞争同一个实例带来锁操作的时间损耗。
+`ThreadLocal`提供线程局部变量，以数据成员的形式存放在Thread中，线程与线程之间副本相互独立。这些副本存放在`Thread.ThreadLocalMap`，避免线程竞争同一个实例造成锁操作的时间损耗。
 
 ![ThreadLoacalMap](/img/java/thredLocalRef.png)
 
 - __Entry[1]__ : Entry.key通过弱引用持有ThreadLocal实例；
-- __Entry[10]__ : GC没有强应用持有的ThreadLocal实例，令Entry.key为null，Entry.value继续等待清理；
-- __其他__ ：Entry没有被使用，或曾经使用但已回收，Entry处于初始状态。
+- __Entry[10]__ : GC没有强应用持有的ThreadLocal实例，Entry.key为null，Entry.value等待清理；
+- __其他__ ：Entry没有被使用，或曾经使用但已回收，Entry处于初始状态；
 
 ## 二、示例
 
@@ -78,15 +78,16 @@ ThreadLocals依靠捆绑在每个线程的线性探针哈希表(ThreadLocalMap.E
 private final int threadLocalHashCode = nextHashCode();
 ```
 
-不同线程访问同一个ThreadLocal，Hash值由静态的[AtomicInteger：Java源码系列(7)](https://phantomvk.github.io/2018/01/17/AtomicInteger/)提供，ThreadLocal创建新实例就会累加相同魔数`HASH_INCREMENT`。
+不同线程访问同一个ThreadLocal，Hash值由静态的[AtomicInteger：Java源码系列(7)](/2018/01/17/AtomicInteger/)提供，ThreadLocal创建新实例就会累加相同魔数`HASH_INCREMENT`。
 
 ```java
 // 预计算下一实例的Hash值，从初始值0开始自动累加
 private static AtomicInteger nextHashCode = new AtomicInteger();
+```
 
-// The difference between successively generated hash codes - turns
-// implicit sequential thread-local IDs into near-optimally spread
-// multiplicative hash values for power-of-two-sized tables.
+对长度为2的N次幂哈希表来说，和连续生成哈希码的差别是，此值把隐性序列thread-local的IDs，变为近似优化过的分散乘法哈希值
+
+```java
 private static final int HASH_INCREMENT = 0x61c88647;
 ```
 
@@ -102,9 +103,7 @@ private static int nextHashCode() {
 
 ### 3.3 initialValue()
 
-给当前线程返回thread-local变量的初始值，initialValue()方法可见性是protected。当线程首次访问ThreadLoacal.get()方法时调用此方法。线程很早已经主动调用set()设置初始值的话，此方法不会调用。
-
-一般来说这个方法在每个线程中最多只会调用一次。不过，线程如果执行了remove()方法后再调用get()，也会触发initialValue()。
+给当前线程返回thread-local变量的初始值，initialValue()方法可见性是protected。当线程首次访问ThreadLoacal.get()方法时调用此方法。线程已经主动调用set()设置初始值，此方法不会调用。一般来说，这个方法在每个线程最多只会调用一次。不过，如果线程执行remove()方法后再调用get()，也会触发initialValue()。
 
 ```java
 protected T initialValue() {
@@ -112,12 +111,12 @@ protected T initialValue() {
 }
 ```
 
-如果不希望初始化值是null，就重写这个方法提供特定初始化值。可以通过子类继承父类或匿名内部类两个方法重写initialValue()。
+如果不希望初始化值是null，可通过子类继承父类或匿名内部类重写initialValue()提供初始化值
 
 
 ### 3.4 get()
 
-此方法返回当前线程在`thread-local`中变量的副本。如果当前线程不存在对应的线程局部变量，则调用`setInitialValue()`，并由`setInitialValue()`中`initialValue()`给出初始化值。
+此方法返回当前线程在`thread-local`中变量的副本。如果当前线程不存在对应的线程局部变量，会调用`setInitialValue()`，并由`setInitialValue()`中`initialValue()`给出初始化值。
 
 ```java
 public T get() 
@@ -135,7 +134,8 @@ public T get()
             return result;
         }
     }
-    // map == null，去初始化ThreadLocalMap
+
+    // 初始化ThreadLocalMap
     return setInitialValue();
 }
 ```
@@ -148,6 +148,7 @@ public T get()
 private T setInitialValue() {
     T value = initialValue();
     Thread t = Thread.currentThread();
+    // ThreadLocalMap map = t.threadLocals
     ThreadLocalMap map = getMap(t);
     // Thread已有对应的ThreadLocalMap
     if (map != null)
@@ -269,25 +270,35 @@ static class Entry extends WeakReference<ThreadLocal<?>> {
 
 ### 4.2 数据成员
 
+初始容量值16，为2的幂
+
 ```java
-// 初始容量值16，为2的幂
 private static final int INITIAL_CAPACITY = 16;
+```
 
-// 由扩容方法控制长度符合2的幂，且仅在必要时扩容
+由扩容方法控制长度符合2的幂，且仅在必要时扩容
+
+```java
 private Entry[] table;
+```
 
-// 已保存在表中的条目数量
+已保存在表中的条目数量
+
+```java
 private int size = 0;
+```
 
-// 由setThreshold()计算的阀值，超过该值就扩大table，避免哈希冲突；
-// 假设默认容量为16，可算出首个阀值(地板数)：16 * 2 / 3 = 10
+由setThreshold()计算的阀值，超过该值就扩大table，避免哈希冲突。假设默认容量为16，可算出首个阀值(地板数)：16 * 2 / 3 = 10
+
+```java
 private int threshold;
 ```
 
 ### 4.3 setThreshold(int) 
 
+从 len * 2 / 3 可知负载因子约为0.67
+
 ```java
-// 从 len * 2 / 3 可知负载因子约为0.66
 private void setThreshold(int len) {
     threshold = len * 2 / 3;
 }
@@ -323,7 +334,7 @@ ThreadLocalMap(ThreadLocal<?> firstKey, Object firstValue) {
 }
 ```
 
-### 4.6 getEntry(ThreadLocal<?>)
+### 4.6 getEntry(ThreadLocal)
 
 用关联的key获取对应entry。如果索引位置的entry合法就直接返回，否则需要getEntryAfterMiss方法查找。方法的设计主要为了最大限度达到直接命中的目的，且令方法更容易被内联。
 
@@ -346,14 +357,14 @@ private Entry getEntry(ThreadLocal<?> key) {
 - e == null
 - e.get != key
 
- getEntry方法没有找到直接下标的key，就调用此方法继续向后查找，一边清理一边查找，直到找到目标键或遇到`e == null`时退出。
+getEntry方法没有找到直接下标的key，就调用此方法继续向后查找，一边清理一边查找，直到找到目标键或遇到`e == null`时退出。
 
 ```java
 private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
     Entry[] tab = table;
     int len = tab.length;
 
-    // e !=null && e.get == null走此分支
+    // e.get() != key 
     while (e != null) {
         ThreadLocal<?> k = e.get();
 
@@ -374,7 +385,7 @@ private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
 }
 ```
 
-### 4.8 set(ThreadLocal<?>, Object)
+### 4.8 set()
 
 ```java
 private void set(ThreadLocal<?> key, Object value) {
@@ -419,7 +430,7 @@ private void set(ThreadLocal<?> key, Object value) {
 }
 ```
 
-### 4.9 remove(ThreadLocal<?>) 
+### 4.9 remove() 
 
 ```java
 // 通过Key查找对应Entry并移除
@@ -449,7 +460,7 @@ private void remove(ThreadLocal<?> key) {
 }
 ```
 
-### 4.10 replaceStaleEntry(ThreadLocal<?>, Object, int)
+### 4.10 replaceStaleEntry()
 
 ```java
 private void replaceStaleEntry(ThreadLocal<?> key, Object value,
@@ -464,7 +475,9 @@ private void replaceStaleEntry(ThreadLocal<?> key, Object value,
     for (int i = prevIndex(staleSlot, len);
          (e = tab[i]) != null;
          i = prevIndex(i, len))
-        if (e.get() == null) // i.e WeakReference.Reference.referent
+         
+        // WeakReference.Reference.referent == null
+        if (e.get() == null)
             slotToExpunge = i;
 
     for (int i = nextIndex(staleSlot, len);
@@ -552,7 +565,6 @@ private int expungeStaleEntry(int staleSlot) {
     return i;
 }
 ```
-
 
 ### 4.12 cleanSomeSlots(int, int)
 
