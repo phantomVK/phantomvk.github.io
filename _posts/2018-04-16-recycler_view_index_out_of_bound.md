@@ -9,8 +9,6 @@ tags:
     - Android
 ---
 
-
-
 使用RecyclerView过程中遇到异常：
 
 ```
@@ -42,11 +40,12 @@ class WrappedLinearLayoutManager : LinearLayoutManager {
 
 ```java
 val recyclerAdapter = RecyclerViewAdapter(activity)
-val manager = WrapContentLinearLayoutManager(context).apply { orientation = LinearLayoutManager.VERTICAL }
+val manager = WrapContentLinearLayoutManager(context)
+manager.orientation = LinearLayoutManager.VERTICAL
 
-val recyclerView = view.findViewById<RecyclerView>(R.id.recycler_view).apply {
-    layoutManager = manager
-    adapter = recyclerAdapter
-}
+val recyclerView = view.findViewById<RecyclerView>(R.id.recycler_view)
+recyclerView.layoutManager = manager
+recyclerView.adapter = recyclerAdapter
 ```
 
+注：出现这个问题的主要原因，应该是 __notifyDataSetChanged__ 后又调用 __notifyItemInserted__、__notifyItemMoved__ 等CRUD方法，造成数据的不一致。请仔细检查对数据集操作的事件流是否存在问题。

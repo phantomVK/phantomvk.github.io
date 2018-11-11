@@ -11,7 +11,7 @@ tags:
 
 ### 一、前言
 
-SparseArrays<E>是Android原生提供的稀疏数组，用于代替HashMap容器类。准确说是在一部分场景中能代替HashMap<Integer, Object>，提供从int映射到Object<E>的能力，优点是具有高效的内存利用率。
+SparseArrays<E>是Android原生提供的稀疏数组，用于代替HashMap容器类。准确说，是在一部分场景中代替HashMap<Integer, Object>，提供从int映射到Object<E>的能力，优点是具有高效的内存利用率。
 
 ```java
 public class SparseArray<E> implements Cloneable
@@ -25,7 +25,7 @@ SparseArrays使用基本类型`int`作为键，不像`HashMap<Integer, Object>`�
 
 总结主要应用场景：
 
-- 类型为<int, Object>，若key是`Integer`建议直接用`HashMap`；
+- 类型为 <int, Object>，若key是`Integer`建议直接用`HashMap`；
 - 存储键值对量较少，避免出现查询带来的性能问题；
 - 对存取时间不太敏感，但内存可用条件苛刻的设备；
 - 不在Java标准库，仅在Android系统中提供；
@@ -34,20 +34,33 @@ SparseArrays使用基本类型`int`作为键，不像`HashMap<Integer, Object>`�
 
 ### 二、数据成员
 
+用于标记键对应Object已被删除的标志
+
 ```java
-// 用于标记键对应Object已被删除的标志
 private static final Object DELETED = new Object();
+```
 
-// 是否存在失效值的标志位
+是否存在失效值的标志位
+
+```java
 private boolean mGarbage = false;
+```
 
-// 保存键的整形数组
+保存键的整形数组
+
+```java
 private int[] mKeys;
+```
 
-// 保存值的数组，索引与键数组对应
+保存值的数组，索引与键数组对应
+
+```java
 private Object[] mValues;
+```
 
-// 数组容量
+数组容量
+
+```java
 private int mSize;
 ```
 
@@ -75,13 +88,18 @@ public SparseArray(int initialCapacity) {
 }
 ```
 ### 四、查询
+
+获取指定key的value，否则返回null
+
 ```java
-// 获取指定key的value，否则返回null
 public E get(int key) {
     return get(key, null);
 }
+```
 
-// 获取指定key的value，命失返回指定对象
+获取指定key的value，命失返回指定对象
+
+```java
 @SuppressWarnings("unchecked")
 public E get(int key, E valueIfKeyNotFound) {
     // 在mKeys的mSize有效范围内二分查找key的数组下标i
@@ -163,7 +181,9 @@ public void clear() {
     mGarbage = false;
 }
 ```
+
 ### 六、插入
+
 ```java
 // 在指定key位置放入值，如果原位置已经存在vlaue，则直接替换
 public void put(int key, E value) {
@@ -214,6 +234,7 @@ public void append(int key, E value) {
     mSize++;
 }
 ```
+
 ### 七、其他
 
 ```java
@@ -307,11 +328,10 @@ private void gc() {
 
 ### 八、修改
 
-index范围在[0, size()-1]之内，修改index下标在mValue的value。
-
-index为0，修改mKeys最小key对应的value。index为size()-1，修改mKeys最大key对应的value。
-
-小于0或大于等于size()会出现未知结果
+- index范围在[0, size()-1]之内，修改index下标在mValue的value；
+- index为0，修改mKeys最小key对应的value；
+- index为size()-1，修改mKeys最大key对应的value；
+- 小于0或大于等于size()会出现未知结果；
 
 ```java
 public void setValueAt(int index, E value) {
@@ -372,4 +392,3 @@ class ContainerHelpers {
     }
 }
 ```
-
