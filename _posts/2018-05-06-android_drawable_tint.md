@@ -9,7 +9,7 @@ tags:
     - Android
 ---
 
-### 方法
+## 方法
 
 通过`PorterDuffColorFilter`和`setTint`兼容各版本系统，实测Android 4.3和Android 5.1。
 
@@ -31,7 +31,7 @@ fun Drawable?.tint(@Size(min = 1) colorString: String): Drawable? {
 }
 ```
 
-### 实例代码
+## 实例代码
 
 #### MainActivity.kt
 
@@ -91,6 +91,6 @@ class MainActivity : AppCompatActivity() {
 </LinearLayout>
 ```
 
-### 运行效果
+## 运行效果
 
 ![运行效果](/img/android/images/android_drawable_tint.jpg)

@@ -11,15 +11,15 @@ tags:
 
 ## 一、摘要
 
-HashMap是软件工程师使用频率高、用来保存键值对映射的容器类。自JDK8始HashMap引入红黑树，调整优化哈希算法，性能相比JDK7有进一步提升。同时对JDK7中存在多线程操作导致死循环的问题进行了优化。本文基于JDK10的源码进行介绍，代码格式进行轻微调整以便阅读，最终逻辑与JDK8版本无异。
+HashMap是使用频率高、用于保存键值对映射的容器类。自JDK8始HashMap引入红黑树，调整优化哈希算法，性能相比JDK7有进一步提升。同时，对JDK7中存在多线程操作导致死循环的问题进行修复。本文基于JDK10的源码进行介绍，代码格式进行轻微调整以便阅读，最终逻辑与JDK8版本无异。
 
 相关阅读：
 
-- [Java源码系列(10) -- Hashtable](http://phantomvk.github.io/2018/07/02/HashTable/)
+- [Java源码系列(10) -- Hashtable](/2018/07/02/HashTable/)
 
-- [Java源码系列(11) -- LinkedHashMap](http://phantomvk.github.io/2018/07/09/LinkedHashMap/)
+- [Java源码系列(11) -- LinkedHashMap](/2018/07/09/LinkedHashMap/)
 
-- [Java源码系列(12) -- WeakHashMap](http://phantomvk.github.io/2018/07/11/WeakHashMap/)
+- [Java源码系列(12) -- WeakHashMap](/2018/07/11/WeakHashMap/)
 
 ## 二、类签名
 
@@ -30,7 +30,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     implements Map<K,V>, Cloneable, Serializable
 ```
 
-作为通用参数，默认负载因子值0.75可以很好地平衡`时间开销`和`内存开销`之间关系。高负载因子值(如>0.75)有助于减少内存空间开支，但会增加查找的时间开销。如果在构建时正确指定哈希表初始容量，可以完全避免以后重哈希操作，换句话说就是令插入操作更高效。
+作为通用参数，默认负载因子值0.75可以很好地平衡`时间开销`和`内存开销`之间关系。高负载因子值(如>0.75)能减少内存空间开支，但会增加查找的时间开销。如果在构建时正确指定哈希表初始容量，后期可完全避免重哈希操作，换句话说就是令插入操作更高效。
 
 ![HashMap_UML](/img/java/HashMap_UML.png)
 
@@ -40,7 +40,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
 - HashMap支持空键和空值；
 - HashMap线程不安全；
 
-与HashMap一并谈论较多的是开发于早期的[HashTable](https://phantomvk.github.io/2018/06/30/HashMap/)，后来被建议使用前者替代，但并不妨碍两者横向比较：
+与HashMap一并谈论较多的是开发于早期的[HashTable](/2018/06/30/HashMap/)，后来被建议使用前者替代，但并不妨碍两者横向比较：
 
 - HashTable不支持键或值为null，而HashMap支持；
 - HashTable线程安全，与`ConcurrentHashMap`一样适用多线程；
@@ -55,42 +55,71 @@ Map m = Collections.synchronizedMap(new HashMap(...));
 
 ## 三、常量值
 
+默认初始化大小
+
 ```java
-// 默认初始化大小
 static final int DEFAULT_INITIAL_CAPACITY = 1 << 4;
+```
 
-// HashMap容纳元素最大容量
+HashMap容纳元素最大容量
+
+```java
 static final int MAXIMUM_CAPACITY = 1 << 30;
+```
 
-// 默认负载因子
+默认负载因子
+
+```java
 static final float DEFAULT_LOAD_FACTOR = 0.75f;
+```
 
-// 从链表转换为红黑树的阈值
+从链表转换为红黑树的阈值
+
+```java
 static final int TREEIFY_THRESHOLD = 8;
+```
 
-// 从红黑树退到链表的阈值
+从红黑树退到链表的阈值
+
+```java
 static final int UNTREEIFY_THRESHOLD = 6;
+```
 
-// 整个哈希表容量超过此值，且链表长度超过TREEIFY_THRESHOLD才树化
+整个哈希表容量超过此值，且链表长度超过TREEIFY_THRESHOLD才树化
+
+```java
 static final int MIN_TREEIFY_CAPACITY = 64;
 ```
 
 ## 四、数据成员
 
+哈希桶表，长度为2的n次幂，不超过MAXIMUM_CAPACITY
+
 ```java
-// 哈希桶表，长度为2的n次幂，不超过MAXIMUM_CAPACITY
 transient Node<K,V>[] table;
+```
 
-// 已保存元素数量
+已保存元素数量
+
+```java
 transient int size;
+```
 
-// 结构性或元素数量变化总次数
+结构性或元素数量变化总次数
+
+```java
 transient int modCount;
+```
 
-// 下次表扩容阈值，计算自： threshold = capacity * load factor
+下次表扩容阈值，计算自： threshold = capacity * load factor
+
+```java
 int threshold;
+```
 
-// 负载因子
+负载因子
+
+```java
 final float loadFactor;
 ```
 
@@ -100,12 +129,23 @@ final float loadFactor;
 
 数据成员`Node<K,V>[] table`，实现`Map.Entry<K,V>`接口。
 
+节点中的成员变量 __key__ ，和 __key__ 对应的哈希值 __hash__ 均使用 __final__ 修饰。因为 __key__ 的哈希值 __hash__ 决定了该节点在哈希桶的索引，两者是一对一的关系。
+
+假设，节点原始键为 __keyA0__ ，经过计算放入了索引为 __0__ 的桶。随后，该节点的键修改为 __keyB2__，新哈希值对应桶为 __2__，但实际没有移动节点。那么就会出现，使用 __keyB2__ 在桶 __2__ 里找不到该节点，使用  __keyA0__ 在桶 __0__ 里由于键不相同而不能命中。最终，该节点将成为野节点飘在哈希表中。
+
 ```java
 static class Node<K,V> implements Map.Entry<K,V> {
-    final int hash; // 节点哈希值
-    final K key;    // 节点键
-    V value;        // 节点值
-    Node<K,V> next; // 下一个节点引用
+    // 节点键的哈希值，见小节：5.2 桶索引计算
+    final int hash;
+
+    // 节点键
+    final K key;
+
+    // 节点值
+    V value;
+
+    // 下一节点的引用
+    Node<K,V> next;
 
     Node(int hash, K key, V value, Node<K,V> next) {
         this.hash = hash;
@@ -118,7 +158,7 @@ static class Node<K,V> implements Map.Entry<K,V> {
     public final V getValue()      { return value; }
     public final String toString() { return key + "=" + value; }
 
-    // 这是Entry的哈希值
+    // 这是Entry的哈希值，key和value分别取哈希值再进行异或
     public final int hashCode() {
         return Objects.hashCode(key) ^ Objects.hashCode(value);
     }
@@ -153,8 +193,6 @@ static class Node<K,V> implements Map.Entry<K,V> {
 哈希冲突解决方法常见有两种：`开放地址法`和`拉链法`。通过节点字段`Node<K,V> next`保存下一个节点的引用，推断出HashMap用拉链法处理哈希冲突问题。
 
 ![HashMap_Node_UML](/img/java/HashMap_Node_UML.png)
-
-从节点源码`final K key;`可知键值一旦指定就不能改变，不然以后因键哈希值改变而匹配不上。
 
 #### 5.2 桶索引计算
 
@@ -207,8 +245,9 @@ static final int tableSizeFor(int cap) {
 
 #### 6.1 构造方法
 
+指定初始容量值和负载因子值
+
 ```java
-// 指定初始容量值和负载因子值
 public HashMap(int initialCapacity, float loadFactor) {
     if (initialCapacity < 0)
         throw new IllegalArgumentException("Illegal initial capacity: " +
@@ -221,19 +260,27 @@ public HashMap(int initialCapacity, float loadFactor) {
     this.loadFactor = loadFactor;
     this.threshold = tableSizeFor(initialCapacity);
 }
+```
 
-// 指定初始容量值，并使用默认负载因子值0.75。注意，初始容量值只能为非负数
+指定初始容量值，并使用默认负载因子值0.75。注意，初始容量值只能为非负数
+
+```java
 public HashMap(int initialCapacity) {
     this(initialCapacity, DEFAULT_LOAD_FACTOR);
 }
+```
 
-// 构造空HashMap，默认初始容量为16，默认负载因子为0.75。其他参数使用默认值
+构造空HashMap，默认初始容量为16，默认负载因子为0.75。其他参数使用默认值
+
+```java
 public HashMap() {
     this.loadFactor = DEFAULT_LOAD_FACTOR;
 }
+```
 
-// 通过给定Map创建新的HashMap。负载因子默认为0.75，容量值为足够保存m中键值对大小
-// 若m为null会抛出NullPointerException
+通过给定Map创建新的HashMap。负载因子默认为0.75，容量值为足够保存m中键值对大小。若m为null会抛出NullPointerException
+
+```java
 public HashMap(Map<? extends K, ? extends V> m) {
     this.loadFactor = DEFAULT_LOAD_FACTOR;
     putMapEntries(m, false);
@@ -382,8 +429,11 @@ final V putVal(int hash,
     afterNodeInsertion(evict);
     return null;
 }
+```
 
-// 存入键值对，若此前已存在一个键值对，会返回上一个值，否则返回null
+存入键值对，若此前已存在一个键值对，会返回上一个值，否则返回null
+
+```java
 public V put(K key, V value) {
     return putVal(hash(key), key, value, false, true);
 }
