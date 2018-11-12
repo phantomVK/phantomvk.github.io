@@ -11,20 +11,24 @@ tags:
 
 ## 一、类签名
 
-`Hashtable`是早期的哈希表实现，新版JDK几乎不做修改，且和[HashMap](https://phantomvk.github.io/2018/06/30/HashMap/)有几个大区别：
-
-- `Hashtable`父类为Dictionary<K,V>，`HashMap`父类为Map<K,V>；
-- `HashMap`经过不断优化，性能远远好于`Hashtable`；
-- `Hashtable`使用`synchronized`修饰方法保证线程安全，`HashMap`线程不安全；
-- `Hashtable`不允许空key或value，但`HashMap`允许；
-- `HashTable`使用Enumeration，`HashMap`使用Iterator；
-- `HashMap`增加了红黑树缓解哈希冲突的影响；
+`Hashtable`是早期的哈希表实现，新版JDK几乎没作修改
 
 ```java
 public class Hashtable<K,V>
     extends Dictionary<K,V>
     implements Map<K,V>, Cloneable, java.io.Serializable
 ```
+
+![Hashtable_UML](/img/java/Hashtable_UML.png)
+
+Hashtable和[HashMap](/2018/06/30/HashMap/)有几个大区别：
+
+- `Hashtable`父类为Dictionary<K,V>，`HashMap`父类为Map<K,V>；
+- `HashMap`经过不断优化，性能远远高于`Hashtable`；
+- `Hashtable`使用`synchronized`修饰方法保证线程安全，`HashMap`线程不安全；
+- `Hashtable`不允许空key或value，但`HashMap`允许；
+- `HashTable`使用Enumeration，`HashMap`使用Iterator；
+- `HashMap`引入红黑树缓解哈希冲突的影响；
 
 ## 二、数据成员
 
