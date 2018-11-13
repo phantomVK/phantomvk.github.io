@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Java源码系列(21) -- Runnable & Callable"
+title:      "Java源码系列(20) -- Runnable & Callable"
 date:       2018-11-07
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -30,10 +30,6 @@ public interface Runnable {
 
 这是返回运行结果值或抛出异常的任务。实现者需定义一个没有参数，且名为 __call__ 的方法。
 
-__Callable__ 和 __Runnable__ 接口有点类似，均设计为让类实例运行在其他线程上。但是，__Runnable__ 不会返回结果，且不能抛出受检异常。
-
-__Executors__ 类包含一些工具方法，能把其他普通类型转换为 __Callable__。例如：把 __Runnable__ 转换为 __Callable__
-
 ```java
 @FunctionalInterface
 public interface Callable<V> {
@@ -43,3 +39,6 @@ public interface Callable<V> {
 }
 ```
 
+__Callable__ 和 __Runnable__ 接口有点类似，均设计为让类实例运行在其他线程上。但是，__Runnable__ 不会返回结果，且不能抛出受检异常。
+
+__Executors__ 类包含一些工具方法，能把其他普通类型转换为 __Callable__。例如：把 __Runnable__ 转换为 __Callable__

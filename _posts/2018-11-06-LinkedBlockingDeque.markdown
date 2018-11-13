@@ -13,15 +13,17 @@ tags:
 
 本类是基于链节点的、可选边界的阻塞双端队列。指定可选的容量避免队列过度扩展。
 
-如果构造方法的容量参数没有指定，则 __Integer#MAX_VALUE__ 将作为默认容量使用。而队列元素插入时，对应链节点动态创建。
-
-多数操作能在常量时间内完成执行。例外的是 __remove(Object)__、__removeFirstOccurrence__ 、__removeLastOccurrence__、 __contains__、__iterator.remove()__ 和批量操作等方法，消耗的时间是线性的。
-
 ```java
 public class LinkedBlockingDeque<E>
     extends AbstractQueue<E>
     implements BlockingDeque<E>, java.io.Serializable
 ```
+
+如果构造方法的容量参数没有指定，则 __Integer#MAX_VALUE__ 将作为默认容量使用。而队列元素插入时，对应链节点动态创建。
+
+多数操作能在常量时间内完成执行。例外的是 __remove(Object)__、__removeFirstOccurrence__ 、__removeLastOccurrence__、 __contains__、__iterator.remove()__ 和批量操作等方法，消耗的时间是线性的。
+
+![LinkedBlockingDeque_UML](/img/java/LinkedBlockingDeque_UML.png)
 
 源码来自JDK11
 
@@ -36,13 +38,13 @@ static final class Node<E> {
 
     // 其一：
     // - 真正的前导节点
-    // - 指向本节点，表明前导节点是尾节点
+    // - 这个节点，表明前导节点是尾节点
     // - null，表明没有前导节点
     Node<E> prev;
 
     // 其一：
     // - 真正的后继节点
-    // - 指向本节点，表明后继节点是头节点
+    // - 这个节点，表明后继节点是头节点
     // - null，表明没有后继节点
     Node<E> next;
 
@@ -60,7 +62,7 @@ static final class Node<E> {
 // Invariant: (first == null && last == null) || (first.prev == null && first.item != null)
 transient Node<E> first;
 
-// 指向队列最后节点
+// 指向队列尾节点
 // Invariant: (first == null && last == null) || (last.next == null && last.item != null)
 transient Node<E> last;
 
@@ -82,21 +84,26 @@ private final Condition notFull = lock.newCondition();
 
 ## 四、构造方法
 
+用 __Integer#MAX_VALUE__ 构建实例
+
 ```java
-// 用Integer#MAX_VALUE构建实例
 public LinkedBlockingDeque() {
     this(Integer.MAX_VALUE);
 }
+```
 
-// 用指定容量值构建实例
+用指定容量值构建实例
+
+```java
 public LinkedBlockingDeque(int capacity) {
     // 值小于1时抛出IllegalArgumentException
     if (capacity <= 0) throw new IllegalArgumentException();
     this.capacity = capacity;
 }
+```
+默认 __Integer#MAX_VALUE__ 构建实例，且用指定集合的元素作为双端队列的初始元素
 
-// 用Integer#MAX_VALUE构建实例，且用指定集合的元素作为双端队列的初始内容
-// c为空时抛出NullPointerException
+```java
 public LinkedBlockingDeque(Collection<? extends E> c) {
     this(Integer.MAX_VALUE);
     addAll(c);
@@ -107,48 +114,60 @@ public LinkedBlockingDeque(Collection<? extends E> c) {
 
 #### 5.1 link
 
-以下两个link相关方法在调用前需要持有锁保证线程安全
+把指定节点作为第一个元素存入，如果队列已满返回false
 
 ```java
-// 把指定节点作为第一个元素存入，如果队列已满返回false
 private boolean linkFirst(Node<E> node) {
     // 检查容量是否已满
     if (count >= capacity)
         return false;
+
     // 获取第一个节点
     Node<E> f = first;
+
     // 新节点作为原首节点的前导节点
     node.next = f;
     first = node;
+
     // 处理尾引用
     if (last == null)
         last = node;
     else
         f.prev = node;
+
     // 元素数量统计递增
     ++count;
+
     // 通知其他线程取数据
     notEmpty.signal();
     return true;
 }
+```
 
-// 把指定节点作为最后一个元素存入，如果队列已满返回false
+把指定节点作为最后一个元素存入，如果队列已满返回false
+
+```java
 private boolean linkLast(Node<E> node) {
     // 检查容量是否已满
     if (count >= capacity)
         return false;
+
     // 获取最后一个节点
     Node<E> l = last;
+
     // 新节点作为原尾节点的后继节点
     node.prev = l;
     last = node;
+
     // 处理头引用
     if (first == null)
         first = node;
     else
         l.next = node;
+
     // 元素数量统计递增
     ++count;
+
     // 通知其他线程取数据
     notEmpty.signal();
     return true;
@@ -157,63 +176,84 @@ private boolean linkLast(Node<E> node) {
 
 #### 5.2 unlink
 
-以下三个unlink相关方法在调用前需要持有锁保证线程安全
+移除并返回第一个元素，如果为空则返回null
 
 ```java
-// 移除并返回第一个元素，如果为空则返回null
 private E unlinkFirst() {
     // 获取首节点
     Node<E> f = first;
+
     if (f == null)
         return null;
+
     // 首节点的下一个节点
     Node<E> n = f.next;
+
     // 获取首节点的item
     E item = f.item;
+
     // 清空首节点
     f.item = null;
+
     // 首节点的后继节点引用为自己
     f.next = f;
+
     // 处理头引用
     first = n;
+
     if (n == null)
         last = null;
     else
         n.prev = null;
+
     // 元素数量统计递减
     --count;
+
     notFull.signal();
     // 返回首节点的内容
     return item;
 }
+```
 
-// 移除并返回最后一个元素，如果为空则返回null
+移除并返回最后一个元素，如果为空则返回null
+
+```java
 private E unlinkLast() {
     // 获取尾节点
     Node<E> l = last;
     if (l == null)
         return null;
+
     // 尾节点的上一个节点
     Node<E> p = l.prev;
+
     // 获取尾节点的item
     E item = l.item;
+
     // 清空尾节点
     l.item = null;
     l.prev = l;
+
     // 处理尾引用
     last = p;
+
     if (p == null)
         first = null;
     else
         p.next = null;
+
     // 元素数量统计递减
     --count;
+
     notFull.signal();
     // 返回尾节点的内容
     return item;
 }
+```
 
-// 从队列中移除x节点
+从队列中移除x节点
+
+```java
 void unlink(Node<E> x) {
     Node<E> p = x.prev;
     Node<E> n = x.next;
@@ -238,7 +278,7 @@ void unlink(Node<E> x) {
 
 #### 5.3 阻塞双端队列
 
-两个 __add__ 方法是 __offer__ 方法的辩题，如果元素添加失败会直接抛出异常。若deque容量已满抛出 __IllegalStateException__。存入元素为空则抛出 __NullPointerException__
+两个 __add__ 方法是 __offer__ 方法的变体
 
 ```java
 public void addFirst(E e) {
@@ -435,8 +475,6 @@ public boolean offerLast(E e, long timeout, TimeUnit unit)
 
 阻塞存入元素，当队列已满没有空间存入新元素，以下两个方法会阻塞等待并通知，等待没有设置超时时间。
 
-指定元素e为空时抛出 __NullPointerException__，等待存入元素过程中被中断抛出 __InterruptedException__
-
 元素存到队列头部
 
 ```java
@@ -615,7 +653,7 @@ public E getLast() {
 
 #### 5.10 peek
 
-获取双端链表的头节点或为节点，访问后不移出
+获取双端链表的头节点或尾节点，访问后不移出
 
 ```java
 public E peekFirst() {
@@ -663,7 +701,7 @@ public boolean removeFirstOccurrence(Object o) {
 }
 ```
 
-移出最后一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个元素。
+移出最后一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个元素。实现方式为倒序查找。
 
 ```java
 public boolean removeLastOccurrence(Object o) {
@@ -695,7 +733,7 @@ public void push(E e) {
 }
 ```
 
-弹栈，即从移除双端队列头节点
+弹栈，即从双端队列头部移除节点
 
 ```java
 public E pop() {
@@ -711,7 +749,7 @@ public boolean remove(Object o) {
     return removeFirstOccurrence(o);
 }
 
-// 返回双端队列以保存节点数量
+// 返回双端队列已保存节点数量
 public int size() {
     final ReentrantLock lock = this.lock;
     lock.lock();
@@ -722,12 +760,13 @@ public int size() {
     }
 }
 
-// 若双端队列包含指定元素返回true，也可能是队列中保存了多个相同元素，查找时命中其中一个
+// 若双端队列包含指定元素返回true，即可队列保存多个相同元素，查找时命中了其中一个
 public boolean contains(Object o) {
     if (o == null) return false;
     final ReentrantLock lock = this.lock;
     lock.lock();
     try {
+        // 从队列头部元素开始遍历匹配目标元素
         for (Node<E> p = first; p != null; p = p.next)
             if (o.equals(p.item))
                 return true;
@@ -738,17 +777,16 @@ public boolean contains(Object o) {
 }
 
 // 把指定集合的元素全部添加到本双端队列尾部中，元素插入的顺序由c的迭代器决定
-// 当插入集合c和实例本身是同一双端队列，抛出 IllegalArgumentException
-// 双端队列为空抛出 IllegalStateException
 public boolean addAll(Collection<? extends E> c) {
+    // 当插入集合和本实例是同一双端队列，抛出IllegalArgumentException
     if (c == this)
         throw new IllegalArgumentException();
 
-    // Copy c into a private chain of Nodes
     // 把c所有元素迁移到私有节点链
     Node<E> beg = null, end = null;
     int n = 0;
-    // 把c所有元素封装为Node，并连接到链beg
+
+    // 把c所有元素封装为Node，并连接到beg
     for (E e : c) {
         Objects.requireNonNull(e);
         n++;
@@ -776,6 +814,7 @@ public boolean addAll(Collection<? extends E> c) {
     try {
         if (count + n <= capacity) {
             beg.prev = last;
+            // 原队列为null
             if (first == null)
                 // beg作为头结点
                 first = beg;
@@ -824,14 +863,13 @@ public Object[] toArray() {
 }
 ```
 
-传入目标数组，并把双端队列所有元素放入该数组，元素顺序和双端队列元素顺序一致。返回数组的类型和传入数组类型相同。如果传入数组大小不足容纳所有元素，方法会创建新数组，且新容量和所放入元素数量一致，然后放入所有元素并返回。所以，会出现传入数组和返回数组不是同一个对象的现象。
+传入目标数组，并把双端队列所有元素放入该数组，元素顺序和双端队列元素顺序一致。返回数组的类型和传入数组类型相同。
 
-如果传入数组空间足够存入所有元素，该数组的下一个空间会被置为 __null__。
+如果传入数组大小不足容纳所有元素，方法会创建新数组，容量和所放入元素数量一致，放入所有元素后返回新数组。如果传入数组空间足够存入所有元素，该数组的下一个空间会被置为 __null__。
 
-本方法可以实现队列转数组的功能：__String[] y = x.toArray(new String[0]);__。且值得注意的是，传入 __toArray(new Object[0])__ 和 传入 __toArray()__ 的效果完全相同。
+本方法可以实现队列转数组的功能：__String[] y = x.toArray(new String[0]);__。且值得注意的是，传入 __toArray(new Object[0])__ 和 传入 __toArray()__ 效果完全相同。
 
-指定数组元素的运行时类型不是双端队列元素的运行时类型的子类时抛出 __ArrayStoreException__；
-指定数组为空抛出 __NullPointerException__；
+传入 __数组元素的运行类型__，不是 __本队列元素的运行类型__ 的子类时，抛出 __ArrayStoreException__。
 
 ```java
 @SuppressWarnings("unchecked")
@@ -842,7 +880,7 @@ public <T> T[] toArray(T[] a) {
     try {
         // 双端队列元素数量比指定数组空间大，则需要创建新数组并赋值给a
         if (a.length < count)
-            // 创建类型为a.getClass().getComponentType()，大小为count的数组
+            // 新数组类型为a.getClass().getComponentType()，大小为count
             a = (T[])java.lang.reflect.Array.newInstance
                 (a.getClass().getComponentType(), count);
                 
@@ -865,7 +903,7 @@ public <T> T[] toArray(T[] a) {
 
 #### 5.15 clear
 
-从双端队列中原子性地移除所有元素
+原子性地从双端队列移除所有元素
 
 ```java
 public void clear() {
@@ -874,10 +912,13 @@ public void clear() {
     lock.lock();
     try {
         for (Node<E> f = first; f != null; ) {
-            // 解除节点链接，并清空前导引用，后继引用和节点的负载
+            // 清空节点负载
             f.item = null;
+            // 解除节点f的链接
             Node<E> n = f.next;
+            // 清空前导引用
             f.prev = null;
+            // 清空后继引用
             f.next = null;
             f = n;
         }
@@ -893,12 +934,10 @@ public void clear() {
 
 #### 5.16 succ
 
-不完全上锁的情况下进行元素遍历.
-
-此种遍历需要应付以下两个问题：
+不完全上锁的情况下进行元素遍历，此遍历需要应付以下两个问题：
 
  - 已出队节点 (p.next == p)
- - 可能多个内部已移除节点 (p.item == null)
+ - 多个内部的可能已移除的节点 (p.item == null)
 
 ```java
 Node<E> succ(Node<E> p) {

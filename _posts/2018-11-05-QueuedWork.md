@@ -158,12 +158,13 @@ public static void waitToFinish() {
             handler.removeMessages(QueuedWorkHandler.MSG_RUN);
         }
 
-        // We should not delay any work as this might delay the finishers
+        // 不要延迟任何任务，因为这样可能会推迟finishers的执行
         sCanDelay = false;
     }
 
     StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskWrites();
     try {
+        // 所有等待任务运行完毕
         processPendingWork();
     } finally {
         StrictMode.setThreadPolicy(oldPolicy);
@@ -186,10 +187,11 @@ public static void waitToFinish() {
             finisher.run();
         }
     } finally {
+        // 所有finisher运行完毕
         sCanDelay = true;
     }
 
-    // 统计任务执行的总时间和等待次数
+    // 统计任务执行的总时间和递增的等待次数
     synchronized (sLock) {
         long waitTime = System.currentTimeMillis() - startTime;
 
@@ -380,7 +382,7 @@ private void handleSleeping(IBinder token, boolean sleeping) {
 
 安排任务异步执行。__work__ 是新加入的任务，__shouldDelay__ 指明本任务是否能延迟处理。
 
-__SharedPreferences.Editor.appy()__ 源码间接调用此方法，调用时参数 __shouldDelay__ 为 __true__
+__SharedPreferences.Editor.appy()__ 源码间接调用此方法，调用时 __shouldDelay__ 为 __true__
 
 ```java
 public static void queue(Runnable work, boolean shouldDelay) {
@@ -392,9 +394,10 @@ public static void queue(Runnable work, boolean shouldDelay) {
 
         // 然后放入一个Message作为通知
         if (shouldDelay && sCanDelay) {
-            // sCanDelay默认为true
+            // sCanDelay默认为true，支持延迟100ms
             handler.sendEmptyMessageDelayed(QueuedWorkHandler.MSG_RUN, DELAY);
         } else {
+            // 放入一个马上触发运行的消息
             handler.sendEmptyMessage(QueuedWorkHandler.MSG_RUN);
         }
     }
@@ -424,12 +427,13 @@ private static void processPendingWork() {
         LinkedList<Runnable> work;
 
         synchronized (sLock) {
-            // 克隆sWork为work实例，work内任务将送去执行
+            // 克隆sWork为work实例
             work = (LinkedList<Runnable>) sWork.clone();
             // 清除sWork
             sWork.clear();
 
-            // 利用QueuedWorkHandler.MSG_RUN移除相关Messages，避免以后收到通知但任务早已执行
+            // 利用QueuedWorkHandler.MSG_RUN移除相关Messages
+            // 避免以后收到类似通知，而任务却已经完成执行
             getHandler().removeMessages(QueuedWorkHandler.MSG_RUN);
         }
         
@@ -445,7 +449,7 @@ private static void processPendingWork() {
 
 ## 五、QueuedWorkHandler
 
-收到 __msg.what == MSG_RUN__ 消息的通知，去调用[processPendingWork()](/2018/11/05/QueuedWork/#47-processpendingwork)方法
+收到 __msg.what == MSG_RUN__ 消息通知就去调用[processPendingWork()](/2018/11/05/QueuedWork/#47-processpendingwork)方法。该 __Handler__ 由 __Looper__ 调用， __Looper__ 又在子线程，所以 __Handler__ 在子线程执行任务。
 
 ```java
 private static class QueuedWorkHandler extends Handler {

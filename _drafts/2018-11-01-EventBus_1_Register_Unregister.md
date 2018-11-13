@@ -114,12 +114,14 @@ class Notification
 
 #### 3.1 单例
 
+整个 __EventBus__ 通过以下方法创建单例。所有在此单例发送的事件，只对注册在单例里的订阅者有效。为了所有事件能在同一个 __EventBus__ 内流动，一定要从此方法获取 __EventBus__ 实例。
+
 ```java
 public class EventBus {
-
+    // 变量使用volatile修饰
     static volatile EventBus defaultInstance;
 
-    /** Convenience singleton for apps using a process-wide EventBus instance. */
+    // 同一进程内有效，传统的双重检验锁
     public static EventBus getDefault() {
         if (defaultInstance == null) {
             synchronized (EventBus.class) {
@@ -133,16 +135,25 @@ public class EventBus {
 }
 ```
 
-#### 3.2 基础构造
+调用 __getDefault()__ 方法时，以下两个静态常量也获得初始化：
+
+EventBusBuilder，此类后续文章会单例介绍
 
 ```java
 private static final EventBusBuilder DEFAULT_BUILDER = new EventBusBuilder();
-private static final Map<Class<?>, List<Class<?>>> eventTypesCache = new HashMap<>();
+```
 
-/**
- * Creates a new EventBus instance; each instance is a separate scope in which events are delivered. To use a
- * central bus, consider {@link #getDefault()}.
- */
+事件类型缓存，实例为HashMap<>
+
+```java
+private static final Map<Class<?>, List<Class<?>>> eventTypesCache = new HashMap<>();
+```
+
+#### 3.2 基础构造
+
+单例的初始化调用此构造方法创建实例，然后方法内由调用了自身的下文另一个构造方法
+
+```java
 public EventBus() {
     this(DEFAULT_BUILDER);
 }
@@ -174,8 +185,12 @@ private final boolean sendNoSubscriberEvent;
 private final boolean eventInheritance;
 
 private final int indexCount;
+
+// 日志控制
 private final Logger logger;
 ```
+
+事件负责构造工作的是这个构造方法
 
 ```java
 EventBus(EventBusBuilder builder) {
@@ -224,6 +239,8 @@ final static class PostingThreadState {
 ## 四、注册事件
 
 #### 4.1 register
+
+所有订阅者通过此实例方法向 __EventBus__ 注册自己，以便在注册后能收取所关心的事件。有注册方法就必然有注销方法，详情看下文 [5.1 unregister]()。这样就能在观察者不再关心具体事件是取消观察，事件也不会再发送给订阅者。
 
 ```java
 /**
@@ -398,6 +415,8 @@ private void handleSubscriberException(Subscription subscription, Object event, 
 ## 五、注销订阅
 
 #### 5.1 unregister
+
+从所有时间类中注销指定订阅者
 
 ```java
 /** Unregisters the given subscriber from all event classes. */
