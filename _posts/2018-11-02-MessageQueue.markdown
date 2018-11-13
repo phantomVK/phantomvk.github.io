@@ -108,7 +108,7 @@ private native static void nativeSetFileDescriptorEvents(long ptr, int fd, int e
 
 ## 四、构造方法
 
-__mQuitAllowed__ 指示本消息队列是否允许退出，主线程的消息队列此值为 __false__。其他线程的消息队列一般可以退出
+__mQuitAllowed__ 指示本消息队列是否允许退出，主线程的消息队列此值为 __false__。其他线程的消息队列一般可以退出。
 
 ```java
 MessageQueue(boolean quitAllowed) {
@@ -145,7 +145,7 @@ private void dispose() {
 
 #### 5.2 idle
 
-当 __Looper__ 空闲时返回true，方法可在任何线程调用。消息队列为空或消息尚未到分发时间，方法返回false
+当 __Looper__ 空闲时返回true，方法可在任何线程调用。
 
 ```java
 public boolean isIdle() {
@@ -182,7 +182,7 @@ public void removeIdleHandler(@NonNull IdleHandler handler) {
 
 #### 5.3 polling
 
-返回此looper的线程是否在等待获得更多工作。此方法还表明loop存活。
+返回此looper的线程是否在等待获得更多工作。此方法同时表明loop依然存活。
 
 ```java
 public boolean isPolling() {
@@ -192,7 +192,7 @@ public boolean isPolling() {
 }
 ```
 
-在退出的消息队列一定不在轮询。__mQuitting__ 为 false 时能假设 mPtr != 0
+在退出的消息队列一定不是空闲的。__mQuitting__ 为 false 时能假设 mPtr != 0
 
 ```java
 private boolean isPollingLocked() {
@@ -204,7 +204,7 @@ private boolean isPollingLocked() {
 
 添加文件描述符监听器，并接受文件描述符相关事件发生的通知。
 
-如果该文件描述符已经注册，则指定的事件和监听器会把旧的给替换掉，所以不可能给每个文件描述符添加多个监听器。并有必要在文件描述符的监听器不再使用时把该监听器注销。
+如果该文件描述符已经注册，则指定的事件和监听器会把旧的给替换掉，所以不可能给每个文件描述符添加多个监听器。文件描述符监听器不再使用时，需注销该监听器。
 
 参数events是 __EVENT_INPUT__ 、__EVENT_OUTPUT__、 __EVENT_ERROR__ 值的掩码。如果events为0，则传入的监听器用于注销，而不是注册。
 
@@ -212,9 +212,12 @@ private boolean isPollingLocked() {
 public void addOnFileDescriptorEventListener(@NonNull FileDescriptor fd,
         @OnFileDescriptorEventListener.Events int events,
         @NonNull OnFileDescriptorEventListener listener) {
+
+    // fd和listener均不能为空
     if (fd == null) {
         throw new IllegalArgumentException("fd must not be null");
     }
+
     if (listener == null) {
         throw new IllegalArgumentException("listener must not be null");
     }
@@ -229,12 +232,14 @@ public void addOnFileDescriptorEventListener(@NonNull FileDescriptor fd,
 
 ```java
 public void removeOnFileDescriptorEventListener(@NonNull FileDescriptor fd) {
+    
+    // fd不能为空
     if (fd == null) {
         throw new IllegalArgumentException("fd must not be null");
     }
 
     synchronized (this) {
-        // 传入events为0表示移除此事件上所有监听器
+        // 传入events为0表示移除此事件上监听器
         updateOnFileDescriptorEventListenerLocked(fd, 0, null);
     }
 }
@@ -335,24 +340,25 @@ private int dispatchEvents(int fd, int events) {
 
 #### 5.5 next
 
-此方法为轮询消息队列上的消息
+此方法为轮询消息队列上的消息。
 
 ```java
 Message next() {
     // 如果消息队列已经退出或销毁，在此处返回返回null
     // 这可能发生在应用尝试重启一个已经退出的looper
     final long ptr = mPtr;
-    if (ptr == 0) { // 为0表示队列已失效
+    if (ptr == 0) {
+        // 为0表示队列已失效，looper收到null
         return null;
     }
 
-    // 待处理IdleHandler计数，在首次初始化中为-1
+    // 待处理IdleHandler计数，在首次迭代中为-1
     int pendingIdleHandlerCount = -1;
     
     // 阻塞时间:
-    // -1：没有消息时一直阻塞； 
-    // 0：不阻塞； 
-    // >0：阻塞，且值为阻塞的具体时长；
+    // -1：一直阻塞等待消息； 
+    // +0：不阻塞，立即返回；
+    // >0：阻塞时间具体时长，如果有程序唤醒则立即返回；
     int nextPollTimeoutMillis = 0;
     
     // 循环
@@ -361,7 +367,7 @@ Message next() {
             Binder.flushPendingCommands();
         }
         
-        // 已知下一条消息在nextPollTimeoutMillis后就绪，在此等待
+        // 消息在nextPollTimeoutMillis后就绪，在此等待
         nativePollOnce(ptr, nextPollTimeoutMillis);
 
         synchronized (this) {
@@ -393,7 +399,7 @@ Message next() {
                         // msg是中间节点
                         prevMsg.next = msg.next;
                     } else {
-                        // msg是头节点，其下一个节点作为队头消息
+                        // msg是头节点，msg下一个节点作为队头消息
                         mMessages = msg.next;
                     }
                     // 解除对下一个消息的引用
@@ -402,6 +408,7 @@ Message next() {
                     msg.markInUse();
                     // 返回该消息，交给Looper
                     return msg;
+                    // 进入下一次轮询
                 }
             } else {
                 // 没有更多消息
@@ -433,11 +440,12 @@ Message next() {
                 // 构建数组，长度最小为4
                 mPendingIdleHandlers = new IdleHandler[Math.max(pendingIdleHandlerCount, 4)];
             }
+
             // 从mIdleHandlers获取对象，放入mPendingIdleHandlers数组
             mPendingIdleHandlers = mIdleHandlers.toArray(mPendingIdleHandlers);
         }
 
-        // 执行IdleHandler，仅在第一次迭代时执行
+        // 执行IdleHandler，只在第一次迭代期间到达此代码块
         for (int i = 0; i < pendingIdleHandlerCount; i++) {
             // 获取下标对应IdleHandler
             final IdleHandler idler = mPendingIdleHandlers[i];
@@ -462,11 +470,56 @@ Message next() {
             }
         }
 
-        // 重置数量
+        // 重置数量，以便不再运行它们
         pendingIdleHandlerCount = 0;
 
         // 处理IdleHandler时可能有新消息分发，所以下一轮直接获取消息不做阻塞等待
         nextPollTimeoutMillis = 0;
+    }
+}
+```
+
+如果next()已给Looper返回有效消息，Looper在消费Message后会重新调用next()，如下：
+
+```java
+public static void loop() {
+    final Looper me = myLooper();
+
+    // Looper没有通过prepare()方法初始化
+    if (me == null) {
+        throw new RuntimeException("No Looper; Looper.prepare() wasn't called on this thread.");
+    }
+
+    // 从Looper中获取其MessageQueue
+    final MessageQueue queue = me.mQueue;
+    Binder.clearCallingIdentity(); // 确保线程就是本地线程，并实时跟踪线程身份
+    final long ident = Binder.clearCallingIdentity();
+    
+    // 循环遍历，从消息队列取消息
+    for (;;) {
+        // 如果队列没有消息，queue.next()内部会阻塞等待
+        Message msg = queue.next();
+
+        // 队列返回null表明消息队列已经关闭，退出loop()的死循环
+        if (msg == null) {
+            return; // 消息队列关闭，Looper退出
+        }
+
+        // 通过对应的Handler进行回调
+        msg.target.dispatchMessage(msg);
+
+        // 确保消息在分发的时候线程没有改变
+        final long newIdent = Binder.clearCallingIdentity();
+        if (ident != newIdent) {
+            Log.wtf(TAG, "Thread identity changed from 0x"
+                    + Long.toHexString(ident) + " to 0x"
+                    + Long.toHexString(newIdent) + " while dispatching to "
+                    + msg.target.getClass().getName() + " "
+                    + msg.callback + " what=" + msg.what);
+        }
+
+        // 消息体回收
+        msg.recycleUnchecked();
     }
 }
 ```
@@ -491,6 +544,7 @@ void quit(boolean safe) {
         mQuitting = true;
 
         if (safe) {
+            // 可能会有消息需要继续分发
             removeAllFutureMessagesLocked();
         } else {
             removeAllMessagesLocked();
@@ -504,13 +558,11 @@ void quit(boolean safe) {
 
 #### 5.7 SyncBarrier
 
-通过方法能向消息队列提交 __SyncBarrier__。除非遇到已经提交的 __SyncBarrier__，否则消息像往常一样正常处理。
-
-遇到 __SyncBarrier__ 时，在 __SyncBarrier__ 后面的同步消息会被阻塞并无法执行。直到调用方法 __removeSyncBarrier__，用 __token__ 把匹配的 __SyncBarrier__ 移除，则同步消息才能继续分发。
+通过此方法向消息队列提交 __SyncBarrier__。除非遇到已经提交的 __SyncBarrier__，否则消息像往常一样正常处理。遇到 __SyncBarrier__ 时，在 __SyncBarrier__ 后面的同步消息会被阻塞并无法执行。直到调用方法 __removeSyncBarrier__，即用 __token__ 把匹配的 __SyncBarrier__ 移除，则同步消息继续分发。
 
 此方法用于立即阻止后续同步消息执行，直到消息队列收到释放 __SyncBarrier__ 的条件。而非同步消息(异步消息)不会受到 __SyncBarrier__ 影响，保持正常执行。
 
-每次 __postSyncBarrier()__ 会返回对应的、独一无二的 __token__，必要时需用该token调用 __removeSyncBarrier__ 移除已插入 __SyncBarrier__ 以保证消息队列能重新运行，不然会导致消息队列持续挂起。
+每次 __postSyncBarrier()__ 会返回对应的、独一无二的 __token__，必要时需用该token调用 __removeSyncBarrier__ 移除已插入 __SyncBarrier__ 以保证消息队列重新运转，不然会导致消息队列持续挂起。
 
 ```java
 public int postSyncBarrier() {
@@ -536,6 +588,7 @@ private int postSyncBarrier(long when) {
         Message prev = null;
         Message p = mMessages;
 
+        // 查找正确队列位置插入
         if (when != 0) {
             while (p != null && p.when <= when) {
                 prev = p;
@@ -597,7 +650,7 @@ public void removeSyncBarrier(int token) {
         // 回收Message
         p.recycleUnchecked();
 
-        // 循环在退出时，消息队列被唤醒，则实际不唤醒队列
+        // 循环在退出时消息队列已经唤醒，则取消唤醒
         if (needWake && !mQuitting) {
             // mQuitting 为 false，可以假设mPtr != 0
             nativeWake(mPtr);
@@ -616,13 +669,14 @@ boolean enqueueMessage(Message msg, long when) {
     if (msg.target == null) {
         throw new IllegalArgumentException("Message must have a target.");
     }
-    // 消息已被回收，抛出IllegalStateException异常
+
+    // 消息已在使用，抛出IllegalStateException异常
     if (msg.isInUse()) {
         throw new IllegalStateException(msg + " This message is already in use.");
     }
 
     synchronized (this) {
-        // 消息队列在退出，但有新消息进入队列，抛出IllegalStateException异常
+        // 消息队列在退出时有新消息进入队列，抛弃该消息并打出日志
         if (mQuitting) {
             IllegalStateException e = new IllegalStateException(
                     msg.target + " sending message to a Handler on a dead thread");
@@ -632,6 +686,7 @@ boolean enqueueMessage(Message msg, long when) {
             return false;
         }
 
+        // 消息正在使用
         msg.markInUse();
         msg.when = when;
         Message p = mMessages;
@@ -645,14 +700,17 @@ boolean enqueueMessage(Message msg, long when) {
             // 头插法插入新消息，并唤醒事件队列
             msg.next = p;
             mMessages = msg;
-            needWake = mBlocked; // 队列可能被阻塞，尝试唤醒
+            // 若队列已阻塞，尝试唤醒
+            needWake = mBlocked;
         } else {
-            // 消息插入对队列中间而不是头部
-            // 一般不需要唤醒事件队列，除非在队列的头部有SyncBarrier，且进队
-            // 的消息是消息队列中最早的异步消息
+            // 消息插入对队列中间而不是头部；
+            // 一般是不需要唤醒消息队列的；
+            // 除非队列头部有SyncBarrier(即 p.target == null)
+            // 且msg是消息队列中最早的异步消息(即 msg.isAsynchronous())
             needWake = mBlocked && p.target == null && msg.isAsynchronous();
             Message prev;
             for (;;) {
+                // 查找合适的插入位置
                 prev = p;
                 p = p.next;
                 if (p == null || when < p.when) {
@@ -662,6 +720,7 @@ boolean enqueueMessage(Message msg, long when) {
                     needWake = false;
                 }
             }
+            // 消息插入到p之前，prev之后
             msg.next = p; // invariant: p == prev.next
             prev.next = msg;
         }
@@ -759,7 +818,7 @@ void removeMessages(Handler h, int what, Object object) {
         while (p != null && p.target == h && p.what == what
                && (object == null || p.obj == object)) {
             Message n = p.next;
-            mMessages = n;
+            mMessages = n; // 这里处理消息头引用
             p.recycleUnchecked(); // 消息直接回收到Message缓存池
             p = n;
         }
@@ -797,7 +856,7 @@ void removeMessages(Handler h, Runnable r, Object object) {
         while (p != null && p.target == h && p.callback == r
                && (object == null || p.obj == object)) {
             Message n = p.next;
-            mMessages = n;
+            mMessages = n; // 这里处理消息头引用
             // 匹配消息p从队列中移除
             p.recycleUnchecked();
             p = n;
@@ -822,7 +881,7 @@ void removeMessages(Handler h, Runnable r, Object object) {
 }
 ```
 
-通过消息的 __Handler__ 和 __Object__
+通过消息的 __Handler__ 和 __Object__ 移除指定消息
 
 ```java
 void removeCallbacksAndMessages(Handler h, Object object) {
@@ -837,7 +896,7 @@ void removeCallbacksAndMessages(Handler h, Object object) {
         while (p != null && p.target == h
                 && (object == null || p.obj == object)) {
             Message n = p.next;
-            mMessages = n;
+            mMessages = n; // 这里处理消息头引用
             p.recycleUnchecked();
             p = n;
         }
@@ -880,10 +939,13 @@ private void removeAllMessagesLocked() {
 private void removeAllFutureMessagesLocked() {
     // 获取当前时间戳
     final long now = SystemClock.uptimeMillis();
+
     // 队列头消息
     Message p = mMessages;
+
     if (p != null) {
-        // 如果队列所有消息都没到执行时间点，则移除所有消息
+        // 队列头部消息没到执行时间点，则移除所有消息
+        // 因为队列后面的消息一定不会比头消息更早执行
         if (p.when > now) {
             removeAllMessagesLocked();
         } else {
@@ -903,7 +965,8 @@ private void removeAllFutureMessagesLocked() {
                 p = n;
             }
             p.next = null;
-            // 剩余不到处理时间点的消息全部回收
+
+            // 不到处理时间点的消息全部回收
             do {
                 p = n;
                 n = p.next;
