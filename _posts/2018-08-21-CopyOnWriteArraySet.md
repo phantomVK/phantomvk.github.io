@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-CopyOnWriteArraySet基于[CopyOnWriteArrayList](https://phantomvk.github.io/2018/08/09/CopyOnWriteArrayList/)实现写时复制功能，并获得其线程安全的能力。插入前先检查元素是否包含在列表中，以保证集合元素去重。源码来自JDK10。
+CopyOnWriteArraySet基于[CopyOnWriteArrayList](/2018/08/09/CopyOnWriteArrayList/)实现写时复制功能，并获得其线程安全的能力。插入前先检查元素是否包含在列表中，以保证集合元素去重。源码来自JDK10。
 
 ```java
 public class CopyOnWriteArraySet<E> extends AbstractSet<E>
@@ -78,7 +78,7 @@ public boolean addAll(Collection<? extends E> c) {
 
 ### 4.2 删除
 
-清空CopyOnWriteArraySet中所有元素，其实就是清空成员变量`CopyOnWriteArrayList al`。
+清空CopyOnWriteArraySet中所有元素，其实就是清空成员变量`CopyOnWriteArrayList`。
 
 ```java
 public void clear() {

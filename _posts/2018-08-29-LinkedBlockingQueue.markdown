@@ -584,7 +584,7 @@ public Object[] toArray() {
         // 通过元素数量构造数组
         Object[] a = new Object[size];
         int k = 0;
-        // 遍历队列，一次拷贝元素引用到数组对应索引
+        // 遍历队列，依次拷贝元素引用到数组对应索引
         for (Node<E> p = head.next; p != null; p = p.next)
             a[k++] = p.item;
         // 返回数组

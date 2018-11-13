@@ -110,7 +110,7 @@ public boolean contains(Object o) {
 }
 ```
 
-把指定元素添加到集合中。元素不存在于集合，在添加成功返回true。如果元素已经存在于原集合，原集合将保持不变且返回false。
+把指定元素添加到集合中。元素不存在于集合，添加成功后返回true。如果元素已经存在于原集合，原集合将保持不变且返回false。
 
 ```java
 public boolean add(E e) {
@@ -249,8 +249,11 @@ public E last() {
 }
 ```
 
+从集合中获取的元素无法转换为集合元素指定类型，抛出ClassCastException。
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement或toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
+若fromElement或toElement为null抛出NullPointerException。
+
+参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> subSet(E fromElement,
@@ -263,7 +266,11 @@ public NavigableSet<E> subSet(E fromElement,
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
+从集合中获取的元素无法转换为集合元素指定类型，抛出ClassCastException。
+
+若toElement为null抛出NullPointerException。
+
+参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> headSet(E toElement, boolean inclusive) {
@@ -271,7 +278,11 @@ public NavigableSet<E> headSet(E toElement, boolean inclusive) {
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
+从集合中获取的元素无法转换为集合元素指定类型，抛出ClassCastException。
+
+若fromElement为null抛出NullPointerException。
+
+参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
@@ -279,7 +290,11 @@ public NavigableSet<E> tailSet(E fromElement, boolean inclusive) {
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement或toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
+从集合中获取的元素无法转换为集合元素指定类型，抛出ClassCastException。
+
+若fromElement或toElement为null抛出NullPointerException。
+
+参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> subSet(E fromElement, E toElement) {
@@ -287,7 +302,11 @@ public NavigableSet<E> subSet(E fromElement, E toElement) {
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若toElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
+从集合中获取的元素无法转换为集合元素指定类型，抛出ClassCastException。
+
+若toElement为null抛出NullPointerException。
+
+参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> headSet(E toElement) {
@@ -295,7 +314,11 @@ public NavigableSet<E> headSet(E toElement) {
 }
 ```
 
-从集合中获取的元素无法转换为集合元素指定类型抛出ClassCastException。若fromElement为null抛出NullPointerException。参数错误抛出IllegalArgumentException。
+从集合中获取的元素无法转换为集合元素指定类型，抛出ClassCastException。
+
+若fromElement为null抛出NullPointerException。
+
+参数错误抛出IllegalArgumentException。
 
 ```java
 public NavigableSet<E> tailSet(E fromElement) {

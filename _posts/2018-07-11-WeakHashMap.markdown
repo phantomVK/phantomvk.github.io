@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-WeakHashMap的元素`Entry`继承自WeakReference，当元素没有外部引用或因虚拟机内存不足而回收，元素会被放入到`queue`。虽然WeakHashMap和[HashMap](http://phantomvk.github.io/2018/06/30/HashMap/)拥有相同父类，但在具体实现上HashMap有更好的优化，和WeakHashMap更相似反倒是[HashTable](http://phantomvk.github.io/2018/07/02/HashTable/)，不过线程不安全。
+WeakHashMap的元素`Entry`继承自WeakReference，当元素没有外部引用或因虚拟机内存不足而回收，元素会被放入到`queue`。虽然WeakHashMap和[HashMap](/2018/06/30/HashMap/)拥有相同父类，但在具体实现上HashMap有更好的优化，和WeakHashMap更相似反倒是[HashTable](/2018/07/02/HashTable/)，不过线程不安全。
 
 ```java
 public class WeakHashMap<K,V>
