@@ -30,7 +30,7 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     implements Map<K,V>, Cloneable, Serializable
 ```
 
-作为通用参数，默认负载因子值0.75可以很好地平衡`时间开销`和`内存开销`之间关系。高负载因子值(如>0.75)能减少内存空间开支，但会增加查找的时间开销。如果在构建时正确指定哈希表初始容量，后期可完全避免重哈希操作，换句话说就是令插入操作更高效。
+作为通用参数，默认负载因子能很好地平衡`时间开销`和`内存开销`之间关系。高负载因子值(如>0.75)能减少内存空间开支，但会增加查找的时间开销。如果在构建时正确指定哈希表初始容量，后期可完全避免重哈希操作，换句话说就是令插入操作更高效。
 
 ![HashMap_UML](/img/java/HashMap_UML.png)
 
@@ -47,11 +47,11 @@ public class HashMap<K,V> extends AbstractMap<K,V>
 - 均实现Map<K,V>接口，具有相当的Map操作能力；
 - 均不保证元素写入与读出顺序的一致性；
 
-上文提到，HashMap本身不是线程安全的，可通过
+上文提到，HashMap本身不是线程安全的，可通过以下方式包装实例：
 ```java
 Map m = Collections.synchronizedMap(new HashMap(...));
 ```
-包装实例，或把`HashMap`替换为`ConcurrentHashMap`保证线程安全。
+或把`HashMap`替换为`ConcurrentHashMap`保证线程安全。
 
 ## 三、常量值
 
@@ -196,9 +196,9 @@ static class Node<K,V> implements Map.Entry<K,V> {
 
 #### 5.2 桶索引计算
 
-通常，判断Hash算法是否高效的方式是看元素是否均匀分放到不同桶中，最好一个桶存放一个元素。即使存放更多元素，也希望每个桶能均匀存放相同数量。如果哈希算法不佳，导致一个桶中存放元素数量特别多，严重影响存取性能。
+通常，判断Hash算法是否高效的方式，是看元素是否均匀分放到不同桶中，最好一个桶存放一个元素。即使存放更多元素，也希望每个桶能均匀存放相同数量。如果哈希算法不佳，导致一个桶中存放元素数量特别多，将严重影响存取性能。
 
-为减低碰撞几率，需设置负载因子 load factor（默认值0.75）。假设用默认桶数量capacity（初始值16），通过`threshold = capacity * loadFactor`可知当键值对数量超过12时触发扩容。当然，通过单纯使用大量桶，即便不经优化的哈希算法，也能把元素相对均匀地放在不同桶中，类似通过空间换时间。事实上，JDK中的HashMap经过长期验证和修改，已在空间和时间两者取得平衡。
+为降低碰撞几率，需设置负载因子 loadFactor(默认值0.75)。假设用默认桶数量capacity(初始值16)，通过`threshold = capacity * loadFactor`可知当键值对数量超过12时触发扩容。当然，通过单纯使用大量桶，即便不经优化的哈希算法，也能把元素相对均匀地放在不同桶中，类似通过空间换时间。事实上，JDK中的HashMap经过长期验证和修改，已在空间和时间两者取得平衡。
 
 ```java
 static final int hash(Object key) {
@@ -278,7 +278,7 @@ public HashMap() {
 }
 ```
 
-通过给定Map创建新的HashMap。负载因子默认为0.75，容量值为足够保存m中键值对大小。若m为null会抛出NullPointerException
+通过给定Map创建新的HashMap。负载因子默认为0.75，容量值为足够保存m中键值对的大小。若m为null抛出NullPointerException
 
 ```java
 public HashMap(Map<? extends K, ? extends V> m) {
@@ -353,6 +353,7 @@ final V putVal(int hash,
                K key, V value,
                boolean onlyIfAbsent,
                boolean evict) {
+
     // tab: 局部变量哈希表，即HashMap.table[];
     // n: 哈希表长度，即tab[].length;
     // i: 哈希桶索引，即(n - 1) & hash;
@@ -471,7 +472,11 @@ final void putMapEntries(Map<? extends K, ? extends V> m, boolean evict) {
         }
     }
 }
+```
 
+调用方法 __putMapEntries()__，__evict__ 参数为 __true__
+
+```java
 public void putAll(Map<? extends K, ? extends V> m) {
     putMapEntries(m, true);
 }
@@ -479,13 +484,20 @@ public void putAll(Map<? extends K, ? extends V> m) {
 
 #### 6.5 扩容
 
-当哈希表已保存元素数量超过`DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY`，通过此方法扩大哈希表容量，大小只会向容量更大的方向演进。每次扩容都会增大table长度，已有节点都需重哈希，保证元素放入新哈希桶内。
+当哈希表已保存元素数量超过`DEFAULT_LOAD_FACTOR * DEFAULT_INITIAL_CAPACITY`，通过此方法扩大哈希表容量。每次扩容都会增大table长度，已有节点需重哈希，保证元素放入新哈希桶内。
 
 ```java
 final Node<K,V>[] resize() {
-    Node<K,V>[] oldTab = table; // 旧哈希表
-    int oldCap = (oldTab == null) ? 0 : oldTab.length; // 旧哈希表长度
-    int oldThr = threshold; // 旧表扩容阈值
+    // 旧哈希表
+    Node<K,V>[] oldTab = table;
+    
+    // 旧哈希表长度
+    int oldCap = (oldTab == null) ? 0 : oldTab.length;
+    
+    // 旧表扩容阈值
+    int oldThr = threshold;
+    
+    // 新容量，下一个阈值
     int newCap, newThr = 0;
 
     if (oldCap > 0) {
@@ -548,7 +560,7 @@ final Node<K,V>[] resize() {
                                 // 低位新哈希桶的首个元素，e既赋值给loHead，又赋值给loTail
                                 loHead = e;
                             } else {
-                                // 低位新哈希桶的后续元素，接到loTail的下一个位置上
+                                // 低位新哈希桶的后续元素，接到loTail的下一个位置
                                 loTail.next = e;
                             }
 
@@ -560,11 +572,11 @@ final Node<K,V>[] resize() {
                                 // 高位新哈希桶的首个元素，e既赋值给hiHead，又赋值给hiTail
                                 hiHead = e;
                             } else {
-                                // 高位新哈希桶的后续元素，接到hiTail的下一个位置上
+                                // 高位新哈希桶的后续元素，接到hiTail的下一个位置
                                 hiTail.next = e
                             }
 
-                            // 若是高位新哈希桶的首个元素，e既赋值给hiHead，又赋值给hiTail；
+                            // 若是高位新哈希桶的首个元素，e既赋值给hiHead，又赋值给hiTail
                             hiTail = e;
                         }
                     } while ((e = next) != null);
@@ -611,14 +623,15 @@ final Node<K,V>[] resize() {
 ```java
 final void treeifyBin(Node<K,V>[] tab, int hash) {
     int n, index; Node<K,V> e;
-    // 链表长度不超过MIN_TREEIFY_CAPACITY，则仅进行扩容，不转换为红黑树
+
+    // 链表长度不超过MIN_TREEIFY_CAPACITY则仅进行扩容，不转换为红黑树
     if (tab == null || (n = tab.length) < MIN_TREEIFY_CAPACITY)
         resize();
     else if ((e = tab[index = (n - 1) & hash]) != null) {
-        // 头结点hd，尾节点tl
+        // 头节点hd，尾节点tl
         TreeNode<K,V> hd = null, tl = null;
         do {
-            // 更换链表节点为红黑树节点
+            // 更换链表节点为红黑节点链表
             TreeNode<K,V> p = replacementTreeNode(e, null);
             if (tl == null)
                 hd = p;
@@ -629,7 +642,7 @@ final void treeifyBin(Node<K,V>[] tab, int hash) {
             tl = p;
         } while ((e = e.next) != null);
         
-        // 头节点非空，转换链表为红黑树
+        // 头节点非空，转换红黑节点链表为红黑树
         if ((tab[index] = hd) != null)
             hd.treeify(tab);
     }
@@ -674,6 +687,7 @@ final Node<K,V> removeNode(int hash,
         }
         
         // 遍历节点不为空，表示找到目标节点
+        // 若matchValue为true，则需同时匹配key-value
         if (node != null && (!matchValue || (v = node.value) == value ||
                              (value != null && value.equals(v)))) {
             if (node instanceof TreeNode) {
@@ -699,7 +713,11 @@ final Node<K,V> removeNode(int hash,
     }
     return null;
 }
+```
 
+__matchValue__ 为 __false__，__movable__ 为 __true__
+
+```java
 public V remove(Object key) {
     Node<K,V> e;
     return (e = removeNode(hash(key), key, null, false, true)) == null ?
@@ -715,7 +733,7 @@ public void clear() {
     Node<K,V>[] tab;
     modCount++;
     if ((tab = table) != null && size > 0) {
-        // 以保存元素数量复位
+        // 已保存元素数量复位
         size = 0;
         // 链表或红黑树与哈希表解除连接
         for (int i = 0; i < tab.length; ++i)
@@ -726,7 +744,7 @@ public void clear() {
 
 #### 6.9 包含
 
-如果是红黑树，则调用`find(int h, Object k, Class<?> kc)`，此方法为链表所用
+如果是红黑树，则调用`find(int h, Object k, Class<?> kc)`，已下方法为链表所用：
 
 ```java
 public boolean containsValue(Object value) {
@@ -816,14 +834,19 @@ static <K,V> void moveRootToFront(Node<K,V>[] tab, TreeNode<K,V> root) {
 
     // 根节点非空、哈希表不为空、桶首节点不为空
     if (root != null && tab != null && (n = tab.length) > 0) {
-        int index = (n - 1) & root.hash; // 根据哈希值查哈希桶
-        TreeNode<K,V> first = (TreeNode<K,V>)tab[index]; // 获取桶首元素
+        // 根据哈希值查哈希桶
+        int index = (n - 1) & root.hash;
+        // 获取桶首元素
+        TreeNode<K,V> first = (TreeNode<K,V>)tab[index];
         
         // 桶首元素不是红黑树的根节点，则开始移动节点
         if (root != first) {
-            Node<K,V> rn; // eq. root.next
-            tab[index] = root; // 根节点赋值到桶首元素
-            TreeNode<K,V> rp = root.prev; // 根节点的前一个节点
+            // eq. root.next 
+            Node<K,V> rn;
+            // 根节点赋值到桶首元素
+            tab[index] = root;
+            // 根节点的前一个节点
+            TreeNode<K,V> rp = root.prev;
 
             // root.next不为空，把root.prev赋值给root.next.prev，相当于把root节点解除链接
             if ((rn = root.next) != null)
@@ -860,22 +883,28 @@ final TreeNode<K,V> find(int h, Object k, Class<?> kc) {
         TreeNode<K,V> pl = p.left, pr = p.right, q;
         
         if ((ph = p.hash) > h) {
-            p = pl; // 节点的哈希值大于需查找的哈希值h，h和左叶子比较
+            // 节点的哈希值大于需查找的哈希值h，h和左叶子比较
+            p = pl;
         } else if (ph < h) {
-            p = pr; // 节点的哈希值小于需查找的哈希值h，h和右叶子比较
+            // 节点的哈希值小于需查找的哈希值h，h和右叶子比较
+            p = pr;
         } else if ((pk = p.key) == k || (k != null && k.equals(pk))) {
-            return p; // hash值相同，且value也相同，当前节点就是要查找的节点，返回
+            // hash值相同，且value也相同，当前节点就是要查找的节点，返回
+            return p;
         } else if (pl == null) {
-            p = pr; // 左叶子为空，则切换到右叶子
+            // 左叶子为空，则切换到右叶子
+            p = pr;
         } else if (pr == null) {
-            p = pl; // 右叶子为空，则切换到左叶子
+            // 右叶子为空，则切换到左叶子
+            p = pl;
         } else if ((kc != null ||
                   (kc = comparableClassFor(k)) != null) &&
                  (dir = compareComparables(kc, k, pk)) != 0) {
             // p.hash == h && p.key != k && pl != null && pr != null
             // 通过compareComparables比较pk和k大小，dir小于0，走左子树，否则走右子树
             p = (dir < 0) ? pl : pr;
-        } else if ((q = pr.find(h, k, kc)) != null) { // 进入右叶子递归查找
+        } else if ((q = pr.find(h, k, kc)) != null) {
+            // 进入右叶子递归查找
             return q;
         } else {
             // 切换到左叶子，进入左叶子递归查找
@@ -886,7 +915,9 @@ final TreeNode<K,V> find(int h, Object k, Class<?> kc) {
     // 整棵树查找结束，没有找到目标节点，返回null
     return null;
 }
+```
 
+```java
 final TreeNode<K,V> getTreeNode(int h, Object k) {
     return ((parent != null) ? root() : this).find(h, k, null);
 }
@@ -900,8 +931,8 @@ final TreeNode<K,V> getTreeNode(int h, Object k) {
 static int tieBreakOrder(Object a, Object b) {
     int d;
     if (a == null || b == null ||
-        (d = a.getClass().getName().
-         compareTo(b.getClass().getName())) == 0) // 通过类名进行compareTo比较，不同则用此结果
+        (d = a.getClass().getName().compareTo(b.getClass().getName())) == 0)
+         // 通过类名进行compareTo比较，不同则用此结果
         // a为null，或b为null，或两个对象类名对比相同，就用hashCode值比较，小于等于返回-1，否则返回1
         d = (System.identityHashCode(a) <= System.identityHashCode(b) ?
              -1 : 1);

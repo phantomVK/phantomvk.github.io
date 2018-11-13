@@ -32,30 +32,47 @@ Hashtable和[HashMap](/2018/06/30/HashMap/)有几个大区别：
 
 ## 二、数据成员
 
+哈希桶
+
 ```java
-// 哈希桶
 private transient Entry<?,?>[] table;
+```
 
-// 保存元素总数
+保存元素总数
+
+```java
 private transient int count;
+```
 
-// 重哈希阈值
+重哈希阈值
+
+```java
 private int threshold;
+```
 
-// 负载因子
+负载因子
+
+```java
 private float loadFactor;
+```
 
-// 结构修改次数，或元素添加次数
+结构修改次数，或元素添加次数
+
+```java
 private transient int modCount = 0;
+```
 
-// 数组最大长度
+数组最大长度
+
+```java
 private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 ```
 
 ## 三、构造方法
 
+指定初始容量和负载因子
+
 ```java
-// 指定初始容量和负载因子
 public Hashtable(int initialCapacity, float loadFactor) {
     if (initialCapacity < 0)
         throw new IllegalArgumentException("Illegal Capacity: "+
@@ -70,18 +87,27 @@ public Hashtable(int initialCapacity, float loadFactor) {
     table = new Entry<?,?>[initialCapacity];
     threshold = (int)Math.min(initialCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
 }
+```
 
-// 自定初始容量
+自定初始容量
+
+```java
 public Hashtable(int initialCapacity) {
     this(initialCapacity, 0.75f);
 }
+```
 
-// 默认构造方法，初始容量11，初始负载因子0.75
+默认构造方法，初始容量11，初始负载因子0.75
+
+```java
 public Hashtable() {
     this(11, 0.75f);
 }
+```
 
-// 使用指定Map构造Hashtable
+使用指定Map构造Hashtable
+
+```java
 public Hashtable(Map<? extends K, ? extends V> t) {
     // 初始化哈希表
     this(Math.max(2*t.size(), 11), 0.75f);
@@ -106,10 +132,13 @@ public synchronized boolean containsKey(Object key) {
     for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
         // 匹配哈希值且key完全相同
         if ((e.hash == hash) && e.key.equals(key)) {
+            // 找到对应值
             return true;
         }
     }
-    return false; // 找不到指定key
+    
+    // 找不到指定key
+    return false;
 }
 ```
 
@@ -130,11 +159,14 @@ public synchronized boolean contains(Object value) {
         for (Entry<?,?> e = tab[i] ; e != null ; e = e.next) {
             // 依次检查Entry.value是否等于在查找的值
             if (e.value.equals(value)) {
-                return true; // 找到对应值
+                // 找到对应值
+                return true;
             }
         }
     }
-    return false; // 找不到指定value
+    
+    // 找不到指定value
+    return false;
 }
 ```
 
@@ -152,10 +184,13 @@ public synchronized V get(Object key) {
     // 遍历桶中的链表
     for (Entry<?,?> e = tab[index] ; e != null ; e = e.next) {
         if ((e.hash == hash) && e.key.equals(key)) {
-            return (V)e.value; // 匹配哈希值则获取对应值
+            // 匹配哈希值则获取对应值
+            return (V)e.value;
         }
     }
-    return null; // 没有匹配到指定key，返回null
+    
+    // 没有匹配到指定key，返回null
+    return null;
 }
 ```
 
@@ -171,8 +206,9 @@ public synchronized V getOrDefault(Object key, V defaultValue) {
 
 #### 4.3 重哈希
 
+扩容并重哈希所有键值
+
 ```java
-// 扩容并重哈希所有键值
 @SuppressWarnings("unchecked")
 protected void rehash() {
     // 获取原表的元素数量
@@ -222,30 +258,43 @@ protected void rehash() {
 private void addEntry(int hash, K key, V value, int index) {
     Entry<?,?> tab[] = table;
     if (count >= threshold) {
-        rehash(); // 超过阈值大小，哈希表执行扩容
+        // 超过阈值大小，哈希表执行扩容
+        rehash();
 
         tab = table;
-        hash = key.hashCode(); // 取键的哈希值
-        index = (hash & 0x7FFFFFFF) % tab.length; // 算哈希桶索引
+        // 取键的哈希值
+        hash = key.hashCode();
+        // 算哈希桶索引
+        index = (hash & 0x7FFFFFFF) % tab.length;
     }
 
+    // 获取哈希桶链表首个索引
     @SuppressWarnings("unchecked")
-    Entry<K,V> e = (Entry<K,V>) tab[index]; // 获取哈希桶链表首个索引
-    tab[index] = new Entry<>(hash, key, value, e); // 把Entry放入哈希索引中，头插法
-    count++; // 总数递增
-    modCount++; // 修改次数递增
+    Entry<K,V> e = (Entry<K,V>) tab[index];
+    // 把Entry放入哈希索引中，头插法
+    tab[index] = new Entry<>(hash, key, value, e);
+    // 总数递增
+    count++;
+    // 修改次数递增
+    modCount++;
 }
+```
 
+```java
 public synchronized V put(K key, V value) {
     if (value == null) {
         throw new NullPointerException();
     }
 
     Entry<?,?> tab[] = table;
-    int hash = key.hashCode(); // 计算key的哈希值
-    int index = (hash & 0x7FFFFFFF) % tab.length; // 计算桶索引
+    // 计算key的哈希值
+    int hash = key.hashCode();
+    // 计算桶索引
+    int index = (hash & 0x7FFFFFFF) % tab.length;
+    
+    // 获取哈希桶
     @SuppressWarnings("unchecked")
-    Entry<K,V> entry = (Entry<K,V>)tab[index]; // 获取哈希桶
+    Entry<K,V> entry = (Entry<K,V>)tab[index];
     for(; entry != null ; entry = entry.next) {
         if ((entry.hash == hash) && entry.key.equals(key)) {
             // 临时保存旧值
@@ -262,31 +311,43 @@ public synchronized V put(K key, V value) {
     // 创建新Entry就返回null作为value
     return null;
 }
+```
 
-// 递归调用put()
+递归调用put()
+
+```java
 public synchronized void putAll(Map<? extends K, ? extends V> t) {
     for (Map.Entry<? extends K, ? extends V> e : t.entrySet())
         put(e.getKey(), e.getValue());
 }
+```
 
-// 仅在key对应Entry不存在时才创建新Entry，否则直接返回旧value
+仅在key对应Entry不存在时才创建新Entry，否则直接返回旧value
+
+```java
 @Override
 public synchronized V putIfAbsent(K key, V value) {
     Objects.requireNonNull(value);
 
     Entry<?,?> tab[] = table;
-    int hash = key.hashCode(); // 计算哈希值
-    int index = (hash & 0x7FFFFFFF) % tab.length; // 计算哈希桶
+    // 计算哈希值
+    int hash = key.hashCode();
+    // 计算哈希桶
+    int index = (hash & 0x7FFFFFFF) % tab.length;
+    
+    // 获取哈希桶
     @SuppressWarnings("unchecked")
-    Entry<K,V> entry = (Entry<K,V>)tab[index]; // 获取哈希桶
+    Entry<K,V> entry = (Entry<K,V>)tab[index];
     for (; entry != null; entry = entry.next) {
-        if ((entry.hash == hash) && entry.key.equals(key)) { // 从拉链匹配对应Entry
+        if ((entry.hash == hash) && entry.key.equals(key)) {
+            // 从拉链匹配对应Entry
             V old = entry.value;
             // 旧value为null，直接放入
             if (old == null) {
                 entry.value = value;
             }
-            return old; // 直接返回oldValue
+            // 直接返回oldValue
+            return old;
         }
     }
     
@@ -302,56 +363,82 @@ public synchronized V putIfAbsent(K key, V value) {
 public synchronized V remove(Object key) {
     Entry<?,?> tab[] = table;
     int hash = key.hashCode();
-    int index = (hash & 0x7FFFFFFF) % tab.length; // 计算哈希桶索引
+    // 计算哈希桶索引
+    int index = (hash & 0x7FFFFFFF) % tab.length;
+    
+    // 获取哈希桶
     @SuppressWarnings("unchecked")
-    Entry<K,V> e = (Entry<K,V>)tab[index]; // 获取哈希桶
+    Entry<K,V> e = (Entry<K,V>)tab[index]; 
     for(Entry<K,V> prev = null ; e != null ; prev = e, e = e.next) {
         // 哈希值相同，且key相同
         if ((e.hash == hash) && e.key.equals(key)) {
             // 节点从链表中解除引用
             if (prev != null) {
-                prev.next = e.next; // 中间节点解除引用
+                // 中间节点解除引用
+                prev.next = e.next;
             } else {
-                tab[index] = e.next; // 头结点解除引用
+                // 头结点解除引用
+                tab[index] = e.next;
             }
-            modCount++; // 修改递增
-            count--; // 元素数量递减
-            V oldValue = e.value; // 获取旧值
-            e.value = null; // 置空回收
+            // 修改递增
+            modCount++;
+            // 元素数量递减
+            count--;
+            // 获取旧值
+            V oldValue = e.value;
+            // 置空回收
+            e.value = null;
             return oldValue;
         }
     }
-    return null; // key匹配不到Entry
+    // key匹配不到Entry
+    return null;
 }
+```
 
-// 参考删除方法，此方法只是增加检查value是否一致，仅一致时移除
+参考删除方法，此方法只是增加检查value是否一致，仅一致时移除
+
+```java
 @Override
 public synchronized boolean remove(Object key, Object value) {
     Objects.requireNonNull(value);
 
     Entry<?,?> tab[] = table;
     int hash = key.hashCode();
-    int index = (hash & 0x7FFFFFFF) % tab.length; // 计算哈希桶索引
+    // 计算哈希桶索引
+    int index = (hash & 0x7FFFFFFF) % tab.length;
+
+    // 获取哈希桶
     @SuppressWarnings("unchecked")
-    Entry<K,V> e = (Entry<K,V>)tab[index]; // 获取哈希桶
+    Entry<K,V> e = (Entry<K,V>)tab[index]; 
     for (Entry<K,V> prev = null; e != null; prev = e, e = e.next) {
         // key和value都匹配的Entry
         if ((e.hash == hash) && e.key.equals(key) && e.value.equals(value)) {
             if (prev != null) {
-                prev.next = e.next; // 从链中摘除节点
+                // 从链中摘除节点
+                prev.next = e.next;
             } else {
-                tab[index] = e.next; // 从链头摘除节点
+                // 从链头摘除节点
+                tab[index] = e.next;
             }
-            e.value = null; // 置空以便GC
-            modCount++; // 修改递增
-            count--; // 元素数量递减
-            return true; // 匹配Entry成功
+            // 置空以便GC
+            e.value = null;
+            // 修改递增
+            modCount++;
+            // 元素数量递减
+            count--;
+            // 匹配Entry成功
+            return true;
         }
     }
-    return false; // 匹配Entry失败
+    // 匹配Entry失败
+    return false;
 }
+```
 
-// 清空哈希表所有元素，桶表长度不改变
+清空哈希表所有元素，桶表长度不改变
+
+```java
 public synchronized void clear() {
     Entry<?,?> tab[] = table;
     
@@ -369,12 +456,15 @@ public synchronized void clear() {
 ```java
 public synchronized boolean equals(Object o) {
     if (o == this)
-        return true; // 同一个HashTable
+        // 同一个HashTable
+        return true;
 
     if (!(o instanceof Map))
-        return false; // 对象o没有继承Map，返回false
+        // 对象o没有继承Map，返回false
+        return false;
 
     Map<?,?> t = (Map<?,?>) o;
+
     // 表中保存元素数量不同，不是同一个表
     if (t.size() != size())
         return false;
@@ -400,18 +490,23 @@ public synchronized boolean equals(Object o) {
 
     return true;
 }
+```
 
-// 计算HashTable的哈希值
+计算HashTable的哈希值
+
+```java
 public synchronized int hashCode() {
     int h = 0;
     if (count == 0 || loadFactor < 0)
-        return h; // 返回0
+        // 返回0
+        return h;
 
     loadFactor = -loadFactor;
     Entry<?,?>[] tab = table;
     for (Entry<?,?> entry : tab) {
         while (entry != null) {
-            h += entry.hashCode(); // 累加Entry实例的哈希值
+            // 累加Entry实例的哈希值
+            h += entry.hashCode();
             entry = entry.next;
         }
     }
@@ -424,6 +519,8 @@ public synchronized int hashCode() {
 
 #### 4.7 替换
 
+用key查找对应Entry，且匹配oldValue，替换oldValue为value
+
 ```java
 @Override
 public synchronized boolean replace(K key, V oldValue, V newValue) {
@@ -432,45 +529,60 @@ public synchronized boolean replace(K key, V oldValue, V newValue) {
     Objects.requireNonNull(newValue);
 
     Entry<?,?> tab[] = table;
-    int hash = key.hashCode(); // 计算key的哈希值
-    int index = (hash & 0x7FFFFFFF) % tab.length; // 哈希桶索引
+    // 计算key的哈希值
+    int hash = key.hashCode();
+    // 哈希桶索引
+    int index = (hash & 0x7FFFFFFF) % tab.length; 
 
+    // 获取哈希桶
     @SuppressWarnings("unchecked")
-    Entry<K,V> e = (Entry<K,V>)tab[index]; // 获取哈希桶
+    Entry<K,V> e = (Entry<K,V>)tab[index];
     for (; e != null; e = e.next) {
         // 查找是否有key对应的Entry
         if ((e.hash == hash) && e.key.equals(key)) {
             if (e.value.equals(oldValue)) {
-                e.value = newValue; // 同时还有oldValue匹配，才能替换为newValue
-                return true; // 替换成功
+                // 同时还要和oldValue匹配，才能替换为newValue
+                e.value = newValue;
+                // 替换成功
+                return true;
             } else {
-                return false; // 替换失败
+                // 替换失败
+                return false;
             }
         }
     }
     return false;
 }
+```
 
-// 用key查找对应Entry，并替换oldValue为value
+用key查找对应Entry，并替换oldValue为value
+
+```java
 @Override
 public synchronized V replace(K key, V value) {
     Objects.requireNonNull(value);
 
     Entry<?,?> tab[] = table;
-    int hash = key.hashCode(); // 计算key的哈希值
-    int index = (hash & 0x7FFFFFFF) % tab.length; // 计算哈希索引大概位置
+    // 计算key的哈希值
+    int hash = key.hashCode();
+    // 计算哈希索引大概位置
+    int index = (hash & 0x7FFFFFFF) % tab.length;
 
+    // 选取哈希桶
     @SuppressWarnings("unchecked")
-    Entry<K,V> e = (Entry<K,V>)tab[index]; // 选取哈希桶
+    Entry<K,V> e = (Entry<K,V>)tab[index];
     for (; e != null; e = e.next) {
         // 逐个遍历链表元素，查找是否有对应Entry
         if ((e.hash == hash) && e.key.equals(key)) {
             V oldValue = e.value;
             e.value = value;
-            return oldValue; // 返回旧值
+            // 返回旧值
+            return oldValue;
         }
     }
-    return null; // 没有对应key，返回null
+    
+    // 没有对应key，返回null
+    return null;
 }
 ```
 
@@ -491,7 +603,7 @@ private static class Entry<K,V> implements Map.Entry<K,V> {
         this.next = next;
     }
     
-    // 深克隆
+    // 克隆
     @SuppressWarnings("unchecked")
     protected Object clone() {
         return new Entry<>(hash, key, value,
