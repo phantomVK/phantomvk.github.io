@@ -22,3 +22,8 @@ tags:
 
 8_SubscriberMethodFinder.
 
+Subscription
+
+如何扫描类的方法
+
+如果获取方法的变量类型

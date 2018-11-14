@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "EventBusBuilder"
+title:      "EventBus源码剖析 -- EventBusBuilder"
 date:       2017-01-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
