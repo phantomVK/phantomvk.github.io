@@ -19,7 +19,7 @@ tags:
  */
 public enum ThreadMode {
     /**
-     * Subscriber will be called directly in the same thread, which is posting the event. This is the default. Event delivery
+     * Subscriber will be called directly in the same thread, which is posting the event. This is the default. Evewnt delivery
      * implies the least overhead because it avoids thread switching completely. Thus this is the recommended mode for
      * simple tasks that are known to complete in a very short time without requiring the main thread. Event handlers
      * using this mode must return quickly to avoid blocking the posting thread, which may be the main thread.
