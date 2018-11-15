@@ -1,11 +1,11 @@
 ---
 layout:      post
-title:          "EventBus源码剖析 -- SubscriberMethodFinder"
+title:       "EventBus源码剖析 -- SubscriberMethodFinder"
 subtitle:    ""
-date:         2017-01-01
-author:     "phantomVK"
-header-img: "img/bg/post_bg.jpg"
-catalog:    true
+date:        2017-01-01
+author:      "phantomVK"
+header-img:  "img/bg/post_bg.jpg"
+catalog:     true
 tags:
     - EventBus
 ---
