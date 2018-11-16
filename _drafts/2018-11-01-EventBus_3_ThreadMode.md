@@ -16,8 +16,9 @@ __EventBus__ 支持消息通过不同的线程模式发送，以此满足 __Andr
 
 ## 二、用法
 
+注册类必须包含至少一个接收事件的方法
+
 ```java
-// 注册类必须包含至少一个接收事件的方法
 @Subscribe(threadMode = ThreadMode.MAIN, sticky = false, priority = 0)
 fun onEventReceived(event: UserEvent) {
     val name = event.name
@@ -44,7 +45,7 @@ public enum ThreadMode
 
 #### 4.1 POSTING
 
-订阅者会直接在于发布线程相同的线程调用。本模式也是 __EventBus__ 默认线程模式。事件分发
+订阅者会直接在于发布线程相同的线程调用。本模式也是 __EventBus__ 默认线程模式。事件分发意味着减少性能开销，因为能完全避免线程切换。因此，对短时间就能完成的单个任务来说，如果不会影响主线程，则本模式就是首要推荐的模式。就会是说，使用此模式处理时间的时候需要在方法上迅速执行完毕并返回，避免阻塞发布线程，也就是一般所用的主线程。
 
 ```java
 /**
@@ -116,3 +117,50 @@ BACKGROUND,
  */
 ASYNC
 ```
+
+## 实现
+
+结合具体的实现方法[EventBus.postToSubscription()](/2018/11/14/EventBus_1_Register/#44-posttosubscription)，具体逻辑就不难理解了。
+
+```java
+private void postToSubscription(Subscription subscription, Object event, boolean isMainThread) {
+    // 获取订阅者方法指定线程的类别
+    switch (subscription.subscriberMethod.threadMode) {
+        case POSTING:
+            invokeSubscriber(subscription, event);
+            break;
+        case MAIN:
+            if (isMainThread) {
+                // 处于主线程就直接触发订阅者
+                invokeSubscriber(subscription, event);
+            } else {
+                // 处在其他线程，向主线程Handler发送消息
+                mainThreadPoster.enqueue(subscription, event);
+            }
+            break;
+        case MAIN_ORDERED:
+            if (mainThreadPoster != null) {
+                mainThreadPoster.enqueue(subscription, event);
+            } else {
+                // temporary: technically not correct as poster not decoupled from subscriber
+                invokeSubscriber(subscription, event);
+            }
+            break;
+        case BACKGROUND:
+            if (isMainThread) {
+                backgroundPoster.enqueue(subscription, event);
+            } else {
+                invokeSubscriber(subscription, event);
+            }
+            break;
+        case ASYNC:
+            asyncPoster.enqueue(subscription, event);
+            break;
+
+        // 传入未知threadMode，引起异常
+        default:
+            throw new IllegalStateException("Unknown thread mode: " + subscription.subscriberMethod.threadMode);
+    }
+}
+```
+
