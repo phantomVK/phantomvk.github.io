@@ -13,23 +13,23 @@ tags:
 
 #### 1.1 特性
 
-__EventBus__ 是为 __Android__ 而设的中心化 __publish/subscribe (发布/订阅)__ 事件系统。消息通过 __post(Object)__ 把消息提交到总线，总线把消息分发给订阅者。当然，该订阅者需拥有匹配消息类型的处理方法。
+__EventBus__ 是为 __Android__ 而设的中心化 __publish/subscribe (发布/订阅)__ 事件系统。事件通过 __post(Object)__ 提交到总线，总线把事件投递给订阅者。当然，该订阅者需拥有匹配类型消息的处理方法。
 
 ![EventBus-Publish-Subscribe](/img/android/EventBus/EventBus-Publish-Subscribe.png)
 
-为能接收消息，订阅者需要通过 __register(Object)__ 把自己注册到总线上。一旦成功注册，订阅者将一直接收对应消息，直到订阅者通过 __unregister(Object)__ 注销监听。
+为了能接收事件，订阅者需要通过 __register(Object)__ 把自己注册到总线上。一旦成功注册，订阅者将可以持续接收关心的事件，直到通过 __unregister(Object)__ 注销监听。
 
-处理消息的方法需满足以下条件：
+处理事件的方法需满足以下条件：
 
-- 用 __Subscribe__ 关键字进行注解；
+- 用 __Subscribe__ 进行注解；
 - 方法可见性为 __public__；
 - 方法返回值为 __void__；
-- 仅含有一个参数，为接收的事件的类型；
+- 仅含有一个参数，参数类型为接收的事件类；
 
 #### 1.2 优点
 
-* 简化不同组件间的通讯
-   *  对事件发送者和接收者两者进行解耦
+* 简化不同组件间通讯
+   *  对事件发送者和接收者进行解耦
    *  与Activities、 Fragments、和 background threads 运行得很好
    *  避免复杂、易错的依赖和生命周期问题
 * 令实现代码更简洁
@@ -42,13 +42,13 @@ __EventBus__ 是为 __Android__ 而设的中心化 __publish/subscribe (发布/�
 
 #### 2.1 订阅者
 
-订阅者需要在合适的生命周期，把自己注册到消息总线上，以便接收关心的事件。同时，由于事件的基本接收单位是方法，所以需要给接收事件的方法添加注解，以便 __EventBus__ 把事件发送到该方法上。
+订阅者需要在界面合适的生命周期，把自己注册到消息总线开始接收事件。同时，由于事件的基本接收单位是方法，所以需要给接收事件的方法添加注解，以便 __EventBus__ 把事件发送到该方法上。
 
 接收者方法需要遵循以下规则：
 
--  使用 __EventBus__ 的注册修饰方法；
-- 方法不能为 __private__，才能让  __EventBus__ 获取该方法；
-- 方法必须只有一个参数，且参数类型就是所关心事件的类型；
+-  使用 __EventBus__ 的注解修饰方法；
+-  方法不能为 __private__，才能让  __EventBus__ 获取该方法；
+-  方法必须只有一个参数，且参数类型就是所关心事件的类型；
 
 ```java
 class MainActivity : AppCompatActivity() {
@@ -77,11 +77,11 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-除了把实例注册到 __EventBus__ ，如果接收者类对事件不再关心，也需要在合适时间点移除注册。每个接收者类只需向 __EventBus__ 注册一次。为避免多次注册，可以向上述代码一样，在注册前检查是否已注册。
+把实例注册到 __EventBus__ 后，接收者类对事件不再关心时，也需要在合适时间点注销订阅。每个接收者类只需向 __EventBus__ 注册一次。为避免多次注册，可以像上述代码一样，在注册前检查是否已注册。
 
 #### 2.2 发布者
 
-对事件发布者来说，工作就比较简单了。只需要构建目标事件，把数据或负载内容构建到事件中发出即可。如果事件只是为了发出通知，事件实现类甚至可以不带任何数据成员。
+对事件发布者来说，工作就比较简单了。只需要构建目标事件，把数据或负载内容构建到事件中发出即可。
 
 ```java
 fun postEvent() {
@@ -98,7 +98,7 @@ fun postEvent() {
 class UserEvent(val name: String, val age: Int)
 ```
 
-如果消息只是为了发出简单通知，事件消息体可以不含任何数据成员。例如在 __Kotlin__ 中：
+如果消息只为发出简单通知，事件消息体甚至可以不含任何数据成员。例如同 __Kotlin__ 实现的类：
 
 ```java
 class Notification
@@ -129,9 +129,7 @@ public class EventBus {
 }
 ```
 
-调用 __getDefault()__ 方法时，以下两个静态常量也获得初始化：
-
-__EventBusBuilder__ 类将在后续文章进行详细介绍
+调用 __getDefault()__ 方法时，以下两个常量也获得初始化。
 
 ```java
 private static final EventBusBuilder DEFAULT_BUILDER = new EventBusBuilder();
@@ -158,24 +156,25 @@ public EventBus() {
 构造过程对以下数据成员进行赋值
 
 ```java
-// 按照事件类型分类订阅，事件类型预期对应的订阅类
+// 按照事件类型分类订阅，事件类型与对应的订阅记录
 private final Map<Class<?>, CopyOnWriteArrayList<Subscription>> subscriptionsByEventType;
 
-// 通过订阅者类型分类
+// 按照订阅者类型分类
 private final Map<Object, List<Class<?>>> typesBySubscriber;
 
-// 保存粘性事件
+// 粘性事件
 private final Map<Class<?>, Object> stickyEvents;
 
+// 用于提供访问主线程的能力
 private final MainThreadSupport mainThreadSupport;
 
-// 主线程发布器
+// 主线程消息分发器
 private final Poster mainThreadPoster;
 
-// 后台线程发布器
+// 后台线程消息分发器
 private final BackgroundPoster backgroundPoster;
 
-// 异步发布器
+// 异步消息发布器
 private final AsyncPoster asyncPoster;
 
 // 订阅者方法查找器
@@ -198,7 +197,7 @@ private final int indexCount;
 private final Logger logger;
 ```
 
-事件负责构造工作的是这个构造方法
+构造方法：
 
 ```java
 EventBus(EventBusBuilder builder) {
@@ -227,7 +226,7 @@ EventBus(EventBusBuilder builder) {
     subscriberMethodFinder = new SubscriberMethodFinder(builder.subscriberInfoIndexes,
             builder.strictMethodVerification, builder.ignoreGeneratedIndex);
 
-    // 初始化Boolean
+    // 初始化各种标志位
     logSubscriberExceptions = builder.logSubscriberExceptions;
     logNoSubscriberMessages = builder.logNoSubscriberMessages;
     sendSubscriberExceptionEvent = builder.sendSubscriberExceptionEvent;
@@ -242,7 +241,7 @@ EventBus(EventBusBuilder builder) {
 
 #### 3.4 PostingThreadState
 
-在单例初始化过程还初始化了以下 __ThreadLocal__ 实例
+单例初始化过程还初始化了 __ThreadLocal__ 实例
 
 ```java
 private final ThreadLocal<PostingThreadState> currentPostingThreadState = new ThreadLocal<PostingThreadState>() {
@@ -281,11 +280,11 @@ final static class PostingThreadState {
 
 #### 4.1 register
 
-所有订阅者通过此方法向 __EventBus__ 注册自己，以便在注册后收取所关心的事件。注销订阅则通过方法 __unregister(Object)__，这样观察者就能在不再关心事件的时候取消订阅。
+所有订阅者通过此方法向 __EventBus__ 注册，以便在注册后收取所关心的事件。注销订阅则通过方法 __unregister(Object)__，这样观察者就能在不再关心事件的时候取消订阅。
 
 ```java
 public void register(Object subscriber) {
-    // 获取订阅者的类型
+    // 获取订阅者的Class
     Class<?> subscriberClass = subscriber.getClass();
 
     // 从订阅者方法中找出该类接收事件的方法
@@ -306,7 +305,7 @@ public void register(Object subscriber) {
 
 ```java
 private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
-    // 订阅者方法的事件类型，即方法唯一参数
+    // 订阅者方法的事件类型，即订阅者方法唯一参数
     Class<?> eventType = subscriberMethod.eventType;
 
     // 构建新记录
@@ -316,8 +315,9 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
     CopyOnWriteArrayList<Subscription> subscriptions = subscriptionsByEventType.get(eventType);
 
     if (subscriptions == null) {
+        // 该事件未曾有订阅者订阅，进行初始化
         subscriptions = new CopyOnWriteArrayList<>();
-        // 把事件类型或对应Subscription放入
+        // 把事件类型或对应订阅记录放入，形成<eventType, <subscriber, subscriberMethod>>
         subscriptionsByEventType.put(eventType, subscriptions);
     } else {
         if (subscriptions.contains(newSubscription)) {
@@ -327,10 +327,10 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
         }
     }
 
-    // 获取同一事件上subscriptions数量
+    // 获取同一事件上订阅记录的数量
     int size = subscriptions.size();
     for (int i = 0; i <= size; i++) {
-        // 根据方法注解设置的priority值，倒序插入新记录newSubscription
+        // 根据方法注解设置的priority值，降序插入新记录事件记录
         // priority值越大越优先接收消息，默认值为0
         if (i == size || subscriberMethod.priority > subscriptions.get(i).subscriberMethod.priority) {
             subscriptions.add(i, newSubscription);
@@ -389,7 +389,7 @@ private void checkPostStickyEventToSubscription(Subscription newSubscription, Ob
 
 #### 4.4 postToSubscription
 
-ThreadMode中几种类别的主要含义在后续文章详解
+__ThreadMode__ 中几种类别的主要含义在后续文章详解
 
 ```java
 private void postToSubscription(Subscription subscription, Object event, boolean isMainThread) {
@@ -398,6 +398,7 @@ private void postToSubscription(Subscription subscription, Object event, boolean
         case POSTING:
             invokeSubscriber(subscription, event);
             break;
+
         case MAIN:
             if (isMainThread) {
                 // 处于主线程就直接触发订阅者
@@ -407,14 +408,17 @@ private void postToSubscription(Subscription subscription, Object event, boolean
                 mainThreadPoster.enqueue(subscription, event);
             }
             break;
+
         case MAIN_ORDERED:
             if (mainThreadPoster != null) {
+                // 优先放入主线程的消息队列等待处理
                 mainThreadPoster.enqueue(subscription, event);
             } else {
                 // temporary: technically not correct as poster not decoupled from subscriber
                 invokeSubscriber(subscription, event);
             }
             break;
+
         case BACKGROUND:
             if (isMainThread) {
                 backgroundPoster.enqueue(subscription, event);
@@ -422,10 +426,12 @@ private void postToSubscription(Subscription subscription, Object event, boolean
                 invokeSubscriber(subscription, event);
             }
             break;
+
         case ASYNC:
             asyncPoster.enqueue(subscription, event);
             break;
-        // 传入未知threadMode，引起异常
+
+        // 传入未知threadMode
         default:
             throw new IllegalStateException("Unknown thread mode: " + subscription.subscriberMethod.threadMode);
     }
@@ -448,6 +454,7 @@ public synchronized void unregister(Object subscriber) {
         for (Class<?> eventType : subscribedTypes) {
             unsubscribeByEventType(subscriber, eventType);
         }
+
         // 从typesBySubscriber移除subscriber
         typesBySubscriber.remove(subscriber);
     } else {
