@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "EventBus源码剖析(3) — 线程模式"
+title:      "EventBus源码剖析(3) -- 线程模式"
 date:       2018-11-17
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
