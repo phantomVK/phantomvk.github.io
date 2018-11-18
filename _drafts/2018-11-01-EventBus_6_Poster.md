@@ -1,14 +1,15 @@
 ---
 layout:     post
-title:      "EventBus -- Poster"
-subtitle:   ""
-date:       2018-01-01
+title:      "EventBus源码剖析(6) -- Poster"
+date:       2018-11-20
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
     - EventBus
 ---
+
+## Poster
 
 ```java
 /**
@@ -27,6 +28,8 @@ interface Poster {
     void enqueue(Subscription subscription, Object event);
 }
 ```
+
+## AsyncPoster
 
 ```java
 /**
@@ -61,6 +64,8 @@ class AsyncPoster implements Runnable, Poster {
 
 }
 ```
+
+## BackgroundPoster
 
 ```java
 /**
@@ -118,6 +123,8 @@ final class BackgroundPoster implements Runnable, Poster {
     }
 }
 ```
+
+## HandlerPoster
 
 ```java
 public class HandlerPoster extends Handler implements Poster {
@@ -178,6 +185,40 @@ public class HandlerPoster extends Handler implements Poster {
             handlerActive = rescheduled;
         }
     }
+}
+```
+
+## MainThreadSupport
+
+```java
+/**
+ * Interface to the "main" thread, which can be whatever you like. Typically on Android, Android's main thread is used.
+ */
+public interface MainThreadSupport {
+
+    boolean isMainThread();
+
+    Poster createPoster(EventBus eventBus);
+
+    class AndroidHandlerMainThreadSupport implements MainThreadSupport {
+
+        private final Looper looper;
+
+        public AndroidHandlerMainThreadSupport(Looper looper) {
+            this.looper = looper;
+        }
+
+        @Override
+        public boolean isMainThread() {
+            return looper == Looper.myLooper();
+        }
+
+        @Override
+        public Poster createPoster(EventBus eventBus) {
+            return new HandlerPoster(eventBus, looper, 10);
+        }
+    }
+
 }
 ```
 
