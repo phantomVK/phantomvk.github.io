@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "EventBus源码剖析(4) -- 订阅记录"
-date:       2018-11-18
+date:       2018-11-19
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -55,19 +55,30 @@ final class Subscription {
 }
 ```
 
-## SubscriberMethod
+## 二、SubscriberMethod
 
-具体到 __Subscription__ 内部实现，里面还包含了 __SubscriberMethod__ ，
+具体到 __Subscription__ 内部实现，里面还包含了 __SubscriberMethod__。
+
+前文已经提到，订阅者类通过 __EventBus__ 的注解修饰并因此能被 __EventBus__ 发现。__EventBus__ 通过注解处理器分析注解，和获取的订阅者方法信息构造成这个 __SubscriberMethod__ 类，成为订阅者信息的索引。
 
 ```java
-/** Used internally by EventBus and generated subscriber indexes. */
 public class SubscriberMethod {
+    // 接收事件的方法实例
     final Method method;
+    
+    // 线程模式
     final ThreadMode threadMode;
+    
+    // 事件类型
     final Class<?> eventType;
+    
+    // 事件优先级
     final int priority;
+    
+    // 是否粘性事件
     final boolean sticky;
-    /** Used for efficient comparison */
+    
+    // 此字符串用于提高比较效率
     String methodString;
 
     public SubscriberMethod(Method method, Class<?> eventType, ThreadMode threadMode, int priority, boolean sticky) {
@@ -77,7 +88,8 @@ public class SubscriberMethod {
         this.priority = priority;
         this.sticky = sticky;
     }
-
+    
+    // 比较两个订阅者方法
     @Override
     public boolean equals(Object other) {
         if (other == this) {
@@ -111,9 +123,55 @@ public class SubscriberMethod {
 }
 ```
 
+## 三、Subscribe注解
+
+这个就是 __EventBus__ 注解。从注解类可以看到 __threadMode__、__sticky__、__priority__ 均能和 __SubscriberMethod__ 类的数据成员匹配上。
+
+```java
+@Documented
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD})
+public @interface Subscribe {
+    ThreadMode threadMode() default ThreadMode.POSTING;
+
+    /**
+     * If true, delivers the most recent sticky event (posted with
+     * {@link EventBus#postSticky(Object)}) to this subscriber (if event available).
+     */
+    // 是否是粘性事件
+    boolean sticky() default false;
+
+    /** Subscriber priority to influence the order of event delivery.
+     * Within the same delivery thread ({@link ThreadMode}), higher priority subscribers will receive events before
+     * others with a lower priority. The default priority is 0. Note: the priority does *NOT* affect the order of
+     * delivery among subscribers with different {@link ThreadMode}s! */
+    // 方法接收事件的优先级
+    int priority() default 0;
+}
+```
+
+实例：
+
+```java
+@Subscribe(threadMode = ThreadMode.MAIN, sticky = false, priority = 0)
+fun onEventReceived(event: UserEvent) {
+    val name = event.name
+    val age = event.age
+    Log.i(TAG, "Event received, Name: $name, Age: $age.")
+}
+```
+
+通过特意构造的实例可知：如果实例没有可执行方法，注册到 __EventBus__ 过程的类扫描会抛出异常：
+
+```
+java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk.playground/com.phantomvk.playground.MainActivity}: org.greenrobot.eventbus.EventBusException: Subscriber class com.phantomvk.playground.MainActivity and its super classes have no public methods with the @Subscribe annotation
+```
 
 
-## SubscriberMethodFinder
+
+## 四、SubscriberMethodFinder
+
+前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，全是都是为了减低 __SubscriberMethodFinder__ 类的理解。因为通过此类扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。所有事件根据  __Subscription__ 派发到对应订阅者的订阅方法。
 
 
 #### 类签名
@@ -121,6 +179,8 @@ public class SubscriberMethod {
 ```java
 class SubscriberMethodFinder 
 ```
+
+#### 常量
 
 ```java
 /*
@@ -133,7 +193,12 @@ private static final int SYNTHETIC = 0x1000;
 
 private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
 private static final Map<Class<?>, List<SubscriberMethod>> METHOD_CACHE = new ConcurrentHashMap<>();
+
+private static final int POOL_SIZE = 4;
+private static final FindState[] FIND_STATE_POOL = new FindState[POOL_SIZE];
 ```
+
+#### 数据成员
 
 ```java
 private List<SubscriberInfoIndex> subscriberInfoIndexes;
@@ -141,10 +206,7 @@ private final boolean strictMethodVerification;
 private final boolean ignoreGeneratedIndex;
 ```
 
-```java
-private static final int POOL_SIZE = 4;
-private static final FindState[] FIND_STATE_POOL = new FindState[POOL_SIZE];
-```
+#### 构造方法
 
 ```java
 SubscriberMethodFinder(List<SubscriberInfoIndex> subscriberInfoIndexes, boolean strictMethodVerification,
@@ -386,28 +448,7 @@ static class FindState {
 }
 ```
 
-## Subscribe注解
-
-```java
-@Documented
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.METHOD})
-public @interface Subscribe {
-    ThreadMode threadMode() default ThreadMode.POSTING;
-
-    /**
-     * If true, delivers the most recent sticky event (posted with
-     * {@link EventBus#postSticky(Object)}) to this subscriber (if event available).
-     */
-    boolean sticky() default false;
-
-    /** Subscriber priority to influence the order of event delivery.
-     * Within the same delivery thread ({@link ThreadMode}), higher priority subscribers will receive events before
-     * others with a lower priority. The default priority is 0. Note: the priority does *NOT* affect the order of
-     * delivery among subscribers with different {@link ThreadMode}s! */
-    int priority() default 0;
-}
-```
+## 五、事件发送给订阅者
 
 #### invokeSubscriber
 
@@ -451,21 +492,4 @@ private void handleSubscriberException(Subscription subscription, Object event, 
         }
     }
 }
-```
-
-上述代码传递给订阅者方法参数的数量只有一个，所以订阅者方法也只能用一个参数，就像以下实现：
-
-```java
-@Subscribe(threadMode = ThreadMode.MAIN, sticky = false, priority = 0)
-fun onEventReceived(event: UserEvent) {
-    val name = event.name
-    val age = event.age
-    Log.i(TAG, "Event received, Name: $name, Age: $age.")
-}
-```
-
-如果实例中没有可执行方法，注册到 __EventBus__ 过程的类扫描会抛出异常：
-
-```
-java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk.playground/com.phantomvk.playground.MainActivity}: org.greenrobot.eventbus.EventBusException: Subscriber class com.phantomvk.playground.MainActivity and its super classes have no public methods with the @Subscribe annotation
 ```
