@@ -9,7 +9,7 @@ tags:
     - EventBus
 ---
 
-## Subscription
+## 一、Subscription
 
 当订阅者向 __EventBus__ 注册时， __EventBus__ 会扫描整个订阅者类，获取具体接收事件的方法，并构造出以下实例。每个订阅者可能有多个方法接收订阅事件，每个方法均会生成各自的 __Subscription__，作为接受事件的凭证。
 
@@ -54,6 +54,10 @@ final class Subscription {
     }
 }
 ```
+
+## SubscriberMethod
+
+具体到 __Subscription__ 内部实现，里面还包含了 __SubscriberMethod__ ，
 
 ```java
 /** Used internally by EventBus and generated subscriber indexes. */
