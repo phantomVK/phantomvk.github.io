@@ -171,16 +171,16 @@ java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk
 
 ## 四、SubscriberMethodFinder
 
-前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，全是都是为了减低 __SubscriberMethodFinder__ 类的理解。因为通过此类扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。所有事件根据  __Subscription__ 派发到对应订阅者的订阅方法。
+前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，全是都是为了减低 __SubscriberMethodFinder__ 类的理解。因为通过此类扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。所有事件根据  __Subscription__ 派到对应订阅者的订阅方法。
 
 
-#### 类签名
+#### 4.1 类签名
 
 ```java
 class SubscriberMethodFinder 
 ```
 
-#### 常量
+#### 4.2 常量
 
 ```java
 /*
@@ -191,14 +191,17 @@ class SubscriberMethodFinder
 private static final int BRIDGE = 0x40;
 private static final int SYNTHETIC = 0x1000;
 
+// 忽视抽象方法、静态方法、桥接方法、自动生成方法
 private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
+
+// 扫描订阅者和订阅方法后的缓存
 private static final Map<Class<?>, List<SubscriberMethod>> METHOD_CACHE = new ConcurrentHashMap<>();
 
 private static final int POOL_SIZE = 4;
 private static final FindState[] FIND_STATE_POOL = new FindState[POOL_SIZE];
 ```
 
-#### 数据成员
+#### 4.3 数据成员
 
 ```java
 private List<SubscriberInfoIndex> subscriberInfoIndexes;
@@ -206,7 +209,7 @@ private final boolean strictMethodVerification;
 private final boolean ignoreGeneratedIndex;
 ```
 
-#### 构造方法
+#### 4.4 构造方法
 
 ```java
 SubscriberMethodFinder(List<SubscriberInfoIndex> subscriberInfoIndexes, boolean strictMethodVerification,
@@ -217,27 +220,55 @@ SubscriberMethodFinder(List<SubscriberInfoIndex> subscriberInfoIndexes, boolean 
 }
 ```
 
+#### 4.5 findSubscriberMethods
+
+在订阅者类内扫描订阅者方法，如果订阅者类没有目标方法直接抛出异常
+
 ```java
 List<SubscriberMethod> findSubscriberMethods(Class<?> subscriberClass) {
+    // 根据订阅者类从缓存中获取订阅者方法
     List<SubscriberMethod> subscriberMethods = METHOD_CACHE.get(subscriberClass);
     if (subscriberMethods != null) {
         return subscriberMethods;
     }
 
+    // ignoreGeneratedIndex在EventBusBuilder.ignoreGeneratedIndex为false
     if (ignoreGeneratedIndex) {
+        // 通过反射的方式查找订阅者方法
         subscriberMethods = findUsingReflection(subscriberClass);
     } else {
+        // 查找订阅者方法
         subscriberMethods = findUsingInfo(subscriberClass);
     }
+    
+    // 在订阅者中没有找到使用注解标注的公开方法
     if (subscriberMethods.isEmpty()) {
         throw new EventBusException("Subscriber " + subscriberClass
                 + " and its super classes have no public methods with the @Subscribe annotation");
     } else {
+        // 结果放入缓存中
         METHOD_CACHE.put(subscriberClass, subscriberMethods);
+        // 返回订阅者方法
         return subscriberMethods;
     }
 }
 ```
+
+####  4.6 
+
+```java
+private List<SubscriberMethod> findUsingReflection(Class<?> subscriberClass) {
+    FindState findState = prepareFindState();
+    findState.initForSubscriber(subscriberClass);
+    while (findState.clazz != null) {
+        findUsingReflectionInSingleClass(findState);
+        findState.moveToSuperclass();
+    }
+    return getMethodsAndRelease(findState);
+}
+```
+
+#### 4.6 findUsingInfo
 
 ```java
 private List<SubscriberMethod> findUsingInfo(Class<?> subscriberClass) {
@@ -261,6 +292,8 @@ private List<SubscriberMethod> findUsingInfo(Class<?> subscriberClass) {
 }
 ```
 
+#### 4.7 getMethodsAndRelease
+
 ```java
 private List<SubscriberMethod> getMethodsAndRelease(FindState findState) {
     List<SubscriberMethod> subscriberMethods = new ArrayList<>(findState.subscriberMethods);
@@ -275,7 +308,11 @@ private List<SubscriberMethod> getMethodsAndRelease(FindState findState) {
     }
     return subscriberMethods;
 }
+```
 
+#### 4.8 prepareFindState
+
+```java
 private FindState prepareFindState() {
     synchronized (FIND_STATE_POOL) {
         for (int i = 0; i < POOL_SIZE; i++) {
@@ -289,6 +326,8 @@ private FindState prepareFindState() {
     return new FindState();
 }
 ```
+
+#### 4.10 getSubscriberInfo
 
 ```java
 private SubscriberInfo getSubscriberInfo(FindState findState) {
@@ -310,17 +349,7 @@ private SubscriberInfo getSubscriberInfo(FindState findState) {
 }
 ```
 
-```java
-private List<SubscriberMethod> findUsingReflection(Class<?> subscriberClass) {
-    FindState findState = prepareFindState();
-    findState.initForSubscriber(subscriberClass);
-    while (findState.clazz != null) {
-        findUsingReflectionInSingleClass(findState);
-        findState.moveToSuperclass();
-    }
-    return getMethodsAndRelease(findState);
-}
-```
+#### 4.12 findUsingReflectionInSingleClass
 
 ```java
 private void findUsingReflectionInSingleClass(FindState findState) {
@@ -366,6 +395,8 @@ static void clearCaches() {
     METHOD_CACHE.clear();
 }
 ```
+
+## 五、FindState
 
 ```java
 static class FindState {
@@ -448,7 +479,7 @@ static class FindState {
 }
 ```
 
-## 五、事件发送给订阅者
+## 六、事件发送给订阅者
 
 #### invokeSubscriber
 
