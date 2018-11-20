@@ -13,11 +13,11 @@ tags:
 
 #### 1.1 特性
 
-__EventBus__ 是为 __Android__ 而设的中心化 __publish/subscribe (发布/订阅)__ 事件系统。事件通过 __post(Object)__ 提交到总线，总线把事件投递给订阅者。当然，该订阅者需拥有匹配类型消息的处理方法。
+__EventBus__ 是为 __Android__ 而设，处于中心的 __publish/subscribe (发布/订阅)__ 事件系统。事件通过 __post(Object)__ 提交到总线，总线把事件投递给事件订阅者。当然，该订阅者需拥有匹配类型消息的处理方法。
 
 ![EventBus-Publish-Subscribe](/img/android/EventBus/EventBus-Publish-Subscribe.png)
 
-为了能接收事件，订阅者需要通过 __register(Object)__ 把自己注册到总线上。一旦成功注册，订阅者将可以持续接收关心的事件，直到通过 __unregister(Object)__ 注销监听。
+为了能接收事件，订阅者需要通过 __register(Object)__ 把自己注册到总线上。一旦成功注册，订阅者可以持续接收关心的事件，直至通过 __unregister(Object)__ 注销监听。
 
 处理事件的方法需满足以下条件：
 
@@ -30,23 +30,23 @@ __EventBus__ 是为 __Android__ 而设的中心化 __publish/subscribe (发布/�
 
 * 简化不同组件间通讯
    *  对事件发送者和接收者进行解耦
-   *  与Activities、 Fragments、和 background threads 运行得很好
+   *  与Activities、 Fragments、和后台线程运行良好
    *  避免复杂、易错的依赖和生命周期问题
 * 令实现代码更简洁
 * 运行速度快
 * 库体积小 (约50KB)
 * 已经过累计 100,000,000+ 安装量的应用验证
-* 有消息分发线程、订阅者优先级等的高级特性
+* 有消息分发线程、订阅者优先级等高级特性
 
 #### 1.3 版本
 
-__EventBus__ 自17年年底开始代码提交基本停滞，可以认为 __EventBus__ 功能稳定。处于这种情况的开源库非常合适进行源码剖析，而本篇文章基于现时最新的正式版 __3.1.1__ 进行。
+__EventBus__ 自17年年底开始代码提交进度基本停滞，可以认为 __EventBus__ 功能稳定无大变动。处于这种情况的开源库非常合适进行源码剖析，而本篇文章基于现时最新正式版 __3.1.1__ 开展。
 
 ## 二、用法
 
 #### 2.1 订阅者
 
-订阅者需要在界面合适的生命周期，把自己注册到消息总线开始接收事件。同时，由于事件的基本接收单位是方法，所以需要给接收事件的方法添加注解，以便 __EventBus__ 把事件发送到该方法上。
+订阅者需要在合适的生命周期，把自己注册到消息总线。同时，由于事件的基本接收单位是方法，所以需要给接收事件的方法添加注解，以便 __EventBus__ 把事件发送到该方法上。
 
 接收者方法需要遵循以下规则：
 
@@ -81,7 +81,7 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-把实例注册到 __EventBus__ 后，接收者类对事件不再关心时，也需要在合适时间点注销订阅。每个接收者类只需向 __EventBus__ 注册一次。为避免多次注册，可以像上述代码一样，在注册前检查是否已注册。
+接收者类对事件不再关心时，也需要在合适时间点注销订阅。每个接收者类只需向 __EventBus__ 注册一次。为避免多次注册，可以像上述代码一样在注册前检查。
 
 #### 2.2 发布者
 
@@ -96,13 +96,13 @@ fun postEvent() {
 
 #### 2.3 事件消息体
 
-这是示例的消息体，消息体重包含用户的名字和年龄
+这是示例的消息体，消息体包含用户的名字和年龄
 
 ```java
 class UserEvent(val name: String, val age: Int)
 ```
 
-如果消息只为发出简单通知，事件消息体甚至可以不含任何数据成员。例如同 __Kotlin__ 实现的类：
+如果消息只为发出简单通知，事件消息体甚至可以不含任何数据成员。例如：
 
 ```java
 class Notification
@@ -147,7 +147,7 @@ private static final Map<Class<?>, List<Class<?>>> eventTypesCache = new HashMap
 
 #### 3.2 基础构造
 
-单例的初始化调用此构造方法，然后方法内又调用自身的另一个构造方法：
+单例的初始化调用此构造方法，然后方法内又调用自身另一个构造方法：
 
 ```java
 public EventBus() {
@@ -288,10 +288,10 @@ final static class PostingThreadState {
 
 ```java
 public void register(Object subscriber) {
-    // 获取订阅者的Class
+    // 获取订阅者Class
     Class<?> subscriberClass = subscriber.getClass();
 
-    // 从订阅者方法中找出该类接收事件的方法
+    // 从订阅者类找出接收事件的方法
     List<SubscriberMethod> subscriberMethods = subscriberMethodFinder.findSubscriberMethods(subscriberClass);
 
     synchronized (this) {
@@ -321,20 +321,20 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
     if (subscriptions == null) {
         // 该事件未曾有订阅者订阅，进行初始化
         subscriptions = new CopyOnWriteArrayList<>();
-        // 把事件类型或对应订阅记录放入，形成<eventType, <subscriber, subscriberMethod>>
+        // 保存事件类型和对应订阅记录
         subscriptionsByEventType.put(eventType, subscriptions);
     } else {
         if (subscriptions.contains(newSubscription)) {
-            // 多次register(this)抛出此异常
+            // 多次调用register(this)抛出重复注册异常
             throw new EventBusException("Subscriber " + subscriber.getClass() + " already registered to event "
                     + eventType);
         }
     }
 
-    // 获取同一事件上订阅记录的数量
+    // 获取同一事件上阅记录数量
     int size = subscriptions.size();
     for (int i = 0; i <= size; i++) {
-        // 根据方法注解设置的priority值，降序插入新记录事件记录
+        // 根据方法注解设置的priority值降序排序，并插入新记录事件记录
         // priority值越大越优先接收消息，默认值为0
         if (i == size || subscriberMethod.priority > subscriptions.get(i).subscriberMethod.priority) {
             subscriptions.add(i, newSubscription);
@@ -342,18 +342,18 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
         }
     }
 
-    // 通过订阅者身份获取其订阅的事件
+    // 通过订阅者身份获取已订阅事件类型
     List<Class<?>> subscribedEvents = typesBySubscriber.get(subscriber);
     if (subscribedEvents == null) {
         subscribedEvents = new ArrayList<>();
-        // 同一个订阅类订阅的事件
+        // 同一订阅者订阅的事件
         typesBySubscriber.put(subscriber, subscribedEvents);
     }
 
-    // 向订阅者订阅的事件列表增加新事件类型
+    // 向订阅者订阅事件的列表增加新事件类型
     subscribedEvents.add(eventType);
 
-    // 订阅者方法的sticky为true，把历史事件发送给此订阅者
+    // 订阅方法的sticky为true，把历史粘性事件发送给新注册订阅者的方法
     if (subscriberMethod.sticky) {
         // eventInheritance为true，表示订阅subscriberMethod子类消息的订阅者也接收粘性事件
         if (eventInheritance) {
@@ -366,12 +366,13 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
                 Class<?> candidateEventType = entry.getKey();
                 // 检查eventType是否为candidateEventType的父类或同类
                 if (eventType.isAssignableFrom(candidateEventType)) {
+                    // 把子类事件发送给注册为父类事件的订阅者
                     Object stickyEvent = entry.getValue();
                     checkPostStickyEventToSubscription(newSubscription, stickyEvent);
                 }
             }
         } else {
-            // 仅发送指定类型订阅事件
+            // 仅发送完全匹配类型订阅事件
             Object stickyEvent = stickyEvents.get(eventType);
             checkPostStickyEventToSubscription(newSubscription, stickyEvent);
         }
@@ -381,11 +382,13 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
 
 #### 4.3 checkPostStickyEventToSubscription
 
-如果订阅者尝试终止该事件会失败，因为事件没有通过投递状态进行跟踪
+投递粘性事件给订阅者。如果订阅者尝试终止该事件会失败，因为事件没有通过投递状态进行跟踪。
 
 ```java
 private void checkPostStickyEventToSubscription(Subscription newSubscription, Object stickyEvent) {
+    // 检查粘性事件是否为null
     if (stickyEvent != null) {
+        // 把粘性事件作为普通事件发送给订阅者
         postToSubscription(newSubscription, stickyEvent, isMainThread());
     }
 }
@@ -425,13 +428,16 @@ private void postToSubscription(Subscription subscription, Object event, boolean
 
         case BACKGROUND:
             if (isMainThread) {
+                // 当前线程是主线程，把事件放入后台线程处理队列
                 backgroundPoster.enqueue(subscription, event);
             } else {
+                // 不是主线程，则直接调用订阅者方法
                 invokeSubscriber(subscription, event);
             }
             break;
 
         case ASYNC:
+            // 放入异步队列处理
             asyncPoster.enqueue(subscription, event);
             break;
 
