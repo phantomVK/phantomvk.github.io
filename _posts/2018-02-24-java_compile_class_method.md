@@ -76,12 +76,12 @@ private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifier
 }
 ```
 
-总的来说只要符合以下任一条件就不能被编译：
+总的来说只要符合以下任一条件就 __不能__ 编译：
 
  1. 抽象方法或原生方法；
  2. 巨型方法；
  3. 有`dontinline`标志的方法；
- 4. 注解类型为Snippet.class；
+ 4. 注解为Snippet.class；
 
 经过`canBeCompiled() Line 627`被判定可以被编译的方法送到`compileMethod() Line 725`等待编译。
 

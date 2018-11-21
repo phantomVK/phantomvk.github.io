@@ -254,11 +254,15 @@ List<SubscriberMethod> findSubscriberMethods(Class<?> subscriberClass) {
 }
 ```
 
-####  4.6 
+####  4.6 findUsingReflection
+
+通过反射查找订阅者的订阅方法
 
 ```java
 private List<SubscriberMethod> findUsingReflection(Class<?> subscriberClass) {
+    // 从缓存池获取findState
     FindState findState = prepareFindState();
+    // 用订阅者类初始化findState
     findState.initForSubscriber(subscriberClass);
     while (findState.clazz != null) {
         findUsingReflectionInSingleClass(findState);
@@ -268,11 +272,13 @@ private List<SubscriberMethod> findUsingReflection(Class<?> subscriberClass) {
 }
 ```
 
-#### 4.6 findUsingInfo
+#### 4.7 findUsingInfo
 
 ```java
 private List<SubscriberMethod> findUsingInfo(Class<?> subscriberClass) {
+    // 从缓存池获取findState
     FindState findState = prepareFindState();
+    // 用订阅者类初始化findState
     findState.initForSubscriber(subscriberClass);
     while (findState.clazz != null) {
         findState.subscriberInfo = getSubscriberInfo(findState);
@@ -292,14 +298,20 @@ private List<SubscriberMethod> findUsingInfo(Class<?> subscriberClass) {
 }
 ```
 
-#### 4.7 getMethodsAndRelease
+#### 4.8 getMethodsAndRelease
+
+从 __findState__ 获取订阅者的订阅方法， __findState__ 重置后放入缓存之，最后返回订阅者方法列表
 
 ```java
 private List<SubscriberMethod> getMethodsAndRelease(FindState findState) {
+    // 从findState获取所有订阅方法
     List<SubscriberMethod> subscriberMethods = new ArrayList<>(findState.subscriberMethods);
+    // 重置findState
     findState.recycle();
+    // 把findState放入缓存池中
     synchronized (FIND_STATE_POOL) {
         for (int i = 0; i < POOL_SIZE; i++) {
+            // 找一个非空位置存放可缓存实例
             if (FIND_STATE_POOL[i] == null) {
                 FIND_STATE_POOL[i] = findState;
                 break;
@@ -310,7 +322,9 @@ private List<SubscriberMethod> getMethodsAndRelease(FindState findState) {
 }
 ```
 
-#### 4.8 prepareFindState
+#### 4.9 prepareFindState
+
+重缓存池中获取 __FindState__ 实例，如果缓存池没有缓存的实例，则创建新实例
 
 ```java
 private FindState prepareFindState() {
@@ -349,29 +363,39 @@ private SubscriberInfo getSubscriberInfo(FindState findState) {
 }
 ```
 
-#### 4.12 findUsingReflectionInSingleClass
+#### 4.11 findUsingReflectionInSingleClass
 
 ```java
 private void findUsingReflectionInSingleClass(FindState findState) {
     Method[] methods;
     try {
         // This is faster than getMethods, especially when subscribers are fat classes like Activities
+        // 此方法比getMethods速度更快，尤其是订阅者像Activities这种巨型类
         methods = findState.clazz.getDeclaredMethods();
     } catch (Throwable th) {
         // Workaround for java.lang.NoClassDefFoundError, see https://github.com/greenrobot/EventBus/issues/149
         methods = findState.clazz.getMethods();
         findState.skipSuperClasses = true;
     }
+    
+    // 遍历订阅者类内所有方法
     for (Method method : methods) {
         int modifiers = method.getModifiers();
+        // 方法使用可见性为public，且没有使用MODIFIERS_IGNORE修饰
         if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {
+            // 从方法获取变量类型
             Class<?>[] parameterTypes = method.getParameterTypes();
+            // 变量的数量必须为1个
             if (parameterTypes.length == 1) {
+                // 检查方法是否有Subscribe注解修饰
                 Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
                 if (subscribeAnnotation != null) {
+                    // 从方法变量中确认订阅事件的类型
                     Class<?> eventType = parameterTypes[0];
                     if (findState.checkAdd(method, eventType)) {
+                        // 从注解获取threadMode信息
                         ThreadMode threadMode = subscribeAnnotation.threadMode();
+                        // 向findState增加新SubscriberMethod
                         findState.subscriberMethods.add(new SubscriberMethod(method, eventType, threadMode,
                                 subscribeAnnotation.priority(), subscribeAnnotation.sticky()));
                     }
@@ -382,6 +406,7 @@ private void findUsingReflectionInSingleClass(FindState findState) {
                         "must have exactly 1 parameter but has " + parameterTypes.length);
             }
         } else if (strictMethodVerification && method.isAnnotationPresent(Subscribe.class)) {
+            // 方式包含Subscribe注解，但不方法不能同时满足以下条件：公开可见性、非静态、非抽象
             String methodName = method.getDeclaringClass().getName() + "." + method.getName();
             throw new EventBusException(methodName +
                     " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
@@ -389,6 +414,10 @@ private void findUsingReflectionInSingleClass(FindState findState) {
     }
 }
 ```
+
+#### 4.12 clearCaches
+
+清除缓存
 
 ```java
 static void clearCaches() {
@@ -398,82 +427,140 @@ static void clearCaches() {
 
 ## 五、FindState
 
+#### 5.1 类信息
+
+__EventBus__ 创建多个缓存的 __FindState__ 实例，当有订阅者需要扫描订阅方法时，从缓存池中取出一个 __FindState__ ，向此实例中方法需要被扫描的订阅者类。之后，包含订阅者的  __FindState__ 传递给负责处理工作的方法，处理完毕后的订阅者方法结果也会存回到  __FindState__ 。
+
 ```java
-static class FindState {
-    final List<SubscriberMethod> subscriberMethods = new ArrayList<>();
-    final Map<Class, Object> anyMethodByEventType = new HashMap<>();
-    final Map<String, Class> subscriberClassByMethodKey = new HashMap<>();
-    final StringBuilder methodKeyBuilder = new StringBuilder(128);
+static class FindState 
+```
 
-    Class<?> subscriberClass;
-    Class<?> clazz;
-    boolean skipSuperClasses;
-    SubscriberInfo subscriberInfo;
+因此处理完毕后的 __FindState__ 既包含订阅者类的信息，也保存着订阅者方法的列表。__EventBus__ 从 __FindState__ 获取所有订阅者方法后，该 __FindState__ 会重置并重新放入缓存池中。
 
-    void initForSubscriber(Class<?> subscriberClass) {
-        this.subscriberClass = clazz = subscriberClass;
-        skipSuperClasses = false;
-        subscriberInfo = null;
+根据  __FindState__ 内部结构可知，__FindState__ 实例包含 __ArrayList__、__HashMap__、__初始长度为128的StringBuilder__，所以__FindState__ 实例本身就有一定的分量。如果不断创建并销毁，会加重虚拟机垃圾回收的负担。相反，把用过的   __FindState__ 放入缓存池重用应该是更合理的行为。
+
+从 __SubscriberMethodFinder__ 的 __POOL_SIZE__ 常量可知缓存池大小为4。
+
+```java
+private static final int POOL_SIZE = 4;
+```
+
+#### 5.2 不可变成员
+
+这个数据成员用于保存订阅者类扫描扫描方法的结果，使用完毕后会简单清空为下次重用。
+
+```java
+final List<SubscriberMethod> subscriberMethods = new ArrayList<>();
+final Map<Class, Object> anyMethodByEventType = new HashMap<>();
+final Map<String, Class> subscriberClassByMethodKey = new HashMap<>();
+final StringBuilder methodKeyBuilder = new StringBuilder(128);
+```
+
+#### 5.3 可变成员
+
+这些成员用于存储订阅者类的信息。每次 __EventBus__ 从缓存池获取 __FindState__ 缓存实例后，都会把订阅者类的基本信息存入以下变量，作为后续操作的参考内容。
+
+```java
+Class<?> subscriberClass;
+Class<?> clazz;
+boolean skipSuperClasses;
+SubscriberInfo subscriberInfo;
+```
+
+#### 5.4 initForSubscriber
+
+订阅者类数据通过此方法设置到 __FindState__
+
+```java
+void initForSubscriber(Class<?> subscriberClass) {
+    this.subscriberClass = clazz = subscriberClass;
+    skipSuperClasses = false;
+    subscriberInfo = null;
+}
+```
+
+#### 5.5 recycle
+
+ __FindState__ 使用完毕后需调用 __recycle()__ 清空后才能归还给缓存池。这个方法的处理方式有点像 __Message__ 类的[recycleUnchecked()](/2016/11/13/Android_Message/#三消息回收) 方法。
+
+```java
+void recycle() {
+    subscriberMethods.clear();
+    anyMethodByEventType.clear();
+    subscriberClassByMethodKey.clear();
+    methodKeyBuilder.setLength(0);
+    subscriberClass = null;
+    clazz = null;
+    skipSuperClasses = false;
+    subscriberInfo = null;
+}
+```
+
+#### 5.6 checkAdd
+
+```java
+boolean checkAdd(Method method, Class<?> eventType) {
+    // 2 level check: 1st level with event type only (fast), 2nd level with complete signature when required.
+    // Usually a subscriber doesn't have methods listening to the same event type.
+    // 检查同一个订阅者类内是有多个方法订阅相同事件
+    Object existing = anyMethodByEventType.put(eventType, method);
+    if (existing == null) {
+        // 有多个方法订阅相同事件
+        return true;
+    } else {
+        if (existing instanceof Method) {
+            if (!checkAddWithMethodSignature((Method) existing, eventType)) {
+                // Paranoia check
+                throw new IllegalStateException();
+            }
+            // Put any non-Method object to "consume" the existing Method
+            anyMethodByEventType.put(eventType, this);
+        }
+        return checkAddWithMethodSignature(method, eventType);
     }
+}
+```
 
-    void recycle() {
-        subscriberMethods.clear();
-        anyMethodByEventType.clear();
-        subscriberClassByMethodKey.clear();
-        methodKeyBuilder.setLength(0);
-        subscriberClass = null;
+#### 5.7 checkAddWithMethodSignature
+
+```java
+private boolean checkAddWithMethodSignature(Method method, Class<?> eventType) {
+    methodKeyBuilder.setLength(0);
+    methodKeyBuilder.append(method.getName());
+    methodKeyBuilder.append('>').append(eventType.getName());
+
+    // 例如：onEventReceived>UserEvent
+    String methodKey = methodKeyBuilder.toString();
+    Class<?> methodClass = method.getDeclaringClass();
+    // 通过插入新(methodKey, methodClass)，并获取旧value
+    Class<?> methodClassOld = subscriberClassByMethodKey.put(methodKey, methodClass);
+    // 旧value为空，或methodClassOld是methodClass的父类或同类
+    if (methodClassOld == null || methodClassOld.isAssignableFrom(methodClass)) {
+        // Only add if not already found in a sub class
+        return true;
+    } else {
+        // Revert the put, old class is further down the class hierarchy
+        // 撤销插入，把methodClass移除
+        subscriberClassByMethodKey.put(methodKey, methodClassOld);
+        return false;
+    }
+}
+```
+
+#### 5.8 moveToSuperclass
+
+```java
+void moveToSuperclass() {
+    if (skipSuperClasses) {
         clazz = null;
-        skipSuperClasses = false;
-        subscriberInfo = null;
-    }
-
-    boolean checkAdd(Method method, Class<?> eventType) {
-        // 2 level check: 1st level with event type only (fast), 2nd level with complete signature when required.
-        // Usually a subscriber doesn't have methods listening to the same event type.
-        Object existing = anyMethodByEventType.put(eventType, method);
-        if (existing == null) {
-            return true;
-        } else {
-            if (existing instanceof Method) {
-                if (!checkAddWithMethodSignature((Method) existing, eventType)) {
-                    // Paranoia check
-                    throw new IllegalStateException();
-                }
-                // Put any non-Method object to "consume" the existing Method
-                anyMethodByEventType.put(eventType, this);
-            }
-            return checkAddWithMethodSignature(method, eventType);
-        }
-    }
-
-    private boolean checkAddWithMethodSignature(Method method, Class<?> eventType) {
-        methodKeyBuilder.setLength(0);
-        methodKeyBuilder.append(method.getName());
-        methodKeyBuilder.append('>').append(eventType.getName());
-
-        String methodKey = methodKeyBuilder.toString();
-        Class<?> methodClass = method.getDeclaringClass();
-        Class<?> methodClassOld = subscriberClassByMethodKey.put(methodKey, methodClass);
-        if (methodClassOld == null || methodClassOld.isAssignableFrom(methodClass)) {
-            // Only add if not already found in a sub class
-            return true;
-        } else {
-            // Revert the put, old class is further down the class hierarchy
-            subscriberClassByMethodKey.put(methodKey, methodClassOld);
-            return false;
-        }
-    }
-
-    void moveToSuperclass() {
-        if (skipSuperClasses) {
+    } else {
+        clazz = clazz.getSuperclass();
+        // 获取类名
+        String clazzName = clazz.getName();
+        /** Skip system classes, this just degrades performance. */
+        // 跳过系统类，这只会降低性能。
+        if (clazzName.startsWith("java.") || clazzName.startsWith("javax.") || clazzName.startsWith("android.")) {
             clazz = null;
-        } else {
-            clazz = clazz.getSuperclass();
-            String clazzName = clazz.getName();
-            /** Skip system classes, this just degrades performance. */
-            if (clazzName.startsWith("java.") || clazzName.startsWith("javax.") || clazzName.startsWith("android.")) {
-                clazz = null;
-            }
         }
     }
 }
@@ -481,13 +568,17 @@ static class FindState {
 
 ## 六、事件发送给订阅者
 
-#### invokeSubscriber
+#### 6.1 invokeSubscriber
+
+根据 __event__ 和 订阅记录 __Subscription__，就能把事件发送给订阅方法。
 
 ```java
 void invokeSubscriber(Subscription subscription, Object event) {
     try {
+        // 用订阅者的实例和订阅的事件调起订阅方法
         subscription.subscriberMethod.method.invoke(subscription.subscriber, event);
     } catch (InvocationTargetException e) {
+        // 订阅者方法接收事件是出现异常
         handleSubscriberException(subscription, event, e.getCause());
     } catch (IllegalAccessException e) {
         throw new IllegalStateException("Unexpected exception", e);
@@ -495,7 +586,9 @@ void invokeSubscriber(Subscription subscription, Object event) {
 }
 ```
 
-#### handleSubscriberException
+#### 6.2 handleSubscriberException
+
+处理订阅者方法抛出的异常
 
 ```java
 private void handleSubscriberException(Subscription subscription, Object event, Throwable cause) {

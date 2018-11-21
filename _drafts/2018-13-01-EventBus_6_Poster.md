@@ -31,6 +31,8 @@ interface Poster {
 
 ## AsyncPoster
 
+在后台投递事件
+
 ```java
 /**
  * Posts events in background.
@@ -66,6 +68,8 @@ class AsyncPoster implements Runnable, Poster {
 ```
 
 ## BackgroundPoster
+
+在后台投递事件
 
 ```java
 /**
@@ -189,6 +193,8 @@ public class HandlerPoster extends Handler implements Poster {
 ```
 
 ## MainThreadSupport
+
+在主线程投递事件，
 
 ```java
 /**
