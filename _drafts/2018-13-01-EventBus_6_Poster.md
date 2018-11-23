@@ -32,7 +32,7 @@ interface Poster {
 
 ```java
 class AsyncPoster implements Runnable, Poster {
-
+    // 事件投递队列
     private final PendingPostQueue queue;
     private final EventBus eventBus;
 
@@ -41,21 +41,26 @@ class AsyncPoster implements Runnable, Poster {
         queue = new PendingPostQueue();
     }
 
+    // 向队列存入订阅者类和事件，并激活线程池进行事件派发
     public void enqueue(Subscription subscription, Object event) {
+        // 创建PendingPost实例，存入订阅记录和事件
         PendingPost pendingPost = PendingPost.obtainPendingPost(subscription, event);
+        // PendingPost实例放入队列等待派发
         queue.enqueue(pendingPost);
+        // 激活线程池
         eventBus.getExecutorService().execute(this);
     }
 
     @Override
     public void run() {
+        // 从事件投递队列获取一个任务执行
         PendingPost pendingPost = queue.poll();
         if(pendingPost == null) {
             throw new IllegalStateException("No pending post available");
         }
+        // 把事件发送给订阅者
         eventBus.invokeSubscriber(pendingPost);
     }
-
 }
 ```
 
@@ -194,19 +199,25 @@ final class PendingPost {
 
 #### 3.3 PendingPostQueue
 
+__AsyncPoster__ 和 __BackgroundPoster__ 拥有各自的 __PendingPostQueue__，用于存放所有待完成的任务。
+
 ```java
 final class PendingPostQueue {
     private PendingPost head;
     private PendingPost tail;
 
+    // 存入PendingPost实例
     synchronized void enqueue(PendingPost pendingPost) {
+        // 不能向队列存入空任务
         if (pendingPost == null) {
             throw new NullPointerException("null cannot be enqueued");
         }
+        // 队列已有其他任务，新任务放入队列尾部
         if (tail != null) {
             tail.next = pendingPost;
             tail = pendingPost;
         } else if (head == null) {
+            // 队列是空的，新任务直接进队
             head = tail = pendingPost;
         } else {
             throw new IllegalStateException("Head present, but no tail");
@@ -214,6 +225,7 @@ final class PendingPostQueue {
         notifyAll();
     }
 
+    // 从队列中获取任任务
     synchronized PendingPost poll() {
         PendingPost pendingPost = head;
         if (head != null) {
@@ -225,6 +237,7 @@ final class PendingPostQueue {
         return pendingPost;
     }
 
+    // 等待maxMillisToWait毫秒后再从队列中去任务
     synchronized PendingPost poll(int maxMillisToWait) throws InterruptedException {
         if (head == null) {
             wait(maxMillisToWait);
@@ -250,12 +263,16 @@ public class HandlerPoster extends Handler implements Poster {
         this.maxMillisInsideHandleMessage = maxMillisInsideHandleMessage;
         queue = new PendingPostQueue();
     }
-
+    
+    // 存入PendingPost实例
     public void enqueue(Subscription subscription, Object event) {
+        // 创建PendingPost实例，存入订阅记录和事件
         PendingPost pendingPost = PendingPost.obtainPendingPost(subscription, event);
         synchronized (this) {
+            // PendingPost实例放入队列等待派发
             queue.enqueue(pendingPost);
             if (!handlerActive) {
+                // 向Handler发送一个Message
                 handlerActive = true;
                 if (!sendMessage(obtainMessage())) {
                     throw new EventBusException("Could not send handler message");
@@ -270,6 +287,7 @@ public class HandlerPoster extends Handler implements Poster {
         try {
             long started = SystemClock.uptimeMillis();
             while (true) {
+                // 从队列中获取任务
                 PendingPost pendingPost = queue.poll();
                 if (pendingPost == null) {
                     synchronized (this) {
@@ -281,6 +299,7 @@ public class HandlerPoster extends Handler implements Poster {
                         }
                     }
                 }
+                // 已获得任务，把任务的事件发给对应订阅方法
                 eventBus.invokeSubscriber(pendingPost);
                 long timeInMethod = SystemClock.uptimeMillis() - started;
                 if (timeInMethod >= maxMillisInsideHandleMessage) {
@@ -312,6 +331,7 @@ public interface MainThreadSupport {
 
     Poster createPoster(EventBus eventBus);
 
+    // 内部类实现外部接口
     class AndroidHandlerMainThreadSupport implements MainThreadSupport {
 
         private final Looper looper;
@@ -319,7 +339,7 @@ public interface MainThreadSupport {
         public AndroidHandlerMainThreadSupport(Looper looper) {
             this.looper = looper;
         }
-
+        
         @Override
         public boolean isMainThread() {
             return looper == Looper.myLooper();
@@ -330,7 +350,6 @@ public interface MainThreadSupport {
             return new HandlerPoster(eventBus, looper, 10);
         }
     }
-
 }
 ```
 

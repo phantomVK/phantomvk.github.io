@@ -132,25 +132,26 @@ public class SubscriberMethod {
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD})
 public @interface Subscribe {
+    // 通过指定线程模式调起订阅者方法
     ThreadMode threadMode() default ThreadMode.POSTING;
 
-    /**
-     * If true, delivers the most recent sticky event (posted with
-     * {@link EventBus#postSticky(Object)}) to this subscriber (if event available).
-     */
-    // 是否是粘性事件
+    // 若是粘性事件，把最近的粘性事件发送给订阅者
     boolean sticky() default false;
 
     /** Subscriber priority to influence the order of event delivery.
      * Within the same delivery thread ({@link ThreadMode}), higher priority subscribers will receive events before
      * others with a lower priority. The default priority is 0. Note: the priority does *NOT* affect the order of
      * delivery among subscribers with different {@link ThreadMode}s! */
-    // 方法接收事件的优先级
+    // 方法接收事件的优先级，默认优先级是0
+    // 在相同线程模式内，高优先级订阅者方法比低优先级方法更早接收事件
+    // 此优先级不会影响不同线程模式中不同订阅者事件的派发
     int priority() default 0;
 }
 ```
 
 实例：
+
+注解方法时不需要自定义条件，使用 __@Subscribe__ 修饰且不指定参数即可
 
 ```java
 @Subscribe(threadMode = ThreadMode.MAIN, sticky = false, priority = 0)
@@ -197,7 +198,10 @@ private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC 
 // 扫描订阅者和订阅方法后的缓存
 private static final Map<Class<?>, List<SubscriberMethod>> METHOD_CACHE = new ConcurrentHashMap<>();
 
+// FindState对象缓存池大小
 private static final int POOL_SIZE = 4;
+
+// FindState对象缓存池
 private static final FindState[] FIND_STATE_POOL = new FindState[POOL_SIZE];
 ```
 
@@ -510,7 +514,6 @@ boolean checkAdd(Method method, Class<?> eventType) {
     } else {
         if (existing instanceof Method) {
             if (!checkAddWithMethodSignature((Method) existing, eventType)) {
-                // Paranoia check
                 throw new IllegalStateException();
             }
             // Put any non-Method object to "consume" the existing Method
@@ -537,10 +540,11 @@ private boolean checkAddWithMethodSignature(Method method, Class<?> eventType) {
     // 旧value为空，或methodClassOld是methodClass的父类或同类
     if (methodClassOld == null || methodClassOld.isAssignableFrom(methodClass)) {
         // Only add if not already found in a sub class
+        // 只有在子类中找不到时才添加
         return true;
     } else {
         // Revert the put, old class is further down the class hierarchy
-        // 撤销插入，把methodClass移除
+        // 撤销插入，旧类是进一步向下的类层次结构
         subscriberClassByMethodKey.put(methodKey, methodClassOld);
         return false;
     }
@@ -588,7 +592,7 @@ void invokeSubscriber(Subscription subscription, Object event) {
 
 #### 6.2 handleSubscriberException
 
-处理订阅者方法抛出的异常
+检查标志位决定是否处理事件订阅方法抛出的异常
 
 ```java
 private void handleSubscriberException(Subscription subscription, Object event, Throwable cause) {
