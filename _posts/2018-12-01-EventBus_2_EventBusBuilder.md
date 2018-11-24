@@ -208,7 +208,7 @@ MainThreadSupport getMainThreadSupport() {
 }
 ```
 
-尝试获取Android主线程上的Loopep，传送门：[Android源码系列(5) -- Looper](/2016/12/03/Android_Looper/)
+尝试获取Android主线程上的 __Looper__，传送门：[Android源码系列(5) -- Looper](/2016/12/03/Android_Looper/)
 ```java
 Object getAndroidMainLooperOrNull() {
     try {

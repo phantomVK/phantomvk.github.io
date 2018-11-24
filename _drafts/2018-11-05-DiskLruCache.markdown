@@ -173,6 +173,13 @@ private DiskLruCache(File directory, int appVersion, int valueCount, long maxSiz
 
 #### open
 
+参数解析：
+
+- __directory__：存放文件的可写目录
+- __appVersion__：应用的版本号，当版本号改变后缓存会全部清除
+- __valueCount__：每个缓存条目的值的数量，必须为正数
+- __maxSize__：此缓存用于存储的最大字节数
+
 ```java
 /**
  * Opens the cache in {@code directory}, creating a cache if none exists
@@ -185,21 +192,27 @@ private DiskLruCache(File directory, int appVersion, int valueCount, long maxSiz
  */
 public static DiskLruCache open(File directory, int appVersion, int valueCount, long maxSize)
     throws IOException {
+    
+  // 缓存可用的最大字节数小于等于0
   if (maxSize <= 0) {
     throw new IllegalArgumentException("maxSize <= 0");
   }
+    
+  // 
   if (valueCount <= 0) {
     throw new IllegalArgumentException("valueCount <= 0");
   }
 
-  // 如果bkp文件存在，就使用该文件
+  // 获取备份文件存在
   File backupFile = new File(directory, JOURNAL_FILE_BACKUP);
   if (backupFile.exists()) {
     File journalFile = new File(directory, JOURNAL_FILE);
-    // 如果journal文件存在，则删除备份文件JOURNAL_FILE_BACKUP，即journal.bkp
+    // 如果原journal文件存在
     if (journalFile.exists()) {
+      // 则删除备份文件JOURNAL_FILE_BACKUP，即journal.bkp
       backupFile.delete();
     } else {
+      // 原journal文件不存在，把JOURNAL_FILE_BACKUP文件重命名为JOURNAL_FILE
       renameTo(backupFile, journalFile, false);
     }
   }
@@ -484,6 +497,7 @@ private synchronized Editor edit(String key, long expectedSequenceNumber) throws
   entry.currentEditor = editor;
 
   // Flush the journal before creating files to prevent file leaks.
+  // 在创建文件之前刷新日志以防止文件泄漏
   journalWriter.append(DIRTY);
   journalWriter.append(' ');
   journalWriter.append(key);
@@ -526,6 +540,7 @@ public synchronized long size() {
  * Changes the maximum number of bytes the cache can store and queues a job
  * to trim the existing store, if necessary.
  */
+// 如有必要，更改缓存可以存储的最大字节数，并将作业排入队列以修剪现有存储
 public synchronized void setMaxSize(long maxSize) {
   this.maxSize = maxSize;
   executorService.submit(cleanupCallable);
@@ -654,6 +669,7 @@ public synchronized boolean remove(String key) throws IOException {
 
 ```java
 /** Returns true if this cache has been closed. */
+// 缓存已经关闭时返回true
 public synchronized boolean isClosed() {
   return journalWriter == null;
 }
@@ -669,6 +685,7 @@ private void checkNotClosed() {
 
 ```java
 /** Force buffered operations to the filesystem. */
+// 强制缓冲操作到文件系统
 public synchronized void flush() throws IOException {
   checkNotClosed();
   trimToSize();
@@ -680,6 +697,7 @@ public synchronized void flush() throws IOException {
 /** Closes this cache. Stored values will remain on the filesystem. */
 public synchronized void close() throws IOException {
   if (journalWriter == null) {
+    // 文件句柄已关闭
     return; // Already closed.
   }
   for (Entry entry : new ArrayList<Entry>(lruEntries.values())) {
@@ -708,6 +726,8 @@ private void trimToSize() throws IOException {
  * all files in the cache directory including files that weren't created by
  * the cache.
  */
+// 关闭缓存并删除所有已保存的值
+// 此
 public void delete() throws IOException {
   close();
   Util.deleteContents(directory);

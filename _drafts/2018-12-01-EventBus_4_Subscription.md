@@ -322,6 +322,7 @@ private List<SubscriberMethod> getMethodsAndRelease(FindState findState) {
             }
         }
     }
+    // 返回findState中保存的subscriberMethods
     return subscriberMethods;
 }
 ```
@@ -335,12 +336,14 @@ private FindState prepareFindState() {
     synchronized (FIND_STATE_POOL) {
         for (int i = 0; i < POOL_SIZE; i++) {
             FindState state = FIND_STATE_POOL[i];
+            // 从缓存池取一个可用的实例
             if (state != null) {
                 FIND_STATE_POOL[i] = null;
                 return state;
             }
         }
     }
+    // 缓存池为空，创建并返回新实例
     return new FindState();
 }
 ```
