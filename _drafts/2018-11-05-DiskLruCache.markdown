@@ -9,7 +9,7 @@ tags:
     - Android源码系列
 ---
 
-## 类签名
+## 一、类签名
 
 ```java
 /**
@@ -59,7 +59,7 @@ tags:
 public final class DiskLruCache implements Closeable
 ```
 
-## 常量
+## 二、常量
 
 ```java
 static final String JOURNAL_FILE = "journal";
@@ -74,7 +74,7 @@ private static final String REMOVE = "REMOVE";
 private static final String READ = "READ";
 ```
 
-## 数据成员
+## 三、数据成员
 
 ```java
 /*
@@ -138,6 +138,7 @@ private int redundantOpCount;
 private long nextSequenceNumber = 0;
 
 /** This cache uses a single background thread to evict entries. */
+// 此缓存使用单个后台线程来驱逐条目
 final ThreadPoolExecutor executorService =
     new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
 private final Callable<Void> cleanupCallable = new Callable<Void>() {
@@ -157,6 +158,8 @@ private final Callable<Void> cleanupCallable = new Callable<Void>() {
 };
 ```
 
+## 四、构造方法
+
 ```java
 private DiskLruCache(File directory, int appVersion, int valueCount, long maxSize) {
   this.directory = directory;
@@ -169,7 +172,7 @@ private DiskLruCache(File directory, int appVersion, int valueCount, long maxSiz
 }
 ```
 
-## 成员方法
+## 五、成员方法
 
 #### open
 
@@ -510,7 +513,7 @@ private synchronized Editor edit(String key, long expectedSequenceNumber) throws
 #### getter
 
 ```java
-/** Returns the directory where this cache stores its data. */
+// 返回此缓存存储数据的目录
 public File getDirectory() {
   return directory;
 }
@@ -519,6 +522,7 @@ public File getDirectory() {
  * Returns the maximum number of bytes that this cache should use to store
  * its data.
  */
+// 返回缓存用于存储其数据的最大字节数
 public synchronized long getMaxSize() {
   return maxSize;
 }
@@ -528,6 +532,8 @@ public synchronized long getMaxSize() {
  * this cache. This may be greater than the max size if a background
  * deletion is pending.
  */
+// 返回当前用于存储此缓存中的值的字节数
+// 如果后台删除待处理，则可能大于最大大小
 public synchronized long size() {
   return size;
 }
@@ -882,7 +888,7 @@ public final class Editor {
 }
 ```
 
-## Entry
+## 六、Entry
 
 ```java
 private final class Entry {
@@ -899,9 +905,11 @@ private final class Entry {
   private boolean readable;
 
   /** The ongoing edit or null if this entry is not being edited. */
+  // 正在进行的编辑，如果未编辑此条目，则返回null
   private Editor currentEditor;
 
   /** The sequence number of the most recently committed edit to this entry. */
+  // 此条目最近提交的编辑的序列号。
   private long sequenceNumber;
 
   private Entry(String key) {
@@ -930,7 +938,7 @@ private final class Entry {
     return result.toString();
   }
 
-  /** Set lengths using decimal numbers like "10123". */
+  // 使用类似"10123"的十进制数字设置长度
   private void setLengths(String[] strings) throws IOException {
     if (strings.length != valueCount) {
       throw invalidLengths(strings);
