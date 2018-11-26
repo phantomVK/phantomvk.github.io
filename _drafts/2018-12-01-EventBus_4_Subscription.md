@@ -183,25 +183,34 @@ class SubscriberMethodFinder
 
 #### 4.2 常量
 
+在较新的类文件中编译器可能会添加方法， 这些方法被称为桥梁或合成方法。__EventBus__ 同时忽略这两种方法。这些修饰符都不是 __public__ 的，而是以Java类文件格式定义的：http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6-200-A.1
+
 ```java
-/*
- * In newer class files, compilers may add methods. Those are called bridge or synthetic methods.
- * EventBus must ignore both. There modifiers are not public but defined in the Java class file format:
- * http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6-200-A.1
- */
 private static final int BRIDGE = 0x40;
 private static final int SYNTHETIC = 0x1000;
+```
 
-// 忽视抽象方法、静态方法、桥接方法、自动生成方法
+忽视抽象方法、静态方法、桥接方法、合成方法
+
+```java
 private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
+```
 
-// 扫描订阅者和订阅方法后的缓存
+扫描订阅者和订阅方法后的缓存
+
+```java
 private static final Map<Class<?>, List<SubscriberMethod>> METHOD_CACHE = new ConcurrentHashMap<>();
+```
 
-// FindState对象缓存池大小
+FindState对象缓存池大小
+
+```java
 private static final int POOL_SIZE = 4;
+```
 
-// FindState对象缓存池
+FindState对象缓存池
+
+```java
 private static final FindState[] FIND_STATE_POOL = new FindState[POOL_SIZE];
 ```
 
@@ -350,6 +359,8 @@ private FindState prepareFindState() {
 
 #### 4.10 getSubscriberInfo
 
+获取订阅者的信息
+
 ```java
 private SubscriberInfo getSubscriberInfo(FindState findState) {
     if (findState.subscriberInfo != null && findState.subscriberInfo.getSuperSubscriberInfo() != null) {
@@ -376,8 +387,7 @@ private SubscriberInfo getSubscriberInfo(FindState findState) {
 private void findUsingReflectionInSingleClass(FindState findState) {
     Method[] methods;
     try {
-        // This is faster than getMethods, especially when subscribers are fat classes like Activities
-        // 此方法比getMethods速度更快，尤其是订阅者像Activities这种巨型类
+        // 此方法比getMethods速度更快，尤其是订阅者像Activities这种巨型类的时候
         methods = findState.clazz.getDeclaredMethods();
     } catch (Throwable th) {
         // Workaround for java.lang.NoClassDefFoundError, see https://github.com/greenrobot/EventBus/issues/149
@@ -408,6 +418,7 @@ private void findUsingReflectionInSingleClass(FindState findState) {
                     }
                 }
             } else if (strictMethodVerification && method.isAnnotationPresent(Subscribe.class)) {
+                // 订阅者方法的形参数量不唯一
                 String methodName = method.getDeclaringClass().getName() + "." + method.getName();
                 throw new EventBusException("@Subscribe method " + methodName +
                         "must have exactly 1 parameter but has " + parameterTypes.length);
@@ -588,6 +599,7 @@ void invokeSubscriber(Subscription subscription, Object event) {
         // 订阅者方法接收事件是出现异常
         handleSubscriberException(subscription, event, e.getCause());
     } catch (IllegalAccessException e) {
+        // 出现未知异常
         throw new IllegalStateException("Unexpected exception", e);
     }
 }

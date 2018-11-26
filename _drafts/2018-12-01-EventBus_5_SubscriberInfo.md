@@ -9,6 +9,10 @@ tags:
     - EventBus
 ---
 
+## SubscriberInfo
+
+由注释处理创建的生成索引类的基类
+
 ```java
 /** Base class for generated index classes created by annotation processing. */
 public interface SubscriberInfo {
@@ -22,30 +26,11 @@ public interface SubscriberInfo {
 }
 ```
 
+## AbstractSubscriberInfo
+
+由注释处理创建的生成索引类的基类
+
 ```java
-/*
- * Copyright (C) 2012-2016 Markus Junginger, greenrobot (http://greenrobot.org)
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package org.greenrobot.eventbus.meta;
-
-import org.greenrobot.eventbus.EventBusException;
-import org.greenrobot.eventbus.SubscriberMethod;
-import org.greenrobot.eventbus.ThreadMode;
-
-import java.lang.reflect.Method;
-
 /** Base class for generated subscriber meta info classes created by annotation processing. */
 public abstract class AbstractSubscriberInfo implements SubscriberInfo {
     private final Class subscriberClass;
@@ -105,10 +90,11 @@ public abstract class AbstractSubscriberInfo implements SubscriberInfo {
 }
 ```
 
+## SimpleSubscriberInfo
+
+在需要的时候用 __SubscriberMethodInfo__ 创建 __SubscriberMethod__ 对象
+
 ```java
-/**
- * Uses {@link SubscriberMethodInfo} objects to create {@link org.greenrobot.eventbus.SubscriberMethod} objects on demand.
- */
 public class SimpleSubscriberInfo extends AbstractSubscriberInfo {
 
     private final SubscriberMethodInfo[] methodInfos;
@@ -131,6 +117,10 @@ public class SimpleSubscriberInfo extends AbstractSubscriberInfo {
     }
 }
 ```
+
+## SubscriberInfoIndex
+
+用于已生成的索引的接口
 
 ```java
 /**
