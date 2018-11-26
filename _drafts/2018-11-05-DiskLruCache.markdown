@@ -62,15 +62,29 @@ public final class DiskLruCache implements Closeable
 ## 二、常量
 
 ```java
+// 原文件的文件名
 static final String JOURNAL_FILE = "journal";
+
+// 临时文件的文件名
 static final String JOURNAL_FILE_TEMP = "journal.tmp";
+
+// 备份文件的文件名
 static final String JOURNAL_FILE_BACKUP = "journal.bkp";
+
 static final String MAGIC = "libcore.io.DiskLruCache";
 static final String VERSION_1 = "1";
 static final long ANY_SEQUENCE_NUMBER = -1;
+
+// 已清除
 private static final String CLEAN = "CLEAN";
+
+// 脏数据
 private static final String DIRTY = "DIRTY";
+
+// 已移除
 private static final String REMOVE = "REMOVE";
+
+// 已读
 private static final String READ = "READ";
 ```
 
@@ -419,11 +433,16 @@ private static void deleteIfExists(File file) throws IOException {
 
 #### renameTo
 
+从命名文件，把 __from__ 文件的名称重命名为 __to__ ，并根据 __deleteDestination__ 决定是否删除已存在的 __to__ 文件。
+
 ```java
 private static void renameTo(File from, File to, boolean deleteDestination) throws IOException {
+  // 是否先删除已存在的目标文件
   if (deleteDestination) {
     deleteIfExists(to);
   }
+  
+  // 重命名from为to
   if (!from.renameTo(to)) {
     throw new IOException();
   }
@@ -471,6 +490,8 @@ public synchronized Value get(String key) throws IOException {
 
 #### edit
 
+返回名为 __key__ 条目的编辑器，如果正在进行其他编辑则返回null。
+
 ```java
 /**
  * Returns an editor for the entry named {@code key}, or null if another
@@ -480,6 +501,8 @@ public Editor edit(String key) throws IOException {
   return edit(key, ANY_SEQUENCE_NUMBER);
 }
 ```
+
+以上方法调用了此方法，__expectedSequenceNumber__ 参数为 __ANY_SEQUENCE_NUMBER__。
 
 ```java
 private synchronized Editor edit(String key, long expectedSequenceNumber) throws IOException {
@@ -673,9 +696,9 @@ public synchronized boolean remove(String key) throws IOException {
 }
 ```
 
+缓存已经关闭时返回true
+
 ```java
-/** Returns true if this cache has been closed. */
-// 缓存已经关闭时返回true
 public synchronized boolean isClosed() {
   return journalWriter == null;
 }
@@ -689,9 +712,9 @@ private void checkNotClosed() {
 }
 ```
 
+强制缓冲所有操作到文件系统
+
 ```java
-/** Force buffered operations to the filesystem. */
-// 强制缓冲操作到文件系统
 public synchronized void flush() throws IOException {
   checkNotClosed();
   trimToSize();
@@ -699,8 +722,9 @@ public synchronized void flush() throws IOException {
 }
 ```
 
+关闭此缓存，已存储的值将保留在文件系统中。
+
 ```java
-/** Closes this cache. Stored values will remain on the filesystem. */
 public synchronized void close() throws IOException {
   if (journalWriter == null) {
     // 文件句柄已关闭
@@ -746,7 +770,7 @@ private static String inputStreamToString(InputStream in) throws IOException {
 }
 ```
 
-## Value
+## 六、Value
 
 ```java
 /** A snapshot of the values for an entry. */
@@ -888,7 +912,7 @@ public final class Editor {
 }
 ```
 
-## 六、Entry
+## 七、Entry
 
 ```java
 private final class Entry {
