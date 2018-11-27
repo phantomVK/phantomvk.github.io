@@ -168,8 +168,6 @@ fun onEventReceived(event: UserEvent) {
 java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk.playground/com.phantomvk.playground.MainActivity}: org.greenrobot.eventbus.EventBusException: Subscriber class com.phantomvk.playground.MainActivity and its super classes have no public methods with the @Subscribe annotation
 ```
 
-
-
 ## 四、SubscriberMethodFinder
 
 前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，全是都是为了减低 __SubscriberMethodFinder__ 类的理解。因为通过此类扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。所有事件根据  __Subscription__ 派到对应订阅者的订阅方法。

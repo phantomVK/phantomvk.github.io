@@ -730,6 +730,7 @@ public synchronized void close() throws IOException {
     // 文件句柄已关闭
     return; // Already closed.
   }
+  // 终止所有正在进行的编辑
   for (Entry entry : new ArrayList<Entry>(lruEntries.values())) {
     if (entry.currentEditor != null) {
       entry.currentEditor.abort();
@@ -811,7 +812,9 @@ public final class Value {
     return lengths[index];
   }
 }
+```
 
+```java
 /** Edits the values for an entry. */
 public final class Editor {
   private final Entry entry;
@@ -847,6 +850,7 @@ public final class Editor {
    * Returns the last committed value as a string, or null if no value
    * has been committed.
    */
+  // 把最后一次提交的值作为String返回，如果没有值提交过就返回null
   public String getString(int index) throws IOException {
     InputStream in = newInputStream(index);
     return in != null ? inputStreamToString(in) : null;
@@ -869,6 +873,7 @@ public final class Editor {
   }
 
   /** Sets the value at {@code index} to {@code value}. */
+  // 把index所指的值修改为新值value
   public void set(int index, String value) throws IOException {
     Writer writer = null;
     try {

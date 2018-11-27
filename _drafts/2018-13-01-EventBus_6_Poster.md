@@ -274,6 +274,7 @@ public class HandlerPoster extends Handler implements Poster {
             if (!handlerActive) {
                 // 向Handler发送一个Message
                 handlerActive = true;
+                // 发送Message失败
                 if (!sendMessage(obtainMessage())) {
                     throw new EventBusException("Could not send handler message");
                 }
