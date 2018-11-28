@@ -162,7 +162,48 @@ public IBinder onBind(Intent intent) {
 protected abstract void onHandleIntent(@Nullable Intent intent);
 ```
 
-## 六、相关链接
+## 六、自动结束
+
+执行前半部分流程(1/2)：
+
+- 假设已实现 __IntentService__ 的类为 __WorkerService__；
+- UI通过 __Intent__ 对 __WorkerService__ 发起第一个任务；
+-  __WorkerService__ 进入 __onCreate()__ 进行初始化；
+-  __onStartCommand()__ 接收 __Intent__ 的同时，还能收到配对 __startId__；
+- __onStart()__ 方法内：__Intent__ 和 __startId__ 构造为 __Message__，放入消息队列等待处理；
+
+```java
+@Override
+public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
+    // 构造消息
+    onStart(intent, startId);
+    return mRedelivery ? START_REDELIVER_INTENT : START_NOT_STICKY;
+}
+```
+
+后半部分流程(2/2)：
+
+- 当 __ServiceHandler__ 任务完成后，从 __Message__ 取出 __startId__ 去调用 __Service.stopSelf(int)__；
+- 系统知道之前传给 __WorkerService__ 的 __Intent__ 已经执行完毕；
+- 如果还有其他id的 __Intent__ 没有调用 __stopSelf__，__WorkerService__ 会持续运行直至所有id都停止
+
+```java
+private final class ServiceHandler extends Handler {
+    public ServiceHandler(Looper looper) {
+        super(looper);
+    }
+
+    @Override
+    public void handleMessage(Message msg) {
+        // 执行取出的任务
+        onHandleIntent((Intent)msg.obj);
+        // 调用Service.stopSelf(int)
+        stopSelf(msg.arg1);
+    }
+}
+```
+
+## 七、相关链接
 
 [Android源码系列(4) -- Handler](/2016/12/01/Android_Handler/)
 
