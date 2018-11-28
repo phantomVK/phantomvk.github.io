@@ -51,6 +51,8 @@ private boolean mRedelivery;
 
 ## 三、内部类
 
+#### ServiceHandler
+
 绑定到 __Looper__ 的 __Handler__ 是一个静态内部类。 轮到对应 __Intent__ 处理时，实例送到 __handleMessage(Message msg)__ 并调用 __onHandleIntent()__ 。
 
 ```java

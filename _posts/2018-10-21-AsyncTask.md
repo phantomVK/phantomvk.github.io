@@ -23,7 +23,7 @@ AsyncTask设计为围绕着 __Thread__ 和 __Handler__，且无需构造普通�
 
 #### 1.2 组成
 
-通过一个在后台线程执行的工作任务，把执行结果发布到主线程。
+工作任务通过后台线程执行，结果最后发布到主线程。
 
 异步任务构成：
 
@@ -31,7 +31,7 @@ AsyncTask设计为围绕着 __Thread__ 和 __Handler__，且无需构造普通�
  - 4个步骤： __onPreExecute__、 __doInBackground__、 __onProgressUpdate__、 __onPostExecute__
 
 
-AsyncTask由子类继承，至少重写方法 __doInBackground()__，通常也重写另一个方法 __onPostExecute()__。
+AsyncTask由子类继承并重写方法 __doInBackground()__，通常也重写另一个方法 __onPostExecute()__。
 
 用法示例：
 
@@ -61,8 +61,11 @@ private class DownloadFilesTask extends AsyncTask(URL, Integer, Long) {
         showDialog("Downloaded " + result + " bytes");
     }
 }
+```
 
-// 用法：启动已创建的任务，用法非常简单:
+用法：启动已创建的任务，用法非常简单:
+
+```java
 new DownloadFilesTask().execute(url1, url2, url3);
 ```
 
@@ -163,9 +166,11 @@ private static final int KEEP_ALIVE_SECONDS = 30;
 
 ```java
 private static final ThreadFactory sThreadFactory = new ThreadFactory() {
-    private final AtomicInteger mCount = new AtomicInteger(1);  // 原子变量，从1开始递增
+    // 原子变量，从1开始递增
+    private final AtomicInteger mCount = new AtomicInteger(1);
 
-    public Thread newThread(Runnable r) { // 设置线程名称
+    public Thread newThread(Runnable r) {
+        // 设置线程名称
         return new Thread(r, "AsyncTask #" + mCount.getAndIncrement());
     }
 };

@@ -9,8 +9,6 @@ tags:
     - Java源码系列
 ---
 
-以下类在 __java.util.concurrent__ 包中，源码来自 __JDK11__
-
 ## 一、基类
 
 #### RejectedExecutionHandler
@@ -25,15 +23,17 @@ public interface RejectedExecutionHandler {
 }
 ```
 
-## 二、默认策略
+实现类在 __java.util.concurrent__ 包中，源码来自 __JDK11__
 
-Java预定义4种拒绝策略，定制其他策略需实现接口 __RejectedExecutionHandler__ 的抽象方法
+## 二、实现策略
+
+Java预定义4种拒绝策略，定制其他策略也需实现接口 __RejectedExecutionHandler__ 的抽象方法
 
 ![RejectedExecutionHandlers](/img/java/RejectedExecutionHandlers.png)
 
 #### 2.1 CallerRunsPolicy
 
-当任务添加到线程池被拒绝时，只要线程池尚在运行，该任务就会在调用者所在线程上直接执行。显然，此种策略并没有丢弃任务，且可能会影响调用者线程其他功能的执行。
+当任务添加到线程池被拒绝时，只要线程池尚在运行，该任务就会在调用者所在线程上直接执行。虽然这种策略并没有丢弃任务，但是会影响调用者线程其他功能的执行。
 
 ```java
 public static class CallerRunsPolicy implements RejectedExecutionHandler {
@@ -51,7 +51,7 @@ public static class CallerRunsPolicy implements RejectedExecutionHandler {
 
 #### 2.2 AbortPolicy
 
-当任务添加到线程池被拒绝时，此策略直接抛出 __RejectedExecutionException__ 异常。是 __ThreadPoolExecutor__ 和 __ScheduledThreadPoolExecutor__ 的默认策略。
+当任务添加到线程池被拒绝时抛出 __RejectedExecutionException__ 异常。这是 __ThreadPoolExecutor__ 和 __ScheduledThreadPoolExecutor__ 的默认策略。
 
 ```java
 public static class AbortPolicy implements RejectedExecutionHandler {
