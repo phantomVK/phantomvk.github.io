@@ -209,8 +209,9 @@ static final <E> E nonNullElementAt(Object[] es, int i) {
 
 #### 7.1 add
 
+把执行元素插入到队列头部，若元素为空抛出NullPointerException
+
 ```java
-// 把执行元素插入到队列头部，若元素为空抛出NullPointerException
 public void addFirst(E e) {
     if (e == null)
         throw new NullPointerException();
@@ -219,8 +220,11 @@ public void addFirst(E e) {
     if (head == tail)
         grow(1);
 }
+```
 
-// 把执行元素插入到队列尾部，若元素为空抛出NullPointerException
+把执行元素插入到队列尾部，若元素为空抛出NullPointerException
+
+```java
 public void addLast(E e) {
     if (e == null)
         throw new NullPointerException();
@@ -229,8 +233,11 @@ public void addLast(E e) {
     if (head == (tail = inc(tail, es.length)))
         grow(1);
 }
+```
 
-// 把指定集合的所有元素添加到队列的尾部
+把指定集合的所有元素添加到队列的尾部
+
+```java
 public boolean addAll(Collection<? extends E> c) {
     final int s, needed;
     if ((needed = (s = size()) + c.size() + 1 - elements.length) > 0)
@@ -252,14 +259,18 @@ private void copyElements(Collection<? extends E> c) {
 
 #### 7.3 offer
 
+把指定元素插入到队列头部
+
 ```java
-// 把指定元素插入到队列头部
 public boolean offerFirst(E e) {
     addFirst(e);
     return true;
 }
+```
 
-// 把指定元素插入到队列头部
+把指定元素插入到队列头部
+
+```java
 public boolean offerLast(E e) {
     addLast(e);
     return true;
@@ -268,16 +279,20 @@ public boolean offerLast(E e) {
 
 #### 7.4 remove
 
+若找不到头元素就抛出NoSuchElementException
+
 ```java
-// 若找不到头元素就抛出NoSuchElementException
 public E removeFirst() {
     E e = pollFirst();
     if (e == null)
         throw new NoSuchElementException();
     return e;
 }
+```
 
-// 若找不到最后一个元素就抛出NoSuchElementException
+若找不到最后一个元素就抛出NoSuchElementException
+
+```java
 public E removeLast() {
     E e = pollLast();
     if (e == null)
@@ -312,16 +327,20 @@ public E pollLast() {
 
 #### 7.6 get
 
+找不到元素抛出NoSuchElementException
+
 ```java
-// 找不到元素抛出NoSuchElementException
 public E getFirst() {
     E e = elementAt(elements, head);
     if (e == null)
         throw new NoSuchElementException();
     return e;
 }
+```
 
-// 找不到元素抛出NoSuchElementException
+找不到元素抛出NoSuchElementException
+
+```java
 public E getLast() {
     final Object[] es = elements;
     E e = elementAt(es, dec(tail, es.length));
@@ -482,13 +501,17 @@ boolean delete(int i) {
 
 #### 7.11 集合方法
 
+返回双端队列包含元素的数量
+
 ```java
-// 返回双端队列包含元素的数量
 public int size() {
     return sub(tail, head, elements.length);
 }
+```
 
-// 若双端队列不含任何元素返回true
+若双端队列不含任何元素返回true
+
+```java
 public boolean isEmpty() {
     return head == tail;
 }

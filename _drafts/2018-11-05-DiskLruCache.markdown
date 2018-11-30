@@ -657,6 +657,8 @@ private boolean journalRebuildRequired() {
 
 #### remove
 
+通过 __key__ 删除存在的实体。
+
 ```java
 /**
  * Drops the entry for {@code key} if it exists and can be removed. Entries
@@ -703,6 +705,8 @@ public synchronized boolean isClosed() {
   return journalWriter == null;
 }
 ```
+
+检查 __journalWriter__ 是否已关闭，如果已关闭会抛出 __IllegalStateException__。
 
 ```java
 private void checkNotClosed() {
@@ -751,14 +755,14 @@ private void trimToSize() throws IOException {
 }
 ```
 
+关闭缓存并删除所有已保存的值。
+
 ```java
 /**
  * Closes the cache and deletes all of its stored values. This will delete
  * all files in the cache directory including files that weren't created by
  * the cache.
  */
-// 关闭缓存并删除所有已保存的值
-// 此
 public void delete() throws IOException {
   close();
   Util.deleteContents(directory);
