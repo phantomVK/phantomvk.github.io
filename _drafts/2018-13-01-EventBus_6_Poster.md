@@ -16,12 +16,9 @@ tags:
 ```java
 interface Poster {
 
-    /**
-     * Enqueue an event to be posted for a particular subscription.
-     *
-     * @param subscription Subscription which will receive the event.
-     * @param event        Event that will be posted to subscribers.
-     */
+    // 把需要发送给指定Subscription的事件加到队列中
+    // @param subscription 接收事件的Subscription
+    // @param event 发送给订阅者的事件
     void enqueue(Subscription subscription, Object event);
 }
 ```
@@ -292,7 +289,7 @@ public class HandlerPoster extends Handler implements Poster {
                 PendingPost pendingPost = queue.poll();
                 if (pendingPost == null) {
                     synchronized (this) {
-                        // Check again, this time in synchronized
+                        // 在同步下再次检查
                         pendingPost = queue.poll();
                         if (pendingPost == null) {
                             handlerActive = false;
@@ -302,6 +299,7 @@ public class HandlerPoster extends Handler implements Poster {
                 }
                 // 已获得任务，把任务的事件发给对应订阅方法
                 eventBus.invokeSubscriber(pendingPost);
+                // 计算接收者方法处理事件耗费的时长
                 long timeInMethod = SystemClock.uptimeMillis() - started;
                 if (timeInMethod >= maxMillisInsideHandleMessage) {
                     if (!sendMessage(obtainMessage())) {
@@ -323,9 +321,6 @@ public class HandlerPoster extends Handler implements Poster {
 在主线程投递事件，在Android中是UI线程。如果在其他系统中使用，可以自行指定特定线程为"主线程"。
 
 ```java
-/**
- * Interface to the "main" thread, which can be whatever you like. Typically on Android, Android's main thread is used.
- */
 public interface MainThreadSupport {
 
     boolean isMainThread();
