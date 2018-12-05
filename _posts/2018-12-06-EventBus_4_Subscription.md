@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "EventBus源码剖析(4) -- 订阅记录"
-date:       2018-12-05
+date:       2018-12-06
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
