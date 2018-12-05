@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "EventBus源码剖析(1) -- 注册与注销订阅"
+title:      "EventBus源码剖析(1) -- 订阅注册与注销"
 date:       2018-11-15
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"

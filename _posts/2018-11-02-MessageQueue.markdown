@@ -11,7 +11,7 @@ tags:
 
 # 一、类签名
 
-__MessageQueue__ 是个低层次类，持有需要分发的消息。而消息并不是直接加入 __MessageQueue__ 中，而是通过 __Looper__ 相对应的 __Handler__ 加入。通过方法 __Looper.myQueue()__，可以获取当前线程的 __MessageQueue__。
+__MessageQueue__ 是个低层次类，持有需要分发的消息。而消息并不是直接存入 __MessageQueue__，而是通过 __Looper__ 相对应 __Handler__ 加入。通过方法 __Looper.myQueue()__ 可以获取当前线程 __MessageQueue__。
 
 ```java
 public final class MessageQueue
