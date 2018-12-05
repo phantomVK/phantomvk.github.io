@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "EventBus源码剖析(4) -- 订阅记录"
-date:       2018-11-19
+date:       2018-12-05
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -11,9 +11,9 @@ tags:
 
 ## 一、Subscription
 
-当订阅者向 __EventBus__ 注册时， __EventBus__ 会扫描整个订阅者类，获取具体接收事件的方法，并构造出以下实例。每个订阅者可能有多个方法接收订阅事件，每个方法均会生成各自的 __Subscription__，作为接受事件的凭证。
+当订阅者向 __EventBus__ 注册时， __EventBus__ 会扫描整个订阅者类，获取具体接收事件的方法，并构造出以下实例。每个订阅者可能有多个方法接收订阅事件，每个方法均会生成各自的 __Subscription__ 作为接受事件的凭证。
 
-由于把 __Subscription__ 翻译为名词性的“订阅”中文后，和字面上动词性的“订阅”没法区分。所以本系列文章，把该词翻译为更具贴切的名词“订阅记录”。这个词会将在后续文章继续沿用。
+由于把 __Subscription__ 翻译为名词性的“订阅”后，和字面上动词性的“订阅”没法区分。所以本系列文章，把该词翻译为更贴切的名词“订阅记录”。这个词会将在后续文章继续沿用。
 
 订阅记录内主要包括3个成员变量。`subscriber`表示订阅者类的实例，`subscriberMethod`表示订阅者内部接受事件的方法，和表示订阅记录是否存活的`active`。
 
@@ -138,12 +138,8 @@ public @interface Subscribe {
     // 若是粘性事件，把最近的粘性事件发送给订阅者
     boolean sticky() default false;
 
-    /** Subscriber priority to influence the order of event delivery.
-     * Within the same delivery thread ({@link ThreadMode}), higher priority subscribers will receive events before
-     * others with a lower priority. The default priority is 0. Note: the priority does *NOT* affect the order of
-     * delivery among subscribers with different {@link ThreadMode}s! */
     // 方法接收事件的优先级，默认优先级是0
-    // 在相同线程模式内，高优先级订阅者方法比低优先级方法更早接收事件
+    // 在相同线程内，高优先级订阅者方法比低优先级方法更早接收事件
     // 此优先级不会影响不同线程模式中不同订阅者事件的派发
     int priority() default 0;
 }
@@ -170,7 +166,7 @@ java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk
 
 ## 四、SubscriberMethodFinder
 
-前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，全是都是为了减低 __SubscriberMethodFinder__ 类的理解。因为通过此类扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。所有事件根据  __Subscription__ 派到对应订阅者的订阅方法。
+前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，全是都是为了降低 __SubscriberMethodFinder__ 类的理解难度。因为通过此类扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。所有事件根据  __Subscription__ 派到对应订阅者的订阅方法。
 
 
 #### 4.1 类签名
@@ -445,7 +441,7 @@ static void clearCaches() {
 
 #### 5.1 类信息
 
-__EventBus__ 创建多个缓存的 __FindState__ 实例，当有订阅者需要扫描订阅方法时，从缓存池中取出一个 __FindState__ ，向此实例中方法需要被扫描的订阅者类。之后，包含订阅者的  __FindState__ 传递给负责处理工作的方法，处理完毕后的订阅者方法结果也会存回到  __FindState__ 。
+__EventBus__ 创建多个缓存的 __FindState__ 实例，当有订阅者需要扫描订阅方法时，从缓存池中取出一个 __FindState__ ，向此实例中放入需被扫描的订阅者类。之后，包含订阅者的  __FindState__ 传递给负责处理工作的方法，处理完毕后的订阅者方法结果也会存回到  __FindState__ 。
 
 ```java
 static class FindState 
@@ -453,7 +449,7 @@ static class FindState
 
 因此处理完毕后的 __FindState__ 既包含订阅者类的信息，也保存着订阅者方法的列表。__EventBus__ 从 __FindState__ 获取所有订阅者方法后，该 __FindState__ 会重置并重新放入缓存池中。
 
-根据  __FindState__ 内部结构可知，__FindState__ 实例包含 __ArrayList__、__HashMap__、__初始长度为128的StringBuilder__，所以__FindState__ 实例本身就有一定的分量。如果不断创建并销毁，会加重虚拟机垃圾回收的负担。相反，把用过的   __FindState__ 放入缓存池重用应该是更合理的行为。
+根据  __FindState__ 内部结构可知，__FindState__ 实例包含 __ArrayList__、__HashMap__、__初始长度为128的StringBuilder__，所以 __FindState__ 实例本身就有一定分量。如果实例不断创建并销毁，会加重虚拟机垃圾回收的负担。相反，把用过的   __FindState__ 放入缓存池重用应该是更合理的行为。
 
 从 __SubscriberMethodFinder__ 的 __POOL_SIZE__ 常量可知缓存池大小为4。
 
