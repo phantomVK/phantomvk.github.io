@@ -11,10 +11,9 @@ tags:
 
 ## SubscriberInfo
 
-由注释处理创建的生成索引类的基类
+由注解处理创建生成的索引类的基类
 
 ```java
-/** Base class for generated index classes created by annotation processing. */
 public interface SubscriberInfo {
     Class<?> getSubscriberClass();
 
@@ -28,10 +27,9 @@ public interface SubscriberInfo {
 
 ## AbstractSubscriberInfo
 
-由注释处理创建的生成索引类的基类
+由注解处理创建生成的索引类的基类
 
 ```java
-/** Base class for generated subscriber meta info classes created by annotation processing. */
 public abstract class AbstractSubscriberInfo implements SubscriberInfo {
     private final Class subscriberClass;
     private final Class<? extends SubscriberInfo> superSubscriberInfoClass;
@@ -123,9 +121,6 @@ public class SimpleSubscriberInfo extends AbstractSubscriberInfo {
 用于已生成的索引的接口
 
 ```java
-/**
- * Interface for generated indexes.
- */
 public interface SubscriberInfoIndex {
     SubscriberInfo getSubscriberInfo(Class<?> subscriberClass);
 }
