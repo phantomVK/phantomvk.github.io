@@ -56,7 +56,7 @@ private Looper(boolean quitAllowed) {
 }
 ```
 
-Android环境会通过这个方法自动创建主线程Looper，千万不要在主线程中再次调用这个方法。
+Android环境会通过这个方法自动创建主线程Looper，千万不要在主线程中再次调用这个方法。因为 __sMainLooper__ 是一个静态变量，所以在任意 __Looper__ 中都能通过 __sMainLooper__ 向主线程发送消息。
 
 ```java
 public static void prepareMainLooper() {
@@ -75,20 +75,21 @@ public static void prepareMainLooper() {
 
 # 三、启动Looper
 
-启动 __Looper__ 的 __MessageQueue__
+启动 __Looper__ 的 __MessageQueue__。关于在 __queue.next()__ 上阻塞的详情请看 [MessageQueue源码 - 5.5 next](/2018/11/02/MessageQueue/#55-next)
 
 ```java
 public static void loop() {
     final Looper me = myLooper();
 
-    // Looper没有通过prepare()方法初始化
+    // Looper没有通过prepare()方法初始化就抛出异常
     if (me == null) {
         throw new RuntimeException("No Looper; Looper.prepare() wasn't called on this thread.");
     }
 
     // 从Looper中获取其MessageQueue
     final MessageQueue queue = me.mQueue;
-    Binder.clearCallingIdentity(); // 确保线程就是本地线程，并实时跟踪线程身份
+    // 确保线程就是本地线程，并实时跟踪线程身份
+    Binder.clearCallingIdentity();
     final long ident = Binder.clearCallingIdentity();
     
     // 循环遍历，从消息队列取消息
@@ -98,13 +99,14 @@ public static void loop() {
 
         // 队列返回null表明消息队列已经关闭，退出loop()的死循环
         if (msg == null) {
-            return; // 消息队列关闭，Looper退出
+            // 消息队列关闭，Looper退出
+            return;
         }
 
         // 通过对应的Handler进行回调
         msg.target.dispatchMessage(msg);
 
-        // 确保消息在分发的时候线程没有改变
+        // 确保消息在分发的时候线程没有出错
         final long newIdent = Binder.clearCallingIdentity();
         if (ident != newIdent) {
             Log.wtf(TAG, "Thread identity changed from 0x"

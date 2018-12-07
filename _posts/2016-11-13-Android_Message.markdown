@@ -98,6 +98,7 @@ private static boolean gCheckRecycle = true;
 
 ```java
 public static Message obtain() {
+    // 上锁
     synchronized (sPoolSync) {
         if (sPool != null) {
             // 取链头的缓存对象m

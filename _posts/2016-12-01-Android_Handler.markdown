@@ -18,19 +18,27 @@ Handler有两个主要用法：
 
 # 二、成员变量
 
-Handler有4个不可变成员变量：
+消息队列
 
 ```java
-// 消息队列
 final MessageQueue mQueue;
+```
 
-// 消息队列所属Looper
+消息队列所属Looper
+
+```java
 final Looper mLooper;
+```
 
-// 可选Handler回调
+可选Handler回调
+
+```java
 final Callback mCallback;
+```
 
-// 可选异步标志
+可选异步标志
+
+```java
 final boolean mAsynchronous;
 ```
 
@@ -53,8 +61,8 @@ public Handler(boolean async) {
 }
 ```
 
-判断是否匿名类、本地类、成员类，判断修饰符是否static，避免内存泄漏。只要是静态内部类，就不会持有外部类引用从而造成内存泄漏
-​    
+判断是否匿名类、本地类、成员类，判断修饰符是否static，避免内存泄漏。只要是静态内部类，就不会持有外部类引用从而造成内存泄漏。
+
 ```java
 public Handler(Callback callback, boolean async) {
     // FIND_POTENTIAL_LEAKS默认为false
@@ -225,7 +233,11 @@ private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMilli
 public final boolean postAtFrontOfQueue(Runnable r){
     return sendMessageAtFrontOfQueue(getPostMessage(r));
 }
+```
 
+上面把 __Runnable__ 包装为 __Message__，并送入方法 __sendMessageAtFrontOfQueue__。
+
+```java
 public final boolean sendMessageAtFrontOfQueue(Message msg) {
     MessageQueue queue = mQueue;
     if (queue == null) {
@@ -243,7 +255,7 @@ public final boolean sendMessageAtFrontOfQueue(Message msg) {
 
 ### 6.1 消息调度
 
-当消息到达预定执行时间，消息所在Looper会调用`msg.target.dispatchMessage(msg)`：
+当消息到达预定执行时间，消息所在 __Looper__ 会调用 __msg.target.dispatchMessage(msg)__：
 
 ```java
 public void dispatchMessage(Message msg) {
@@ -265,7 +277,7 @@ public void dispatchMessage(Message msg) {
 
 ### 6.2 消息回调
 
-(1) `dispatchMessage(msg)`首先尝试执行消息体的`msg.callback`。由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空并跳过。
+`dispatchMessage(msg)`首先尝试执行消息体的`msg.callback`。由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空并跳过。
 
 ```java
 private static void handleCallback(Message message) {
@@ -273,7 +285,7 @@ private static void handleCallback(Message message) {
 }
 ```
 
-(2) `msg.callback`不行就看看Handler自己有没有`mCallback`
+`msg.callback`不行就看看Handler自己有没有`mCallback`
 
 ```java
 public interface Callback {
@@ -281,7 +293,7 @@ public interface Callback {
 }
 ```
 
-例子: 创建Handler时可以实现这个回调，支持操作主线程
+例子: 创建 __Handler__ 时可以实现这个回调
 
 ```java
 Handler handler = new Handler(new Handler.Callback() {
@@ -293,7 +305,7 @@ Handler handler = new Handler(new Handler.Callback() {
 });
 ```
 
-(3) 如果上两个回调都不存在，最终交给Handler类的handleMessage(Message msg)方法：
+如果上两个回调都不存在，最终交给Handler类的handleMessage(Message msg)方法：
 
 ```java
 @Override
