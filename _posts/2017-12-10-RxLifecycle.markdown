@@ -272,6 +272,7 @@ public class RxLifecycle {
         return lifecycle.filter(new Predicate<R>() {
             @Override
             public boolean test(R lifecycleEvent) throws Exception {
+                // 生命周期和指定事件匹配返回true
                 return lifecycleEvent.equals(event);
             }
         });

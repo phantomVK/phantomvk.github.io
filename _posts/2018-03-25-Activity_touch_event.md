@@ -255,7 +255,7 @@ public abstract View peekDecorView();
 
 #### 3.4 PhoneWindow.peekDecorView()
 
-仅仅是返回持有的DecorView
+是返回持有的DecorView
 
 ```java
 private DecorView mDecor;
@@ -268,6 +268,6 @@ public final View peekDecorView() {
 
 ## 四、总结
 
-Activity仅有`dispatchTouchEvent()`和`onTouchEvent()`两个主要方法，和View的方法一样没有`ViewGroup.onInterceptTouchEvent()`。
+Activity仅有 __dispatchTouchEvent()__ 和 __onTouchEvent()__ 两个主要方法，和ViewGroup的方法一样没有 __onInterceptTouchEvent()__。
 
 因为Activity本身默认不处理任何点击事件，只在ViewGroup和View都不处理事件时才尝试消费事件。最终也可能返回false，表示activity也不消费事件。

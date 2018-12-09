@@ -17,11 +17,11 @@ SparseArrays<E>是Android原生提供的稀疏数组，用于代替HashMap容器
 public class SparseArray<E> implements Cloneable
 ```
 
-SparseArrays使用基本类型`int`作为键，不像`HashMap<Integer, Object>`需把`int`转换为`Integer`，避免装箱、拆箱的性能消耗。使用内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但在存取操作上需耗费相对更多时间。
+SparseArrays使用基本类型`int`作为键，不像`HashMap<Integer, Object>`需把`int`转换为`Integer`，可避免装箱、拆箱的性能消耗。且使用内存利用率更高的数组而不是链表存放value，同时避免链表依赖的Entry。用时间换空间的策略令SparseArrays不像HashMap那样占用大量内存，但在存取操作上需耗费相对更多时间。
 
 从类注释能了解到：元素保存在数组中，通过二分法查找键，再用键的`index`找对应索引的值，由此可推测时间复杂度为O(log(N))。由于`key`保存在`mKeys`数组，`value`保存在`mValues`数组，任何增删键值对都有可能重建这两个数组。
 
-不过，SparseArrays做了一定优化，如移除一个键值对时只会把`mValues`对应的Object标记为`DELETED`，等下一次同key插入新value时直接替换，且失效空间在数组扩容或回收空间时才处理。
+对此，SparseArrays做了一定优化，如移除键值对时只会把`mValues`对应的Object标记为`DELETED`，等下一次同key插入新value时直接替换，且失效空间在数组扩容或回收空间时才处理。
 
 总结主要应用场景：
 
