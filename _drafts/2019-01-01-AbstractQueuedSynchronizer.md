@@ -2,7 +2,7 @@
 layout:     post
 title:      ""
 subtitle:   ""
-date:       2018-01-01
+date:       2019-01-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
