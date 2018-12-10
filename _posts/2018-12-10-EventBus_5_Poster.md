@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "EventBus源码剖析(6) -- Poster"
-date:       2018-11-20
+title:      "EventBus源码剖析(5) -- Poster"
+date:       2018-12-10
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -11,7 +11,7 @@ tags:
 
 ## 一、Poster
 
-这是所有 __Poster__ 实现的共同接口，包含一个抽象方法。子类实心该抽象方法后，会接收到订阅记录 __Subscription__ 和事件 __Object__。实现类需要根据自身的特性，把事件按照既定模式发送给订阅者的接收方法。
+这是所有 __Poster__ 实现的共同接口，包含一个抽象方法。子类实现该抽象方法后，可接收到订阅记录 __Subscription__ 和事件 __Object__。实现类需要根据自身特性，把事件按照既定模式发送给订阅者的接收方法。
 
 ```java
 interface Poster {
@@ -40,7 +40,7 @@ class AsyncPoster implements Runnable, Poster {
 
     // 向队列存入订阅者类和事件，并激活线程池进行事件派发
     public void enqueue(Subscription subscription, Object event) {
-        // 创建PendingPost实例，存入订阅记录和事件
+        // 创建PendingPost实例，存入订阅记录subscription和事件event
         PendingPost pendingPost = PendingPost.obtainPendingPost(subscription, event);
         // PendingPost实例放入队列等待派发
         queue.enqueue(pendingPost);
@@ -52,6 +52,7 @@ class AsyncPoster implements Runnable, Poster {
     public void run() {
         // 从事件投递队列获取一个任务执行
         PendingPost pendingPost = queue.poll();
+        // pendingPost不能为空
         if(pendingPost == null) {
             throw new IllegalStateException("No pending post available");
         }
@@ -65,7 +66,7 @@ class AsyncPoster implements Runnable, Poster {
 
 #### 3.1 BackgroundPoster
 
-__BackgroundPoster__ 实现在后台投递事件。__BackgroundPoster__ 还同时实现了 __Runnable__ ，这样就可以把类实例直接送到线程池中执行。
+__BackgroundPoster__ 实现后台投递事件。__BackgroundPoster__ 本身同时实现 __Runnable__ 接口，这样就可以把类实例直接送到线程池中执行。线程池执行任务，从事件队列获取需要派发的任务并执行。
 
 从前文介绍可知，这里使用的线程池实现是 __Executors.newCachedThreadPool()__。
 
@@ -74,7 +75,8 @@ final class BackgroundPoster implements Runnable, Poster {
 
     private final PendingPostQueue queue;
     private final EventBus eventBus;
-
+    
+    // executor是否正在运行
     private volatile boolean executorRunning;
 
     BackgroundPoster(EventBus eventBus) {
@@ -82,6 +84,7 @@ final class BackgroundPoster implements Runnable, Poster {
         queue = new PendingPostQueue();
     }
 
+    // 订阅记录和其订阅的事件进队
     public void enqueue(Subscription subscription, Object event) {
         // 从PendingPost缓存池中获取缓存对象，用于保存subscription和event
         PendingPost pendingPost = PendingPost.obtainPendingPost(subscription, event);
@@ -97,16 +100,16 @@ final class BackgroundPoster implements Runnable, Poster {
         }
     }
     
-    // 把本类的实例放入线程池之后，有线程池调度执行
+    // 把本类的实例放入线程池之后，由线程池调度执行
     @Override
     public void run() {
         try {
             try {
-                // 循环执行，知道完成PendingPostQueue队列里所有任务
+                // 循环执行，直到完成PendingPostQueue队列里所有任务
                 while (true) {
-                    // 从PendingPostQueue队列中获取一个PendingPost实例
+                    // 从PendingPostQueue队列获取PendingPost实例
                     PendingPost pendingPost = queue.poll(1000);
-                    // PendingPost实例为空
+                    // 获取超时会出现PendingPost实例为空
                     if (pendingPost == null) {
                         synchronized (this) {
                             // 加锁后再到队列获取PendingPost实例
@@ -122,7 +125,7 @@ final class BackgroundPoster implements Runnable, Poster {
                     eventBus.invokeSubscriber(pendingPost);
                 }
             } catch (InterruptedException e) {
-                // 本方法在线程池执行过程中被终端，捕获InterruptedException
+                // 本方法在线程池执行过程中被中断，捕获InterruptedException
                 eventBus.getLogger().log(Level.WARNING, Thread.currentThread().getName() + " was interruppted", e);
             }
         } finally {
@@ -187,6 +190,7 @@ final class PendingPost {
         synchronized (pendingPostPool) {
             // 限制缓存池最大容量为10000，避免缓存池无限扩容
             if (pendingPostPool.size() < 10000) {
+                // 缓存对象放入缓存队列中
                 pendingPostPool.add(pendingPost);
             }
         }
@@ -234,7 +238,7 @@ final class PendingPostQueue {
         return pendingPost;
     }
 
-    // 等待maxMillisToWait毫秒后再从队列中去任务
+    // 等待maxMillisToWait毫秒或被notifyAll，再从队列中去任务
     synchronized PendingPost poll(int maxMillisToWait) throws InterruptedException {
         if (head == null) {
             wait(maxMillisToWait);
@@ -248,12 +252,14 @@ final class PendingPostQueue {
 
 ```java
 public class HandlerPoster extends Handler implements Poster {
-
+    // 处理队列
     private final PendingPostQueue queue;
+    // 执行消息的超时时间
     private final int maxMillisInsideHandleMessage;
     private final EventBus eventBus;
     private boolean handlerActive;
 
+    // 构造方法
     protected HandlerPoster(EventBus eventBus, Looper looper, int maxMillisInsideHandleMessage) {
         super(looper);
         this.eventBus = eventBus;
@@ -268,6 +274,7 @@ public class HandlerPoster extends Handler implements Poster {
         synchronized (this) {
             // PendingPost实例放入队列等待派发
             queue.enqueue(pendingPost);
+            // handler没在运行
             if (!handlerActive) {
                 // 向Handler发送一个Message
                 handlerActive = true;
@@ -291,6 +298,7 @@ public class HandlerPoster extends Handler implements Poster {
                     synchronized (this) {
                         // 在同步下再次检查
                         pendingPost = queue.poll();
+                        // 队列中没有任务
                         if (pendingPost == null) {
                             handlerActive = false;
                             return;
@@ -335,7 +343,7 @@ public interface MainThreadSupport {
         public AndroidHandlerMainThreadSupport(Looper looper) {
             this.looper = looper;
         }
-        
+
         @Override
         public boolean isMainThread() {
             return looper == Looper.myLooper();
