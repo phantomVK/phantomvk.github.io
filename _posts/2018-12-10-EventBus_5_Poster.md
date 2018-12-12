@@ -17,7 +17,7 @@ tags:
 interface Poster {
 
     // 把需要发送给指定Subscription的事件加到队列中
-    // @param subscription 接收事件的Subscription
+    // @param subscription 事件记录Subscription
     // @param event 发送给订阅者的事件
     void enqueue(Subscription subscription, Object event);
 }
@@ -25,7 +25,7 @@ interface Poster {
 
 ## 二、AsyncPoster
 
-在后台投递事件。
+在后台异步投递事件，每个使用 __AsyncPoster__ 的 __Runnable__ 都有自己的线程，适合耗时但不占用处理器时间片的io操作。任务运行完毕后线程归还给线程池。__AsyncPoster__ 和 __BackgroundPoster__ 共享同一个 __EventBus__ 线程池，该线程池类型为 __Executors.newCachedThreadPool()__。
 
 ```java
 class AsyncPoster implements Runnable, Poster {
@@ -38,13 +38,13 @@ class AsyncPoster implements Runnable, Poster {
         queue = new PendingPostQueue();
     }
 
-    // 向队列存入订阅者类和事件，并激活线程池进行事件派发
+    // 向队列存入订阅记录和事件，并激活线程池进行事件派发
     public void enqueue(Subscription subscription, Object event) {
         // 创建PendingPost实例，存入订阅记录subscription和事件event
         PendingPost pendingPost = PendingPost.obtainPendingPost(subscription, event);
         // PendingPost实例放入队列等待派发
         queue.enqueue(pendingPost);
-        // 激活线程池
+        // 任务放入线程池等待执行
         eventBus.getExecutorService().execute(this);
     }
 
@@ -66,7 +66,7 @@ class AsyncPoster implements Runnable, Poster {
 
 #### 3.1 BackgroundPoster
 
-__BackgroundPoster__ 实现后台投递事件。__BackgroundPoster__ 本身同时实现 __Runnable__ 接口，这样就可以把类实例直接送到线程池中执行。线程池执行任务，从事件队列获取需要派发的任务并执行。
+__BackgroundPoster__ 实现后台投递事件。__BackgroundPoster__ 本身同时实现 __Runnable__ 接口，这样就可以把类实例直接送到线程池中执行。线程池执行任务，从事件队列获取需要派发的任务并执行。__BackgroundPoster__ 只有一个运行线程，按任务进入队列的顺序依次执行，适合大量短小的任务。如果队列没有任务，该 __Runnable__ 会退出，线程也会归还给线程池。
 
 从前文介绍可知，这里使用的线程池实现是 __Executors.newCachedThreadPool()__。
 
