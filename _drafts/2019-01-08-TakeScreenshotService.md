@@ -1,13 +1,12 @@
 ---
 layout:     post
 title:      "TakeScreenshotService"
-subtitle:   ""
-date:       2019-01-01
+date:       2019-01-08
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - tags
+    - Android源码系列
 ---
 
 Android28
@@ -15,12 +14,19 @@ Android28
 ```java
 class SaveImageInBackgroundData {
     Context context;
+    // 需要保存的截屏位图
     Bitmap image;
+    // 图片保存的路径
     Uri imageUri;
+    // 保存完成后调用finisher
     Runnable finisher;
+    // 图标尺寸
     int iconSize;
+    // 预览图宽度
     int previewWidth;
+    // 预览图高度
     int previewheight;
+    // 错误信息id
     int errorMsgResId;
 
     void clearImage() {
@@ -215,21 +221,20 @@ protected Void doInBackground(Void... params) {
     Resources r = context.getResources();
 
     try {
-        // Create screenshot directory if it doesn't exist
+        // 创建截屏文件夹的目录
         mScreenshotDir.mkdirs();
 
         // media provider uses seconds for DATE_MODIFIED and DATE_ADDED, but milliseconds
         // for DATE_TAKEN
         long dateSeconds = mImageTime / 1000;
 
-        // Save
+        // 截图位图写入文件流
         OutputStream out = new FileOutputStream(mImageFilePath);
         image.compress(Bitmap.CompressFormat.PNG, 100, out);
         out.flush();
         out.close();
 
-        // Save the screenshot to the MediaStore
-        // 把截屏保存到MediaStore
+        // 配置ContentValues
         ContentValues values = new ContentValues();
         ContentResolver resolver = context.getContentResolver();
         values.put(MediaStore.Images.ImageColumns.DATA, mImageFilePath);
@@ -242,9 +247,10 @@ protected Void doInBackground(Void... params) {
         values.put(MediaStore.Images.ImageColumns.WIDTH, mImageWidth);
         values.put(MediaStore.Images.ImageColumns.HEIGHT, mImageHeight);
         values.put(MediaStore.Images.ImageColumns.SIZE, new File(mImageFilePath).length());
+        // 把截屏保存到MediaStore
         Uri uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
 
-        // Create a share intent
+        // 创建分享的Intent
         String subjectDate = DateFormat.getDateTimeInstance().format(new Date(mImageTime));
         String subject = String.format(SCREENSHOT_SHARE_SUBJECT_TEMPLATE, subjectDate);
         Intent sharingIntent = new Intent(Intent.ACTION_SEND);
@@ -283,8 +289,7 @@ protected Void doInBackground(Void... params) {
                 r.getString(com.android.internal.R.string.screenshot_edit), editAction);
         mNotificationBuilder.addAction(editActionBuilder.build());
 
-
-        // Create a delete action for the notification
+        // 给通知创建删除截屏的操作
         PendingIntent deleteAction = PendingIntent.getBroadcast(context, 0,
                 new Intent(context, GlobalScreenshot.DeleteScreenshotReceiver.class)
                         .putExtra(GlobalScreenshot.SCREENSHOT_URI_ID, uri.toString()),
@@ -298,14 +303,13 @@ protected Void doInBackground(Void... params) {
         mParams.image = null;
         mParams.errorMsgResId = 0;
     } catch (Exception e) {
-        // IOException/UnsupportedOperationException may be thrown if external storage is not
-        // mounted
+        // 外部存储没有挂载会抛出IOException/UnsupportedOperationException
         Slog.e(TAG, "unable to save screenshot", e);
         mParams.clearImage();
         mParams.errorMsgResId = R.string.screenshot_failed_to_save_text;
     }
 
-    // Recycle the bitmap data
+    // 销毁位图
     if (image != null) {
         image.recycle();
     }
