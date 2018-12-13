@@ -25,7 +25,9 @@ interface Poster {
 
 ## 二、AsyncPoster
 
-在后台异步投递事件，每个使用 __AsyncPoster__ 的 __Runnable__ 都有自己的线程，适合耗时但不占用处理器时间片的io操作。任务运行完毕后线程归还给线程池。__AsyncPoster__ 和 __BackgroundPoster__ 共享同一个 __EventBus__ 线程池，该线程池类型为 __Executors.newCachedThreadPool()__。
+在后台异步投递事件，每个使用 __AsyncPoster__ 的 __Runnable__ 都有自己的线程，适合耗时但不占用处理器时间片的io操作，任务运行完毕后线程归还给线程池。
+
+__AsyncPoster__ 和 __BackgroundPoster__ 共享同一个 __EventBus__ 线程池，该线程池类型为 __Executors.newCachedThreadPool()__。
 
 ```java
 class AsyncPoster implements Runnable, Poster {
@@ -66,9 +68,9 @@ class AsyncPoster implements Runnable, Poster {
 
 #### 3.1 BackgroundPoster
 
-__BackgroundPoster__ 实现后台投递事件。__BackgroundPoster__ 本身同时实现 __Runnable__ 接口，这样就可以把类实例直接送到线程池中执行。线程池执行任务，从事件队列获取需要派发的任务并执行。__BackgroundPoster__ 只有一个运行线程，按任务进入队列的顺序依次执行，适合大量短小的任务。如果队列没有任务，该 __Runnable__ 会退出，线程也会归还给线程池。
+__BackgroundPoster__ 实现后台投递事件。__BackgroundPoster__ 本身同时实现 __Runnable__ 接口，这样就可以把类实例直接送到线程池中执行。线程池执行任务，从事件队列获取需要派发的任务并执行。
 
-从前文介绍可知，这里使用的线程池实现是 __Executors.newCachedThreadPool()__。
+__BackgroundPoster__ 只有一个运行线程，按任务进入队列的顺序依次执行，适合大量短小的任务。如果队列没有任务，该 __Runnable__ 会退出，线程也会归还给线程池。从前文介绍可知，线程池实现是 __Executors.newCachedThreadPool()__。
 
 ```java
 final class BackgroundPoster implements Runnable, Poster {
