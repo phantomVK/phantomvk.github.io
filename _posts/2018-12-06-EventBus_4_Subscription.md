@@ -13,8 +13,6 @@ tags:
 
 当订阅者向 __EventBus__ 注册时， __EventBus__ 会扫描整个订阅者类，获取具体接收事件的方法，并构造出以下实例。每个订阅者可能有多个方法接收订阅事件，每个方法均会生成各自的 __Subscription__ 作为接受事件的凭证。
 
-由于把 __Subscription__ 翻译为名词性的“订阅”后，和字面上动词性的“订阅”没法区分。所以本系列文章，把该词翻译为更贴切的名词“订阅记录”。这个词会将在后续文章继续沿用。
-
 订阅记录内主要包括3个成员变量。`subscriber`表示订阅者类的实例，`subscriberMethod`表示订阅者内部接受事件的方法，和表示订阅记录是否存活的`active`。
 
 调用 __EventBus#unregister(Object)__ 注销订阅者后，`active`立即改为 __false__。该值被负责队列事件投递的 __EventBus#invokeSubscriber(PendingPost)__ 检查以避免 __race conditions__。
