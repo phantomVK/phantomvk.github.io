@@ -9,7 +9,7 @@ tags:
     - Architectural Pattern
 ---
 
-空对象模式，指通过特定的、没有负载实际数据的空对象，表示实例不存在的默认状态。可应用在不能接受可控变量的逻辑，或利用空对象实现区别于实例为空的应用场景。
+空对象模式指通过特定的、没有负载实际数据的空对象，表示实例不存在的默认状态。可应用在不能接受可空变量的逻辑，或利用空对象实现区别于实例为空的应用场景。
 
 这是一般场景的用户模型，包含用户id和昵称：
 
@@ -74,9 +74,9 @@ open class User(private val userId: String,
 
 ```java
 Observable.fromCallable { UserDao.load(userId) ?: User.USER_NULL_OBJ }
-        .filter { it.isNullObject() }
+        .filter { !it.isNullObject() }
         .subscribeOn(Schedulers.io())
         .observeOn(AndroidSchedulers.mainThread())
-        .subscribe({ removeUser(it.userId) }, { Log.e(TAG, it) })
+        .subscribe { removeUser(it.userId) }
 ```
 

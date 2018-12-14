@@ -29,11 +29,14 @@ class SaveImageInBackgroundData {
     // 错误信息id
     int errorMsgResId;
 
+    // 清空对象数据
     void clearImage() {
         image = null;
         imageUri = null;
         iconSize = 0;
     }
+    
+    // 移除保存的Context
     void clearContext() {
         context = null;
     }
