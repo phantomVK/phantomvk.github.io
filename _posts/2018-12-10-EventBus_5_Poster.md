@@ -23,6 +23,10 @@ interface Poster {
 }
 ```
 
+所有实现子类：
+
+![EventBus_Poster](/img/android/EventBus/EventBus_Poster.png)
+
 ## 二、AsyncPoster
 
 在后台异步投递事件，每个使用 __AsyncPoster__ 的 __Runnable__ 都有自己的线程，适合耗时但不占用处理器时间片的io操作，任务运行完毕后线程归还给线程池。

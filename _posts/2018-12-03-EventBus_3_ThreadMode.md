@@ -51,6 +51,8 @@ public enum ThreadMode
 
 __ThreadMode__ 枚举类中默认包含5种线程模式：
 
+![EventBus-Publish-Subscribe](/img/android/EventBus/EventBus_ThreadMode.png)
+
 #### 4.1 POSTING
 
 订阅者在发布线程相同的线程上被调用，本模式是 __EventBus__ 默认线程模式。因为完全避免线程切换，此线程模式的事件分发意味着能减少性能开销。
