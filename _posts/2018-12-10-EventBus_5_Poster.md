@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "EventBus源码剖析(5) -- Poster"
+title:      "EventBus源码剖析(5) -- Poster(完结)"
 date:       2018-12-10
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
