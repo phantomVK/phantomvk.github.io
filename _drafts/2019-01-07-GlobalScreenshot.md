@@ -151,14 +151,16 @@ public GlobalScreenshot(Context context) {
     LayoutInflater layoutInflater = (LayoutInflater)
             context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 
-    // 填充截屏布局
     mDisplayMatrix = new Matrix();
+    // 填充截屏布局
     mScreenshotLayout = layoutInflater.inflate(R.layout.global_screenshot, null);
+    // 绑定View
     mBackgroundView = (ImageView) mScreenshotLayout.findViewById(R.id.global_screenshot_background);
     mScreenshotView = (ImageView) mScreenshotLayout.findViewById(R.id.global_screenshot);
     mScreenshotFlash = (ImageView) mScreenshotLayout.findViewById(R.id.global_screenshot_flash);
     mScreenshotSelectorView = (ScreenshotSelectorView) mScreenshotLayout.findViewById(
             R.id.global_screenshot_selector);
+    // 令此布局获取焦点
     mScreenshotLayout.setFocusable(true);
     mScreenshotSelectorView.setFocusable(true);
     mScreenshotSelectorView.setFocusableInTouchMode(true);
@@ -285,6 +287,8 @@ private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean
 
 ####takeScreenshot 
 
+截取全屏图片
+
 ```java
 void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarVisible) {
     mDisplay.getRealMetrics(mDisplayMetrics);
@@ -294,6 +298,8 @@ void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarV
 ```
 
 #### takeScreenshotPartial
+
+展示截图的裁剪选择器
 
 ```java
 /**
