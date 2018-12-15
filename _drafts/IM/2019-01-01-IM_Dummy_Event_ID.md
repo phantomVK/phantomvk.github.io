@@ -10,4 +10,8 @@ tags:
     - tags
 ---
 
+EventID的设计，
+
+1. RoomID+StartUpTimeUp+ObjectHash
+2. RoomID+StartUpTimeUp+AtomicInteger.increaceAndGet()
 

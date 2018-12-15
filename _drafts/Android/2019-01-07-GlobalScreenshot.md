@@ -662,13 +662,13 @@ public static class DeleteScreenshotReceiver extends BroadcastReceiver {
             return;
         }
 
-        // Clear the notification
+        // 移除通知
         final NotificationManager nm =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         final Uri uri = Uri.parse(intent.getStringExtra(SCREENSHOT_URI_ID));
         nm.cancel(SystemMessage.NOTE_GLOBAL_SCREENSHOT);
 
-        // And delete the image from the media store
+        // 从媒体存储中删除图片
         new DeleteImageInBackgroundTask(context).execute(uri);
     }
 }
