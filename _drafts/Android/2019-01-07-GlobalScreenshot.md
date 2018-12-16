@@ -302,9 +302,6 @@ void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarV
 展示截图的裁剪选择器
 
 ```java
-/**
- * Displays a screenshot selector
- */
 void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisible,
         final boolean navBarVisible) {
     mWindowManager.addView(mScreenshotLayout, mWindowLayoutParams);
@@ -358,7 +355,7 @@ void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisib
 
 ```java
 void stopScreenshot() {
-    // If the selector layer still presents on screen, we remove it and resets its state.
+    // 如果选择器图层依然呈现在屏幕上，则将其移除并重置其状态
     if (mScreenshotSelectorView.getSelectionRect() != null) {
         mWindowManager.removeView(mScreenshotLayout);
         mScreenshotSelectorView.stopSelection();
@@ -401,7 +398,7 @@ private void startAnimation(final Runnable finisher, int w, int h, boolean statu
     mScreenshotAnimation.addListener(new AnimatorListenerAdapter() {
         @Override
         public void onAnimationEnd(Animator animation) {
-            // Save the screenshot once we have a bit of time now
+            // 开始保存截图
             saveScreenshotInWorkerThread(finisher);
             mWindowManager.removeView(mScreenshotLayout);
 
