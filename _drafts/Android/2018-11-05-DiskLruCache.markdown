@@ -71,6 +71,7 @@ static final String JOURNAL_FILE_TEMP = "journal.tmp";
 // 备份文件的文件名
 static final String JOURNAL_FILE_BACKUP = "journal.bkp";
 
+// 魔数字符串应该是用于标识此文件的身份，以便识别
 static final String MAGIC = "libcore.io.DiskLruCache";
 static final String VERSION_1 = "1";
 static final long ANY_SEQUENCE_NUMBER = -1;
@@ -130,11 +131,14 @@ private static final String READ = "READ";
  * "journal.tmp" will be used during compaction; that file should be deleted if
  * it exists when the cache is opened.
  */
+```
 
+```java
 private final File directory;
 private final File journalFile;
 private final File journalFileTmp;
 private final File journalFileBackup;
+// 使用此库时App的版本号，版本号改变后缓存将失效
 private final int appVersion;
 private long maxSize;
 private final int valueCount;
@@ -152,7 +156,7 @@ private int redundantOpCount;
 private long nextSequenceNumber = 0;
 
 /** This cache uses a single background thread to evict entries. */
-// 此缓存使用单个后台线程来驱逐条目
+// 此缓存使用单个后台线程来清除条目
 final ThreadPoolExecutor executorService =
     new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
 private final Callable<Void> cleanupCallable = new Callable<Void>() {
@@ -189,6 +193,8 @@ private DiskLruCache(File directory, int appVersion, int valueCount, long maxSiz
 ## 五、成员方法
 
 #### open
+
+打开在目录 __directory__ 中的缓存，文件不存在则创建一个新缓存。
 
 参数解析：
 
@@ -252,7 +258,7 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
     }
   }
 
-  // 创建全新空的缓存
+  // 没找到已存在的文件，则创建全新空的缓存
   directory.mkdirs();
   cache = new DiskLruCache(directory, appVersion, valueCount, maxSize);
   cache.rebuildJournal();
@@ -261,6 +267,8 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
 ```
 
 #### readJournal
+
+读取日志
 
 ```java
 private void readJournal() throws IOException {
@@ -355,7 +363,9 @@ private void readJournalLine(String line) throws IOException {
  * cache. Dirty entries are assumed to be inconsistent and will be deleted.
  */
 private void processJournal() throws IOException {
+  // 删除已经存在的临时日志文件
   deleteIfExists(journalFileTmp);
+  // 逐个遍历lruEntries
   for (Iterator<Entry> i = lruEntries.values().iterator(); i.hasNext(); ) {
     Entry entry = i.next();
     if (entry.currentEditor == null) {
@@ -376,23 +386,25 @@ private void processJournal() throws IOException {
 
 #### rebuildJournal
 
+创建一个忽略多余信息的日志文件，并把文件替换已经存在的日志文件。
+
 ```java
-/**
- * Creates a new journal that omits redundant information. This replaces the
- * current journal if it exists.
- */
 private synchronized void rebuildJournal() throws IOException {
   if (journalWriter != null) {
     journalWriter.close();
   }
 
+  // 给journalFileTmp创建一个缓冲写入
   Writer writer = new BufferedWriter(
       new OutputStreamWriter(new FileOutputStream(journalFileTmp), Util.US_ASCII));
   try {
+    // 第一行，写入魔数String
     writer.write(MAGIC);
     writer.write("\n");
+    // 第二行，DiskLru的版本号
     writer.write(VERSION_1);
     writer.write("\n");
+    // 第三行，App的版本号
     writer.write(Integer.toString(appVersion));
     writer.write("\n");
     writer.write(Integer.toString(valueCount));
@@ -409,7 +421,8 @@ private synchronized void rebuildJournal() throws IOException {
   } finally {
     writer.close();
   }
-
+  
+  // 如果已有一份日志文件存在，就把
   if (journalFile.exists()) {
     renameTo(journalFile, journalFileBackup, true);
   }
@@ -423,8 +436,11 @@ private synchronized void rebuildJournal() throws IOException {
 
 #### deleteIfExists
 
+如果文件已存在则删除该文件
+
 ```java
 private static void deleteIfExists(File file) throws IOException {
+  // 仅在文件存在的时候执行，删除失败会抛出IOException
   if (file.exists() && !file.delete()) {
     throw new IOException();
   }
@@ -510,13 +526,13 @@ private synchronized Editor edit(String key, long expectedSequenceNumber) throws
   Entry entry = lruEntries.get(key);
   if (expectedSequenceNumber != ANY_SEQUENCE_NUMBER && (entry == null
       || entry.sequenceNumber != expectedSequenceNumber)) {
-    return null; // Value is stale.
+    return null; // 值已经被废弃
   }
   if (entry == null) {
     entry = new Entry(key);
     lruEntries.put(key, entry);
   } else if (entry.currentEditor != null) {
-    return null; // Another edit is in progress.
+    return null; // 另一个编辑正在进行
   }
 
   Editor editor = new Editor(entry);
@@ -777,6 +793,8 @@ private static String inputStreamToString(InputStream in) throws IOException {
 
 ## 六、Value
 
+实体所含值的快照
+
 ```java
 /** A snapshot of the values for an entry. */
 public final class Value {
@@ -806,17 +824,21 @@ public final class Value {
   }
 
   /** Returns the string value for {@code index}. */
+  // 返回指定索引下文件的String值
   public String getString(int index) throws IOException {
     InputStream is = new FileInputStream(files[index]);
     return inputStreamToString(is);
   }
 
   /** Returns the byte length of the value for {@code index}. */
+  // 返回指定索引下字节的长度
   public long getLength(int index) {
     return lengths[index];
   }
 }
 ```
+
+## 七、Editor
 
 ```java
 /** Edits the values for an entry. */
@@ -921,7 +943,7 @@ public final class Editor {
 }
 ```
 
-## 七、Entry
+## 八、Entry
 
 ```java
 private final class Entry {
