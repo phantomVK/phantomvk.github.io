@@ -509,7 +509,7 @@ public int size() {
 }
 ```
 
-若双端队列不含任何元素返回true
+若双端队列不含任何元素返回true。在头引用和尾引用指向同一个对象的时候能表示双端队列为空。
 
 ```java
 public boolean isEmpty() {
@@ -604,8 +604,10 @@ public Object[] toArray() {
 }
 
 private <T> T[] toArray(Class<T[]> klazz) {
+    // 获取元素数组
     final Object[] es = elements;
     final T[] a;
+    // 分别获取头引用和未引用
     final int head = this.head, tail = this.tail, end;
     if ((end = tail + ((head <= tail) ? 0 : es.length)) >= 0) {
         // Uses null extension feature of copyOfRange

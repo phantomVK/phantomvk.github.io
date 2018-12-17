@@ -9,7 +9,7 @@ tags:
     - Android源码系列
 ---
 
-这篇文章介绍Android是如何实现屏幕截取操作的，如需要监控屏幕截取事件可通过本文获得思路。源码版本 __Android 28__。
+这篇文章介绍Android如何实现屏幕截取操作，如需要监控屏幕截取事件可通过本文获得思路。源码版本 __Android 28__。
 
 ## TakeScreenshotService
 
@@ -37,7 +37,7 @@ public class TakeScreenshotService extends Service {
                 }
             };
 
-            // 如果此用户的存储被锁定无法存储屏幕截图，所以跳过执行而不是显示误导性的动画和错误通知
+            // 如果此用户的存储被锁定无法保存屏幕截图，跳过执行而不是显示误导性的动画和错误通知
             if (!getSystemService(UserManager.class).isUserUnlocked()) {
                 Log.w(TAG, "Skipping screenshot because storage is locked!");
                 // 截图没有保存，也发送finisher
@@ -113,6 +113,7 @@ private static final float SCREENSHOT_DROP_OUT_MIN_SCALE_OFFSET = 0f;
 #### 数据成员
 
 ```java
+// 预览图宽高
 private final int mPreviewWidth;
 private final int mPreviewHeight;
 
@@ -124,8 +125,10 @@ private Display mDisplay;
 private DisplayMetrics mDisplayMetrics;
 private Matrix mDisplayMatrix;
 
+// 截图的Bitmap
 private Bitmap mScreenBitmap;
 private View mScreenshotLayout;
+// 截图选择器
 private ScreenshotSelectorView mScreenshotSelectorView;
 private ImageView mBackgroundView;
 private ImageView mScreenshotView;
@@ -137,8 +140,10 @@ private int mNotificationIconSize;
 private float mBgPadding;
 private float mBgPaddingScale;
 
+// 异步保存截图的AsyncTask
 private AsyncTask<Void, Void, Void> mSaveInBgTask;
 
+// 截屏时发出摄像头的声音
 private MediaActionSound mCameraSound;
 ```
 
@@ -262,12 +267,14 @@ private float getDegreesForRotation(int value) {
 ```java
 private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarVisible,
         Rect crop) {
+    // 获取屏幕的旋转角度、宽、高
     int rot = mDisplay.getRotation();
     int width = crop.width();
     int height = crop.height();
 
     // 截取屏幕
     mScreenBitmap = SurfaceControl.screenshot(crop, width, height, rot);
+    // 检查获取的屏幕截图是否为空
     if (mScreenBitmap == null) {
         notifyScreenshotError(mContext, mNotificationManager,
                 R.string.screenshot_failed_to_capture_text);
@@ -275,7 +282,7 @@ private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean
         return;
     }
 
-    // Optimizations
+    // 截图设置为非透明图片，能提升绘制速度
     mScreenBitmap.setHasAlpha(false);
     mScreenBitmap.prepareToDraw();
 
@@ -287,7 +294,7 @@ private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean
 
 ####takeScreenshot 
 
-截取全屏图片
+截取全屏图片，调用了上面的方法。根据屏幕宽高创建一个 __Rect__。
 
 ```java
 void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarVisible) {
@@ -304,7 +311,9 @@ void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarV
 ```java
 void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisible,
         final boolean navBarVisible) {
+    // 向WindowManager添加选择器布局
     mWindowManager.addView(mScreenshotLayout, mWindowLayoutParams);
+    // 处理选择器的点击事件
     mScreenshotSelectorView.setOnTouchListener(new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
@@ -325,6 +334,7 @@ void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisib
                             // Need mScreenshotLayout to handle it after the view disappears
                             mScreenshotLayout.post(new Runnable() {
                                 public void run() {
+                                    // 把选中的矩形区域作为截图依据
                                     takeScreenshot(finisher, statusBarVisible, navBarVisible,
                                             rect);
                                 }
@@ -559,7 +569,7 @@ static void notifyScreenshotError(Context context, NotificationManager nManager,
     Resources r = context.getResources();
     String errorMsg = r.getString(msgResId);
 
-    // Repurpose the existing notification to notify the user of the error
+    // 重新利用现有通知以通知用户错误信息
     Notification.Builder b = new Notification.Builder(context, NotificationChannels.ALERTS)
         .setTicker(r.getString(R.string.screenshot_failed_title))
         .setContentTitle(r.getString(R.string.screenshot_failed_title))
@@ -571,6 +581,7 @@ static void notifyScreenshotError(Context context, NotificationManager nManager,
         .setAutoCancel(true)
         .setColor(context.getColor(
                     com.android.internal.R.color.system_notification_accent_color));
+
     final DevicePolicyManager dpm = (DevicePolicyManager) context.getSystemService(
             Context.DEVICE_POLICY_SERVICE);
     final Intent intent = dpm.createAdminSupportIntent(
@@ -592,10 +603,9 @@ static void notifyScreenshotError(Context context, NotificationManager nManager,
 
 #### ScreenshotActionReceiver
 
+代理分享或编辑intent的Receiver
+
 ```java
-/**
- * Receiver to proxy the share or edit intent.
- */
 public static class ScreenshotActionReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -659,10 +669,12 @@ public static class DeleteScreenshotReceiver extends BroadcastReceiver {
             return;
         }
 
-        // 移除通知
+        // 移除通知，先获取NotificationManager
         final NotificationManager nm =
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        // 获取SCREENSHOT_URI_ID，构建Uri
         final Uri uri = Uri.parse(intent.getStringExtra(SCREENSHOT_URI_ID));
+        // 取消截屏
         nm.cancel(SystemMessage.NOTE_GLOBAL_SCREENSHOT);
 
         // 从媒体存储中删除图片
