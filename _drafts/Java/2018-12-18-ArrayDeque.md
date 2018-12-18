@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "Java源码系列(20) -- ArrayDeque"
-date:       2018-11-07
+title:      "Java源码系列(21) -- ArrayDeque"
+date:       2018-12-18
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -11,9 +11,11 @@ tags:
 
 ## 一、类签名
 
-这是 __Deque__ 接口且大小可变的数组实现。数组双端队列没有容量限制，在需要的时候进行扩容。本实现类线程不安全，如果没有额外的同步约束，就不能支持多线程并发访问。本双端队列不接收为null的元素。此类作为栈使用时比 __Stack__ 快；作为队列使用时比 __LinkedList__ 快。
+这是实现 __Deque__ 接口且大小可变的数组。数组实现的双端队列没有容量限制，需要空间的时候就进行扩容。
 
-大多数 __ArrayDeque__ 方法执行消耗常量时间，除了__remove(Object)__， __removeFirstOccurrence__， __removeLastOccurrence__， __contains__， __iterator__ 和批量操作是线性时间消耗的。
+此类线程不安全，如果没有额外的同步约束，就不能支持多线程并发访问。值得注意的是，本双端队列不接受空对象，作为栈使用时比 __Stack__ 快，作为队列使用时比 __LinkedList__ 快。
+
+大多数 __ArrayDeque__ 方法执行消耗常量时间，除了__remove(Object)__、 __removeFirstOccurrence__， __removeLastOccurrence__、 __contains__、 __iterator__ 和批量操作是线性时间消耗的。
 
 ```java
 public class ArrayDeque<E> extends AbstractCollection<E>
@@ -38,9 +40,9 @@ for (int i = start; i < end; i++) ... elements[i]
 transient Object[] elements;
 ```
 
+头元素在数组中的索引值，下标值对应元素由remove()或pop()方法移除。若队列没有元素，head为[0, elements.length)间任意值，与尾引用值相同
+
 ```java
-// 头元素在数组中的索引值，下标值对应元素由remove()或pop()方法移除
-// 若队列没有元素，head为[0, elements.length)间任意值，与尾引用值相同
 transient int head;
 ```
 
@@ -331,6 +333,7 @@ public E pollLast() {
 
 ```java
 public E getFirst() {
+    // 通过head索引值获取元素
     E e = elementAt(elements, head);
     if (e == null)
         throw new NoSuchElementException();
