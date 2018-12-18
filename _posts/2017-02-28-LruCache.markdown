@@ -91,6 +91,8 @@ public void resize(int maxSize) {
 
 通过非空键取值，如果对应键命中就会把值返回，且把这个元素移动到队列首位。没有命中会根据`create()`方法做后续决定。
 
+![LruCache_get](../img/android/lrucache/LruCache_get.png)
+
 ```java
 public final V get(K key) {
     if (key == null) {
@@ -146,6 +148,14 @@ public final V get(K key) {
 
 添加键值逻辑比较简单：已存在的值会被新值取代且移到队列首位，旧值作为方法返回值。
 
+如果缓存没有满，则新值直接存入：
+
+![LruCache_put](../img/android/lrucache/LruCache_put.png)
+
+如果缓存已满，则旧值先移除再添加新值：
+
+![LruCache_put_previous](../img/android/lrucache/LruCache_put_previous.png)
+
 ```java
 public final V put(K key, V value) {
     if (key == null || value == null) {
@@ -179,6 +189,8 @@ public final V put(K key, V value) {
 ### 4.3 调整容量
 
 已保存元素数量大于新队列容量值，调整过程中选择近期最少使用的item出列。若`maxSize`值为`-1`，所有元素依次移除直至队列为空。
+
+![LruCache_resize](../img/android/lrucache/LruCache_trimToSize.png)
 
 ```java
 public void trimToSize(int maxSize) {

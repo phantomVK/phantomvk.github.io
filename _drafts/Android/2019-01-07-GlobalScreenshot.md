@@ -9,9 +9,9 @@ tags:
     - Android源码系列
 ---
 
-这篇文章介绍Android如何实现屏幕截取操作，如需要监控屏幕截取事件可通过本文获得思路。源码版本 __Android 28__。
+这篇文章介绍Android如何实现屏幕截取操作，为截取事件提供思路。版本 __Android 28__。
 
-## TakeScreenshotService
+## 一、TakeScreenshotService
 
 __TakeScreenshotService__ 是 __Service__，通过IPC的方式接受截屏请求，并通过 __GlobalScreenshot__ 实现屏幕截取和图片保存。
 
@@ -40,7 +40,7 @@ public class TakeScreenshotService extends Service {
             // 如果此用户的存储被锁定无法保存屏幕截图，跳过执行而不是显示误导性的动画和错误通知
             if (!getSystemService(UserManager.class).isUserUnlocked()) {
                 Log.w(TAG, "Skipping screenshot because storage is locked!");
-                // 截图没有保存，也发送finisher
+                // 截图没有保存，发送finisher
                 post(finisher);
                 return;
             }
@@ -50,7 +50,7 @@ public class TakeScreenshotService extends Service {
                 mScreenshot = new GlobalScreenshot(TakeScreenshotService.this);
             }
 
-            // 获取消息的类型，根据类型执行截屏操作
+            // 获取消息类型，根据类型执行操作
             switch (msg.what) {
                 // 全屏截取
                 case WindowManager.TAKE_SCREENSHOT_FULLSCREEN:
@@ -82,7 +82,7 @@ public class TakeScreenshotService extends Service {
 }
 ```
 
-## GlobalScreenshot
+## 二、GlobalScreenshot
 
 此类负责获取截图，下面出现的定义类都是 __GlobalScreenshot__ 的内部类。
 
@@ -90,7 +90,7 @@ public class TakeScreenshotService extends Service {
 class GlobalScreenshot
 ```
 
-#### 常量
+#### 2.1 常量
 
 ```java
 static final String SCREENSHOT_URI_ID = "android:screenshot_uri_id";
@@ -110,7 +110,7 @@ private static final float SCREENSHOT_FAST_DROP_OUT_MIN_SCALE = SCREENSHOT_SCALE
 private static final float SCREENSHOT_DROP_OUT_MIN_SCALE_OFFSET = 0f;
 ```
 
-#### 数据成员
+#### 2.2 数据成员
 
 ```java
 // 预览图宽高
@@ -121,6 +121,8 @@ private Context mContext;
 private WindowManager mWindowManager;
 private WindowManager.LayoutParams mWindowLayoutParams;
 private NotificationManager mNotificationManager;
+
+// 用于测量屏幕宽高
 private Display mDisplay;
 private DisplayMetrics mDisplayMetrics;
 private Matrix mDisplayMatrix;
@@ -128,12 +130,14 @@ private Matrix mDisplayMatrix;
 // 截图的Bitmap
 private Bitmap mScreenBitmap;
 private View mScreenshotLayout;
+
 // 截图选择器
 private ScreenshotSelectorView mScreenshotSelectorView;
 private ImageView mBackgroundView;
 private ImageView mScreenshotView;
 private ImageView mScreenshotFlash;
 
+// 截屏的屏幕动画
 private AnimatorSet mScreenshotAnimation;
 
 private int mNotificationIconSize;
@@ -143,11 +147,11 @@ private float mBgPaddingScale;
 // 异步保存截图的AsyncTask
 private AsyncTask<Void, Void, Void> mSaveInBgTask;
 
-// 截屏时发出摄像头的声音
+// 截屏时发出模拟快门的声音
 private MediaActionSound mCameraSound;
 ```
 
-#### 构造方法
+#### 2.3 构造方法
 
 ```java
 public GlobalScreenshot(Context context) {
@@ -157,6 +161,7 @@ public GlobalScreenshot(Context context) {
             context.getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 
     mDisplayMatrix = new Matrix();
+    
     // 填充截屏布局
     mScreenshotLayout = layoutInflater.inflate(R.layout.global_screenshot, null);
     // 绑定View
@@ -194,20 +199,21 @@ public GlobalScreenshot(Context context) {
     mDisplayMetrics = new DisplayMetrics();
     mDisplay.getRealMetrics(mDisplayMetrics);
 
-    // Get the various target sizes
+    // 获取各自的目标尺寸
     mNotificationIconSize =
         r.getDimensionPixelSize(android.R.dimen.notification_large_icon_height);
 
-    // Scale has to account for both sides of the bg
+    // 范围占背景的两边
     mBgPadding = (float) r.getDimensionPixelSize(R.dimen.global_screenshot_bg_padding);
     mBgPaddingScale = mBgPadding /  mDisplayMetrics.widthPixels;
 
-    // 确定优化的预览尺寸
+    // 确定最优化的预览尺寸
     int panelWidth = 0;
     try {
         panelWidth = r.getDimensionPixelSize(R.dimen.notification_panel_width);
     } catch (Resources.NotFoundException e) {
     }
+    // panelWidth在上述异常出现时为0
     if (panelWidth <= 0) {
         // includes notification_panel_width==match_parent (-1)
         panelWidth = mDisplayMetrics.widthPixels;
@@ -215,21 +221,21 @@ public GlobalScreenshot(Context context) {
     mPreviewWidth = panelWidth;
     mPreviewHeight = r.getDimensionPixelSize(R.dimen.notification_max_height);
 
-    // 设置摄像头快门声音
+    // 加载快门声音
     mCameraSound = new MediaActionSound();
     mCameraSound.load(MediaActionSound.SHUTTER_CLICK);
 }
 ```
 
-#### saveScreenshotInWorkerThread
+#### 2.4 saveScreenshotInWorkerThread
 
-此方法会创建新的工作线程，并在线程内保存截图到媒体存储中。
+调用方法时截图已经保存在内存中。此方法会创建新工作任务，并在子线程把截图保存到媒体存储。__SaveImageInBackgroundTask__ 继承 __AsyncTask__。
 
 ```java
 private void saveScreenshotInWorkerThread(Runnable finisher) {
     SaveImageInBackgroundData data = new SaveImageInBackgroundData();
     data.context = mContext;
-    data.image = mScreenBitmap;
+    data.image = mScreenBitmap; // 截图
     data.iconSize = mNotificationIconSize;
     data.finisher = finisher;
     data.previewWidth = mPreviewWidth;
@@ -237,12 +243,15 @@ private void saveScreenshotInWorkerThread(Runnable finisher) {
     if (mSaveInBgTask != null) {
         mSaveInBgTask.cancel(false);
     }
+    // 由此.execute()可知任务在AsyncTask是串行执行的
     mSaveInBgTask = new SaveImageInBackgroundTask(mContext, data, mNotificationManager)
             .execute();
 }
 ```
 
-#### getDegreesForRotation
+系统很多任务通过 __AsyncTask__ 而不是子线程的方式执行后台任务，类似上面的截图写入到存储的场景。所以一定不能把长耗时任务放入 __AsyncTask__ 导致任务阻塞，或依赖 __AsyncTask__ 完成实时性要求高的工作。
+
+#### 2.5 getDegreesForRotation
 
 获取屏幕旋转角度
 
@@ -260,9 +269,9 @@ private float getDegreesForRotation(int value) {
 }
 ```
 
-#### takeScreenshot
+#### 2.6 takeScreenshot
 
-截取当前屏幕并展示动画
+__GlobalScreenshot__ 初始化完成后，即可截取当前屏幕并展示动画。方法使用 __private__ 修饰，由同类的其他方法调用。
 
 ```java
 private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarVisible,
@@ -274,6 +283,7 @@ private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean
 
     // 截取屏幕
     mScreenBitmap = SurfaceControl.screenshot(crop, width, height, rot);
+
     // 检查获取的屏幕截图是否为空
     if (mScreenBitmap == null) {
         notifyScreenshotError(mContext, mNotificationManager,
@@ -292,9 +302,7 @@ private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean
 }
 ```
 
-####takeScreenshot 
-
-截取全屏图片，调用了上面的方法。根据屏幕宽高创建一个 __Rect__。
+以下方法截取全屏图片，调用了上面的方法。根据屏幕宽高创建一个 __Rect__。
 
 ```java
 void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarVisible) {
@@ -304,9 +312,9 @@ void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarV
 }
 ```
 
-#### takeScreenshotPartial
+#### 2.7 takeScreenshotPartial
 
-展示截图的裁剪选择器
+__takeScreenshot()__ 截取全屏，此方法能截取屏幕的部分区域。
 
 ```java
 void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisible,
@@ -328,13 +336,14 @@ void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisib
                 case MotionEvent.ACTION_UP:
                     view.setVisibility(View.GONE);
                     mWindowManager.removeView(mScreenshotLayout);
+                    // 获取选择的矩形区域
                     final Rect rect = view.getSelectionRect();
                     if (rect != null) {
                         if (rect.width() != 0 && rect.height() != 0) {
-                            // Need mScreenshotLayout to handle it after the view disappears
+                            // 在view消失之后需要mScreenshotLayout处理截图保存的任务
                             mScreenshotLayout.post(new Runnable() {
                                 public void run() {
-                                    // 把选中的矩形区域作为截图依据
+                                    // 把选中的矩形区域作为依据从全屏截取部分图像
                                     takeScreenshot(finisher, statusBarVisible, navBarVisible,
                                             rect);
                                 }
@@ -359,9 +368,9 @@ void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisib
 }
 ```
 
-#### stopScreenshot
+#### 2.8 stopScreenshot
 
-取消截屏
+停止截屏
 
 ```java
 void stopScreenshot() {
@@ -373,25 +382,24 @@ void stopScreenshot() {
 }
 ```
 
-#### startAnimation
+#### 2.9 startAnimation
 
 截图动画
 
 ```java
 private void startAnimation(final Runnable finisher, int w, int h, boolean statusBarVisible,
         boolean navBarVisible) {
-    // If power save is on, show a toast so there is some visual indication that a screenshot
-    // has been taken.
+    // 手机处于省点模式的话显示一个toast提示用于已截屏
     PowerManager powerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
     if (powerManager.isPowerSaveMode()) {
         Toast.makeText(mContext, R.string.screenshot_saved_title, Toast.LENGTH_SHORT).show();
     }
 
-    // Add the view for the animation
+    // 添加动画视图
     mScreenshotView.setImageBitmap(mScreenBitmap);
     mScreenshotLayout.requestFocus();
 
-    // Setup the animation with the screenshot just taken
+    // 使用刚拍摄的屏幕截图设置动画，如动画已启动则需要结束
     if (mScreenshotAnimation != null) {
         if (mScreenshotAnimation.isStarted()) {
             mScreenshotAnimation.end();
@@ -400,6 +408,7 @@ private void startAnimation(final Runnable finisher, int w, int h, boolean statu
     }
 
     mWindowManager.addView(mScreenshotLayout, mWindowLayoutParams);
+    // 通过代码构建动画集合并组装
     ValueAnimator screenshotDropInAnim = createScreenshotDropInAnimation();
     ValueAnimator screenshotFadeOutAnim = createScreenshotDropOutAnimation(w, h,
             statusBarVisible, navBarVisible);
@@ -408,11 +417,12 @@ private void startAnimation(final Runnable finisher, int w, int h, boolean statu
     mScreenshotAnimation.addListener(new AnimatorListenerAdapter() {
         @Override
         public void onAnimationEnd(Animator animation) {
-            // 开始保存截图
+            // 动画播放结束时启动保存截图的任务
             saveScreenshotInWorkerThread(finisher);
+            // 截屏的布局也可以从屏幕移除了
             mWindowManager.removeView(mScreenshotLayout);
 
-            // 清除位图的引用
+            // 清除位图的引用，避免内存泄漏
             mScreenBitmap = null;
             mScreenshotView.setImageBitmap(null);
         }
@@ -422,13 +432,18 @@ private void startAnimation(final Runnable finisher, int w, int h, boolean statu
         public void run() {
             // 播放快门声通知用户已截屏
             mCameraSound.play(MediaActionSound.SHUTTER_CLICK);
-
+            // 通过硬件加速播放动画
             mScreenshotView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
             mScreenshotView.buildLayer();
             mScreenshotAnimation.start();
         }
     });
 }
+```
+
+通过代码构造动画
+
+```java
 private ValueAnimator createScreenshotDropInAnimation() {
     final float flashPeakDurationPct = ((float) (SCREENSHOT_FLASH_TO_PEAK_DURATION)
             / SCREENSHOT_DROP_IN_DURATION);
@@ -490,6 +505,11 @@ private ValueAnimator createScreenshotDropInAnimation() {
     });
     return anim;
 }
+```
+
+通过代码构造动画
+
+```java
 private ValueAnimator createScreenshotDropOutAnimation(int w, int h, boolean statusBarVisible,
         boolean navBarVisible) {
     ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
@@ -564,6 +584,10 @@ private ValueAnimator createScreenshotDropOutAnimation(int w, int h, boolean sta
 }
 ```
 
+#### 2.10 notifyScreenshotError 
+
+截屏出现错误通知用户
+
 ```java
 static void notifyScreenshotError(Context context, NotificationManager nManager, int msgResId) {
     Resources r = context.getResources();
@@ -601,7 +625,7 @@ static void notifyScreenshotError(Context context, NotificationManager nManager,
 }
 ```
 
-#### ScreenshotActionReceiver
+#### 2.11 ScreenshotActionReceiver
 
 代理分享或编辑intent的Receiver
 
@@ -641,7 +665,7 @@ public static class ScreenshotActionReceiver extends BroadcastReceiver {
 }
 ```
 
-#### TargetChosenReceiver
+#### 2.12 TargetChosenReceiver
 
 选择分享或编辑目标后移除截图的通知
 
@@ -657,9 +681,9 @@ public static class TargetChosenReceiver extends BroadcastReceiver {
 }
 ```
 
-#### DeleteScreenshotReceiver
+#### 2.13 DeleteScreenshotReceiver
 
-移除最后一张截图
+从存储里移除截图
 
 ```java
 public static class DeleteScreenshotReceiver extends BroadcastReceiver {
@@ -674,10 +698,10 @@ public static class DeleteScreenshotReceiver extends BroadcastReceiver {
                 (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         // 获取SCREENSHOT_URI_ID，构建Uri
         final Uri uri = Uri.parse(intent.getStringExtra(SCREENSHOT_URI_ID));
-        // 取消截屏
+        // 移除截屏通知
         nm.cancel(SystemMessage.NOTE_GLOBAL_SCREENSHOT);
 
-        // 从媒体存储中删除图片
+        // 从媒体存储中删除图片，后台任务串行执行
         new DeleteImageInBackgroundTask(context).execute(uri);
     }
 }

@@ -71,7 +71,7 @@ static final String JOURNAL_FILE_TEMP = "journal.tmp";
 // 备份文件的文件名
 static final String JOURNAL_FILE_BACKUP = "journal.bkp";
 
-// 魔数字符串应该是用于标识此文件的身份，以便识别
+// 魔数字符串用于标识此文件的身份
 static final String MAGIC = "libcore.io.DiskLruCache";
 static final String VERSION_1 = "1";
 static final long ANY_SEQUENCE_NUMBER = -1;
@@ -949,7 +949,7 @@ public final class Editor {
 private final class Entry {
   private final String key;
 
-  /** Lengths of this entry's files. */
+  // 持有文件的长度
   private final long[] lengths;
 
   /** Memoized File objects for this entry to avoid char[] allocations. */
