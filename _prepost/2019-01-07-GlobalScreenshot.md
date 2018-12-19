@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "GlobalScreenshot"
+title:      "Android源码系列(18) -- GlobalScreenshot"
 date:       2019-01-07
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -389,7 +389,7 @@ void stopScreenshot() {
 ```java
 private void startAnimation(final Runnable finisher, int w, int h, boolean statusBarVisible,
         boolean navBarVisible) {
-    // 手机处于省点模式的话显示一个toast提示用于已截屏
+    // 手机处于省电模式的话显示一个toast提示用于已截屏
     PowerManager powerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
     if (powerManager.isPowerSaveMode()) {
         Toast.makeText(mContext, R.string.screenshot_saved_title, Toast.LENGTH_SHORT).show();
