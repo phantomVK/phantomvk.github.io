@@ -11,6 +11,8 @@ tags:
 
 Android28
 
+## SaveImageInBackgroundData
+
 ```java
 class SaveImageInBackgroundData {
     Context context;
@@ -51,7 +53,7 @@ class SaveImageInBackgroundData {
 class SaveImageInBackgroundTask extends AsyncTask<Void, Void, Void>
 ```
 
-#### 静态变量
+#### 2.1 静态变量
 
 ```java
 private static final String TAG = "SaveImageInBackgroundTask";
@@ -65,7 +67,7 @@ private static final String SCREENSHOT_FILE_NAME_TEMPLATE = "Screenshot_%s.png";
 private static final String SCREENSHOT_SHARE_SUBJECT_TEMPLATE = "Screenshot (%s)";
 ```
 
-#### 数据成员
+#### 2.2 数据成员
 
 ```java
 private final SaveImageInBackgroundData mParams;
@@ -92,7 +94,7 @@ private final int mImageWidth;
 private final int mImageHeight;
 ```
 
-#### 构造方法
+#### 2.3 构造方法
 
 ```java
 SaveImageInBackgroundTask(Context context, SaveImageInBackgroundData data,
@@ -204,7 +206,7 @@ private Bitmap generateAdjustedHwBitmap(Bitmap bitmap, int width, int height, Ma
 }
 ```
 
-#### 后台保存
+#### 2.4 后台保存
 
 当执行到 __doInBackground__ 时，图片其实已经成功截取并保存在内存里。
 
@@ -321,6 +323,8 @@ protected Void doInBackground(Void... params) {
 }
 ```
 
+#### 2.5 onPostExecute
+
 ```java
 @Override
 protected void onPostExecute(Void params) {
@@ -370,6 +374,8 @@ protected void onPostExecute(Void params) {
 }
 ```
 
+#### 2.6 onCancelled
+
 ```java
 @Override
 protected void onCancelled(Void params) {
@@ -387,7 +393,7 @@ protected void onCancelled(Void params) {
 
 ##DeleteImageInBackgroundTask
 
-在后台删除媒体存储的图片
+在后台删除媒体存储的图片，此类继承 __AsyncTask__。
 
 ```java
 class DeleteImageInBackgroundTask extends AsyncTask<Uri, Void, Void> {
@@ -401,12 +407,13 @@ class DeleteImageInBackgroundTask extends AsyncTask<Uri, Void, Void> {
     protected Void doInBackground(Uri... params) {
         if (params.length != 1) return null;
 
-        // 从参数去除截图的资源路径
+        // 从参数获取截图的资源路径Uri
         Uri screenshotUri = params[0];
         // 获取ContentResolver
         ContentResolver resolver = mContext.getContentResolver();
-        //  从ContentResolver移除自定图片
+        //  从ContentResolver移除指定图片
         resolver.delete(screenshotUri, null, null);
+        // 给方法返回值类型Void返回null
         return null;
     }
 }
