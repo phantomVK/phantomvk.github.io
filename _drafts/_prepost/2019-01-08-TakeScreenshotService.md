@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "TakeScreenshotService"
-date:       2019-01-08
+title:      "Android源码系列(19) -- TakeScreenshotService"
+date:       2018-12-21
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -9,9 +9,11 @@ tags:
     - Android源码系列
 ---
 
-Android28
+上一篇文章 [Android源码系列(18) -- GlobalScreenshot](/2019/01/07/GlobalScreenshot/) 介绍系统是如何获取接收截图操作的通知或截取屏幕。本文作为后续文章，继续补充截图通过什么方法写入到磁盘，并通知媒体存储更新记录。源码版本 __Android28__
 
-## SaveImageInBackgroundData
+## 一、SaveImageInBackgroundData
+
+此类包含截图保存到存储所需要的数据，包括截图Bitmap、保存路径、预览图宽高等信息。
 
 ```java
 class SaveImageInBackgroundData {
@@ -45,9 +47,9 @@ class SaveImageInBackgroundData {
 }
 ```
 
-## SaveImageInBackgroundTask
+## 二、SaveImageInBackgroundTask
 
-截图的 [AsyncTask](/2018/10/21/AsyncTask/) 任务，在后台把截取的图片保存到媒体存储
+保存截图的 [AsyncTask](/2018/10/21/AsyncTask/) 任务，在后台把截取的图片保存到媒体存储。调用 __AsyncTask.execute()__ 的任务在后台以串行的方式处理。如果有自定义任务阻塞整个串行队列，则截图将无法写入存储。
 
 ```java
 class SaveImageInBackgroundTask extends AsyncTask<Void, Void, Void>
@@ -134,7 +136,7 @@ SaveImageInBackgroundTask(Context context, SaveImageInBackgroundData data,
     Bitmap picture = generateAdjustedHwBitmap(data.image, previewWidth, previewHeight, matrix,
             paint, overlayColor);
 
-    // Note, we can't use the preview for the small icon, since it is non-square
+    // 没法使用小图标的预览，因为图标不是正方形的
     float scale = (float) iconSize / Math.min(mImageWidth, mImageHeight);
     matrix.setScale(scale, scale);
     matrix.postTranslate((iconSize - (scale * mImageWidth)) / 2,
@@ -149,7 +151,7 @@ SaveImageInBackgroundTask(Context context, SaveImageInBackgroundData data,
     mNotificationStyle = new Notification.BigPictureStyle()
             .bigPicture(picture.createAshmemBitmap());
 
-    // The public notification will show similar info but with the actual screenshot omitted
+    // 展示公共通知
     mPublicNotificationBuilder =
             new Notification.Builder(context, NotificationChannels.SCREENSHOTS_HEADSUP)
                     .setContentTitle(r.getString(R.string.screenshot_saving_title))
@@ -177,8 +179,7 @@ SaveImageInBackgroundTask(Context context, SaveImageInBackgroundData data,
             mNotificationBuilder.build());
 
     /**
-     * NOTE: The following code prepares the notification builder for updating the notification
-     * after the screenshot has been written to disk.
+     * 以下代码用于更新图片已经写入磁盘的通知信息
      */
 
     // On the tablet, the large icon makes the notification appear as if it is clickable (and
@@ -190,11 +191,11 @@ SaveImageInBackgroundTask(Context context, SaveImageInBackgroundData data,
 }
 ```
 
+#### 2.4 generateAdjustedHwBitmap
+
+用指定分辨率生成调整后的Bitmap
+
 ```java
-/**
- * Generates a new hardware bitmap with specified values, copying the content from the passed
- * in bitmap.
- */
 private Bitmap generateAdjustedHwBitmap(Bitmap bitmap, int width, int height, Matrix matrix,
         Paint paint, int color) {
     Picture picture = new Picture();
@@ -206,9 +207,9 @@ private Bitmap generateAdjustedHwBitmap(Bitmap bitmap, int width, int height, Ma
 }
 ```
 
-#### 2.4 后台保存
+#### 2.5 后台保存
 
-当执行到 __doInBackground__ 时，图片其实已经成功截取并保存在内存里。
+当执行到 __doInBackground__ 时，截屏已保存在内存中等待写入磁盘。
 
 ```java
 @Override
@@ -217,11 +218,11 @@ protected Void doInBackground(Void... params) {
         return null;
     }
 
-    // By default, AsyncTask sets the worker thread to have background thread priority, so bump
-    // it back up so that we save a little quicker.
+    // 默认情况下，AsyncTask将工作线程设置为具有后台线程优先级，因此将其恢复以便更快地保存截图
     Process.setThreadPriority(Process.THREAD_PRIORITY_FOREGROUND);
 
     Context context = mParams.context;
+    // 从Param取出截屏图片
     Bitmap image = mParams.image;
     Resources r = context.getResources();
 
@@ -229,8 +230,7 @@ protected Void doInBackground(Void... params) {
         // 创建截屏文件夹的目录
         mScreenshotDir.mkdirs();
 
-        // media provider uses seconds for DATE_MODIFIED and DATE_ADDED, but milliseconds
-        // for DATE_TAKEN
+        // DATE_TAKEN的时间戳单位是毫秒，但DATE_MODIFIED和DATE_ADDED，这里进行转换
         long dateSeconds = mImageTime / 1000;
 
         // 截图位图写入文件流
@@ -239,7 +239,8 @@ protected Void doInBackground(Void... params) {
         out.flush();
         out.close();
 
-        // 配置ContentValues
+        // 配置ContentValues，准备通知设备更新媒体记录
+        // 下面将写入截图的信息：时间、标题、名称、类型和大小等信息
         ContentValues values = new ContentValues();
         ContentResolver resolver = context.getContentResolver();
         values.put(MediaStore.Images.ImageColumns.DATA, mImageFilePath);
@@ -252,7 +253,7 @@ protected Void doInBackground(Void... params) {
         values.put(MediaStore.Images.ImageColumns.WIDTH, mImageWidth);
         values.put(MediaStore.Images.ImageColumns.HEIGHT, mImageHeight);
         values.put(MediaStore.Images.ImageColumns.SIZE, new File(mImageFilePath).length());
-        // 把截屏保存到MediaStore
+        // 把截屏记录插入到MediaStore
         Uri uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
 
         // 创建分享的Intent
@@ -269,6 +270,7 @@ protected Void doInBackground(Void... params) {
         // on the PendingIntent being launched, and since we don't want to trigger the share
         // sheet in this case, we start the chooser activity directly in
         // ScreenshotActionReceiver.
+        // 构造分享的PendingIntent
         PendingIntent shareAction = PendingIntent.getBroadcast(context, 0,
                 new Intent(context, GlobalScreenshot.ScreenshotActionReceiver.class)
                         .putExtra(SHARING_INTENT, sharingIntent),
@@ -278,6 +280,7 @@ protected Void doInBackground(Void... params) {
                 r.getString(com.android.internal.R.string.share), shareAction);
         mNotificationBuilder.addAction(shareActionBuilder.build());
 
+        // 构造编辑截图的Intent
         Intent editIntent = new Intent(Intent.ACTION_EDIT);
         editIntent.setType("image/png");
         editIntent.setData(uri);
@@ -314,7 +317,7 @@ protected Void doInBackground(Void... params) {
         mParams.errorMsgResId = R.string.screenshot_failed_to_save_text;
     }
 
-    // 销毁位图
+    // 回收位图
     if (image != null) {
         image.recycle();
     }
@@ -323,7 +326,9 @@ protected Void doInBackground(Void... params) {
 }
 ```
 
-#### 2.5 onPostExecute
+#### 2.6 onPostExecute
+
+截图已经保存到磁盘中，给用户弹出成功或失败的提示。
 
 ```java
 @Override
@@ -333,20 +338,20 @@ protected void onPostExecute(Void params) {
         GlobalScreenshot.notifyScreenshotError(mParams.context, mNotificationManager,
                 mParams.errorMsgResId);
     } else {
-        // Show the final notification to indicate screenshot saved
         // 图片保存到存储成功，弹出通知指明已保存的截屏
         Context context = mParams.context;
         Resources r = context.getResources();
 
-        // Create the intent to show the screenshot in gallery
+        // 构造intent，引导用户跳到相册浏览截图
         Intent launchIntent = new Intent(Intent.ACTION_VIEW);
+        // 带上图片的类型和资源地址
         launchIntent.setDataAndType(mParams.imageUri, "image/png");
         launchIntent.setFlags(
                 Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
 
         final long now = System.currentTimeMillis();
 
-        // Update the text and the icon for the existing notification
+        // 更新已有通知的文本和icon
         mPublicNotificationBuilder
                 .setContentTitle(r.getString(R.string.screenshot_saved_title))
                 .setContentText(r.getString(R.string.screenshot_saved_text))
@@ -369,29 +374,29 @@ protected void onPostExecute(Void params) {
         mNotificationManager.notify(SystemMessage.NOTE_GLOBAL_SCREENSHOT,
                 mNotificationBuilder.build());
     }
+    // 调起finish
     mParams.finisher.run();
     mParams.clearContext();
 }
 ```
 
-#### 2.6 onCancelled
+#### 2.7 onCancelled
+
+保存截图的操作被取消。如果截图正在后台保存的时候任务被取消，__onCancelled__ 值为 __null__。同时，__finisher__ 的预期是一定会被回调的，所以被取消的任务需要在这里回调 __finisher__。
 
 ```java
 @Override
 protected void onCancelled(Void params) {
-    // If we are cancelled while the task is running in the background, we may get null params.
-    // The finisher is expected to always be called back, so just use the baked-in params from
-    // the ctor in any case.
     mParams.finisher.run();
     mParams.clearImage();
     mParams.clearContext();
 
-    // Cancel the posted notification
+    // 取消已经弹出的通知
     mNotificationManager.cancel(SystemMessage.NOTE_GLOBAL_SCREENSHOT);
 }
 ```
 
-##DeleteImageInBackgroundTask
+##三、DeleteImageInBackgroundTask
 
 在后台删除媒体存储的图片，此类继承 __AsyncTask__。
 

@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android源码系列(18) -- GlobalScreenshot"
-date:       2019-01-07
+date:       2018-12-21
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -9,7 +9,7 @@ tags:
     - Android源码系列
 ---
 
-这篇文章介绍Android如何实现屏幕截取操作，为截取事件提供思路。版本 __Android 28__。
+这篇文章介绍Android如何实现屏幕截取操作，为截取事件提供思路。在下篇文章[Android源码系列(18) -- TakeScreenshotService](/2019/01/08/TakeScreenshotService/)将介绍截图如何写入系统磁盘。源码版本 __Android 28__。
 
 ## 一、TakeScreenshotService
 

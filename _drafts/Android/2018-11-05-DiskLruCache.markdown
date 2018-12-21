@@ -11,6 +11,18 @@ tags:
 
 ## 一、类签名
 
+__DiskLruCache__ 是使用有限系统文件空间的缓存类。每个缓存实体有一个字符串的键和固定数量的值。每个键必须匹配正则表达式 __[a-z0-9_-]{1,120}__。值都是字节序列，可通过流或文件访问，每个值的长度介于0到 __Integer.MAX_VALUE__ 之间。
+
+缓存数据保存在文件系统的一个目录中。此文件必须排除在缓存之中，缓存必须从其目录中删除或复写文件。并且不能支持多进程同时操作同一个缓存目录。
+
+此缓存可限制保存在文件系统字节的长度。当以保存字节长度超过限制，实体会在后台线程被逐个移除直到满足长度限制为止。但限制也不是严格执行：等到删除文件的时候缓存大小会暂时超过限制。容量限制不包含文件系统的开支或缓存日志文件的大小，所以对空间大小敏感的应用最好设置一个相对保守的限制值。
+
+客户端调用 __edit()__ 创建或更新实体的值。一个实体可能每次只有一个编辑器。如果值不能被编辑则 __edit()__ 方法返回 __null__。
+
+实体被创建的时候需要提供值的全集合，或者在必要时使用 __null__ 作为占位符。
+
+
+
 ```java
 /**
 * A cache that uses a bounded amount of space on a filesystem. Each cache
@@ -42,6 +54,15 @@ tags:
 * to supply data for every value; values default to their previous
 * value.
 * </ul>
+*/
+```
+
+实体被编辑的时候不需要为每个值提供数据，值的内容为之前的内容。
+
+每个调用 __edit__ 时必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：
+
+```java
+/**
 * Every {@link #edit} call must be matched by a call to {@link Editor#commit}
 * or {@link Editor#abort}. Committing is atomic: a read observes the full set
 * of values as they were before or after the commit, but never a mix of values.
@@ -220,8 +241,7 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
   if (maxSize <= 0) {
     throw new IllegalArgumentException("maxSize <= 0");
   }
-    
-  // 
+
   if (valueCount <= 0) {
     throw new IllegalArgumentException("valueCount <= 0");
   }
