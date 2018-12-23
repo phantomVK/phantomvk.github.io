@@ -57,9 +57,11 @@ __DiskLruCache__ 是使用有限系统文件空间的缓存类。每个缓存实
 */
 ```
 
-实体被编辑的时候不需要为每个值提供数据，值的内容为之前的内容。
+实体被编辑的时候不需要为每个值提供数据，值的内容为之前的内容。每个调用 __edit__ 时必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：每个读取会在提交之前或之后观察完整的值集，而不是值的混合。
 
-每个调用 __edit__ 时必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：
+客户端调用 __get__ 去读取一个实体的快照。读操作会在 __get__ 方法调用的时候观察值。更新或移除操作不会影响横在进行的读取。
+
+此类能容忍小量 I/O错误。如果文件从文件系统上丢失，对应的所有实体会从缓存中删除。调用者需要处理其他由 __IOException__ 捕获的问题并正确响应。
 
 ```java
 /**
@@ -77,6 +79,9 @@ __DiskLruCache__ 是使用有限系统文件空间的缓存类。每个缓存实
 * Callers should handle other problems by catching {@code IOException} and
 * responding appropriately.
 */
+```
+
+```java
 public final class DiskLruCache implements Closeable
 ```
 
@@ -859,6 +864,8 @@ public final class Value {
 ```
 
 ## 七、Editor
+
+编辑一个实体的值
 
 ```java
 /** Edits the values for an entry. */
