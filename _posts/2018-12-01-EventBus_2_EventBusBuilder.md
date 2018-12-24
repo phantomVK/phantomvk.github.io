@@ -15,7 +15,7 @@ tags:
 
 ## 一、类签名
 
-通过自定义参数构造 __EventBus__ 实例，并能装载自定义的默认 __EventBus__ 实例。前文 [EventBus源码剖析(1) -- 注册与注销订阅_3.2 基础构造](/2018/11/14/EventBus_1_Register/#32-基础构造) 使用此实例。通过 __EventBus.builder()__ 创建新 __builder__。
+通过自定义参数构造 __EventBus__ 实例，并能装载自定义的默认 __EventBus__ 实例。前文 [EventBus源码剖析(1) -- 注册与注销订阅_3.2 基础构造](/2018/11/14/EventBus_1_Register/#32-基础构造) 使用此实例，通过 __EventBus.builder()__ 创建新 __builder__。
 
 ```java
 public class EventBusBuilder
@@ -55,7 +55,7 @@ EventBusBuilder() {
 
 ## 四、成员方法
 
-设置 __logSubscriberExceptions__ 的参数值，默认为 true
+设置 __logSubscriberExceptions__ 的参数值，默认为 true。表示是否记录订阅者抛出异常的日志。
 
 ```java
 public EventBusBuilder logSubscriberExceptions(boolean logSubscriberExceptions) {
@@ -100,23 +100,20 @@ public EventBusBuilder throwSubscriberException(boolean throwSubscriberException
 }
 ```
 
-设置 __eventInheritance__ 的参数值，默认为true。[EventBus源码剖析(1) -- 注册与注销订阅_4.2 subscribe](/2018/11/14/EventBus_1_Register/#42-subscribe) 小节后半部分代码注释，里面包含 __eventInheritance__ 的具体作用。
+设置 __eventInheritance__ 的参数值，默认为true。[EventBus源码剖析(1) -- 注册与注销订阅_4.2 subscribe](/2018/11/14/EventBus_1_Register/#42-subscribe) 小节后半部分代码注释，里面包含 __eventInheritance__ 的具体作用。默认情况下，__EventBus__ 考虑事件类的层级结构(父类的订阅者将收到通知)。
 
-默认情况下，__EventBus__ 考虑事件类的层级结构(父类的订阅者将收到通知)。
+关闭此特性能提升事件投递性能，对一个直接继承 __Object__ 的简单事件类来说，事件投递性能有20%的提升。对更复杂的事件层级，提升幅度超过20%。
 
-把此特性关闭后能提升事件投递的性能，对一个直接继承 __Object__ 的简单事件类来说，事件投递性能有20%的提升。对更复杂的事件层级，提升幅度超过20%。
-
-不过需记住的是，事件投送一般只消耗应用很小部分的处理器时间，除非发送事件的频率每秒数以千计。
+不过需记住的是，事件投送一般只消耗应用很小部分的处理器时间片，除非发送事件的频率每秒数以千计。
 
 ```java
 public EventBusBuilder eventInheritance(boolean eventInheritance) {
     this.eventInheritance = eventInheritance;
     return this;
 }
-
 ```
 
-自定义线程池替换默认线程池实现，为事件分发服务提供异步后台线程池。
+自定义线程池替换默认线程池实现，为事件分发服务提供异步后台线程池。一般没有必要修改。
 
 ```java
 public EventBusBuilder executorService(ExecutorService executorService) {
@@ -125,19 +122,20 @@ public EventBusBuilder executorService(ExecutorService executorService) {
 }
 ```
 
-方法名验证针对以onEvent开头的方法，以避免拼写错误。使用此方法能把订阅者类从检查中排除。并关闭针对方法修饰符(public, not static nor abstract)的检查。
+方法名验证，验证以onEvent开头的方法避免拼写错误。使用此方法能排除指定订阅者类的检查，并关闭对使用修饰符 __public__、__not static__、__nor abstract__ 方法的检查。
 
 ```java
 public EventBusBuilder skipMethodVerificationFor(Class<?> clazz) {
     if (skipMethodVerificationForClasses == null) {
         skipMethodVerificationForClasses = new ArrayList<>();
     }
+    // 存入的类不会受到检查
     skipMethodVerificationForClasses.add(clazz);
     return this;
 }
 ```
 
-设置 __ignoreGeneratedIndex__ 的参数值，默认为false。即使已经存在建立索引，也强制使用反射。
+设置 __ignoreGeneratedIndex__ 的参数值，默认为false。即使已经存在已生成的索引，也强制使用反射。
 
 ```java
 public EventBusBuilder ignoreGeneratedIndex(boolean ignoreGeneratedIndex) {
@@ -208,13 +206,13 @@ MainThreadSupport getMainThreadSupport() {
 }
 ```
 
-尝试获取Android主线程上的 __Looper__，传送门：[Android源码系列(5) -- Looper](/2016/12/03/Android_Looper/)
+尝试获取Android主线程上的 __Looper__，__Looper用法的实现参考__：[Android源码系列(5) -- Looper](/2016/12/03/Android_Looper/)
 ```java
 Object getAndroidMainLooperOrNull() {
     try {
         return Looper.getMainLooper();
     } catch (RuntimeException e) {
-        // 不是Android应用或应用功能不正常，导致找不到MainLooper
+        // 不是Android应用或应用功能不正常，导致找不到MainLooper，返回null
         return null;
     }
 }

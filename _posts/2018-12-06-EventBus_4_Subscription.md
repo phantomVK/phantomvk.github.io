@@ -11,11 +11,9 @@ tags:
 
 ## 一、Subscription
 
-当订阅者向 __EventBus__ 注册时， __EventBus__ 会扫描整个订阅者类，获取具体接收事件的方法，并构造出以下实例。每个订阅者可能有多个方法接收订阅事件，每个方法均会生成各自的 __Subscription__ 作为接受事件的凭证。
+当订阅者向 __EventBus__ 注册时， __EventBus__ 会扫描整个订阅者类，获取接收事件的具体方法，并构造出 __Subscription__ 实例。每个订阅者可有多个方法接收订阅事件，每个方法均会生成各自的 __Subscription__ 作为接收事件的凭证。
 
-订阅记录内主要包括3个成员变量。`subscriber`表示订阅者类的实例，`subscriberMethod`表示订阅者内部接受事件的方法，和表示订阅记录是否存活的`active`。
-
-调用 __EventBus#unregister(Object)__ 注销订阅者后，`active`立即改为 __false__。该值被负责队列事件投递的 __EventBus#invokeSubscriber(PendingPost)__ 检查以避免 __race conditions__。
+订阅记录内主要包括3个成员变量：`subscriber`表示订阅类的实例；`subscriberMethod`表示订阅者内接受事件的方法；还有表示订阅记录是否有效的`active`。
 
 ```java
 final class Subscription {
@@ -39,6 +37,7 @@ final class Subscription {
     public boolean equals(Object other) {
         if (other instanceof Subscription) {
             Subscription otherSubscription = (Subscription) other;
+            // 对比使用同一个实例且注册了同一个订阅方法
             return subscriber == otherSubscription.subscriber
                     && subscriberMethod.equals(otherSubscription.subscriberMethod);
         } else {
@@ -53,9 +52,11 @@ final class Subscription {
 }
 ```
 
+调用 __EventBus#unregister(Object)__ 注销订阅者后，`active`立即改为 __false__。该值被负责队列事件投递的 __EventBus#invokeSubscriber(PendingPost)__ 检查以避免 __race conditions__。
+
 ## 二、SubscriberMethod
 
-具体到 __Subscription__ 内部实现，里面还包含了 __SubscriberMethod__。
+具体到 __Subscription__ 内部实现，里面还包含了 __SubscriberMethod__。每个 __SubscriberMethod__ 表示一个订阅者类的订阅方法。
 
 前文已经提到，订阅者类通过 __EventBus__ 的注解修饰并因此能被 __EventBus__ 发现。__EventBus__ 通过注解处理器分析注解，和获取的订阅者方法信息构造成这个 __SubscriberMethod__ 类，成为订阅者信息的索引。
 
@@ -96,7 +97,7 @@ public class SubscriberMethod {
             checkMethodString();
             SubscriberMethod otherSubscriberMethod = (SubscriberMethod)other;
             otherSubscriberMethod.checkMethodString();
-            // Don't use method.equals because of http://code.google.com/p/android/issues/detail?id=7811#c6
+            // Don't use method.equals because of https://issuetracker.google.com/issues/36916580#c6
             return methodString.equals(otherSubscriberMethod.methodString);
         } else {
             return false;
@@ -105,8 +106,9 @@ public class SubscriberMethod {
 
     private synchronized void checkMethodString() {
         if (methodString == null) {
-            // Method.toString has more overhead, just take relevant parts of the method
+            // Method.toString有较大开销，只需要去方法名即可
             StringBuilder builder = new StringBuilder(64);
+            // 三元组：订阅者类、订阅方法、订阅消息类型
             builder.append(method.getDeclaringClass().getName());
             builder.append('#').append(method.getName());
             builder.append('(').append(eventType.getName());
@@ -143,9 +145,9 @@ public @interface Subscribe {
 }
 ```
 
-实例：
+注解方法时不需要自定义条件，使用 __@Subscribe__ 且不指定参数即可
 
-注解方法时不需要自定义条件，使用 __@Subscribe__ 修饰且不指定参数即可
+实例：
 
 ```java
 @Subscribe(threadMode = ThreadMode.MAIN, sticky = false, priority = 0)
@@ -164,10 +166,9 @@ java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk
 
 ## 四、SubscriberMethodFinder
 
-前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，全是都是为了降低 __SubscriberMethodFinder__ 类的理解难度。因为通过此类扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。所有事件根据  __Subscription__ 派到对应订阅者的订阅方法。
-
-
 #### 4.1 类签名
+
+前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，全是都为了降低 __SubscriberMethodFinder__ 类的理解难度。因为通过此类扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。所有事件根据  __Subscription__ 派到对应订阅者的订阅方法。
 
 ```java
 class SubscriberMethodFinder 
@@ -188,7 +189,7 @@ private static final int SYNTHETIC = 0x1000;
 private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
 ```
 
-扫描订阅者和订阅方法后的缓存
+扫描订阅者和订阅方法后生成的缓存
 
 ```java
 private static final Map<Class<?>, List<SubscriberMethod>> METHOD_CACHE = new ConcurrentHashMap<>();
@@ -227,7 +228,7 @@ SubscriberMethodFinder(List<SubscriberInfoIndex> subscriberInfoIndexes, boolean 
 
 #### 4.5 findSubscriberMethods
 
-在订阅者类内扫描订阅者方法，如果订阅者类没有目标方法直接抛出异常
+在订阅者类内扫描订阅者方法，如果订阅者类没有目标方法直接抛出异常。先从缓存列表中查找缓存能减少扫描的时间，缓存命中就不需要从订阅者类中进行查找。
 
 ```java
 List<SubscriberMethod> findSubscriberMethods(Class<?> subscriberClass) {
@@ -285,10 +286,13 @@ private List<SubscriberMethod> findUsingInfo(Class<?> subscriberClass) {
     FindState findState = prepareFindState();
     // 用订阅者类初始化findState
     findState.initForSubscriber(subscriberClass);
+    // 遇到："java."、"javax."、"android."的类名clazz会置空，并令这个循环终止
     while (findState.clazz != null) {
+        // 如果订阅者之前没有注册过，则以下返回值为null，需通过反射的方式查找
         findState.subscriberInfo = getSubscriberInfo(findState);
         if (findState.subscriberInfo != null) {
             SubscriberMethod[] array = findState.subscriberInfo.getSubscriberMethods();
+            // 上面无差别订阅类中所有方法，下面需要遍历筛选出有效的订阅方法
             for (SubscriberMethod subscriberMethod : array) {
                 if (findState.checkAdd(subscriberMethod.method, subscriberMethod.eventType)) {
                     findState.subscriberMethods.add(subscriberMethod);
@@ -297,15 +301,17 @@ private List<SubscriberMethod> findUsingInfo(Class<?> subscriberClass) {
         } else {
             findUsingReflectionInSingleClass(findState);
         }
+        // 扫描目标类转移到父类上
         findState.moveToSuperclass();
     }
+    // 返回List<SubscriberMethod>，释放FindState实例
     return getMethodsAndRelease(findState);
 }
 ```
 
 #### 4.8 getMethodsAndRelease
 
-从 __findState__ 获取订阅者的订阅方法， __findState__ 重置后放入缓存之，最后返回订阅者方法列表
+从 __findState__ 获取订阅者的订阅方法， __findState__ 重置后放入缓存，最后返回订阅者方法列表
 
 ```java
 private List<SubscriberMethod> getMethodsAndRelease(FindState findState) {
@@ -355,12 +361,14 @@ private FindState prepareFindState() {
 
 ```java
 private SubscriberInfo getSubscriberInfo(FindState findState) {
+    // 首次注册的订阅者，以下条件判断为空
     if (findState.subscriberInfo != null && findState.subscriberInfo.getSuperSubscriberInfo() != null) {
         SubscriberInfo superclassInfo = findState.subscriberInfo.getSuperSubscriberInfo();
         if (findState.clazz == superclassInfo.getSubscriberClass()) {
             return superclassInfo;
         }
     }
+    // 首次注册的订阅者，以下条件判断为空
     if (subscriberInfoIndexes != null) {
         for (SubscriberInfoIndex index : subscriberInfoIndexes) {
             SubscriberInfo info = index.getSubscriberInfo(findState.clazz);
@@ -369,11 +377,14 @@ private SubscriberInfo getSubscriberInfo(FindState findState) {
             }
         }
     }
+    // 首次注册的订阅者返回值为null
     return null;
 }
 ```
 
 #### 4.11 findUsingReflectionInSingleClass
+
+__FindState.clazz__ 就是订阅者类。先把订阅者的方法获取为一个列表，逐个分析方法的注解。根据约束条件逐渐筛选出符合条件的方法，放入到__FindState.subscriberMethods__。
 
 ```java
 private void findUsingReflectionInSingleClass(FindState findState) {
@@ -394,7 +405,7 @@ private void findUsingReflectionInSingleClass(FindState findState) {
         if ((modifiers & Modifier.PUBLIC) != 0 && (modifiers & MODIFIERS_IGNORE) == 0) {
             // 从方法获取变量类型
             Class<?>[] parameterTypes = method.getParameterTypes();
-            // 变量的数量必须为1个
+            // 变量的数量必须为1个，否则不处理
             if (parameterTypes.length == 1) {
                 // 检查方法是否有Subscribe注解修饰
                 Subscribe subscribeAnnotation = method.getAnnotation(Subscribe.class);
@@ -410,7 +421,7 @@ private void findUsingReflectionInSingleClass(FindState findState) {
                     }
                 }
             } else if (strictMethodVerification && method.isAnnotationPresent(Subscribe.class)) {
-                // 订阅者方法的形参数量不唯一
+                // 订阅者方法的形参数量不为1，但又使用Subscribe注解修饰方法，需抛出异常
                 String methodName = method.getDeclaringClass().getName() + "." + method.getName();
                 throw new EventBusException("@Subscribe method " + methodName +
                         "must have exactly 1 parameter but has " + parameterTypes.length);
@@ -471,9 +482,11 @@ final StringBuilder methodKeyBuilder = new StringBuilder(128);
 这些成员用于存储订阅者类的信息。每次 __EventBus__ 从缓存池获取 __FindState__ 缓存实例后，都会把订阅者类的基本信息存入以下变量，作为后续操作的参考内容。
 
 ```java
+// 保存订阅者的类型
 Class<?> subscriberClass;
 Class<?> clazz;
 boolean skipSuperClasses;
+// 订阅者的信息，包含订阅者类的方法数组、给指向父类SubscriberInfo的引用
 SubscriberInfo subscriberInfo;
 ```
 
@@ -491,7 +504,7 @@ void initForSubscriber(Class<?> subscriberClass) {
 
 #### 5.5 recycle
 
- __FindState__ 使用完毕后需调用 __recycle()__ 清空后才能归还给缓存池。这个方法的处理方式有点像 __Message__ 类的[recycleUnchecked()](/2016/11/13/Android_Message/#三消息回收) 方法。
+__FindState__ 使用完毕后需调用 __recycle()__ 清空后归还给缓存池。这个方法的处理方式有点像 __Message__ 类的[recycleUnchecked()](/2016/11/13/Android_Message/#三消息回收) 方法。
 
 ```java
 void recycle() {
@@ -508,10 +521,10 @@ void recycle() {
 
 #### 5.6 checkAdd
 
+两重检验：第一层，通过事件类型快速检验；第二层，在需要时通过完整的签名检查。一般来说，订阅者类不会有方法订阅同一个事件。
+
 ```java
 boolean checkAdd(Method method, Class<?> eventType) {
-    // 2 level check: 1st level with event type only (fast), 2nd level with complete signature when required.
-    // Usually a subscriber doesn't have methods listening to the same event type.
     // 检查同一个订阅者类内是有多个方法订阅相同事件
     Object existing = anyMethodByEventType.put(eventType, method);
     if (existing == null) {
@@ -532,6 +545,8 @@ boolean checkAdd(Method method, Class<?> eventType) {
 
 #### 5.7 checkAddWithMethodSignature
 
+通过方法签名检查方法是否重复注册，检查通过就能加入到列表。
+
 ```java
 private boolean checkAddWithMethodSignature(Method method, Class<?> eventType) {
     methodKeyBuilder.setLength(0);
@@ -545,12 +560,10 @@ private boolean checkAddWithMethodSignature(Method method, Class<?> eventType) {
     Class<?> methodClassOld = subscriberClassByMethodKey.put(methodKey, methodClass);
     // 旧value为空，或methodClassOld是methodClass的父类或同类
     if (methodClassOld == null || methodClassOld.isAssignableFrom(methodClass)) {
-        // Only add if not already found in a sub class
-        // 只有在子类中找不到时才添加
+        // 方法可以添加订阅
         return true;
     } else {
-        // Revert the put, old class is further down the class hierarchy
-        // 撤销插入，旧类是进一步向下的类层次结构
+        // 撤销此次插入，保留缓存中的旧值
         subscriberClassByMethodKey.put(methodKey, methodClassOld);
         return false;
     }
@@ -567,7 +580,7 @@ void moveToSuperclass() {
         clazz = clazz.getSuperclass();
         // 获取类名
         String clazzName = clazz.getName();
-        /** Skip system classes, this just degrades performance. */
+
         // 跳过系统类，这只会降低性能。
         if (clazzName.startsWith("java.") || clazzName.startsWith("javax.") || clazzName.startsWith("android.")) {
             clazz = null;
