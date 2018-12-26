@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "Android源码系列(7) -- DiskLruCache"
-date:       2017-01-01
+title:      "Android源码系列(18) -- DiskLruCache"
+date:       2018-12-26
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
@@ -11,116 +11,34 @@ tags:
 
 ## 一、类签名
 
-__DiskLruCache__ 是使用有限系统文件空间的缓存类。每个缓存实体有一个字符串的键和固定数量的值。每个键必须匹配正则表达式 __[a-z0-9_-]{1,120}__。值都是字节序列，可通过流或文件访问，每个值的长度介于0到 __Integer.MAX_VALUE__ 之间。
+#### 1.1 类特性
 
-缓存数据保存在文件系统的一个目录中。此文件必须排除在缓存之中，缓存必须从其目录中删除或复写文件。并且不能支持多进程同时操作同一个缓存目录。
-
-此缓存可限制保存在文件系统字节的长度。当以保存字节长度超过限制，实体会在后台线程被逐个移除直到满足长度限制为止。但限制也不是严格执行：等到删除文件的时候缓存大小会暂时超过限制。容量限制不包含文件系统的开支或缓存日志文件的大小，所以对空间大小敏感的应用最好设置一个相对保守的限制值。
-
-客户端调用 __edit()__ 创建或更新实体的值。一个实体可能每次只有一个编辑器。如果值不能被编辑则 __edit()__ 方法返回 __null__。
-
-实体被创建的时候需要提供值的全集合，或者在必要时使用 __null__ 作为占位符。
-
-
-
-```java
-/**
-* A cache that uses a bounded amount of space on a filesystem. Each cache
-* entry has a string key and a fixed number of values. Each key must match
-* the regex <strong>[a-z0-9_-]{1,120}</strong>. Values are byte sequences,
-* accessible as streams or files. Each value must be between {@code 0} and
-* {@code Integer.MAX_VALUE} bytes in length.
-*
-* <p>The cache stores its data in a directory on the filesystem. This
-* directory must be exclusive to the cache; the cache may delete or overwrite
-* files from its directory. It is an error for multiple processes to use the
-* same cache directory at the same time.
-*
-* <p>This cache limits the number of bytes that it will store on the
-* filesystem. When the number of stored bytes exceeds the limit, the cache will
-* remove entries in the background until the limit is satisfied. The limit is
-* not strict: the cache may temporarily exceed it while waiting for files to be
-* deleted. The limit does not include filesystem overhead or the cache
-* journal so space-sensitive applications should set a conservative limit.
-*
-* <p>Clients call {@link #edit} to create or update the values of an entry. An
-* entry may have only one editor at one time; if a value is not available to be
-* edited then {@link #edit} will return null.
-* <ul>
-* <li>When an entry is being <strong>created</strong> it is necessary to
-* supply a full set of values; the empty value should be used as a
-* placeholder if necessary.
-* <li>When an entry is being <strong>edited</strong>, it is not necessary
-* to supply data for every value; values default to their previous
-* value.
-* </ul>
-*/
-```
-
-实体被编辑的时候不需要为每个值提供数据，值的内容为之前的内容。每个调用 __edit__ 时必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：每个读取会在提交之前或之后观察完整的值集，而不是值的混合。
-
-客户端调用 __get__ 去读取一个实体的快照。读操作会在 __get__ 方法调用的时候观察值。更新或移除操作不会影响横在进行的读取。
-
-此类能容忍小量 I/O错误。如果文件从文件系统上丢失，对应的所有实体会从缓存中删除。调用者需要处理其他由 __IOException__ 捕获的问题并正确响应。
-
-```java
-/**
-* Every {@link #edit} call must be matched by a call to {@link Editor#commit}
-* or {@link Editor#abort}. Committing is atomic: a read observes the full set
-* of values as they were before or after the commit, but never a mix of values.
-*
-* <p>Clients call {@link #get} to read a snapshot of an entry. The read will
-* observe the value at the time that {@link #get} was called. Updates and
-* removals after the call do not impact ongoing reads.
-*
-* <p>This class is tolerant of some I/O errors. If files are missing from the
-* filesystem, the corresponding entries will be dropped from the cache. If
-* an error occurs while writing a cache value, the edit will fail silently.
-* Callers should handle other problems by catching {@code IOException} and
-* responding appropriately.
-*/
-```
+这是在文件系统上使用有限空间的缓存类。每个缓存条目都有一个字符串键和固定数量的值。每个键必须匹配正则表达式：__[a-z0-9_-]{1,120}__。值都是字节序列，可通过流或文件访问，长度介于0到 __Integer.MAX_VALUE__。
 
 ```java
 public final class DiskLruCache implements Closeable
 ```
 
-## 二、常量
+缓存数据保存在文件系统的一个目录中。此文件必须排除在缓存之外，缓存必须删除或复写目录里的文件。且不能支持多进程同时操作同一个缓存目录。
 
-```java
-// 原文件的文件名
-static final String JOURNAL_FILE = "journal";
+此缓存可限制保存在文件系统字节的长度。当已保存字节长度超过限制，会在后台线程逐个移除实体，直到满足长度限制为止。但限制也不是严格执行：需删除文件的时候，缓存大小会暂时超过限制。容量限制不包含文件系统的开销和缓存日志文件的大小，所以对空间大小敏感的应用最好设置一个相对保守的阈值。
 
-// 临时文件的文件名
-static final String JOURNAL_FILE_TEMP = "journal.tmp";
+客户端调用 __edit()__ 方法创建或更新实体的值。一个实体每次只被一个编辑器持有。如果某个值不能编辑则 __edit()__ 方法返回 __null__。
 
-// 备份文件的文件名
-static final String JOURNAL_FILE_BACKUP = "journal.bkp";
+实体被创建的时候需要提供所有的值，或者在必要时使用 __null__ 作为占位符。实体被编辑的时候不需要为每个值提供数据，值的内容为之前的内容。
 
-// 魔数字符串用于标识此文件的身份
-static final String MAGIC = "libcore.io.DiskLruCache";
-static final String VERSION_1 = "1";
-static final long ANY_SEQUENCE_NUMBER = -1;
+每此调用 __edit__ 方法时必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：每此读取获得的是 __提交之前__ 或 __提交之后__ 完整的值的集合，而不是两个状态的混合值。
 
-// 已清除
-private static final String CLEAN = "CLEAN";
+客户端调用 __get()__ 读取一个实体的快照。读操作会在 __get__ 方法调用的时候观察值。更新或移除操作不会影响正在进行的读取操作。
 
-// 脏数据
-private static final String DIRTY = "DIRTY";
+此类可容忍少量 I/O 错误。如果文件系统丢失文件，对应的实体会从缓存中删除。假如这个错误发生在缓存写入值的时候，编辑操作会悄无声息地执行失败。调用者需要处理由 __IOException__ 引起的问题。
 
-// 已移除
-private static final String REMOVE = "REMOVE";
+#### 1.2 日志格式
 
-// 已读
-private static final String READ = "READ";
-```
-
-## 三、数据成员
+日志文件命名为"journal"。一个典型的日志文件格式如下：
 
 ```java
 /*
- * This cache uses a journal file named "journal". A typical journal file
- * looks like this:
  *     libcore.io.DiskLruCache
  *     1
  *     100
@@ -134,11 +52,13 @@ private static final String READ = "READ";
  *     CLEAN 1ab96a171faeeee38496d8b330771a7a 1600 234
  *     READ 335c4c6028171cfddfbaae1a9c313c52
  *     READ 3400330d1dfc7f3f7f4b8d4d803dfcf6
- *
- * The first five lines of the journal form its header. They are the
- * constant string "libcore.io.DiskLruCache", the disk cache's version,
- * the application's version, the value count, and a blank line.
- *
+ */
+```
+
+前五行内容是日志文件的头部。分别是常量字符创 __"libcore.io.DiskLruCache"__、__磁盘缓存版本__、__应用程序版本__、__值总计数量__ 和 一个空行。
+
+```java
+/*
  * Each of the subsequent lines in the file is a record of the state of a
  * cache entry. Each line contains space-separated values: a state, a key,
  * and optional state-specific values.
@@ -158,6 +78,41 @@ private static final String READ = "READ";
  * it exists when the cache is opened.
  */
 ```
+
+
+## 二、常量
+
+```java
+// 原文件的文件名
+static final String JOURNAL_FILE = "journal";
+
+// 临时文件的文件名
+static final String JOURNAL_FILE_TEMP = "journal.tmp";
+
+// 备份文件的文件名
+static final String JOURNAL_FILE_BACKUP = "journal.bkp";
+
+// 魔数字符串用于标识日志文件的身份
+static final String MAGIC = "libcore.io.DiskLruCache";
+// 当前DiskLruCache的版本
+static final String VERSION_1 = "1";
+static final long ANY_SEQUENCE_NUMBER = -1;
+
+// 已清除
+private static final String CLEAN = "CLEAN";
+
+// 脏数据
+private static final String DIRTY = "DIRTY";
+
+// 已移除
+private static final String REMOVE = "REMOVE";
+
+// 已读取
+private static final String READ = "READ";
+```
+
+## 三、数据成员
+
 
 ```java
 private final File directory;
@@ -218,7 +173,7 @@ private DiskLruCache(File directory, int appVersion, int valueCount, long maxSiz
 
 ## 五、成员方法
 
-#### open
+#### 5.1 open
 
 打开在目录 __directory__ 中的缓存，文件不存在则创建一个新缓存。
 
@@ -291,7 +246,7 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
 }
 ```
 
-#### readJournal
+#### 5.2 readJournal
 
 读取日志
 
@@ -337,7 +292,7 @@ private void readJournal() throws IOException {
 }
 ```
 
-#### readJournalLine
+#### 5.3 readJournalLine
 
 ```java
 private void readJournalLine(String line) throws IOException {
@@ -380,7 +335,7 @@ private void readJournalLine(String line) throws IOException {
 }
 ```
 
-#### processJournal
+#### 5.4 processJournal
 
 ```java
 /**
@@ -409,7 +364,7 @@ private void processJournal() throws IOException {
 }
 ```
 
-#### rebuildJournal
+#### 5.5 rebuildJournal
 
 创建一个忽略多余信息的日志文件，并把文件替换已经存在的日志文件。
 
@@ -459,7 +414,7 @@ private synchronized void rebuildJournal() throws IOException {
 }
 ```
 
-#### deleteIfExists
+#### 5.6 deleteIfExists
 
 如果文件已存在则删除该文件
 
@@ -472,7 +427,7 @@ private static void deleteIfExists(File file) throws IOException {
 }
 ```
 
-#### renameTo
+#### 5.7 renameTo
 
 从命名文件，把 __from__ 文件的名称重命名为 __to__ ，并根据 __deleteDestination__ 决定是否删除已存在的 __to__ 文件。
 
@@ -490,7 +445,7 @@ private static void renameTo(File from, File to, boolean deleteDestination) thro
 }
 ```
 
-#### get
+#### 5.8 get
 
 ```java
 /**
@@ -529,7 +484,7 @@ public synchronized Value get(String key) throws IOException {
 }
 ```
 
-#### edit
+#### 5.9 edit
 
 返回名为 __key__ 条目的编辑器，如果正在进行其他编辑则返回null。
 
@@ -574,7 +529,7 @@ private synchronized Editor edit(String key, long expectedSequenceNumber) throws
 }
 ```
 
-#### getter
+#### 5.10 getter
 
 ```java
 // 返回此缓存存储数据的目录
@@ -603,7 +558,7 @@ public synchronized long size() {
 }
 ```
 
-#### setter
+#### 5.11 setter
 
 ```java
 /**
@@ -617,7 +572,7 @@ public synchronized void setMaxSize(long maxSize) {
 }
 ```
 
-#### completeEdit
+#### 5.12 completeEdit
 
 ```java
 private synchronized void completeEdit(Editor editor, boolean success) throws IOException {
@@ -683,7 +638,7 @@ private synchronized void completeEdit(Editor editor, boolean success) throws IO
   }
 }
 ```
-#### journalRebuildRequired
+#### 5.13 journalRebuildRequired
 ```java
 /**
  * We only rebuild the journal when it will halve the size of the journal
@@ -696,7 +651,7 @@ private boolean journalRebuildRequired() {
 }
 ```
 
-#### remove
+#### 5.14 remove
 
 通过 __key__ 删除存在的实体。
 
@@ -738,6 +693,8 @@ public synchronized boolean remove(String key) throws IOException {
   return true;
 }
 ```
+
+#### 5.15 其他
 
 缓存已经关闭时返回true
 
@@ -787,6 +744,8 @@ public synchronized void close() throws IOException {
 }
 ```
 
+移除缓存直到缓存占用没有超过限制
+
 ```java
 private void trimToSize() throws IOException {
   while (size > maxSize) {
@@ -809,6 +768,8 @@ public void delete() throws IOException {
   Util.deleteContents(directory);
 }
 ```
+
+把输入流根据 __UTF_8__ 字符集拼接成字符串
 
 ```java
 private static String inputStreamToString(InputStream in) throws IOException {
@@ -930,10 +891,14 @@ public final class Editor {
   public void set(int index, String value) throws IOException {
     Writer writer = null;
     try {
+      // 创建一个输出流
       OutputStream os = new FileOutputStream(getFile(index));
+      // 通过输出流构建Writer
       writer = new OutputStreamWriter(os, Util.UTF_8);
+      // 把值写入到索引所指
       writer.write(value);
     } finally {
+      // 关闭Writer
       Util.closeQuietly(writer);
     }
   }
@@ -955,6 +920,7 @@ public final class Editor {
    * Aborts this edit. This releases the edit lock so another edit may be
    * started on the same key.
    */
+  // 终止编辑。此方法会释放编辑锁，并允许其他编辑操作可以在同一个key上开展编辑
   public void abort() throws IOException {
     completeEdit(this, false);
   }
@@ -984,6 +950,7 @@ private final class Entry {
   File[] dirtyFiles;
 
   /** True if this entry has ever been published. */
+  // 实体已经发布的话此值为True
   private boolean readable;
 
   /** The ongoing edit or null if this entry is not being edited. */
@@ -1001,6 +968,7 @@ private final class Entry {
     dirtyFiles = new File[valueCount];
 
     // The names are repetitive so re-use the same builder to avoid allocations.
+    // 名字都是重复的，所以重用同一个构造器避免内存申请
     StringBuilder fileBuilder = new StringBuilder(key).append('.');
     int truncateTo = fileBuilder.length();
     for (int i = 0; i < valueCount; i++) {
