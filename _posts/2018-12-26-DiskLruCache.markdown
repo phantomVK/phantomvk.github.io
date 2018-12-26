@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-#### 1.1 类特性
+#### 1.1 特性
 
 这是在文件系统上使用有限空间的缓存类。每个缓存条目都有一个字符串键和固定数量的值。每个键必须匹配正则表达式：__[a-z0-9_-]{1,120}__。值都是字节序列，可通过流或文件访问，长度介于0到 __Integer.MAX_VALUE__。
 
@@ -21,64 +21,48 @@ public final class DiskLruCache implements Closeable
 
 缓存数据保存在文件系统的一个目录中。此文件必须排除在缓存之外，缓存必须删除或复写目录里的文件。且不能支持多进程同时操作同一个缓存目录。
 
-此缓存可限制保存在文件系统字节的长度。当已保存字节长度超过限制，会在后台线程逐个移除实体，直到满足长度限制为止。但限制也不是严格执行：需删除文件的时候，缓存大小会暂时超过限制。容量限制不包含文件系统的开销和缓存日志文件的大小，所以对空间大小敏感的应用最好设置一个相对保守的阈值。
+此缓存可限制保存在文件系统字节的长度。当已保存字节长度超过限制，会在后台线程逐个移除条目，直到满足长度限制为止。但限制也不是严格执行：需删除文件的时候，缓存大小会暂时超过限制。容量限制不包含文件系统的开销和缓存日志文件的大小，所以对空间大小敏感的应用最好设置一个相对保守的阈值。
 
-客户端调用 __edit()__ 方法创建或更新实体的值。一个实体每次只被一个编辑器持有。如果某个值不能编辑则 __edit()__ 方法返回 __null__。
+客户端调用 __edit()__ 方法创建或更新条目的值。一个条目每次只被一个编辑器持有。如果某个值不能编辑则 __edit()__ 方法返回 __null__。
 
-实体被创建的时候需要提供所有的值，或者在必要时使用 __null__ 作为占位符。实体被编辑的时候不需要为每个值提供数据，值的内容为之前的内容。
+条目被创建的时候需要提供所有的值，或者在必要时使用 __null__ 作为占位符。条目被编辑的时候不需要为每个值提供数据，值的内容为之前的内容。
 
 每此调用 __edit__ 方法时必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：每此读取获得的是 __提交之前__ 或 __提交之后__ 完整的值的集合，而不是两个状态的混合值。
 
-客户端调用 __get()__ 读取一个实体的快照。读操作会在 __get__ 方法调用的时候观察值。更新或移除操作不会影响正在进行的读取操作。
+客户端调用 __get()__ 读取一个条目的快照。读操作会在 __get__ 方法调用的时候观察值。更新或移除操作不会影响正在进行的读取操作。
 
-此类可容忍少量 I/O 错误。如果文件系统丢失文件，对应的实体会从缓存中删除。假如这个错误发生在缓存写入值的时候，编辑操作会悄无声息地执行失败。调用者需要处理由 __IOException__ 引起的问题。
+此类可容忍少量 I/O 错误。如果文件系统丢失文件，对应的条目会从缓存中删除。假如这个错误发生在缓存写入值的时候，编辑操作会悄无声息地执行失败。调用者需要处理由 __IOException__ 引起的问题。
 
 #### 1.2 日志格式
 
 日志文件命名为"journal"。一个典型的日志文件格式如下：
 
 ```java
-/*
- *     libcore.io.DiskLruCache
- *     1
- *     100
- *     2
- *
- *     CLEAN 3400330d1dfc7f3f7f4b8d4d803dfcf6 832 21054
- *     DIRTY 335c4c6028171cfddfbaae1a9c313c52
- *     CLEAN 335c4c6028171cfddfbaae1a9c313c52 3934 2342
- *     REMOVE 335c4c6028171cfddfbaae1a9c313c52
- *     DIRTY 1ab96a171faeeee38496d8b330771a7a
- *     CLEAN 1ab96a171faeeee38496d8b330771a7a 1600 234
- *     READ 335c4c6028171cfddfbaae1a9c313c52
- *     READ 3400330d1dfc7f3f7f4b8d4d803dfcf6
- */
+ libcore.io.DiskLruCache
+ 1
+ 100
+ 2
+
+ CLEAN 3400330d1dfc7f3f7f4b8d4d803dfcf6 832 21054
+ DIRTY 335c4c6028171cfddfbaae1a9c313c52
+ CLEAN 335c4c6028171cfddfbaae1a9c313c52 3934 2342
+ REMOVE 335c4c6028171cfddfbaae1a9c313c52
+ DIRTY 1ab96a171faeeee38496d8b330771a7a
+ CLEAN 1ab96a171faeeee38496d8b330771a7a 1600 234
+ READ 335c4c6028171cfddfbaae1a9c313c52
+ READ 3400330d1dfc7f3f7f4b8d4d803dfcf6
 ```
 
 前五行内容是日志文件的头部。分别是常量字符创 __"libcore.io.DiskLruCache"__、__磁盘缓存版本__、__应用程序版本__、__值总计数量__ 和 一个空行。
 
-```java
-/*
- * Each of the subsequent lines in the file is a record of the state of a
- * cache entry. Each line contains space-separated values: a state, a key,
- * and optional state-specific values.
- *   o DIRTY lines track that an entry is actively being created or updated.
- *     Every successful DIRTY action should be followed by a CLEAN or REMOVE
- *     action. DIRTY lines without a matching CLEAN or REMOVE indicate that
- *     temporary files may need to be deleted.
- *   o CLEAN lines track a cache entry that has been successfully published
- *     and may be read. A publish line is followed by the lengths of each of
- *     its values.
- *   o READ lines track accesses for LRU.
- *   o REMOVE lines track entries that have been deleted.
- *
- * The journal file is appended to as cache operations occur. The journal may
- * occasionally be compacted by dropping redundant lines. A temporary file named
- * "journal.tmp" will be used during compaction; that file should be deleted if
- * it exists when the cache is opened.
- */
-```
+文件随后每一行，各自记录着一个缓存条目的状态。内容为：状态值、key、可选的描述状态的值，各自通过一个空格分割。
 
+- __DIRTY__ 意味对应条目是新创建的或已被修改。每个正确的 __DIRTY__ 操作必须跟着 __CLEAN__ 或 __REMOVE__ 操作。如果没满足该条件，则需要删除临时文件；
+- __CLEAN__ 表示缓存条目已成功发布并可访问。每个发布行后续跟着每个值的长度；
+- __READ__ 是访问LRU操作 (访问应该不会造成副作用)；
+- __REMOVE__ 表示该条目内容已被删除。
+
+当发生缓存操作时，内容会追加到日志文件中。会偶尔通过日志删除文件多余行内容，来缩小内容体积。临时文件名为 __"journal.tmp"__，在日志压缩过程中使用，且会在缓存启动时删除该文件。
 
 ## 二、常量
 
@@ -94,52 +78,70 @@ static final String JOURNAL_FILE_BACKUP = "journal.bkp";
 
 // 魔数字符串用于标识日志文件的身份
 static final String MAGIC = "libcore.io.DiskLruCache";
+
 // 当前DiskLruCache的版本
 static final String VERSION_1 = "1";
+
 static final long ANY_SEQUENCE_NUMBER = -1;
 
-// 已清除
+// 已清除，字符串长度为5
 private static final String CLEAN = "CLEAN";
 
-// 脏数据
+// 脏数据，字符串长度为5
 private static final String DIRTY = "DIRTY";
 
-// 已移除
+// 已移除，字符串长度为6
 private static final String REMOVE = "REMOVE";
 
-// 已读取
+// 已读取，字符串长度为4
 private static final String READ = "READ";
 ```
 
 ## 三、数据成员
 
+数据成员通过 __LinkedHashMap__ 类实现LRU特性，具体源码请看[Java源码系列(11) -- LinkedHashMap](/2018/07/09/LinkedHashMap/)。
+
 
 ```java
+// 缓存保存的文件夹
 private final File directory;
+
+// 日志文件
 private final File journalFile;
+
+// 临时日志文件
 private final File journalFileTmp;
+
+// 备份的日志文件
 private final File journalFileBackup;
+
 // 使用此库时App的版本号，版本号改变后缓存将失效
 private final int appVersion;
+
+// 用于存储的最大字节数
 private long maxSize;
+
+// 每个条目值可保存值的最大数量
 private final int valueCount;
 private long size = 0;
 private Writer journalWriter;
+
+// 实现LRU的LinkedHashMap
 private final LinkedHashMap<String, Entry> lruEntries =
     new LinkedHashMap<String, Entry>(0, 0.75f, true);
+
+// 多余操作次数的统计
 private int redundantOpCount;
 
-/**
- * To differentiate between old and current snapshots, each entry is given
- * a sequence number each time an edit is committed. A snapshot is stale if
- * its sequence number is not equal to its entry's sequence number.
- */
+// 用于区分当前快照和旧快照的序列号，条目每次提交编辑时都被授予一个序列号
+// 如果快照的序列号不等于条目的序列号，则快照是旧的
 private long nextSequenceNumber = 0;
 
-/** This cache uses a single background thread to evict entries. */
-// 此缓存使用单个后台线程来清除条目
+// 此缓存使用后台单线程清除条目
 final ThreadPoolExecutor executorService =
     new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
+
+
 private final Callable<Void> cleanupCallable = new Callable<Void>() {
   public Void call() throws Exception {
     synchronized (DiskLruCache.this) {
@@ -175,7 +177,7 @@ private DiskLruCache(File directory, int appVersion, int valueCount, long maxSiz
 
 #### 5.1 open
 
-打开在目录 __directory__ 中的缓存，文件不存在则创建一个新缓存。
+打开在目录 __directory__ 中的缓存，文件不存在则创建新缓存。
 
 参数解析：
 
@@ -184,16 +186,9 @@ private DiskLruCache(File directory, int appVersion, int valueCount, long maxSiz
 - __valueCount__：每个缓存条目的值的数量，必须为正数
 - __maxSize__：此缓存用于存储的最大字节数
 
+还有，读写文件缓存目录失败时会抛出 __IOException__
+
 ```java
-/**
- * Opens the cache in {@code directory}, creating a cache if none exists
- * there.
- *
- * @param directory a writable directory
- * @param valueCount the number of values per cache entry. Must be positive.
- * @param maxSize the maximum number of bytes this cache should use to store
- * @throws IOException if reading or writing the cache directory fails
- */
 public static DiskLruCache open(File directory, int appVersion, int valueCount, long maxSize)
     throws IOException {
     
@@ -206,8 +201,9 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
     throw new IllegalArgumentException("valueCount <= 0");
   }
 
-  // 获取备份文件存在
+  // 获取备份文件
   File backupFile = new File(directory, JOURNAL_FILE_BACKUP);
+  // 如果存在备份文件
   if (backupFile.exists()) {
     File journalFile = new File(directory, JOURNAL_FILE);
     // 如果原journal文件存在
@@ -248,7 +244,7 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
 
 #### 5.2 readJournal
 
-读取日志
+读取日志，读取的主要目的是校验日志文件头部的内容是否合适，并通过捕获自行抛出异常的方法处理异常情况。常见的应用场景是：App版本号更新后，新版本号和日志内App版本号不匹配抛出异常。然后，该异常被捕获后，此缓存会被丢弃并创建新缓存文件。
 
 ```java
 private void readJournal() throws IOException {
@@ -259,6 +255,7 @@ private void readJournal() throws IOException {
     String appVersionString = reader.readLine();
     String valueCountString = reader.readLine();
     String blank = reader.readLine();
+    // 检验头部5行内容是否合法
     if (!MAGIC.equals(magic)
         || !VERSION_1.equals(version)
         || !Integer.toString(appVersion).equals(appVersionString)
@@ -268,10 +265,12 @@ private void readJournal() throws IOException {
           + valueCountString + ", " + blank + "]");
     }
 
+    // 日志文件头部内容校验已通过
     int lineCount = 0;
     while (true) {
       try {
         readJournalLine(reader.readLine());
+        // 计算读取的总行数，行数不包括日志头部内容
         lineCount++;
       } catch (EOFException endOfJournal) {
         break;
@@ -294,26 +293,40 @@ private void readJournal() throws IOException {
 
 #### 5.3 readJournalLine
 
+日志文件头部内容校验通过后，日志文件的修改记录逐行读取并通过此方法进行处理。每行都以一个空格开始，税后就是日志的内容。
+
+假设现在处理的行内容是 `REMOVE 335c4c6028171cfddfbaae1a9c313c52`
+
 ```java
 private void readJournalLine(String line) throws IOException {
+  // 每行必须包含一个至少空格，否则抛出异常IOException
   int firstSpace = line.indexOf(' ');
   if (firstSpace == -1) {
     throw new IOException("unexpected journal line: " + line);
   }
 
+  // firstSpace索引值为6
   int keyBegin = firstSpace + 1;
   int secondSpace = line.indexOf(' ', keyBegin);
   final String key;
+  // 此时不存在secondSpace，所以secondSpace为-1，条件命中
+  // 操作为CLEAN时secondSpace不为-1
   if (secondSpace == -1) {
+    // 从行内容裁出key: 335c4c6028171cfddfbaae1a9c313c52
     key = line.substring(keyBegin);
+    // REMOVE.length()为6，所有操作的字符串只有REMOVE的长度为6
     if (firstSpace == REMOVE.length() && line.startsWith(REMOVE)) {
+      // 匹配移除操作，则把该条目从LinkedHashMap中移除
       lruEntries.remove(key);
+      // REMOVE操作退出方法
       return;
     }
   } else {
+    // 肯定是CLEAN操作进入此分支的，因为只有CLEAN的secondSpace不为-1
     key = line.substring(keyBegin, secondSpace);
   }
 
+  // DIRTY、READ、CLEAN操作到这里
   Entry entry = lruEntries.get(key);
   if (entry == null) {
     entry = new Entry(key);
@@ -321,21 +334,27 @@ private void readJournalLine(String line) throws IOException {
   }
 
   if (secondSpace != -1 && firstSpace == CLEAN.length() && line.startsWith(CLEAN)) {
+    // 处理CLEAN操作，裁剪出key后面的多个值
     String[] parts = line.substring(secondSpace + 1).split(" ");
     entry.readable = true;
     entry.currentEditor = null;
     entry.setLengths(parts);
   } else if (secondSpace == -1 && firstSpace == DIRTY.length() && line.startsWith(DIRTY)) {
+    // 处理DIRTY操作
     entry.currentEditor = new Editor(entry);
   } else if (secondSpace == -1 && firstSpace == READ.length() && line.startsWith(READ)) {
+    // READ操作不需处理，因为READ操作没有任何副作用
     // This work was already done by calling lruEntries.get().
   } else {
+    // 出现未知操作类型，正常来说不会遇到
     throw new IOException("unexpected journal line: " + line);
   }
 }
 ```
 
 #### 5.4 processJournal
+
+把计算初始大小和收集垃圾操作作为打开缓存的一部分。脏条目会假定为不一致且将要被删除。
 
 ```java
 /**
@@ -349,10 +368,12 @@ private void processJournal() throws IOException {
   for (Iterator<Entry> i = lruEntries.values().iterator(); i.hasNext(); ) {
     Entry entry = i.next();
     if (entry.currentEditor == null) {
+      // 统计可以读取条目的总长度
       for (int t = 0; t < valueCount; t++) {
         size += entry.lengths[t];
       }
     } else {
+      // DIRTY操作的currentEditor不为空
       entry.currentEditor = null;
       for (int t = 0; t < valueCount; t++) {
         deleteIfExists(entry.getCleanFile(t));
@@ -387,10 +408,13 @@ private synchronized void rebuildJournal() throws IOException {
     // 第三行，App的版本号
     writer.write(Integer.toString(appVersion));
     writer.write("\n");
+    // 第四行，条目可包含值的数量
     writer.write(Integer.toString(valueCount));
     writer.write("\n");
+    // 第五行，空行
     writer.write("\n");
 
+    // 根据lruEntries写入日志内容
     for (Entry entry : lruEntries.values()) {
       if (entry.currentEditor != null) {
         writer.write(DIRTY + ' ' + entry.key + '\n');
@@ -402,11 +426,13 @@ private synchronized void rebuildJournal() throws IOException {
     writer.close();
   }
   
-  // 如果已有一份日志文件存在，就把
+  // 如果已有一份日志文件存在，就把文件备份起来
   if (journalFile.exists()) {
     renameTo(journalFile, journalFileBackup, true);
   }
+  // 临时文件变为正式文件
   renameTo(journalFileTmp, journalFile, false);
+  // 删除备份文件
   journalFileBackup.delete();
 
   journalWriter = new BufferedWriter(
@@ -447,6 +473,8 @@ private static void renameTo(File from, File to, boolean deleteDestination) thro
 
 #### 5.8 get
 
+返回名为 __key__ 条目的快照，若文件不存在或当时不可读则返回null。如果有值被返回，则该值会被移到LRU队列的头部的首位上。
+
 ```java
 /**
  * Returns a snapshot of the entry named {@code key}, or null if it doesn't
@@ -456,14 +484,17 @@ private static void renameTo(File from, File to, boolean deleteDestination) thro
 public synchronized Value get(String key) throws IOException {
   checkNotClosed();
   Entry entry = lruEntries.get(key);
+  // 实体不存在，返回null
   if (entry == null) {
     return null;
   }
 
+  // 文件不可读，返回null
   if (!entry.readable) {
     return null;
   }
 
+  // 如果文件是可以读取的，但检查时发现文件存在了，那文件肯定是被手动删除了
   for (File file : entry.cleanFiles) {
       // A file must have been deleted manually!
       if (!file.exists()) {
@@ -471,6 +502,7 @@ public synchronized Value get(String key) throws IOException {
       }
   }
 
+  // 记录读取操作的日志
   redundantOpCount++;
   journalWriter.append(READ);
   journalWriter.append(' ');
@@ -486,13 +518,9 @@ public synchronized Value get(String key) throws IOException {
 
 #### 5.9 edit
 
-返回名为 __key__ 条目的编辑器，如果正在进行其他编辑则返回null。
+返回名为 __key__ 条目的编辑器，如果其他编辑操作正在进行则返回null。
 
 ```java
-/**
- * Returns an editor for the entry named {@code key}, or null if another
- * edit is in progress.
- */
 public Editor edit(String key) throws IOException {
   return edit(key, ANY_SEQUENCE_NUMBER);
 }
@@ -537,22 +565,13 @@ public File getDirectory() {
   return directory;
 }
 
-/**
- * Returns the maximum number of bytes that this cache should use to store
- * its data.
- */
-// 返回缓存用于存储其数据的最大字节数
+// 返回缓存可用于存储数据的最大字节数
 public synchronized long getMaxSize() {
   return maxSize;
 }
 
-/**
- * Returns the number of bytes currently being used to store the values in
- * this cache. This may be greater than the max size if a background
- * deletion is pending.
- */
-// 返回当前用于存储此缓存中的值的字节数
-// 如果后台删除待处理，则可能大于最大大小
+// 返回当前已用于存储缓存的字节数
+// 如果后台删除操作处于待处理中，则该值可能大于最大大小
 public synchronized long size() {
   return size;
 }
@@ -653,7 +672,7 @@ private boolean journalRebuildRequired() {
 
 #### 5.14 remove
 
-通过 __key__ 删除存在的实体。
+通过 __key__ 删除存在的条目。
 
 ```java
 /**
@@ -779,7 +798,7 @@ private static String inputStreamToString(InputStream in) throws IOException {
 
 ## 六、Value
 
-实体所含值的快照
+条目所含值的快照
 
 ```java
 /** A snapshot of the values for an entry. */
@@ -826,10 +845,9 @@ public final class Value {
 
 ## 七、Editor
 
-编辑一个实体的值
+编辑一个条目的(多个)值
 
 ```java
-/** Edits the values for an entry. */
 public final class Editor {
   private final Entry entry;
   private final boolean[] written;
@@ -860,11 +878,7 @@ public final class Editor {
     }
   }
 
-  /**
-   * Returns the last committed value as a string, or null if no value
-   * has been committed.
-   */
-  // 把最后一次提交的值作为String返回，如果没有值提交过就返回null
+  // 把最后一次提交的值以String返回，如果没有值提交过就返回null
   public String getString(int index) throws IOException {
     InputStream in = newInputStream(index);
     return in != null ? inputStreamToString(in) : null;
@@ -886,7 +900,6 @@ public final class Editor {
     }
   }
 
-  /** Sets the value at {@code index} to {@code value}. */
   // 把index所指的值修改为新值value
   public void set(int index, String value) throws IOException {
     Writer writer = null;
@@ -949,8 +962,7 @@ private final class Entry {
   File[] cleanFiles;
   File[] dirtyFiles;
 
-  /** True if this entry has ever been published. */
-  // 实体已经发布的话此值为True
+  // 条目已经发布的话此值为True
   private boolean readable;
 
   /** The ongoing edit or null if this entry is not being edited. */
@@ -1007,10 +1019,12 @@ private final class Entry {
     throw new IOException("unexpected journal line: " + java.util.Arrays.toString(strings));
   }
 
+  // 根据索引从File[]获取File对象
   public File getCleanFile(int i) {
     return cleanFiles[i];
   }
-
+    
+  // 根据索引从File[]获取File对象
   public File getDirtyFile(int i) {
     return dirtyFiles[i];
   }
