@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android源码系列(18) -- GlobalScreenshot"
-date:       2018-12-21
+date:       2019-01-07
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true

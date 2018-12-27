@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android源码系列(19) -- TakeScreenshotService"
-date:       2018-12-21
+date:       2019-01-08
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
