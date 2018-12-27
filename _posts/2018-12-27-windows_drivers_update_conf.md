@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "禁止Windows10自动安装驱动"
-date:       2010-01-21
+date:       2018-12-27
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false

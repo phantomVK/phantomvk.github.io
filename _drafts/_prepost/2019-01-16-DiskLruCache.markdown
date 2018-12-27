@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android源码系列(18) -- DiskLruCache"
-date:       2018-12-26
+date:       2019-01-16
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
@@ -321,7 +321,6 @@ private void readJournalLine(String line) throws IOException {
   int secondSpace = line.indexOf(' ', keyBegin);
   final String key;
   // 此时不存在secondSpace，所以secondSpace为-1，条件命中
-  // 操作为CLEAN时secondSpace不为-1
   if (secondSpace == -1) {
     // 从行内容裁出key: 335c4c6028171cfddfbaae1a9c313c52
     key = line.substring(keyBegin);
@@ -333,13 +332,14 @@ private void readJournalLine(String line) throws IOException {
       return;
     }
   } else {
-    // 肯定是CLEAN操作进入此分支的，因为只有CLEAN的secondSpace不为-1
+    // CLEAN操作进入此分支的，因为只有CLEAN的secondSpace不为-1
     key = line.substring(keyBegin, secondSpace);
   }
 
   // DIRTY、READ、CLEAN操作到这里
   Entry entry = lruEntries.get(key);
   if (entry == null) {
+    // 日志包含的记录在这里初始化并放入内存中
     entry = new Entry(key);
     lruEntries.put(key, entry);
   }
@@ -363,9 +363,18 @@ private void readJournalLine(String line) throws IOException {
 }
 ```
 
+总结就是一下操作：
+
+- __REMOVE__：从 __LinkedHashMap__ 删除结果；
+- __CLEAN__：初始化条目，设置 __readable=true__、__currentEditor=null__，初始化内容长度；
+- __DIRTY__：设置 __currentEditor__ 对象；
+- __READ__：什么都不执行；
+
+正常操作的 __DIRTY__ 配对 __CLEAN__ 或 __REMOVE__，否则就是脏数据且需要删除。
+
 #### 5.4 processJournal
 
-把计算初始大小和收集垃圾操作作为打开缓存的一部分。脏条目会假定为不一致且将要被删除。
+把计算初始大小和收集垃圾操作作为打开缓存的一部分。脏条目会假定为不一致，将要被删除。
 
 ```java
 private void processJournal() throws IOException {
@@ -381,11 +390,13 @@ private void processJournal() throws IOException {
       }
     } else {
       // DIRTY操作的currentEditor不为空
+      // 意味着原内容已被修改，但新内容又没正确结束，所以两个文件都要删除
       entry.currentEditor = null;
       for (int t = 0; t < valueCount; t++) {
         deleteIfExists(entry.getCleanFile(t));
         deleteIfExists(entry.getDirtyFile(t));
       }
+      // 从lruEntries移除该记录
       i.remove();
     }
   }
@@ -591,6 +602,13 @@ public synchronized void setMaxSize(long maxSize) {
 
 #### 5.12 completeEdit
 
+方法总结为以下流程：
+
+- 写入的key是全新的，则必须提供非空内容；
+- __success__ 为 __true__，用 __DirtyFile__ 更新 __CleanFile__，否则删除 __DirtyFile__ ；
+- 最后向日志文件写入相关最新操作；
+- 检查日志文件是否太大，有没有必要进行清理；
+
 ```java
 private synchronized void completeEdit(Editor editor, boolean success) throws IOException {
   Entry entry = editor.entry;
@@ -598,9 +616,10 @@ private synchronized void completeEdit(Editor editor, boolean success) throws IO
     throw new IllegalStateException();
   }
 
-  // If this edit is creating the entry for the first time, every index must have a value.
+  // 首次创建实体的话，entry.readable为false，且每个索引必须要有一个值
   if (success && !entry.readable) {
     for (int i = 0; i < valueCount; i++) {
+      // 没有写入内容就抛出IllegalStateException
       if (!editor.written[i]) {
         editor.abort();
         throw new IllegalStateException("Newly created entry didn't create value for index " + i);
@@ -616,20 +635,24 @@ private synchronized void completeEdit(Editor editor, boolean success) throws IO
     File dirty = entry.getDirtyFile(i);
     if (success) {
       if (dirty.exists()) {
+        // 把dirtyFile重命名为cleanFile
         File clean = entry.getCleanFile(i);
         dirty.renameTo(clean);
         long oldLength = entry.lengths[i];
         long newLength = clean.length();
         entry.lengths[i] = newLength;
+        // 更新保存内容的总大小
         size = size - oldLength + newLength;
       }
     } else {
+      // 写入出现异常，删除脏文件
       deleteIfExists(dirty);
     }
   }
 
   redundantOpCount++;
   entry.currentEditor = null;
+  // 编辑的内容已经成功写入文件系统，再添加日志记录
   if (entry.readable | success) {
     entry.readable = true;
     journalWriter.append(CLEAN);
@@ -642,12 +665,14 @@ private synchronized void completeEdit(Editor editor, boolean success) throws IO
       entry.sequenceNumber = nextSequenceNumber++;
     }
   } else {
+    // 不成功则增加移除记录
     lruEntries.remove(entry.key);
     journalWriter.append(REMOVE);
     journalWriter.append(' ');
     journalWriter.append(entry.key);
     journalWriter.append('\n');
   }
+  // 刷新日志文件内容
   journalWriter.flush();
 
   if (size > maxSize || journalRebuildRequired()) {
