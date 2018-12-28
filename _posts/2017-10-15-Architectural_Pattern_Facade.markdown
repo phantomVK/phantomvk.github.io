@@ -94,7 +94,7 @@ public class UserAvatarLoader implements IUserAvatarLoader {
 
     @Override
     public String getUrl(String userId) {
-        return API + "/api/v1/rcs/profile/" + userId + "/avatar";
+        return API + "/api/v1/profile/" + userId + "/avatar";
     }
 }
 ```

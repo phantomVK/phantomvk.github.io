@@ -69,7 +69,7 @@ open class User(private val userId: String,
 }
 ```
 
-对于 __RxJava__ 这种不能接受 __null__ 对象的应用场景来说，使用空对象表达 __null__ 就最合适不过了。查不到用户时使用 __空对象__ 代替 __null__，既利用 __filter__ 提前结束操作，又避免 __fromCallable__ 返回 __null__ 引起空指针异常堆栈跟踪的性能损耗。
+对于 __RxJava__ 这种不能接受 __null__ 对象的应用场景来说，使用空对象表达 __null__ 就最合适不过了。查不到用户时使用 __空对象__ 代替 __null__，既能利用 __filter__ 提前结束操作，又能避免 __fromCallable__ 返回 __null__ 引起空指针异常堆栈跟踪的性能损耗。
 
 ```java
 Observable.fromCallable { UserDao.load(userId) ?: User.USER_NULL_OBJ }
