@@ -98,8 +98,8 @@ service-worker: true
 # Friends
 friends: [
     {
-        title: "",
-        href: ""
+        title: "CosPotato's Blog",
+        href: "https://blog.0x233.cn/"
     }
 ]
 
