@@ -159,26 +159,3 @@ public long sumThenReset() {
     return sum;
 }
 ```
-
-#### 3.3 获取结果
-
-通过 __sum()__ 获取结果并按照指定类型返回结果
-
-```java
-public long longValue() {
-    return sum();
-}
-
-public int intValue() {
-    return (int)sum();
-}
-
-public float floatValue() {
-    return (float)sum();
-}
-
-public double doubleValue() {
-    return (double)sum();
-}
-```
-
