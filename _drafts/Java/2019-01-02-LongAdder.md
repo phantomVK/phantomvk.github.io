@@ -40,31 +40,24 @@ tags:
  * methods such as {@code equals}, {@code hashCode} and {@code
  * compareTo} because instances are expected to be mutated, and so are
  * not useful as collection keys.
- *
- * @since 1.8
- * @author Doug Lea
  */
 public class LongAdder extends Striped64 implements Serializable
 ```
 
 ## 二、构造方法
 
+默认构造方法，类完成构造后初始总值为 __0__。
+
 ```java
-/**
- * Creates a new adder with initial sum of zero.
- */
 public LongAdder() {
 }
 ```
 
 ## 三、成员方法
 
+此方法能把指定参数值 __x__ 增加到目标值上。如果该参数传递负数，则意味着从总数上减去指定值。
+
 ```java
-/**
- * Adds the given value.
- *
- * @param x the value to add
- */
 public void add(long x) {
     Cell[] cs; long b, v; int m; Cell c;
     if ((cs = cells) != null || !casBase(b = base, b + x)) {
@@ -77,23 +70,19 @@ public void add(long x) {
 }
 ```
 
+以下两个方法通过调用__add()__ 方法实现数值递增和递减。递增传递的参数是 __1L__，递减传递的参数是 __-1L__。
+
 ```java
-/**
- * Equivalent to {@code add(1)}.
- */
 public void increment() {
     add(1L);
 }
-```
 
-```java
-/**
- * Equivalent to {@code add(-1)}.
- */
 public void decrement() {
     add(-1L);
 }
 ```
+
+返回当前的总计数值。返回的值不是原子性的快照，就是一个基本类型的 __long__。
 
 ```java
 /**
