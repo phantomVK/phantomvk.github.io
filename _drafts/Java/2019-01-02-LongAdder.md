@@ -12,6 +12,8 @@ tags:
 
 ## 一、类签名
 
+JDK11
+
 ```java
 /**
  * One or more variables that together maintain an initially zero
@@ -82,18 +84,9 @@ public void decrement() {
 }
 ```
 
-返回当前的总计数值。返回的值不是原子性的快照，就是一个基本类型的 __long__。
+返回当前的总计数值。返回的值不是原子性的快照，就是一个基本类型的 __long__。在没有并发更新的情况下调用会返回准确结果。但是在计算总和时发生的并发更新，可能不会被算到总值内。
 
 ```java
-/**
- * Returns the current sum.  The returned value is <em>NOT</em> an
- * atomic snapshot; invocation in the absence of concurrent
- * updates returns an accurate result, but concurrent updates that
- * occur while the sum is being calculated might not be
- * incorporated.
- *
- * @return the sum
- */
 public long sum() {
     Cell[] cs = cells;
     long sum = base;
@@ -106,14 +99,9 @@ public long sum() {
 }
 ```
 
+重置维护总计值的变量值到 __0__。对比创建一个新的实例，通过此方法重置总计值后复用实例，是个更好的选择，但也仅在更新的时候没有在其他线程并发添加值。因为这个方法很活泼，只能在确认没有并发更新的时候使用。 
+
 ```java
-/**
- * Resets variables maintaining the sum to zero.  This method may
- * be a useful alternative to creating a new adder, but is only
- * effective if there are no concurrent updates.  Because this
- * method is intrinsically racy, it should only be used when it is
- * known that no threads are concurrently updating.
- */
 public void reset() {
     Cell[] cs = cells;
     base = 0L;
@@ -125,17 +113,9 @@ public void reset() {
 }
 ```
 
+方法获取总值后重置原始值为 __0__，并把保存的值作为结果返回，相当于 __sum()__ 和 __reset()__ 的合并调用。如果调用此方法的同时，还有其他线程在进行更新操作，此方法的 __返回值__ 和 __重置前存储的值__ 不保证是一致的。因为先返回值，值在其他线程继续修改，最后才被重置为 __0__。
+
 ```java
-/**
- * Equivalent in effect to {@link #sum} followed by {@link
- * #reset}. This method may apply for example during quiescent
- * points between multithreaded computations.  If there are
- * updates concurrent with this method, the returned value is
- * <em>not</em> guaranteed to be the final value occurring before
- * the reset.
- *
- * @return the sum
- */
 public long sumThenReset() {
     Cell[] cs = cells;
     long sum = getAndSetBase(0L);
