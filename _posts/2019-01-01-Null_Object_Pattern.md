@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "空对象模式"
-date:       2019-01-03
+date:       2019-01-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
@@ -26,7 +26,7 @@ class User(private val userId: String, private val nickname: String) {
 }
 ```
 
-实现空对象的形式有很多，比较正式的实现方法是：子类继承父类并重写所有可见成员方法，通过抛出异常的方式，阻止代码调用空对象方法。这样做的目的是强调不要通过空对象获取无效数据。这种方式在父类有很多可重写方法的场景会略显麻烦，可自行约定对空对象的使用方式。
+实现空对象的形式有很多，比较正式的实现方法是：子类继承父类并重写所有可见成员方法，通过抛出异常的方式，阻止代码调用空对象方法。这样做的目的是强调不要通过空对象获取无效数据。这种方式在父类有很多可重写方法是会略显麻烦，可自行约束对空对象的使用达到相同目的。
 
 ```java
 class UserNull() : User("", "", "") {
@@ -42,7 +42,7 @@ class UserNull() : User("", "", "") {
 }
 ```
 
-当然，父类可(根据实际)允许子类重写部分父类方法，以下是 __User__ 的方法使用open修饰允许重写。
+当然，父类可(根据实际)允许子类重写部分父类方法，以下是 __User__ 的方法使用 __open__ 修饰允许重写。
 
 ```java
 open class User(private val userId: String,
@@ -69,7 +69,7 @@ open class User(private val userId: String,
 }
 ```
 
-对于 __RxJava__ 这种不能接受 __null__ 对象的应用场景来说，使用空对象表达 __null__ 就最合适不过了。查不到用户时使用 __空对象__ 代替 __null__，既能利用 __filter__ 提前结束操作，又能避免 __fromCallable__ 返回 __null__ 引起空指针异常堆栈跟踪的性能损耗。
+对于 __RxJava__ 这种不能接受 __null__ 对象的应用场景来说，使用空对象表达 __null__ 最合适不过。查不到用户时使用 __空对象__ 代替 __null__，既能利用 __filter__ 提前结束操作，又能避免 __fromCallable__ 返回 __null__ 引起空指针异常堆栈跟踪的性能损耗。
 
 ```java
 Observable.fromCallable { UserDao.load(userId) ?: User.USER_NULL_OBJ }
