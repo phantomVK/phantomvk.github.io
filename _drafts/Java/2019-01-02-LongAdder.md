@@ -1,8 +1,7 @@
 ---
 layout:     post
-title:         "LongAdder"
-subtitle:   ""
-date:        2019-01-01
+title:      "LongAdder"
+date:       2019-01-01
 author:    "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -12,7 +11,13 @@ tags:
 
 ## 一、类签名
 
-JDK11
+利用一个或多个变量共同维护一个初始值为 __0__ 的long的总值。当由线程调用 __add()__ 是出现竞争，这些变量的集合可动态增多以便减少竞争。方法 __sum()__ 和变量 __longValue__ 返回当前维护总计数值的变量集合的总大小。
+
+在多线程更新一个公共总数，例如进行统计数据的收集，而不是用于细粒度的同步控制，此类相比 __AtomicLong__ 是更好的选择。在较低更新竞争的情况下，此类和 __AtomicLong__ 特性基本相似。当在高竞争的情况下，此类的预测吞吐量明显更高，同时也消耗更多内存空间。
+
+__LongAdders__ 能和 __ConcurrentHashMap__ 一起使用去维护一个频繁伸缩的 __map__。例如，
+
+源码版本JDK11
 
 ```java
 /**
@@ -45,6 +50,8 @@ JDK11
  */
 public class LongAdder extends Striped64 implements Serializable
 ```
+
+此类继承自 __Number__，但没有定义 __equals__、__hashCode__、__compareTo__ 等方法，因为预料到示例是可变的，所以这些方法作为集合的keys并不是相当实用。
 
 ## 二、构造方法
 
@@ -88,13 +95,16 @@ public void decrement() {
 
 ```java
 public long sum() {
+    // 从父类获取cells
     Cell[] cs = cells;
     long sum = base;
     if (cs != null) {
         for (Cell c : cs)
             if (c != null)
+                // 从cell获取记录值并累加到sum
                 sum += c.value;
     }
+    // 返回sum的值
     return sum;
 }
 ```
@@ -103,9 +113,11 @@ public long sum() {
 
 ```java
 public void reset() {
+    // 从父类获取cells
     Cell[] cs = cells;
     base = 0L;
     if (cs != null) {
+        // 逐个重置cell保存的值
         for (Cell c : cs)
             if (c != null)
                 c.reset();
@@ -117,14 +129,18 @@ public void reset() {
 
 ```java
 public long sumThenReset() {
+    // 从父类获取cells
     Cell[] cs = cells;
+    // 获取现在的总计值
     long sum = getAndSetBase(0L);
     if (cs != null) {
         for (Cell c : cs) {
             if (c != null)
+                // 获取总值并重置cell
                 sum += c.getAndSet(0L);
         }
     }
+    // 返回sum的值
     return sum;
 }
 ```
