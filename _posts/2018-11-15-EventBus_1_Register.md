@@ -13,20 +13,20 @@ tags:
 
 #### 1.1 特性
 
-__EventBus__ 为 __Android__ 而设，处于消息中心的 __publish/subscribe (发布/订阅)__ 事件系统。事件通过 __post(Object)__ 提交到总线，总线把事件投递给事件订阅者，且该订阅者需拥有匹配类型消息的处理方法。
+__EventBus__ 是为 __Android__ 而设，处于中心的 __publish/subscribe (发布/订阅)__ 事件系统。事件通过 __post(Object)__ 提交到总线，总线把事件投递给订阅者。而该订阅者需含有匹配类型消息的处理方法。
 
 ![EventBus-Publish-Subscribe](/img/android/EventBus/EventBus-Publish-Subscribe.png)
 
-为了能接收事件，订阅者需要通过 __register(Object)__ 把自己注册到总线上。一旦成功注册，订阅者可以持续接收关心的事件，直至通过 __unregister(Object)__ 注销监听。
+为了能接收事件，订阅者需通过 __register(Object)__ 把自己注册到事件总线上。一旦成功注册，订阅者可以持续接收关心的事件，直至通过 __unregister(Object)__ 结束订阅。
 
 处理事件的方法需满足以下条件：
 
 - 用 __Subscribe__ 进行注解；
 - 方法可见性为 __public__；
 - 方法返回值为 __void__；
-- 仅含有一个参数，且类型为接收事件类；
+- 仅含有一个参数，且形参为事件类；
 
-由于把 __Subscription__ 翻译为名词性的“订阅”后，和字面上动词性的“订阅”没法区分。所以本系列文章，把该词翻译为更贴切的名词“订阅记录”。这个词会将在后续文章继续沿用。
+由于把 __Subscription__ 翻译为名词性的“订阅”后，和字面动词性“订阅”没法区分。所以本系列文章把该词翻译为更贴切的名词：“订阅记录”，这个词会将在后续文章继续沿用。
 
 #### 1.2 优点
 
@@ -38,11 +38,11 @@ __EventBus__ 为 __Android__ 而设，处于消息中心的 __publish/subscribe 
 * 运行速度快
 * 库体积小 (约50KB)
 * 已经过累计 100,000,000+ 安装量的应用验证
-* 有消息分发线程、订阅者优先级等高级特性
+* 包含消息分发线程、订阅者优先级等高级特性
 
 #### 1.3 版本
 
-__EventBus__ 自17年年底开始代码提交频率基本停止，可以认为 __EventBus__ 功能稳定无大变动。处于这种情况的开源库非常合适进行源码剖析，而本篇文章基于现时最新正式版 __3.1.1__ 开展。
+__EventBus__ 自17年年底开始，基本停止代码提交，可认为 __EventBus__ 功能稳定无变动。处于这种状况的开源库非常合适进行源码剖析，而本篇文章基于当时最新正式版 __3.1.1__ 开展。
 
 ## 二、用法
 
@@ -83,11 +83,11 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-接收者类对事件不再关心时，也需要在合适时间点注销订阅。每个接收者类只需向 __EventBus__ 注册一次。为避免多次注册，可以像上述代码一样在注册前检查。
+每个接收者类只需向 __EventBus__ 注册一次。为避免多次注册，可以像上述代码一样在注册前先进行检查。当接收者类对事件不再关心时，需要在合适时间点注销订阅。
 
 #### 2.2 发布者
 
-对事件发布者来说事情就简单多了。只需要构建目标事件，把数据或负载内容构建到事件中发出即可。
+对事件发布者来说事情就简单多了。只需构建目标事件，把数据或负载内容包含在事件中发出即可。
 
 ```java
 fun postEvent() {
@@ -104,7 +104,7 @@ fun postEvent() {
 class UserEvent(val name: String, val age: Int)
 ```
 
-如果消息只为发出简单通知，事件消息体甚至可以不含任何数据成员。例如：
+如果消息只是简单通知，事件类甚至可以不含任何数据成员。例如：
 
 ```java
 class Notification
@@ -114,14 +114,14 @@ class Notification
 
 #### 3.1 单例
 
-整个 __EventBus__ 通过以下方法创建单例。所有在此单例发送的事件，只对注册在单例里的订阅者有效。为了所有事件能在同一个 __EventBus__ 内流动，一定要从此方法获取 __EventBus__ 实例。
+整个 __EventBus__ 通过以下方法创建单例。所有在此单例发送的事件，只对注册在单例里的订阅者有效。为保证所有事件能在同一个 __EventBus__ 内流动，一定要从此方法获取 __EventBus__ 实例。
 
 ```java
 public class EventBus {
     // 变量使用volatile修饰
     static volatile EventBus defaultInstance;
 
-    // 同一进程内有效，传统的双重检验锁
+    // 同一进程内有效，双重检验锁实现单例
     public static EventBus getDefault() {
         if (defaultInstance == null) {
             synchronized (EventBus.class) {
@@ -141,7 +141,7 @@ public class EventBus {
 private static final EventBusBuilder DEFAULT_BUILDER = new EventBusBuilder();
 ```
 
-事件类型缓存，实例为HashMap<>
+事件类型缓存，实例为 __HashMap<Class\<?>, List<Class<?\>>>__
 
 ```java
 private static final Map<Class<?>, List<Class<?>>> eventTypesCache = new HashMap<>();
@@ -228,7 +228,7 @@ EventBus(EventBusBuilder builder) {
     // 获取数量
     indexCount = builder.subscriberInfoIndexes != null ? builder.subscriberInfoIndexes.size() : 0;
 
-    // 初始化订阅者方法查找器
+    // 初始化订阅者方法查找器初始化
     subscriberMethodFinder = new SubscriberMethodFinder(builder.subscriberInfoIndexes,
             builder.strictMethodVerification, builder.ignoreGeneratedIndex);
 
@@ -288,7 +288,7 @@ final static class PostingThreadState {
 
 所有订阅者通过此方法向 __EventBus__ 注册，以便在注册后收取所关心的事件。注销订阅则通过方法 __unregister(Object)__，这样观察者可在不关心事件的时候取消订阅。
 
-从下面的实现大概可知，如果订阅者在生命周期结束后不移除订阅页面会出现内存泄漏。
+从下面的实现大概可知，如果订阅者在生命周期结束后不移除订阅者，页面会出现内存泄漏。
 
 ```java
 public void register(Object subscriber) {
@@ -309,7 +309,7 @@ public void register(Object subscriber) {
 
 #### 4.2 subscribe
 
-此方法在同步块中调用，主要是把订阅方法按照订阅事件分类
+此方法在同步块中调用，把订阅方法按照订阅事件分类。过程会检查订阅者是否出现重复注册问题，后根据设置决定是否分发粘性事件。
 
 ```java
 private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
@@ -319,23 +319,23 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
     // 构建新记录
     Subscription newSubscription = new Subscription(subscriber, subscriberMethod);
 
-    // 用事件类型获取所有订阅记录
+    // 用事件类型获取所有订阅记录列表
     CopyOnWriteArrayList<Subscription> subscriptions = subscriptionsByEventType.get(eventType);
 
     if (subscriptions == null) {
-        // 该事件未曾有订阅者订阅，进行初始化
+        // 订阅记录列表为空，进行初始化
         subscriptions = new CopyOnWriteArrayList<>();
         // 保存事件类型和对应订阅记录
         subscriptionsByEventType.put(eventType, subscriptions);
     } else {
+        // 检查该订阅者是否出现重复注册
         if (subscriptions.contains(newSubscription)) {
-            // 多次调用register(this)抛出重复注册异常
             throw new EventBusException("Subscriber " + subscriber.getClass() + " already registered to event "
                     + eventType);
         }
     }
 
-    // 获取同一事件上阅记录数量
+    // 获取同一事件的阅记录数量
     int size = subscriptions.size();
     for (int i = 0; i <= size; i++) {
         // 根据方法注解设置的priority值降序排序，并插入新记录事件记录
@@ -346,8 +346,9 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
         }
     }
 
-    // 通过订阅者类型获取已订阅事件类型
+    // 通过订阅者类型获取，该订阅者已订阅事件类型
     List<Class<?>> subscribedEvents = typesBySubscriber.get(subscriber);
+    // 如果订阅者首次注册，则该列表为空，并存入刚订阅的事件
     if (subscribedEvents == null) {
         subscribedEvents = new ArrayList<>();
         // 同一订阅者订阅的事件
@@ -357,12 +358,12 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
     // 向订阅者订阅事件的列表增加新事件类型
     subscribedEvents.add(eventType);
 
-    // 订阅方法的sticky为true，把历史粘性事件发送给新订阅的方法
+    // 订阅方法的sticky为true，把历史粘性事件发送给新订阅方法
     if (subscriberMethod.sticky) {
         // eventInheritance为true，表示订阅subscriberMethod子类消息的订阅者也接收粘性事件
         if (eventInheritance) {
             // 消息类型所有子类的已存在粘性事件，都需要受到关注
-            // 有非常多粘性事件时进行事件遍历是低效的，数据结构需在遍历上更高效
+            // 有非常多粘性事件时进行事件遍历是低效的，数据结构需在遍历上变得更高效
             // 例如：使用额外的map存储父类的子类：Class -> List<Class>
             Set<Map.Entry<Class<?>, Object>> entries = stickyEvents.entrySet();
             for (Map.Entry<Class<?>, Object> entry : entries) {
@@ -376,7 +377,7 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
                 }
             }
         } else {
-            // 仅发送完全匹配类型订阅事件
+            // 仅发送类型完全匹配的订阅事件
             Object stickyEvent = stickyEvents.get(eventType);
             checkPostStickyEventToSubscription(newSubscription, stickyEvent);
         }
@@ -386,7 +387,7 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
 
 #### 4.3 checkPostStickyEventToSubscription
 
-投递粘性事件给订阅者。如果订阅者尝试终止该事件会失败，因为事件没有通过投递状态进行跟踪。
+投递粘性事件给订阅者。如果订阅者尝试终止该事件会失败，因为事件没法通过投递状态进行跟踪。
 
 ```java
 private void checkPostStickyEventToSubscription(Subscription newSubscription, Object stickyEvent) {
@@ -445,8 +446,8 @@ private void postToSubscription(Subscription subscription, Object event, boolean
             asyncPoster.enqueue(subscription, event);
             break;
 
-        // 传入未知threadMode
         default:
+            // 传入未知threadMode
             throw new IllegalStateException("Unknown thread mode: " + subscription.subscriberMethod.threadMode);
     }
 }
@@ -457,7 +458,7 @@ private void postToSubscription(Subscription subscription, Object event, boolean
 
 #### 5.1 unregister
 
-从所有事件类中注销指定订阅者
+把指定订阅者从消息总线中注销
 
 ```java
 public synchronized void unregister(Object subscriber) {
@@ -480,7 +481,7 @@ public synchronized void unregister(Object subscriber) {
 
 #### 5.2 unsubscribeByEventType
 
-只更新 __subscriptionsByEventType__，而不是 __typesBySubscriber__，__typesBySubscriber__ 由调用者更新。
+只更新 __subscriptionsByEventType__，而不是 __typesBySubscriber__，因为 __typesBySubscriber__ 由调用者更新。
 
 ```java
 private void unsubscribeByEventType(Object subscriber, Class<?> eventType) {
