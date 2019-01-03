@@ -11,9 +11,11 @@ tags:
 
 ## 一、类签名
 
-利用一个或多个变量共同维护一个初始值为 __0__ 的long的总值。当由线程调用 __add()__ 是出现竞争，这些变量的集合可动态增多以便减少竞争。方法 __sum()__ 和变量 __longValue__ 返回当前维护总计数值的变量集合的总大小。
+利用一个或多个变量共同维护一个初始值为 __0__ 的long的总和。当调用 __add()__ 时出现线程竞争，这些变量集通过动态增加以便减少竞争。方法 __sum()__ 或变量 __longValue__，返回当前用于维护总和变量集的总大小。
 
-在多线程更新一个公共总数，例如进行统计数据的收集，而不是用于细粒度的同步控制，此类相比 __AtomicLong__ 是更好的选择。在较低更新竞争的情况下，此类和 __AtomicLong__ 特性基本相似。当在高竞争的情况下，此类的预测吞吐量明显更高，同时也消耗更多内存空间。
+![LongAdder_UML](/img/java/LongAdder_UML.png)
+
+在多线程下更新一个公共总数，例如进行统计数据的收集，而不是用于细粒度的同步控制，相比 __AtomicLong__ 此类是更好的选择。在较低更新竞争的情况下，此类和 __AtomicLong__ 特性基本相似。当在高竞争的情况下，此类的预测吞吐量明显更高，同时也消耗更多内存空间。
 
 __LongAdders__ 能和 __ConcurrentHashMap__ 一起使用去维护一个频繁伸缩的 __map__。例如，
 
@@ -21,13 +23,6 @@ __LongAdders__ 能和 __ConcurrentHashMap__ 一起使用去维护一个频繁伸
 
 ```java
 /**
- * One or more variables that together maintain an initially zero
- * {@code long} sum.  When updates (method {@link #add}) are contended
- * across threads, the set of variables may grow dynamically to reduce
- * contention. Method {@link #sum} (or, equivalently, {@link
- * #longValue}) returns the current total combined across the
- * variables maintaining the sum.
- *
  * <p>This class is usually preferable to {@link AtomicLong} when
  * multiple threads update a common sum that is used for purposes such
  * as collecting statistics, not for fine-grained synchronization
@@ -55,7 +50,7 @@ public class LongAdder extends Striped64 implements Serializable
 
 ## 二、构造方法
 
-默认构造方法，类完成构造后初始总值为 __0__。
+默认构造方法，类完成构造后初始总和为 __0__。
 
 ```java
 public LongAdder() {
@@ -91,7 +86,7 @@ public void decrement() {
 }
 ```
 
-返回当前的总计数值。返回的值不是原子性的快照，就是一个基本类型的 __long__。在没有并发更新的情况下调用会返回准确结果。但是在计算总和时发生的并发更新，可能不会被算到总值内。
+返回当前的总计数值。返回的值不是原子性的快照，就是一个基本类型的 __long__。在没有并发更新的情况下调用会返回准确结果。但是在计算总和时发生的并发更新，可能不会被算到总和内。
 
 ```java
 public long sum() {
@@ -125,7 +120,7 @@ public void reset() {
 }
 ```
 
-方法获取总值后重置原始值为 __0__，并把保存的值作为结果返回，相当于 __sum()__ 和 __reset()__ 的合并调用。如果调用此方法的同时，还有其他线程在进行更新操作，此方法的 __返回值__ 和 __重置前存储的值__ 不保证是一致的。因为先返回值，值在其他线程继续修改，最后才被重置为 __0__。
+方法获取总和后重置原始值为 __0__，并把保存的值作为结果返回，相当于 __sum()__ 和 __reset()__ 的合并调用。如果调用此方法的同时，还有其他线程在进行更新操作，此方法的 __返回值__ 和 __重置前存储的值__ 不保证是一致的。因为先返回值，值在其他线程继续修改，最后才被重置为 __0__。
 
 ```java
 public long sumThenReset() {
