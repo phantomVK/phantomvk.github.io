@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "LongAdder"
-date:       2019-01-01
+date:       2019-01-10
 author:    "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -9,46 +9,23 @@ tags:
     - Java源码系列
 ---
 
-## 一、类签名
+## 类签名
 
 利用一个或多个变量共同维护一个初始值为 __0__ 的long的总和。当调用 __add()__ 时出现线程竞争，这些变量集通过动态增加以便减少竞争。方法 __sum()__ 或变量 __longValue__，返回当前用于维护总和变量集的总大小。
 
-![LongAdder_UML](/img/java/LongAdder_UML.png)
-
-在多线程下更新一个公共总数，例如进行统计数据的收集，而不是用于细粒度的同步控制，相比 __AtomicLong__ 此类是更好的选择。在较低更新竞争的情况下，此类和 __AtomicLong__ 特性基本相似。当在高竞争的情况下，此类的预测吞吐量明显更高，同时也消耗更多内存空间。
-
-__LongAdders__ 能和 __ConcurrentHashMap__ 一起使用去维护一个频繁伸缩的 __map__。例如，
-
-源码版本JDK11
-
 ```java
-/**
- * <p>This class is usually preferable to {@link AtomicLong} when
- * multiple threads update a common sum that is used for purposes such
- * as collecting statistics, not for fine-grained synchronization
- * control.  Under low update contention, the two classes have similar
- * characteristics. But under high contention, expected throughput of
- * this class is significantly higher, at the expense of higher space
- * consumption.
- *
- * <p>LongAdders can be used with a {@link
- * java.util.concurrent.ConcurrentHashMap} to maintain a scalable
- * frequency map (a form of histogram or multiset). For example, to
- * add a count to a {@code ConcurrentHashMap<String,LongAdder> freqs},
- * initializing if not already present, you can use {@code
- * freqs.computeIfAbsent(key, k -> new LongAdder()).increment();}
- *
- * <p>This class extends {@link Number}, but does <em>not</em> define
- * methods such as {@code equals}, {@code hashCode} and {@code
- * compareTo} because instances are expected to be mutated, and so are
- * not useful as collection keys.
- */
 public class LongAdder extends Striped64 implements Serializable
 ```
 
-此类继承自 __Number__，但没有定义 __equals__、__hashCode__、__compareTo__ 等方法，因为预料到示例是可变的，所以这些方法作为集合的keys并不是相当实用。
+在多线程下更新总和值，例如进行统计数据的收集，而不是用于细粒度的同步控制，相比 __AtomicLong__，此类是更好的选择。在较少竞争的情况下，此类和 __AtomicLong__ 特性基本相似。当在高竞争的情况下，本类的吞吐量明显更高，同时也消耗更多内存空间。
 
-## 二、构造方法
+![LongAdder_UML](/img/java/LongAdder_UML.png)
+
+__LongAdders__ 能和 __ConcurrentHashMap__ 一起使用去维护一个频繁伸缩的 __map__。例如，添加计数值到`ConcurrentHashMap<String, LongAdder> freqs`，键不存在时进行初始化，可通过`freqs.computeIfAbsent(key, k -> new LongAdder()).increment();`实现。
+
+此类继承自 __Number__，但没有定义如 __equals__、__hashCode__、__compareTo__ 等方法，因为实例预计会发生变化，所以不能用作集合的键。源码版本 __JDK11__。
+
+## 构造方法
 
 默认构造方法，类完成构造后初始总和为 __0__。
 
