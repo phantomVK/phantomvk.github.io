@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "LongAdder"
+title:      "Java源码系列(24) -- LongAdder"
 date:       2019-01-10
 author:    "phantomVK"
 header-img: "img/bg/post_bg.jpg"
