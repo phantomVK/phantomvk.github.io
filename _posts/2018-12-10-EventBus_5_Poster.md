@@ -186,7 +186,7 @@ final class PendingPost {
         return new PendingPost(event, subscription);
     }
 
-    // PendingPost负载的事件已经发送给订阅方法，所以可以回收PendingPost到缓存池
+    // PendingPost负载的事件已经发送给订阅方法，回收PendingPost到缓存池
     static void releasePendingPost(PendingPost pendingPost) {
         // 相关数据成员置空
         pendingPost.event = null;
@@ -231,7 +231,7 @@ final class PendingPostQueue {
         notifyAll();
     }
 
-    // 从队列中获取任任务
+    // 同步从队列中获取任任务
     synchronized PendingPost poll() {
         PendingPost pendingPost = head;
         if (head != null) {
@@ -243,7 +243,7 @@ final class PendingPostQueue {
         return pendingPost;
     }
 
-    // 等待maxMillisToWait毫秒或被notifyAll，再从队列中去任务
+    // 等待maxMillisToWait毫秒或被notifyAll，再从队列取任务
     synchronized PendingPost poll(int maxMillisToWait) throws InterruptedException {
         if (head == null) {
             wait(maxMillisToWait);

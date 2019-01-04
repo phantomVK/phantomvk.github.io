@@ -11,9 +11,13 @@ tags:
 
 ## 一、Subscription
 
-当订阅者向 __EventBus__ 注册时， __EventBus__ 会扫描整个订阅者类，获取接收事件的具体方法，并构造出 __Subscription__ 实例。每个订阅者可有多个方法接收订阅事件，每个方法均会生成各自的 __Subscription__ 作为接收事件的凭证。
+订阅者进行注册时，__EventBus__ 会扫描整个订阅者类，获取接收事件的具体方法，并构造出 __Subscription__ 实例。每个订阅者可有多个方法接收订阅事件，每个方法生成各自的 __Subscription__ 作为事件接收凭证。
 
-订阅记录内主要包括3个成员变量：`subscriber`表示订阅类的实例；`subscriberMethod`表示订阅者内接受事件的方法；还有表示订阅记录是否有效的`active`。
+订阅记录内主要包括3个成员变量：
+
+- `subscriber`表示订阅类的实例；
+- `subscriberMethod`表示订阅者内接受事件的方法；
+- 还有表示订阅记录是否有效的`active`；
 
 ```java
 final class Subscription {
@@ -145,11 +149,10 @@ public @interface Subscribe {
 }
 ```
 
-注解方法时不需要自定义条件，使用 __@Subscribe__ 且不指定参数即可
-
-实例：
+注解方法时不需要自定义条件，使用 __@Subscribe__ 不指定参数即可。实例：
 
 ```java
+// 三个参数的设置
 @Subscribe(threadMode = ThreadMode.MAIN, sticky = false, priority = 0)
 fun onEventReceived(event: UserEvent) {
     val name = event.name
@@ -168,11 +171,13 @@ java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk
 
 #### 4.1 类签名
 
-前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，全是都为了降低 __SubscriberMethodFinder__ 类的理解难度。因为通过此类扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。所有事件根据  __Subscription__ 派到对应订阅者的订阅方法。
+前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，降低 __SubscriberMethodFinder__ 类的理解难度。
 
 ```java
 class SubscriberMethodFinder 
 ```
+
+此类通过扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。
 
 #### 4.2 常量
 
@@ -384,7 +389,7 @@ private SubscriberInfo getSubscriberInfo(FindState findState) {
 
 #### 4.11 findUsingReflectionInSingleClass
 
-__FindState.clazz__ 就是订阅者类。先把订阅者的方法获取为一个列表，逐个分析方法的注解。根据约束条件逐渐筛选出符合条件的方法，放入到__FindState.subscriberMethods__。
+__FindState.clazz__ 就是订阅者类。先把订阅者的方法收集成为列表，后逐个分析方法的注解。根据约束条件逐渐筛选出符合条件的方法，放入到 __FindState.subscriberMethods__。
 
 ```java
 private void findUsingReflectionInSingleClass(FindState findState) {
@@ -458,7 +463,7 @@ static class FindState
 
 因此处理完毕后的 __FindState__ 既包含订阅者类的信息，也保存着订阅者方法的列表。__EventBus__ 从 __FindState__ 获取所有订阅者方法后，该 __FindState__ 会重置并重新放入缓存池中。
 
-根据  __FindState__ 内部结构可知，__FindState__ 实例包含 __ArrayList__、__HashMap__、__初始长度为128的StringBuilder__，所以 __FindState__ 实例本身就有一定分量。如果实例不断创建并销毁，会加重虚拟机垃圾回收的负担。相反，把用过的   __FindState__ 放入缓存池重用应该是更合理的行为。
+根据  __FindState__ 内部结构可知，__FindState__ 实例包含 __ArrayList__、__HashMap__、初始长度为128的 __StringBuilder__，所以 __FindState__ 实例本身就有一定分量。如果实例不断创建并销毁，会加重虚拟机垃圾回收的负担。相反，把用过的   __FindState__ 放入缓存池重用应该是更合理的行为。
 
 从 __SubscriberMethodFinder__ 的 __POOL_SIZE__ 常量可知缓存池大小为4。
 
@@ -504,7 +509,7 @@ void initForSubscriber(Class<?> subscriberClass) {
 
 #### 5.5 recycle
 
-__FindState__ 使用完毕后需调用 __recycle()__ 清空后归还给缓存池。这个方法的处理方式有点像 __Message__ 类的[recycleUnchecked()](/2016/11/13/Android_Message/#三消息回收) 方法。
+__FindState__ 使用完毕后需调用 __recycle()__ 清空后归还给缓存池。这个方法的处理方式有点像 __Message__ 类的 [recycleUnchecked()](/2016/11/13/Android_Message/#三消息回收) 方法。
 
 ```java
 void recycle() {

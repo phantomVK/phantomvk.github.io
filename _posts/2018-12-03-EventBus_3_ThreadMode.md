@@ -41,7 +41,7 @@ public @interface Subscribe {
 }
 ```
 
-__EventBus__ 支持的线程模式都保存在枚举类中。每个订阅者方法默认都定义了线程模式，该模式告知 __EventBus__ 通过哪类线程去调用订阅者方法。
+__EventBus__ 支持的线程模式都保存在枚举类中。每个订阅者方法含有默认线程模式，该模式决定如何调用订阅者方法。
 
 ```java
 public enum ThreadMode
@@ -55,9 +55,7 @@ __ThreadMode__ 枚举类包含5种线程模式：
 
 #### 4.1 POSTING
 
-订阅方法在发布线程上调起，是 __EventBus__ 默认线程模式。因为完全避免线程切换，意味着此线程模式的事件分发能减少性能开销。
-
-因此，对已知能在短时间内、主线程上完成的单个任务，本模式是首要推荐的。就是说此模式处理事件时，方法需要迅速执行完毕，并返回方法避免阻塞(主线程)发布线程。
+订阅方法在发布线程上调起，这是 __EventBus__ 默认的线程模式。因为能完全避免线程切换，意味着此线程模式的事件分发能减少性能开销。因此，对可在短时间、主线程完成的任务，本模式是首要推荐的。就是说此模式处理事件时，方法需要迅速执行完毕，并返回方法避免阻塞(主线程)发布线程。
 
 #### 4.2 MAIN
 
@@ -90,6 +88,7 @@ private void postToSubscription(Subscription subscription, Object event, boolean
         case POSTING:
             invokeSubscriber(subscription, event);
             break;
+
         case MAIN:
             if (isMainThread) {
                 // 处于主线程就直接触发订阅者
@@ -99,6 +98,7 @@ private void postToSubscription(Subscription subscription, Object event, boolean
                 mainThreadPoster.enqueue(subscription, event);
             }
             break;
+
         case MAIN_ORDERED:
             if (mainThreadPoster != null) {
                 mainThreadPoster.enqueue(subscription, event);
@@ -107,6 +107,7 @@ private void postToSubscription(Subscription subscription, Object event, boolean
                 invokeSubscriber(subscription, event);
             }
             break;
+
         case BACKGROUND:
             if (isMainThread) {
                 backgroundPoster.enqueue(subscription, event);
@@ -114,6 +115,7 @@ private void postToSubscription(Subscription subscription, Object event, boolean
                 invokeSubscriber(subscription, event);
             }
             break;
+
         case ASYNC:
             asyncPoster.enqueue(subscription, event);
             break;
