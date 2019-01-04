@@ -29,7 +29,7 @@ public final class StringBuilder
 
 # 三、构造方法
 
-可通过字符串长度、默认构造方法，或一个字符创作为参数创建StringBuilder。默认构造方法的字符串长度是16，自定义字符串则会在原字符串尾加16个字符作为缓冲长度。
+可通过字符串长度、默认构造方法，或字符串作为参数创建StringBuilder。默认构造方法的字符串长度是16，自定义字符串则会在指定长度上加16作为缓冲长度。
 
 ```java
 public StringBuilder() {
@@ -55,7 +55,7 @@ public StringBuilder(CharSequence seq) {
 
 ### 4.1 添加
 
-尾添加对象，准确来说应该是obj.toString()或“null”
+尾添加对象，准确来说是obj.toString()或“null”
 
 ```java
 @Override
@@ -274,7 +274,7 @@ public StringBuilder insert(int offset, double d) {
 
 ### 4.5 查找
 
-查找字符在字符串中的序号，可以指定字符串开始的下标
+查找字符在字符串中的序号，可以指定字符串开始下标
 
 ```java
 @Override

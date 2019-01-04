@@ -11,7 +11,7 @@ tags:
 
 ## 一、介绍
 
-Java常用的List实现有[ArrayList](/2017/02/19/Java_ArrayList/)和LinkedList。ArrayList通过数组实现，LinkedList通过链表实现。由于Java中没有指针的概念，需保存下一对象引用的方式实现链表。
+Java常用的List实现有[ArrayList](/2017/02/19/Java_ArrayList/)和LinkedList。ArrayList通过数组实现，LinkedList通过链表实现。由于Java没有指针的概念，所以通过保存下一实例引用的方式实现链表。
 
 ```java
 public class LinkedList<E>

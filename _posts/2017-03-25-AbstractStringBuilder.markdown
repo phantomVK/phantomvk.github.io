@@ -17,8 +17,6 @@ tags:
 abstract class AbstractStringBuilder implements Appendable, CharSequence
 ```
 
-实现`CharSequence`接口，子类`StringBuilder`和`StringBuffer`实例可直接赋值给`CharSequence`。
-
 ## 二、数据成员
 
 保存字符串的数组
@@ -114,7 +112,7 @@ void expandCapacity(int minimumCapacity) {
 
 ### 4.3 裁剪、增加
 
-可变字符数组有空余用于插入更多字符，可以通过裁剪剩余空间达到提高内存使用效率的目的。
+可变字符数组有空余用于插入更多字符，可以通过裁剪达到提高内存利用率的目的。
 如果内存空间不紧张或没有特殊要求，不要使用这个方法，因为向裁剪后的字符数组添加字符一定会引起扩容。而且裁剪也是一次数据内容拷贝的过程，超大数组的情况下可能会引起性能问题。
 
 实现方式：把字符串拷贝到长度刚好合适的字符数组中返回，释放原数组空间

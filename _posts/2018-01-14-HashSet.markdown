@@ -21,13 +21,13 @@ public class HashSet<E>
 
 ## 二、数据成员
 
-HashSet利用[HashMap](/2018/06/30/HashMap/)实现特性，通过HashMap存储key哈希值去重，key对应值非空表明key存在。
+__HashSet__ 利用[HashMap](/2018/06/30/HashMap/)实现特性，通过HashMap存储哈希值去重，key对应的值非空表明key存在
 
 ```java
 private transient HashMap<E,Object> map;
 ```
 
-常量对象，在HashMap的value中起到占位作用，表示对应的key已存在。
+常量对象，在 __HashMap__ 的value中起占位作用，表示对应key已存在
 
 ```java
 private static final Object PRESENT = new Object();
@@ -35,7 +35,7 @@ private static final Object PRESENT = new Object();
 
 ## 三、构造方法
 
-构造全新的、空的集合，利用HashMap实例来实现，初始化大小为16，负载因子0.75
+构造全新 __HashMap__ 实例，集合初始化大小16，负载因子0.75
 
 ```java
 public HashSet() {
@@ -43,7 +43,7 @@ public HashSet() {
 }
 ```
 
-利用给定集合包含的元素构造新集合，HashMap实例初始化大小为16，负载因子0.75
+利用给定集合包含的元素构造新集合，__HashMap__ 实例初始化大小16，负载因子0.75
 
 ```java
 public HashSet(Collection<? extends E> c) {
@@ -52,7 +52,7 @@ public HashSet(Collection<? extends E> c) {
 }
 ```
 
-指定容量值和负载因子初始化内部HashMap.
+指定容量值和负载因子初始化内部 __HashMap__
 
 ```java
 public HashSet(int initialCapacity, float loadFactor) {
@@ -60,7 +60,7 @@ public HashSet(int initialCapacity, float loadFactor) {
 }
 ```
 
-指定容量值初始化内部HashMap，负载因子默认值为0.75
+指定容量值初始化内部 __HashMap__，负载因子默认值为0.75
 
 ```java
 public HashSet(int initialCapacity) {
@@ -68,7 +68,7 @@ public HashSet(int initialCapacity) {
 }
 ```
 
-构造函数使用LinkedHashMap，构造参数多了一个布尔值，用于区分上面的构造方法。
+构造函数使用 __LinkedHashMap__，构造参数名为 __dummy__ 的布尔值，用于区别上面的构造方法
 
 ```java
 HashSet(int initialCapacity, float loadFactor, boolean dummy) {
@@ -78,7 +78,7 @@ HashSet(int initialCapacity, float loadFactor, boolean dummy) {
 
 ## 四、成员方法
 
-返回一个迭代器，迭代器指示的元素没有固定顺序。
+返回一个迭代器，迭代器指示的元素没有固定顺序
 
 ```java
 public Iterator<E> iterator() {
@@ -86,7 +86,7 @@ public Iterator<E> iterator() {
 }
 ```
 
-返回集合中包含元素的数量。
+返回集合中包含元素的数量
 
 ```java
 public int size() {
@@ -94,7 +94,7 @@ public int size() {
 }
 ```
 
-如果容器中没有任何元素，返回true。
+如果容器中没有任何元素，返回true
 
 ```java
 public boolean isEmpty() {
@@ -102,7 +102,7 @@ public boolean isEmpty() {
 }
 ```
 
-检查集合中是否包含指定元素。
+检查集合中是否包含指定元素
 
 ```java
 public boolean contains(Object o) {
@@ -110,7 +110,7 @@ public boolean contains(Object o) {
 }
 ```
 
-若集合不包含该元素e，成功插入返回true。集合中已包含指定元素，则原集合不改变并返回false。
+若集合不包含该元素e，成功插入返回true。集合中已包含指定元素，则原集合不改变并返回false
 
 ```java
 public boolean add(E e) {
@@ -126,7 +126,7 @@ public boolean remove(Object o) {
 }
 ```
 
-清空集合中所有元素
+清空集合所有元素
 
 ```java
 public void clear() {

@@ -40,13 +40,13 @@ private static final Object[] EMPTY_ELEMENTDATA = {};
 private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
 ```
 
-`ArrayList`总长度为此变量长度，如果构建前等于`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，第一个元素加入时构建序列长度初始化为10
+实际保存对象的数组，如果构建前为`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，第一个元素加入时构建序列长度初始化为10。
 
 ```java
 transient Object[] elementData;
 ```
 
-ArrayList大小，指已保存元素数量
+已保存元素数量
 
 ```java
 private int size;
@@ -56,7 +56,7 @@ private int size;
 
 ### 3.1 默认构造
 
-无参构造方法默认构造大小是10，初始化数组延迟到加入第一个元素时才进行
+无参构造方法默认构造大小是10，初始化数组操作延迟到第一个元素加入时进行
 
 ```java
 public ArrayList() {
@@ -66,7 +66,7 @@ public ArrayList() {
 
 ### 3.2 指定构造
 
-构造时指定ArrayList容量则内存空间会立即创建。如果列表长度较短且可预知，此构造方法能避免动态扩展造成性能损耗
+构造时指定容量，数组所需内存空间会立即创建。如果列表长度较短且可预知，此构造方法能避免动态扩展造成性能损耗
 
 ```java 
 public ArrayList(int initialCapacity) {
@@ -83,7 +83,7 @@ public ArrayList(int initialCapacity) {
 
 ### 3.3 集合构造
 
-通过集合构建ArrayList，顺序由集合迭代器指定顺序为准，长度与Collection长度一致
+通过集合构建ArrayList，顺序由集合迭代器给定顺序为准，长度与实例c元素数量一致
 
 ```java
 public ArrayList(Collection<? extends E> c) {
@@ -206,36 +206,7 @@ private static int hugeCapacity(int minCapacity) {
 }
 ```
 
-### 4.3 元素数量
-
-返回保存元素数量
-
-```java
-public int size() {
-    return size;
-}
-```
-
-### 4.4 列表为空
-元素数量是否为0
-
-```java
-public boolean isEmpty() {
-    return size == 0;
-}
-```
-
-### 4.5 包含元素
-
-找指定对象是否保存在列表中
-
-```java
-public boolean contains(Object o) {
-    return indexOf(o) >= 0;
-}
-```
-
-### 4.6 元素查找
+### 4.3 元素查找
 
 查找指定元素的序号。若元素是空对象，则找数组遇到第一个null的下标。其他情况，找到元素返回下标，找不到返回-1
 
@@ -271,7 +242,7 @@ public int lastIndexOf(Object o) {
 }
 ```
 
-### 4.7 浅克隆
+### 4.4 浅克隆
 
 正常来说不会出现`CloneNotSupportedException`，因为本身实现了`Cloneable`接口
 
@@ -288,7 +259,7 @@ public Object clone() {
 }
 ```
 
-### 4.8 返回数组
+### 4.5 返回数组
 
 按照列表原顺序返回一个新数组，新数组和原ArrayList互相独立
 
@@ -298,7 +269,7 @@ public Object[] toArray() {
 }
 ```
 
-用自行传入的数组保存列表的元素，类型与传入相同，传入数组多余空位置为null。当传入的数组长度不足，可知返回的数组和传入数组不是同一个对象。
+用自行传入的数组保存列表的元素，类型与传入相同，传入数组下一个多余空位置null。当传入的数组长度不足，可知返回的数组和传入数组不是同一个对象。
 
 ```java
 @SuppressWarnings("unchecked")
@@ -316,7 +287,7 @@ public <T> T[] toArray(T[] a) {
 }
 ```
 
-### 4.9 返回指定下标元素
+### 4.6 返回指定下标元素
 
 返回指定位置的元素，无下标检查
 
@@ -349,7 +320,7 @@ public E set(int index, E element) {
 }
 ```
 
-### 4.10 加入
+### 4.7 加入
 
 增加元素
 
@@ -370,6 +341,7 @@ public void add(int index, E element) {
     rangeCheckForAdd(index);
 
     ensureCapacityInternal(size + 1);
+    // 插入位置及后续元素全部向后移一位
     System.arraycopy(elementData, index, elementData, index + 1,
                      size - index);
     elementData[index] = element;
@@ -381,7 +353,7 @@ public void add(int index, E element) {
 
 ```java
 public boolean addAll(Collection<? extends E> c) {
-    // 把Collection变换为数组类型
+    // 把Collection转换为数组类型
     Object[] a = c.toArray();
     // 统计a的元素数量，用于计算需要扩展容量的大小
     int numNew = a.length;
@@ -394,7 +366,7 @@ public boolean addAll(Collection<? extends E> c) {
 }
 ```
 
-在指定位置插入若干个保存在集合的元素，ArrayList原位置元素后移
+在指定位置插入若干个保存元素
 
 ```java
 public boolean addAll(int index, Collection<? extends E> c) {
@@ -414,7 +386,7 @@ public boolean addAll(int index, Collection<? extends E> c) {
 }
 ```
 
-### 4.11 移除、清空
+### 4.8 移除、清空
 
 移除指定位置的元素，随后元素组成的子序列依次向前移动一个位置
 
