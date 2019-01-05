@@ -109,12 +109,12 @@ public final boolean weakCompareAndSet(int expect, int update) {
     return unsafe.compareAndSwapInt(this, valueOffset, expect, update);
 }
 
-// 先返回上一个值，然后再在原基础上自增1
+// 先返回上一个值，然后在原基础上自增1
 public final int getAndIncrement() {
     return unsafe.getAndAddInt(this, valueOffset, 1);
 }
 
-// 先返回上一个值，然后再在原基础上自减1
+// 先返回上一个值，然后在原基础上自减1
 public final int getAndDecrement() {
     return unsafe.getAndAddInt(this, valueOffset, -1);
 }

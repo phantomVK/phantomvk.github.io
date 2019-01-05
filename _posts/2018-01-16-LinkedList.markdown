@@ -63,7 +63,7 @@ public LinkedList(Collection<? extends E> c) {
 
 ### 4.1 插入
 
-把元素作为第一个节点插入列表
+把元素作为首节点插入列表。新节点作为列表的头节点，所以新节点的前导节点为空。下一个节点是否为空，取决于列表是否已保存其他元素。如果列表原本为空，则新节点的后继节点为空，头指针和尾指针同时指向该新添加的节点。
 
 ```java
 private void linkFirst(E e) {
@@ -72,7 +72,7 @@ private void linkFirst(E e) {
     final Node<E> newNode = new Node<>(null, e, f);
     // 新节点作为头结点
     first = newNode;
-    // 处理新节点的下一节点引用
+    // 处理新节点的后继节点引用
     if (f == null)
         last = newNode;
     else
@@ -98,22 +98,6 @@ void linkLast(E e) {
         l.next = newNode;
     size++;
     modCount++;
-}
-```
-
-把元素添加到列表的首位
-
-```java
-public void addFirst(E e) {
-    linkFirst(e);
-}
-```
-
-把元素添加到列表的末尾
-
-```java
-public void addLast(E e) {
-    linkLast(e);
 }
 ```
 
@@ -149,7 +133,7 @@ private E unlinkFirst(Node<E> f) {
     final E element = f.item;
     final Node<E> next = f.next;
     f.item = null; // 移除f的负载
-    f.next = null; // 清除f对下一节点的引用
+    f.next = null; // 清除f对后继节点的引用
     first = next;  // 修改头指针到f的下一个节点
     
     // f的下一个节点为null可推断原链表有且仅有f一个节点
@@ -194,10 +178,10 @@ E unlink(Node<E> x) {
     final Node<E> prev = x.prev;
 
     if (prev == null) {
-        // x是头结点，把下一节点成为头结点
+        // x是头结点，把后继节点成为头结点
         first = next;
     } else {
-        // x是中间节点，把prev.next指向x下一节点
+        // x是中间节点，把prev.next指向x后继节点
         prev.next = next;
         // 清除x的前指针
         x.prev = null;
@@ -207,7 +191,7 @@ E unlink(Node<E> x) {
         // x是尾节点，把倒数第二个节点设为尾节点
         last = prev;
     } else {
-        // x是中间节点，把next.prev指向x上一节点
+        // x是中间节点，把next.prev指向x前节点
         next.prev = prev;
         // 清除x的后指针
         x.next = null;
@@ -222,7 +206,7 @@ E unlink(Node<E> x) {
 
 ### 4.3 获取头尾元素
 
-获取列表的第一个元素
+获取列表的头元素
 
 ```java
 public E getFirst() {
@@ -233,7 +217,7 @@ public E getFirst() {
 }
 ```
 
-获取列表的最后一个元素，由于有尾指针，所以不需要遍历整条链表，时间复杂度o(1)
+获取列表的尾节点。由于有尾指针，所以不需要遍历整条链表。
 
 ```java
 public E getLast() {
@@ -312,15 +296,7 @@ public boolean remove(Object o) {
 }
 ```
 
-把集合中所有元素通过尾插法插入到列表中，插入的顺序由集合迭代器决定。如果列表正在加入集合的元素，同时集合本身元素也在变化，那么导致的最终结果是不可预知的。
-
-```java
-public boolean addAll(Collection<? extends E> c) {
-    return addAll(size, c);
-}
-```
-
-把集合中所有元素通过尾插法插入到列表中，插入的顺序由集合的迭代器决定。如果列表正在加入集合的元素，同时集合本身元素也在变化，那导致最终结果是不可预知的。
+把集合内元素通过尾插法插入到链表中，插入顺序由集合的迭代器决定。如果列表正在加入集合的元素，同时集合本身元素也在变化，那导致最终结果是不可预知的。
 
 ```java
 public boolean addAll(int index, Collection<? extends E> c) {
@@ -363,7 +339,8 @@ public boolean addAll(int index, Collection<? extends E> c) {
         pred.next = succ;
         succ.prev = pred;
     }
-
+    
+    // 更新链表节点数量
     size += numNew;
     modCount++;
     return true;
@@ -381,13 +358,15 @@ public void clear() {
         x.prev = null;
         x = next;
     }
+    // 重置头指针和尾指针
     first = last = null;
+    // 重置计数值
     size = 0;
     modCount++;
 }
 ```
 
-## 五、指定下标操作
+## 五、下标操作
 
 ```java
 // 返回指定下标的元素
@@ -415,7 +394,7 @@ public void add(int index, E element) {
         linkBefore(element, node(index));
 }
 
-// 在列表中移除指定位置的元素，被移除的元素作为结果返回。
+// 在列表中移除指定位置元素，被移除元素作为结果返回。
 public E remove(int index) {
     checkElementIndex(index);
     return unlink(node(index));
@@ -474,7 +453,7 @@ public int indexOf(Object o) {
 public int lastIndexOf(Object o) {
     int index = size;
     if (o == null) {
-        // 倒叙遍历
+        // 倒序遍历
         for (Node<E> x = last; x != null; x = x.prev) {
             index--;
             if (x.item == null)
@@ -597,7 +576,7 @@ public boolean removeLastOccurrence(Object o) {
 
 ## 六、链表节点模型
 
-这是双向链表的模型，包含前一个节点的指针，下一个节点的指针，和该节点持有的实例
+这是双向链表的模型，包含上一个节点的指针，下一个节点的指针，和节点持有的实例
 
 ```java
 private static class Node<E> {
@@ -632,7 +611,7 @@ public Object[] toArray() {
 
 返回一个包含所有链表元素的数组，数组元素保存顺序与链表顺序一致。数组的返回类型由数组声明的类型为准，而不是链表节点保存的类型。
 
-如果数组空间足够保存所有链表元素，则正常返回传入数组。否则创建一个与数组类型一致，容量与链表长度一致的新数组。如果传入数组的容量大于链表的长度，则最后一个链表节点存入数组位置的下一个数组空间置空。这样有助于计算数组实际包含的元素数。
+如果数组空间足够保存所有链表元素，则正常返回传入数组。否则创建一个与数组类型一致，容量与链表长度一致的新数组。如果传入数组的容量大于链表的长度，则把最后链表节点对应数组位置的下一个数组空间置空。这样有助于计算数组实际包含的元素数。
 
 ```java
 @SuppressWarnings("unchecked")
@@ -643,11 +622,11 @@ public <T> T[] toArray(T[] a) {
                             a.getClass().getComponentType(), size);
     int i = 0;
     Object[] result = a;
-    // 顺序遍历链表，把元素按照对应下表放入数组
+    // 顺序遍历链表，把元素按照对应下标放入数组
     for (Node<E> x = first; x != null; x = x.next)
         result[i++] = x.item;
 
-    // 还有剩余的数组空间，则把第一个遇到的空闲空间置为null
+    // 还有剩余数组空间，则把第一个遇到的空闲空间置为null
     if (a.length > size)
         a[size] = null;
 
@@ -655,4 +634,3 @@ public <T> T[] toArray(T[] a) {
     return a;
 }
 ```
-

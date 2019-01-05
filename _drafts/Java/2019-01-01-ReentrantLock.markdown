@@ -169,7 +169,9 @@ abstract static class Sync extends AbstractQueuedSynchronizer {
         setState(0); // reset to unlocked state
     }
 }
+```
 
+```java
 /**
  * Sync object for non-fair locks
  */
@@ -212,7 +214,9 @@ static final class FairSync extends Sync {
         return false;
     }
 }
+```
 
+```java
 /**
  * Creates an instance of {@code ReentrantLock}.
  * This is equivalent to using {@code ReentrantLock(false)}.
