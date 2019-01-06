@@ -11,7 +11,7 @@ tags:
 
 ## 一、摘要
 
-HashMap是使用频率高、用于保存键值对映射的容器类。自JDK8始HashMap引入红黑树，调整优化哈希算法，性能相比JDK7有进一步提升。同时，对JDK7中存在多线程操作导致死循环的问题进行修复。本文基于JDK10的源码进行介绍，代码格式进行轻微调整以便阅读，最终逻辑与JDK8版本无异。
+HashMap是使用频率高、用于保存键值对映射的容器类。自JDK8始HashMap引入红黑树，调整优化哈希算法，性能相比JDK7有进一步提升。同时，对JDK7中存在多线程操作导致死循环的问题进行修复。本文基于JDK10的源码进行介绍，代码格式进行轻微调整以便阅读。
 
 相关阅读：
 
@@ -239,7 +239,7 @@ static final int tableSizeFor(int cap) {
 
 ![HashMap_tableSizeFor](/img/java/HashMap_tableSizeFor.png)
 
-从图中看出，当流程进行到`n|=n>>>4`，后续步骤运算结果已经固定不变。
+从图中看出，当流程进行到`n|=n>>>4`，后续步骤运算结果已经固定不变。参数cap为15计算得到最终结果为16。
 
 ## 六、成员方法
 
@@ -346,9 +346,9 @@ public boolean containsKey(Object key) {
 
 #### 6.3 插入
 
+__onlyIfAbsent__ 为true时新值不会替换已存在的旧值，__evict__ 为false时哈希表正处于创建模式。
+
 ```java
-// @param onlyIfAbsent 为 true, 不会改变已有值
-// @param evict 为 false, 哈希表正处于创建模式
 final V putVal(int hash,
                K key, V value,
                boolean onlyIfAbsent,
@@ -744,7 +744,9 @@ public void clear() {
 
 #### 6.9 包含
 
-如果是红黑树，则调用`find(int h, Object k, Class<?> kc)`，已下方法为链表所用：
+如果是红黑树，则调用 __[find(int h, Object k, Class<?> kc)](/2018/06/30/HashMap/#74-查找节点)__，本方法仅为链表所用。
+
+需要注意的是，查找 __value__ 不像 __key__，__key__ 能先算出其hash值并跳到对应桶进行查找，而 __value__ 只能遍历整张表的所有元素进行一一对比。
 
 ```java
 public boolean containsValue(Object value) {
