@@ -263,4 +263,4 @@ override fun clone(): BubbleShape = super.clone() as BubbleShape
 2. 如何用代码实现点击气泡时填充颜色变化的反馈？
 3. 如何用代码设置内边距，令内部的TextView文字与气泡整体更好融合？
 
-工程源码链接：[https://github.com/phantomVK/DemoCenter](https://github.com/phantomVK/DemoCenter)
+工程源码链接：[https://github.com/phantomVK/DemoCenter](https://github.com/phantomVK/DemoCenter)。源码于2019年1月进行过优化，通过复用实例并调整绘制方式，减少绘制过程对象生成量，最终效果也更精细。但通过开发者模式调试后，个人对多项滚动绘制的性能尚不满意，具体以后会继续优化。
