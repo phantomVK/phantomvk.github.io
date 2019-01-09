@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android源码系列(18) -- DiskLruCache"
-date:       2019-01-08
+date:       2019-01-09
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
@@ -13,29 +13,29 @@ tags:
 
 #### 1.1 特性
 
-这是文件系统上使用的LRU缓存类，可约束空间使用量。每个缓存条目都有一个字符串键和固定数量的值。每个键必须满足正则表达式：__[a-z0-9_-]{1,120}__。值都是字节序列，可通过流或文件的方式访问，长度介于0到 __Integer.MAX_VALUE__。
+这是基于文件系统的 __LRU(Least Recently Used)__ 缓存类，并支持控制空间使用量。每个缓存条目都有一个字符串键和固定数量的值。每个键必须满足正则表达式：__[a-z0-9_-]{1,120}__。值都是字节序列，可通过流或文件的方式访问，长度在0到 __Integer.MAX_VALUE__ 之间。
 
 ```java
 public final class DiskLruCache implements Closeable
 ```
 
-缓存数据保存在文件系统的一个目录中。此文件必须排除在缓存之外，缓存只能删除或复写目录里的文件。不支持多进程同时操作同一个缓存目录。
+数据保存在文件系统的同一个目录中。此文件必须排除在缓存之外，缓存只能删除或复写目录里的文件。不支持多进程同时操作同一个缓存目录。
 
 此缓存可限制保存在文件系统字节的长度。当已保存字节长度超过限制，会在后台线程逐个移除条目，直到满足长度限制为止。但限制也不是严格执行：需删除文件的时候，缓存大小会暂时超过限制。容量限制不包含文件系统的开销和缓存日志文件的大小，所以对空间大小敏感的应用最好设置一个相对保守的阈值。
 
-客户端调用 __edit()__ 方法创建或更新条目的值。一个条目每次只被一个编辑器持有。如果某个值不能编辑则 __edit()__ 方法返回 __null__。
+客户端调用 __edit()__ 方法创建或更新条目的值，每次只被一个编辑器持有。如果不能编辑则 __edit()__ 方法返回 __null__。
 
-条目被创建的时候需要提供所有的值，或者在必要时使用 __null__ 作为占位符。条目被编辑的时候不需要为每个值提供数据，值的内容为之前的内容。
+条目创建时需提供所有值，或在必要时用 __null__ 作为占位符。条目编辑时不需要为每个值提供数据，值的内容为之前的内容。
 
-每此调用 __edit__ 方法时必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：每次读取获得的是 __提交之前__ 或 __提交之后__ 完整的值集合，而不是两个状态的混合值。
+每此调用 __edit__ 方法时必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：每次读取获得 __提交之前__ 或 __提交之后__ 完整的值集合，而不是两个状态的混合值。
 
-客户端调用 __get()__ 读取一个条目的快照。读操作会在 __get__ 方法调用的时候观察值。更新或移除操作不会影响正在进行的读取操作。
+客户端调用 __get()__ 读取条目的快照。读操作会在 __get__ 方法调用的时候观察值。更新或移除操作不会影响正在进行的读取操作。
 
-此类可容忍少量 I/O 错误。如果文件系统丢失文件，对应的条目会从缓存中删除。假如这个错误发生在缓存写入值的时候，编辑操作会悄无声息地执行失败。调用者需要处理由 __IOException__ 引起的问题。
+此类可容忍少量 I/O 错误。如果文件系统丢失文件，对应的条目会从缓存中删除。假如这个错误发生在缓存写入值的时候，编辑执行操作会悄无声息地失败。注意，调用者需要处理由 __IOException__ 引起的问题。
 
 #### 1.2 日志格式
 
-日志文件命名为"journal"。一个典型的日志文件格式如下：
+日志文件命名为"journal"。典型的日志文件格式如下：
 
 ```java
 libcore.io.DiskLruCache
@@ -53,13 +53,13 @@ READ 335c4c6028171cfddfbaae1a9c313c52
 READ 3400330d1dfc7f3f7f4b8d4d803dfcf6
 ```
 
-前五行内容是日志文件的头部。分别是常量字符创 __"libcore.io.DiskLruCache"__、__磁盘缓存版本__、__应用程序版本__、__值总计数量__ 和 一个空行。
+前五行内容是日志文件的头部。分别是 __"libcore.io.DiskLruCache"__、__磁盘缓存版本__、__应用程序版本__、__值总计数量__ 和一个空行。
 
-文件随后每一行，各自记录着一个缓存条目的状态。内容为：状态值、key、可选的描述状态的值，各自通过一个空格分割。
+文件随后每一行，代表记录一个缓存条目的状态。内容为：状态值、key、可选的描述状态的值，各自用空格分割。
 
-- __DIRTY__ 意味对应条目是新创建的或已被修改。每个正确的 __DIRTY__ 操作必须跟着 __CLEAN__ 或 __REMOVE__ 操作。如果没满足该条件，则需要删除临时文件；
-- __CLEAN__ 表示缓存条目已成功发布并可访问。每个发布行的后面跟着每个值的长度；
-- __READ__ 是访问LRU操作 (访问应该不会造成副作用)；
+- __DIRTY__ 意味对应条目是新创建或已被修改。每个正确的 __DIRTY__ 操作必须跟着 __CLEAN__ 或 __REMOVE__ 操作。如果没满足该条件，则需要删除临时文件；
+- __CLEAN__ 表示缓存条目已成功发布并可访问。每个发布行后面跟着若干个写入值的长度；
+- __READ__ 是访问操作 (访问不会造成副作用)；
 - __REMOVE__ 表示该条目内容已被删除。
 
 当发生缓存操作时，内容会追加到日志文件中。缓存类偶尔会删除日志文件多余的行，缩小内容体积。临时文件名为 __"journal.tmp"__，在日志压缩过程中使用，且会在缓存启动时删除该文件。
@@ -76,7 +76,7 @@ static final String JOURNAL_FILE_TEMP = "journal.tmp";
 // 备份文件的文件名
 static final String JOURNAL_FILE_BACKUP = "journal.bkp";
 
-// 魔数字符串用于标识日志文件的身份
+// 魔数字符串标识文件的身份
 static final String MAGIC = "libcore.io.DiskLruCache";
 
 // 当前DiskLruCache的版本
@@ -84,22 +84,22 @@ static final String VERSION_1 = "1";
 
 static final long ANY_SEQUENCE_NUMBER = -1;
 
-// 已清除，字符串长度为5
+// 已清除
 private static final String CLEAN = "CLEAN";
 
-// 脏数据，字符串长度为5
+// 脏数据
 private static final String DIRTY = "DIRTY";
 
-// 已移除，字符串长度为6
+// 已移除
 private static final String REMOVE = "REMOVE";
 
-// 已读取，字符串长度为4
+// 已读取
 private static final String READ = "READ";
 ```
 
 ## 三、数据成员
 
-数据成员通过 __LinkedHashMap__ 类实现LRU特性，具体源码请看[Java源码系列(11) -- LinkedHashMap](/2018/07/09/LinkedHashMap/)。
+数据成员通过 __LinkedHashMap__ 类实现LRU特性，具体源码请看[Java源码系列(11) -- LinkedHashMap](/2018/07/09/LinkedHashMap/)
 
 
 ```java
@@ -121,7 +121,7 @@ private final int appVersion;
 // 用于存储的最大字节数
 private long maxSize;
 
-// 每个条目值可保存值的最大数量
+// 每个条目可保存值的最大数量
 private final int valueCount;
 
 // 已保存内容的大小
@@ -139,7 +139,7 @@ private int redundantOpCount;
 // 如果快照的序列号不等于条目的序列号，则快照是旧的
 private long nextSequenceNumber = 0;
 
-// 此缓存使用后台单线程清除条目
+// 缓存使用后台单线程清除条目
 final ThreadPoolExecutor executorService =
     new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>());
 ```
@@ -170,7 +170,7 @@ private final Callable<Void> cleanupCallable = new Callable<Void>() {
 
 ## 四、构造方法
 
-构造方法无法从外部调用，因为可见性修饰是 __private__。只能通过内部的静态方法 __open__ 创建实例。
+可见性修饰是 __private__，构造方法无法从外部调用，只能通过内部静态方法 __open__ 创建实例。
 
 ```java
 private DiskLruCache(File directory, int appVersion, int valueCount, long maxSize) {
@@ -188,9 +188,7 @@ private DiskLruCache(File directory, int appVersion, int valueCount, long maxSiz
 
 #### 5.1 open
 
-打开在目录 __directory__ 中的缓存，文件不存在则创建新缓存。
-
-参数解析：
+打开在目录 __directory__ 中的缓存，文件不存在则创建新缓存。参数解析：
 
 - __directory__：存放文件的可写目录
 - __appVersion__：应用版本号，当版本号改变后缓存会全部重置
@@ -212,7 +210,7 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
     throw new IllegalArgumentException("valueCount <= 0");
   }
 
-  // 获取备份文件，重建日志时生成的
+  // 获取备份文件，文件是重建日志时生成的
   File backupFile = new File(directory, JOURNAL_FILE_BACKUP);
   if (backupFile.exists()) {
     File journalFile = new File(directory, JOURNAL_FILE);
@@ -363,9 +361,9 @@ private void readJournalLine(String line) throws IOException {
 }
 ```
 
-总结就是一下操作：
+总结操作指令：
 
-- __REMOVE__：从 __LinkedHashMap__ 删除结果；
+- __REMOVE__：从 __LinkedHashMap__ 删除条目；
 - __CLEAN__：初始化条目，设置 __readable=true__、__currentEditor=null__，初始化内容长度；
 - __DIRTY__：设置 __currentEditor__ 对象；
 - __READ__：什么都不执行；
@@ -374,7 +372,7 @@ private void readJournalLine(String line) throws IOException {
 
 #### 5.4 processJournal
 
-把计算初始大小和收集垃圾操作作为打开缓存的一部分。脏条目会假定为不一致，将要被删除。
+把计算初始大小和收集垃圾操作作为打开缓存的一部分。脏条目会假定为不一致要被删除。DIRTY操作的 __currentEditor__ 不为空，意味原内容已废弃，但新内容又没正确结束，所以新旧文件都要移除。
 
 ```java
 private void processJournal() throws IOException {
@@ -390,7 +388,6 @@ private void processJournal() throws IOException {
       }
     } else {
       // DIRTY操作的currentEditor不为空
-      // 意味着原内容已被修改，但新内容又没正确结束，所以两个文件都要删除
       entry.currentEditor = null;
       for (int t = 0; t < valueCount; t++) {
         deleteIfExists(entry.getCleanFile(t));
@@ -405,7 +402,7 @@ private void processJournal() throws IOException {
 
 #### 5.5 rebuildJournal
 
-创建一个忽略多余信息的日志文件，并把文件替换已经存在的日志文件。
+创建一个忽略多余信息的日志文件，并用心文件替换已经存在的日志文件。
 
 ```java
 private synchronized void rebuildJournal() throws IOException {
@@ -432,7 +429,7 @@ private synchronized void rebuildJournal() throws IOException {
     // 第五行，空行
     writer.write("\n");
 
-    // 根据lruEntries写入日志内容
+    // 把lruEntries有效记录写入日志
     for (Entry entry : lruEntries.values()) {
       if (entry.currentEditor != null) {
         writer.write(DIRTY + ' ' + entry.key + '\n');
@@ -453,6 +450,7 @@ private synchronized void rebuildJournal() throws IOException {
   // 删除备份文件
   journalFileBackup.delete();
 
+  // 更换journalWriter到新日志文件
   journalWriter = new BufferedWriter(
       new OutputStreamWriter(new FileOutputStream(journalFile, true), Util.US_ASCII));
 }
@@ -460,11 +458,10 @@ private synchronized void rebuildJournal() throws IOException {
 
 #### 5.6 deleteIfExists
 
-如果文件已存在则删除该文件
+删除已存在文件，删除失败会抛出IOException
 
 ```java
 private static void deleteIfExists(File file) throws IOException {
-  // 仅在文件存在的时候执行，删除失败会抛出IOException
   if (file.exists() && !file.delete()) {
     throw new IOException();
   }
@@ -473,7 +470,7 @@ private static void deleteIfExists(File file) throws IOException {
 
 #### 5.7 renameTo
 
-从命名文件，把 __from__ 文件的名称重命名为 __to__ ，并根据 __deleteDestination__ 决定是否删除已存在的 __to__ 文件。
+文件重命名，并根据 __deleteDestination__ 决定是否删除已存在的 __to__ 文件。
 
 ```java
 private static void renameTo(File from, File to, boolean deleteDestination) throws IOException {
@@ -491,7 +488,7 @@ private static void renameTo(File from, File to, boolean deleteDestination) thro
 
 #### 5.8 get
 
-返回名为 __key__ 条目的快照，若文件不存在或不可读时返回null。如果有值被返回，则该值会被移到LRU队列的头部的首位上。
+返回键名为 __key__ 条目的快照，若文件不存在或不可读时返回null。如果有值被返回，则该值会被移到LRU队列的头部上。
 
 ```java
 public synchronized Value get(String key) throws IOException {
@@ -531,7 +528,7 @@ public synchronized Value get(String key) throws IOException {
 
 #### 5.9 edit
 
-返回名为 __key__ 条目的编辑器，如果其他编辑操作正在进行则返回null。
+返回 __key__ 对应条目的编辑器，如果其他编辑操作正在进行则返回null。
 
 ```java
 public Editor edit(String key) throws IOException {
@@ -550,16 +547,19 @@ private synchronized Editor edit(String key, long expectedSequenceNumber) throws
     return null; // 值已经被废弃
   }
   if (entry == null) {
+    // 为不存在的键创建新条目
     entry = new Entry(key);
     lruEntries.put(key, entry);
   } else if (entry.currentEditor != null) {
-    return null; // 另一个编辑正在进行
+    // 另一个编辑正在进行
+    return null;
   }
-
+  
+  // 为编辑的文件创建Editor
   Editor editor = new Editor(entry);
   entry.currentEditor = editor;
 
-  // 在创建文件之前刷新日志以防止文件泄漏
+  // 在创建文件之前刷新日志以防止文件修改记录出现遗漏
   journalWriter.append(DIRTY);
   journalWriter.append(' ');
   journalWriter.append(key);
@@ -591,7 +591,7 @@ public synchronized long size() {
 
 #### 5.11 setter
 
-如有必要，更改缓存可以存储的最大字节数，把并安排一个任务裁剪已存在的存储内容。
+如有必要，更改缓存可以存储的最大字节数，把安排后台任务减少已存在存储内容的占用空间。
 
 ```java
 public synchronized void setMaxSize(long maxSize) {
@@ -602,9 +602,9 @@ public synchronized void setMaxSize(long maxSize) {
 
 #### 5.12 completeEdit
 
-方法总结为以下流程：
+总结为以下流程：
 
-- 写入的key是全新的，则必须提供非空内容；
+- 没有处于编辑状态的条目不能调用此方法，否则抛出IllegalStateException；
 - __success__ 为 __true__，用 __DirtyFile__ 更新 __CleanFile__，否则删除 __DirtyFile__ ；
 - 最后向日志文件写入相关最新操作；
 - 检查日志文件是否太大，有没有必要进行清理；
