@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Glide -- ResourceTranscoder"
-date:       2019-01-01
+date:       2019-01-11
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -13,12 +13,12 @@ tags:
 
 ## ResourceTranscoder
 
-__ResourceTranscoder__ 是 __Glide__ 中类型转换器的抽象接口，表示资源从一种类型转换为另一种类型。泛型 __Z__ 表示转换前资源的原始类型，泛型 __R__ 表示资源会被转换成的类型。
+__ResourceTranscoder__ 是 __Glide__ 内类型转换器的抽象接口，表示资源从一种类型转换为另一种类型。泛型 __Z__ 表示转换前资源的原始类型，泛型 __R__ 表示资源转换后的目标类型。
 
 ```java
 public interface ResourceTranscoder<Z, R> {
 
-  // 实现类实现此抽象方法，根据传入资源根据既定规则和传入参数返回转换结果
+  // 子类实现此方法，根据既定规则和传入参数返回转换结果
   @Nullable
   Resource<R> transcode(@NonNull Resource<Z> toTranscode, @NonNull Options options);
 }
@@ -33,21 +33,15 @@ __ResourceTranscoder__ 的实现子类一种有5个：
 转换 __Bitmap__ 资源为字节数组
 
 ```java
-/**
- * An {@link com.bumptech.glide.load.resource.transcode.ResourceTranscoder} that converts {@link
- * android.graphics.Bitmap}s into byte arrays using {@link android.graphics.Bitmap#compress
- * (android.graphics.Bitmap.CompressFormat,
- * int, java.io.OutputStream)}.
- */
 public class BitmapBytesTranscoder implements ResourceTranscoder<Bitmap, byte[]> {
   private final Bitmap.CompressFormat compressFormat;
   private final int quality;
 
   public BitmapBytesTranscoder() {
+    // 默认转换为JPEG，压缩质量100，该质量相当于最轻量的压缩，而非不压缩
     this(Bitmap.CompressFormat.JPEG, 100);
   }
 
-  // Public API.
   @SuppressWarnings("WeakerAccess")
   public BitmapBytesTranscoder(@NonNull Bitmap.CompressFormat compressFormat, int quality) {
     this.compressFormat = compressFormat;
@@ -58,7 +52,9 @@ public class BitmapBytesTranscoder implements ResourceTranscoder<Bitmap, byte[]>
   @Override
   public Resource<byte[]> transcode(@NonNull Resource<Bitmap> toTranscode,
       @NonNull Options options) {
+    // 创建输出流
     ByteArrayOutputStream os = new ByteArrayOutputStream();
+    // android.graphics.Bitmap#compress(android.graphics.Bitmap.CompressFormat, int, java.io.OutputStream)
     toTranscode.get().compress(compressFormat, quality, os);
     toTranscode.recycle();
     return new BytesResource(os.toByteArray());
@@ -68,7 +64,7 @@ public class BitmapBytesTranscoder implements ResourceTranscoder<Bitmap, byte[]>
 
 ## BitmapDrawableTranscoder
 
-转换 __Bitmap__ 资源为 __BitmapDrawable__ 类型
+转换 __Bitmap__ 资源为 __BitmapDrawable__
 
 ```java
 public class BitmapDrawableTranscoder implements ResourceTranscoder<Bitmap, BitmapDrawable> {
@@ -106,10 +102,6 @@ public class BitmapDrawableTranscoder implements ResourceTranscoder<Bitmap, Bitm
 转换 __Drawable__ 资源为字节数组
 
 ```java
-/**
- * Obtains {@code byte[]} from {@link BitmapDrawable}s by delegating to a
- * {@link ResourceTranscoder} for {@link Bitmap}s to {@code byte[]}s.
- */
 public final class DrawableBytesTranscoder implements ResourceTranscoder<Drawable, byte[]> {
   private final BitmapPool bitmapPool;
   private final ResourceTranscoder<Bitmap, byte[]> bitmapBytesTranscoder;
@@ -180,6 +172,7 @@ public class UnitTranscoder<Z> implements ResourceTranscoder<Z, Z> {
   @Nullable
   @Override
   public Resource<Z> transcode(@NonNull Resource<Z> toTranscode, @NonNull Options options) {
+    // 直接返回传入对象
     return toTranscode;
   }
 }

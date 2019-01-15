@@ -40,6 +40,7 @@ final class MultiDexExtractor implements Closeable {
         Log.i("MultiDex", "MultiDexExtractor(" + sourceApk.getPath() + ", " + dexDir.getPath() + ")");
         this.sourceApk = sourceApk;
         this.dexDir = dexDir;
+        // 获取Zip文件的CRC，检查文件的完整性
         this.sourceCrc = getZipCrc(sourceApk);
         File lockFile = new File(dexDir, "MultiDex.lock");
         this.lockRaf = new RandomAccessFile(lockFile, "rw");
