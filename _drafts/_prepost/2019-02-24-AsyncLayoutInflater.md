@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "AsyncLayoutInflater"
-date:       2019-01-01
+title:      "Android源码系列 -- AsyncLayoutInflater"
+date:       2019-01-24
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -9,9 +9,17 @@ tags:
     - Android源码系列
 ---
 
-Android 28
-
 ## 类签名
+
+这是用于异步填充 __View__ 的辅助类。通过在主线程调用 __AsyncLayoutInflater__ 的方法 __inflate(int, ViewGroup, OnInflateFinishedListener) __。当视图填充完毕后会在主线程回调 __OnInflateFinishedListener__。
+
+这便于主线程在继续响应用户的时候，重量级填充操作还能继续执行。异步填充的布局需要一个来自 __ViewGroup#generateLayoutParams(AttributeSet)__ 的父布局，该方法线程安全，且在视图构建过程中禁止创建任何 __Handler__ 或调用 __Looper#myLooper()__ 。若布局无法在子线程进行异步填充，则操作会回退到主线程进行。
+
+注意，视图填充完成后不会加入到父布局中。这相当于调用 __LayoutInflater#inflate(int, ViewGroup, boolean) __ 时参数 __attachToRoot__ 为 __false__。而调用者很可能希望在 __OnInflateFinishedListener__ 中通过调用 __ViewGroup#addView(View)__ 把视图放入父布局。
+
+本填充器不支持设置 __LayoutInflater.Factory__ 或 __LayoutInflater.Factory2__。类似的，也不支持填充包含 __fragment__ 的布局。
+
+源码版本Android 28
 
 ```java
 /**
@@ -44,6 +52,9 @@ Android 28
  * nor {@link LayoutInflater.Factory2}. Similarly it does not support inflating
  * layouts that contain fragments.
  */
+```
+
+```java
 public final class AsyncLayoutInflater
 ```
 
@@ -76,6 +87,8 @@ private Callback mHandlerCallback = new Callback() {
 
 ## 构造方法
 
+构造方法内初始化了实际负责填充工作的填充器 __BasicInflater__。
+
 ```java
 public AsyncLayoutInflater(@NonNull Context context) {
     mInflater = new BasicInflater(context);
@@ -84,21 +97,26 @@ public AsyncLayoutInflater(@NonNull Context context) {
 }
 ```
 
-
 ## 成员方法
+
+主线程通过此方法添加填充任务。
 
 ```java
 @UiThread
 public void inflate(@LayoutRes int resid, @Nullable ViewGroup parent,
         @NonNull OnInflateFinishedListener callback) {
+    // 填充完成回调不能为空，以便把填充完成的布局返回给调用者
     if (callback == null) {
         throw new NullPointerException("callback argument may not be null!");
     }
+    // 从缓存池中获取一个空的填充请求
     InflateRequest request = mInflateThread.obtainRequest();
+    // 把填充需要的数据存入填充请求中
     request.inflater = this;
     request.resid = resid;
     request.parent = parent;
     request.callback = callback;
+    // 请求添加到子线程等待处理
     mInflateThread.enqueue(request);
 }
 ```
@@ -138,7 +156,7 @@ private static class InflateRequest {
 
 ## BasicInflater
 
-继承父类 __LayoutInflater__，重写父类方法 __onCreateView(String name, AttributeSet attrs)__
+继承父类 __LayoutInflater__，重写父类方法 __onCreateView(String name, AttributeSet attrs)__。在此方法内，利用了父类方法 __createView__ 反射目标视图。当视图构建出来之后，视图会直接返回给调用者，而不会给该视图添加父布局的布局参数。
 
 ```java
 private static class BasicInflater extends LayoutInflater {
@@ -177,6 +195,10 @@ private static class BasicInflater extends LayoutInflater {
 ```
 
 ## InflateThread
+
+负责填充视图的线程。线程内包含任务阻塞队列，这个队列的空间为10，当放入任务数量超过10时，如果主线程继续放入如任务，则任务队列会阻塞主线程直到队列出现空余位置。这个类是单例，所以多个 __AsyncLayoutInflater__ 实例共享一个工作线程及内部的线程池。
+
+如果有非常多任务需要异步填充，由于每个填充的视图平均需要10ms的时间，所以会出现视图排队等待填充完成会耗费非常多时间。
 
 ```java
 private static class InflateThread extends Thread {
