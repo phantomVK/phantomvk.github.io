@@ -11,7 +11,7 @@ tags:
 
 ## 类签名
 
-这是用于异步填充 __View__ 的辅助类。通过在主线程调用 __AsyncLayoutInflater__ 的方法 __inflate(int, ViewGroup, OnInflateFinishedListener) __。当视图填充完毕后会在主线程回调 __OnInflateFinishedListener__。
+这是用于异步填充 __View__ 的帮助类。在主线程构建 __AsyncLayoutInflater__ 实例，并调用方法 __inflate(int, ViewGroup, OnInflateFinishedListener) __。视图填充完毕后在主线程回调 __OnInflateFinishedListener__ 通知调用者。
 
 这便于主线程在继续响应用户的时候，重量级填充操作还能继续执行。异步填充的布局需要一个来自 __ViewGroup#generateLayoutParams(AttributeSet)__ 的父布局，该方法线程安全，且在视图构建过程中禁止创建任何 __Handler__ 或调用 __Looper#myLooper()__ 。若布局无法在子线程进行异步填充，则操作会回退到主线程进行。
 
@@ -22,13 +22,7 @@ tags:
 源码版本Android 28
 
 ```java
-/**
- * <p>Helper class for inflating layouts asynchronously. To use, construct
- * an instance of {@link AsyncLayoutInflater} on the UI thread and call
- * {@link #inflate(int, ViewGroup, OnInflateFinishedListener)}. The
- * {@link OnInflateFinishedListener} will be invoked on the UI thread
- * when the inflate request has completed.
- *
+/** 
  * <p>This is intended for parts of the UI that are created lazily or in
  * response to user interactions. This allows the UI thread to continue
  * to be responsive & animate while the relatively heavy inflate
@@ -288,7 +282,7 @@ private static class InflateThread extends Thread {
 
 ## 缺点
 
-1. 任务不支持多线程；
-2. 类通过 __final__ 修饰，不能通过继承重写父类实现；
-3. 任务进入任务队列失败会直接排除异常，需要自行捕获处理；
-4. 任务等待队列不能自定义初始化大小
+1. 不支持多线程并发处理任务；
+2. 类修饰为 __final__，不能通过继承重写父类实现；
+3. 任务进入队列失败会直接排除异常，需要自行捕获处理；
+4. 任务等待队列不能自定义初始化大小；
