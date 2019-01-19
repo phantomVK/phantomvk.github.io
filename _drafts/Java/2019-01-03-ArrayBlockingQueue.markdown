@@ -14,8 +14,6 @@ JDK11
 
 ## 类签名
 
-
-
 ```java
 /**
  * A bounded {@linkplain BlockingQueue blocking queue} backed by an
@@ -84,8 +82,6 @@ private final Condition notFull;
 ```
 
 ```java
-// Internal helper methods
-
 /**
  * Increments i, mod modulus.
  * Precondition and postcondition: 0 <= i < modulus.
@@ -106,9 +102,7 @@ static final int dec(int i, int modulus) {
 ```
 
 ```java
-/**
- * Returns item at index i.
- */
+// 根据指定索引获取数组中的变量值
 @SuppressWarnings("unchecked")
 final E itemAt(int i) {
     return (E) items[i];
