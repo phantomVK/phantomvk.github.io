@@ -11,7 +11,7 @@ tags:
 
 ## 类签名
 
-利用一个或多个变量共同维护一个初始值为 __0__ 的long的总和。当调用 __add()__ 时出现线程竞争，这些变量集通过动态增加以便减少竞争。方法 __sum()__ 或变量 __longValue__，返回当前用于维护总和变量集的总大小。
+利用一个或多个变量共同维护一个初始值为 __0__ 的long总和。当调用 __add()__ 时出现线程竞争，这些变量集通过动态增加以便减少竞争。方法 __sum()__ 或变量 __longValue__，返回当前用于维护总和变量集的总大小。
 
 ```java
 public class LongAdder extends Striped64 implements Serializable

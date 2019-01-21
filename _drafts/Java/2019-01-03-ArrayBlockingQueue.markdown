@@ -14,6 +14,10 @@ JDK11
 
 ## 类签名
 
+__BlockingQueue__ 是利用数组实现的有界数组。队列元素按照先进先出的规则管理。队列头部的元素是保存在队列事件最长的元素。队列尾部的元素是保存在队列中时间最短的元素。新元素插入到队列的尾部，二队列遍历操作从队列的头部获取元素。
+
+这是传统的游街缓冲，元素保存在固定大小的数组中，由生产者插入元素并由消费者取出元素。一旦元素创建成功，元素内容不能被修改。尝试向一个已满的队列放入元素会引起阻塞，同样从空队列中多去元素也会出现阻塞。
+
 ```java
 /**
  * A bounded {@linkplain BlockingQueue blocking queue} backed by an
@@ -30,28 +34,23 @@ JDK11
  * changed.  Attempts to {@code put} an element into a full queue
  * will result in the operation blocking; attempts to {@code take} an
  * element from an empty queue will similarly block.
- *
+ */
+```
+
+此类支持可选的公平策略安排正在等待的生产者和消费者。然而，把 __fairness__ 设为 __true__ 的保证线程通过先进先出的方式获取。公平特性一般会减低吞吐量，但能降低可变性和避免线程饥饿。
+
+ ```java
+/**
  * <p>This class supports an optional fairness policy for ordering
  * waiting producer and consumer threads.  By default, this ordering
  * is not guaranteed. However, a queue constructed with fairness set
  * to {@code true} grants threads access in FIFO order. Fairness
  * generally decreases throughput but reduces variability and avoids
  * starvation.
- *
- * <p>This class and its iterator implement all of the <em>optional</em>
- * methods of the {@link Collection} and {@link Iterator} interfaces.
- *
- * <p>This class is a member of the
- * <a href="{@docRoot}/java.base/java/util/package-summary.html#CollectionsFramework">
- * Java Collections Framework</a>.
- *
- * @since 1.5
- * @author Doug Lea
- * @param <E> the type of elements held in this queue
  */
 public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         implements BlockingQueue<E>, java.io.Serializable
-```
+ ```
 
 ## 成员变量
 
@@ -303,6 +302,7 @@ public boolean offer(E e) {
  * @throws InterruptedException {@inheritDoc}
  * @throws NullPointerException {@inheritDoc}
  */
+// 插入指定元素到队列的尾部，如果队列空间已满则阻塞等待
 public void put(E e) throws InterruptedException {
     Objects.requireNonNull(e);
     final ReentrantLock lock = this.lock;
@@ -324,6 +324,7 @@ public void put(E e) throws InterruptedException {
  * @throws InterruptedException {@inheritDoc}
  * @throws NullPointerException {@inheritDoc}
  */
+// 插入指定元素到队列的尾部，如果队列空间已满则阻塞等待，可自定义超时时间
 public boolean offer(E e, long timeout, TimeUnit unit)
     throws InterruptedException {
 
