@@ -50,6 +50,8 @@ private final Condition notFull;
 
 ## 三、构造方法
 
+构造方法内初始化保存元素的环形数组，同时也初始化同步锁相关的变量。形参 __fair__ 控制队列是否支持公平锁，一般建议适用非公平锁，因为公平锁为了平衡读写线程的，需要牺牲一些吞吐量。
+
 ```java
 // 支持自定义公平锁
 public ArrayBlockingQueue(int capacity, boolean fair) {
