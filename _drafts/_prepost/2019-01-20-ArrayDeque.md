@@ -11,9 +11,9 @@ tags:
 
 ## 一、类签名
 
-这是实现 __Deque__ 接口且大小可变的数组。数组实现的双端队列没有容量限制，需要空间的时候就进行扩容。
+__ArrayDeque__ 是实现 __Deque__ 接口且大小可变的双端队列数组。数组实现的双端队列没有容量限制，需要空间时进行就进行扩容。
 
-此类线程不安全，如果没有额外的同步约束，就不能支持多线程并发访问。值得注意的是，本双端队列不接受空对象，作为栈使用时比 __Stack__ 快，作为队列使用时比 __LinkedList__ 快。
+此类线程不安全，如果没有外部同步约束，就不支持多线程并发存取。值得注意的是，本双端队列不接受空对象，作为栈使用时比 __Stack__ 快，作为队列使用时比 __LinkedList__ 快。
 
 大多数 __ArrayDeque__ 方法执行消耗常量时间，除了__remove(Object)__、 __removeFirstOccurrence__， __removeLastOccurrence__、 __contains__、 __iterator__ 和批量操作是线性时间消耗的。
 
@@ -34,7 +34,7 @@ for (int i = start; i < end; i++) ... elements[i]
 
 ## 二、数据成员
 
-保存双端数组队列的变量。当数组单个块没有持有双端队列元素时为空。数组存在至少一个空块，作为队列的尾部
+保存双端数组队列的变量。当数组的 __cells__ 没有持有双端队列元素时为空。数组存在至少一个空位，作为队列的尾部
 
 ```java
 transient Object[] elements;
@@ -54,7 +54,7 @@ transient int tail;
 
 ## 三、常量
 
-可申请数组的最大容量值。因为有些虚拟机实现会在数组中保留 __header words__。所以尝试更大数组空间会导致 __OutOfMemoryError__。使用此值就是为了避免这种问题。
+可申请数组的最大容量值。有些虚拟机实现会在数组中保留 __header words__。所以尝试分配更大数组空间会导致 __OutOfMemoryError__。使用此值避免了这种问题。
 
 ```java
 private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
@@ -636,42 +636,6 @@ private <T> T[] toArray(Class<T[]> klazz) {
 指定数组为空抛出 __NullPointerException__；
 
 ```java
-/**
- * Returns an array containing all of the elements in this deque in
- * proper sequence (from first to last element); the runtime type of the
- * returned array is that of the specified array.  If the deque fits in
- * the specified array, it is returned therein.  Otherwise, a new array
- * is allocated with the runtime type of the specified array and the
- * size of this deque.
- *
- * <p>If this deque fits in the specified array with room to spare
- * (i.e., the array has more elements than this deque), the element in
- * the array immediately following the end of the deque is set to
- * {@code null}.
- *
- * <p>Like the {@link #toArray()} method, this method acts as bridge between
- * array-based and collection-based APIs.  Further, this method allows
- * precise control over the runtime type of the output array, and may,
- * under certain circumstances, be used to save allocation costs.
- *
- * <p>Suppose {@code x} is a deque known to contain only strings.
- * The following code can be used to dump the deque into a newly
- * allocated array of {@code String}:
- *
- * <pre> {@code String[] y = x.toArray(new String[0]);}</pre>
- *
- * Note that {@code toArray(new Object[0])} is identical in function to
- * {@code toArray()}.
- *
- * @param a the array into which the elements of the deque are to
- *          be stored, if it is big enough; otherwise, a new array of the
- *          same runtime type is allocated for this purpose
- * @return an array containing all of the elements in this deque
- * @throws ArrayStoreException if the runtime type of the specified array
- *         is not a supertype of the runtime type of every element in
- *         this deque
- * @throws NullPointerException if the specified array is null
- */
 @SuppressWarnings("unchecked")
 public <T> T[] toArray(T[] a) {
     final int size;
@@ -686,30 +650,5 @@ public <T> T[] toArray(T[] a) {
     if (size < a.length)
         a[size] = null;
     return a;
-}
-```
-
-#### 7.16 checkInvariants
-
-```java
-void checkInvariants() {
-    // Use head and tail fields with empty slot at tail strategy.
-    // head == tail disambiguates to "empty".
-    try {
-        int capacity = elements.length;
-        // assert 0 <= head && head < capacity;
-        // assert 0 <= tail && tail < capacity;
-        // assert capacity > 0;
-        // assert size() < capacity;
-        // assert head == tail || elements[head] != null;
-        // assert elements[tail] == null;
-        // assert head == tail || elements[dec(tail, capacity)] != null;
-    } catch (Throwable t) {
-        System.err.printf("head=%d tail=%d capacity=%d%n",
-                          head, tail, elements.length);
-        System.err.printf("elements=%s%n",
-                          Arrays.toString(elements));
-        throw t;
-    }
 }
 ```
