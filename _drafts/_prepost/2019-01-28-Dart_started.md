@@ -38,7 +38,7 @@ $ brew install dart
 
 ![dart_plugin](/img/dart/dart_plugin.png)
 
-搜索 __Dart__ 并安装对应插件，安装成功后重启IDE
+搜索 __Dart__ 并安装对应插件，安装成功后重启IDE。由于本机应安装插件，所以下图按钮显示 __installed__
 
 ![dart_plugin_install](/img/dart/dart_plugin_install.png)
 
@@ -48,10 +48,10 @@ $ brew install dart
 
 ![dart_idea_new](/img/dart/dart_idea_new.png)
 
-左边的类型选择 __Dart__ 并进入下一步，下一步里面填写工程名称即可
+左边的类型选择 __Dart__ 并进入下一步，下一步里面填写工程名称
 
 ![dart_new_project](/img/dart/dart_new_project.png)
 
-成功运行 Hello world.
+运行前记得配置工程的主文件，就能显示 Hello world.
 
 ![dart_hello_world](/img/dart/dart_hello_world.png)
