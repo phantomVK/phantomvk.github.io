@@ -164,6 +164,58 @@ RecyclerView.ViewHolder tryGetViewHolderForPositionByDeadline(int position, bool
 }
 ```
 
+第一级缓存获取
+
+```java
+RecyclerView.ViewHolder getScrapOrHiddenOrCachedHolderForPosition(int position, boolean dryRun) {
+    int scrapCount = this.mAttachedScrap.size();
+
+    int cacheSize;
+    RecyclerView.ViewHolder vh;
+    for(cacheSize = 0; cacheSize < scrapCount; ++cacheSize) {
+        vh = (RecyclerView.ViewHolder)this.mAttachedScrap.get(cacheSize);
+        if (!vh.wasReturnedFromScrap() && vh.getLayoutPosition() == position && !vh.isInvalid() && (RecyclerView.this.mState.mInPreLayout || !vh.isRemoved())) {
+            vh.addFlags(32);
+            return vh;
+        }
+    }
+
+    if (!dryRun) {
+        View view = RecyclerView.this.mChildHelper.findHiddenNonRemovedView(position);
+        if (view != null) {
+            vh = RecyclerView.getChildViewHolderInt(view);
+            RecyclerView.this.mChildHelper.unhide(view);
+            int layoutIndex = RecyclerView.this.mChildHelper.indexOfChild(view);
+            if (layoutIndex == -1) {
+                throw new IllegalStateException("layout index should not be -1 after unhiding a view:" + vh + RecyclerView.this.exceptionLabel());
+            }
+
+            RecyclerView.this.mChildHelper.detachViewFromParent(layoutIndex);
+            this.scrapView(view);
+            vh.addFlags(8224);
+            return vh;
+        }
+    }
+
+    cacheSize = this.mCachedViews.size();
+
+    for(int i = 0; i < cacheSize; ++i) {
+        RecyclerView.ViewHolder holder = (RecyclerView.ViewHolder)this.mCachedViews.get(i);
+        if (!holder.isInvalid() && holder.getLayoutPosition() == position) {
+            if (!dryRun) {
+                this.mCachedViews.remove(i);
+            }
+
+            return holder;
+        }
+    }
+
+    return null;
+}
+```
+
+
+
 内部类RecycledViewPool
 
 ```java
