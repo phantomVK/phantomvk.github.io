@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Glide -- ResourceTranscoder"
-date:       2019-01-11
+date:       2019-02-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -157,7 +157,7 @@ public class GifDrawableBytesTranscoder implements ResourceTranscoder<GifDrawabl
 
 ## UnitTranscoder
 
-__ResourceTranscoder__ 的简单，输入和输出类型完全相同
+__ResourceTranscoder__ 的实现最简单，输入和输出类型完全相同
 
 ```java
 public class UnitTranscoder<Z> implements ResourceTranscoder<Z, Z> {
