@@ -627,7 +627,7 @@ static void notifyScreenshotError(Context context, NotificationManager nManager,
 
 #### 2.11 ScreenshotActionReceiver
 
-代理分享或编辑intent的Receiver
+代理分享或编辑intent的 __Receiver__
 
 ```java
 public static class ScreenshotActionReceiver extends BroadcastReceiver {

@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Glide -- ResourceTranscoder"
-date:       2019-02-01
+date:       2019-02-05
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
