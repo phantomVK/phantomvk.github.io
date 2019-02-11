@@ -24,7 +24,7 @@ public interface ResourceTranscoder<Z, R> {
 }
 ```
 
-__ResourceTranscoder__ 的实现子类一种有5个：
+__ResourceTranscoder__ 的子类实现一共有5种：
 
 ![ResourceTranscoder](/img/Glide/ResourceTranscoder.png)
 
@@ -54,8 +54,9 @@ public class BitmapBytesTranscoder implements ResourceTranscoder<Bitmap, byte[]>
       @NonNull Options options) {
     // 创建输出流
     ByteArrayOutputStream os = new ByteArrayOutputStream();
-    // android.graphics.Bitmap#compress(android.graphics.Bitmap.CompressFormat, int, java.io.OutputStream)
+    // 调用Bitmap的compress方法，结果写入到os
     toTranscode.get().compress(compressFormat, quality, os);
+    // 回收Bitmap
     toTranscode.recycle();
     return new BytesResource(os.toByteArray());
   }
@@ -75,9 +76,7 @@ public class BitmapDrawableTranscoder implements ResourceTranscoder<Bitmap, Bitm
     this(context.getResources());
   }
 
-  /**
-   * @deprecated Use {@link #BitmapDrawableTranscoder(Resources)}, {@code bitmapPool} is unused.
-   */
+  // @deprecated Use {@link #BitmapDrawableTranscoder(Resources)}, {@code bitmapPool} is unused.
   @Deprecated
   public BitmapDrawableTranscoder(
       @NonNull Resources resources, @SuppressWarnings("unused") BitmapPool bitmapPool) {
