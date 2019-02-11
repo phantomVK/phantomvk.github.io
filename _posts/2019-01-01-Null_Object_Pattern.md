@@ -14,10 +14,16 @@ tags:
 这是一般场景的用户模型，包含用户id和昵称：
 
 ```java
-class User(private val userId: String, private val nickname: String) {
+class User(private val userId: String,
+           private val roomId: String,
+           private val nickname: String) {
 
     fun getUserId(): String {
         return userId
+    }
+    
+    fun getRoomId(): String {
+        return roomId
     }
 
     fun getRemark(): String {
@@ -26,7 +32,9 @@ class User(private val userId: String, private val nickname: String) {
 }
 ```
 
-实现空对象的形式有很多，比较正式的实现方法是：子类继承父类并重写所有可见成员方法，通过抛出异常的方式，阻止代码调用空对象方法。这样做的目的是强调不要通过空对象获取无效数据。这种方式在父类有很多可重写方法是会略显麻烦，可自行约束对空对象的使用达到相同目的。
+实现空对象的形式有很多，比较正式的实现方法是：子类继承父类并重写所有可见成员方法，通过抛出异常的方式，阻止代码调用空对象方法。这样做的目的是强调不要通过空对象获取无效数据。
+
+这种方式在父类有很多可重写方法是会略显麻烦，可自行约束对空对象的使用达到相同目的。
 
 ```java
 class UserNull() : User("", "", "") {
@@ -51,6 +59,10 @@ open class User(private val userId: String,
 
     open fun getUserId(): String {
         return userId
+    }
+
+    open fun getRoomId(): String {
+        return roomId
     }
 
     open fun getRemark(): String {

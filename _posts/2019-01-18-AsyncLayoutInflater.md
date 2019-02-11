@@ -20,7 +20,7 @@ public final class AsyncLayoutInflater
 
 这适用于懒创建或响应用户交互的UI部分。有利于主线程继续响应用户时，重量级填充操作继续执行。填充布局需要来自 __ViewGroup.generateLayoutParams(AttributeSet)__ 的父布局，该方法线程安全。所有视图在构建过程中，禁止创建任何 __Handler__ 或调用 __Looper#myLooper()__ 。若布局无法在子线程进行异步填充，则操作会回退到主线程上执行。
 
-注意，视图填充完成后不会加入到父布局中。这相当于调用 __LayoutInflater.inflate(int, ViewGroup, boolean)__ 时参数 __attachToRoot__ 为 __false__。而调用者很可能希望在 __OnInflateFinishedListener__ 通过调用 __ViewGroup.addView(View)__ 把视图放入父布局。
+注意，视图填充完成后不会加入到父布局中。这相当于调用 __LayoutInflater.inflate(int, ViewGroup, boolean)__ 时参数 __attachToRoot__ 为 __false__。因为调用者很可能希望在 __OnInflateFinishedListener__ 通过调用 __ViewGroup.addView(View)__ 把视图放入父布局。
 
 本填充器不支持设置 __LayoutInflater.Factory__ 或 __LayoutInflater.Factory2__。类似，也不支持填充包含 __fragment__ 的布局。源码版本Android 28
 
@@ -115,7 +115,7 @@ private static class InflateRequest {
     ViewGroup parent;
     // 需填充资源的id
     int resid;
-    // 填充完成的视图，为填充完成则为null
+    // 填充完成的视图，未填充完成为null
     View view;
     // 填充完成的回调
     OnInflateFinishedListener callback;
@@ -128,6 +128,8 @@ private static class InflateRequest {
 ## 七、BasicInflater
 
 此类继承父类 __LayoutInflater__ 并重写父类方法 __onCreateView(String name, AttributeSet attrs)__。在此方法内，调用父类方法 __createView__ 反射构建目标视图。
+
+先尝试用 __sClassPrefixList__ 的前缀构建视图，因为使用的视图多数位于这三个包路径底下。
 
 ```java
 private static class BasicInflater extends LayoutInflater {
@@ -161,6 +163,7 @@ private static class BasicInflater extends LayoutInflater {
             }
         }
 
+        // 填充的视图不在以上三个包内，则调用父类方法构建
         return super.onCreateView(name, attrs);
     }
 }
@@ -190,6 +193,9 @@ private static class InflateThread extends Thread {
     // 复用InflateRequest实例的缓存池
     private SynchronizedPool<InflateRequest> mRequestPool = new SynchronizedPool<>(10);
 
+    // Extracted to its own method to ensure locals have a constrained liveness
+    // scope by the GC. This is needed to avoid keeping previous request references
+    // alive for an indeterminate amount of time, see b/33158143 for details
     public void runInner() {
         InflateRequest request;
         try {
@@ -214,6 +220,7 @@ private static class InflateThread extends Thread {
                 .sendToTarget();
     }
 
+    // 循环从阻塞队列中获取任务
     @Override
     public void run() {
         while (true) {

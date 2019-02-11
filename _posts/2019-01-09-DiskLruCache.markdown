@@ -23,19 +23,19 @@ public final class DiskLruCache implements Closeable
 
 此缓存可限制保存在文件系统字节的长度。当已保存字节长度超过限制，会在后台线程逐个移除条目，直到满足长度限制为止。但限制也不是严格执行：需删除文件的时候，缓存大小会暂时超过限制。容量限制不包含文件系统的开销和缓存日志文件的大小，所以对空间大小敏感的应用最好设置一个相对保守的阈值。
 
-客户端调用 __edit()__ 方法创建或更新条目的值，每次只被一个编辑器持有。如果不能编辑则 __edit()__ 方法返回 __null__。
+客户端调用 __edit()__ 方法才能创建或更新条目的值，每次只被一个编辑器持有。如果不能编辑则 __edit()__ 方法返回 __null__。
 
 条目创建时需提供所有值，或在必要时用 __null__ 作为占位符。条目编辑时不需要为每个值提供数据，值的内容为之前的内容。
 
-每此调用 __edit__ 方法时必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：每次读取获得 __提交之前__ 或 __提交之后__ 完整的值集合，而不是两个状态的混合值。
+每次调用 __edit__ 方法后必须配对使用 __Editor.commit()__ 或 __Editor.abort()__。提交操作是原子性的：每次读取获得 __提交之前__ 或 __提交之后__ 完整的值集合，而不是两个状态的混合值。
 
 客户端调用 __get()__ 读取条目的快照。读操作会在 __get__ 方法调用的时候观察值。更新或移除操作不会影响正在进行的读取操作。
 
-此类可容忍少量 I/O 错误。如果文件系统丢失文件，对应的条目会从缓存中删除。假如这个错误发生在缓存写入值的时候，编辑执行操作会悄无声息地失败。注意，调用者需要处理由 __IOException__ 引起的问题。
+本类可容忍少量 I/O 错误。如果文件系统丢失文件，对应的条目会从缓存中删除。假如这个错误发生在缓存写入值的时候，编辑执行操作会悄无声息地失败。注意，调用者需要处理由 __IOException__ 引起的问题。
 
 #### 1.2 日志格式
 
-日志文件命名为"journal"。典型的日志文件格式如下：
+日志文件命名为 "journal"，典型的文件格式如下：
 
 ```java
 libcore.io.DiskLruCache
@@ -231,6 +231,7 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
     try {
       cache.readJournal();
       cache.processJournal();
+      // 缓存读取成功，返回cache句柄
       return cache;
     } catch (IOException journalIsCorrupt) {
       System.out
@@ -243,7 +244,7 @@ public static DiskLruCache open(File directory, int appVersion, int valueCount, 
     }
   }
 
-  // 没找到已存在的文件，则创建全新空的缓存
+  // 没找到文件或读取出错，则创建全新空的缓存
   directory.mkdirs();
   cache = new DiskLruCache(directory, appVersion, valueCount, maxSize);
   cache.rebuildJournal();
@@ -402,7 +403,7 @@ private void processJournal() throws IOException {
 
 #### 5.5 rebuildJournal
 
-创建一个忽略多余信息的日志文件，并用心文件替换已经存在的日志文件。
+创建一个省略多余信息的日志文件，并用新文件替换已经存在的日志文件。
 
 ```java
 private synchronized void rebuildJournal() throws IOException {
@@ -506,7 +507,7 @@ public synchronized Value get(String key) throws IOException {
 
   // 如果文件是可以读取的
   for (File file : entry.cleanFiles) {
-      // 但检查时发现文件存在了，那文件肯定是被手动删除了
+      // 但检查时发现文件不存在，那文件肯定是刚刚被手动删除了
       if (!file.exists()) {
           return null;
       }
@@ -687,7 +688,7 @@ private synchronized void completeEdit(Editor editor, boolean success) throws IO
 ```java
 private boolean journalRebuildRequired() {
   final int redundantOpCompactThreshold = 2000;
-  return redundantOpCount >= redundantOpCompactThreshold //
+  return redundantOpCount >= redundantOpCompactThreshold
       && redundantOpCount >= lruEntries.size();
 }
 ```

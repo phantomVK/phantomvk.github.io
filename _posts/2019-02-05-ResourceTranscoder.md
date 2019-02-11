@@ -54,7 +54,7 @@ public class BitmapBytesTranscoder implements ResourceTranscoder<Bitmap, byte[]>
       @NonNull Options options) {
     // 创建输出流
     ByteArrayOutputStream os = new ByteArrayOutputStream();
-    // 调用Bitmap的compress方法，结果写入到os
+    // 调用Bitmap的compress方法，结果写入os
     toTranscode.get().compress(compressFormat, quality, os);
     // 回收Bitmap
     toTranscode.recycle();
