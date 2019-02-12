@@ -21,7 +21,7 @@ __EventBus__ 是为 __Android__ 而设，处于中心的 __publish/subscribe (�
 
 处理事件的方法需满足以下条件：
 
-- 用 __Subscribe__ 进行注解；
+- 用 __@Subscribe__ 进行注解；
 - 方法可见性为 __public__；
 - 方法返回值为 __void__；
 - 仅含有一个参数，且形参为事件类；
@@ -295,7 +295,7 @@ public void register(Object subscriber) {
     // 获取订阅者Class
     Class<?> subscriberClass = subscriber.getClass();
 
-    // 从订阅者类找出接收事件方法
+    // 从订阅者类获取接收事件的所有方法
     List<SubscriberMethod> subscriberMethods = subscriberMethodFinder.findSubscriberMethods(subscriberClass);
 
     synchronized (this) {
