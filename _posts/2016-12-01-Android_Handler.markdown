@@ -13,7 +13,7 @@ tags:
 
 Handler有两个主要用法：
 
- * 计划在将来某个时间点处理[Message](/2016/11/13/Android_Message/)和Runnable
+ * 计划在将来某个时间点处理[Message](/2016/11/13/Android_Message/)和[Runnable](/2018/11/07/Runnable_Callable/)
  * 在不同线程里将一个动作加入Handler所对应的队列去执行
 
 # 二、成员变量
@@ -305,7 +305,7 @@ Handler handler = new Handler(new Handler.Callback() {
 });
 ```
 
-如果上两个回调都不存在，最终交给Handler类的handleMessage(Message msg)方法：
+如果上两个回调都不存在，最终交给 __Handler__ 的 __handleMessage(Message msg)__ 方法：
 
 ```java
 @Override
@@ -428,6 +428,7 @@ private static final class BlockingRunnable implements Runnable {
         }
 
         synchronized (this) {
+            // 带有超时时间的任务会自行退出
             if (timeout > 0) {
                 // 截止时间
                 final long expirationTime = SystemClock.uptimeMillis() + timeout;
@@ -443,6 +444,7 @@ private static final class BlockingRunnable implements Runnable {
                     }
                 }
             } else {
+                // 没有设置超时的任务会等待执行完成
                 while (!mDone) {
                     try {
                         wait();

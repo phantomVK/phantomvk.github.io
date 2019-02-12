@@ -32,7 +32,7 @@ public class CopyOnWriteArrayList<E>
 final transient Object lock = new Object();
 ```
 
-变量array只能通过getArray()、setArray()获取，见第四节。注意，array变量的类型是Object[]，而不是E[]。
+变量array通过getArray()、setArray()获取，见第四节。注意array变量的类型是Object[]，而不是E[]。
 
 ```java
 private transient volatile Object[] array;

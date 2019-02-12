@@ -17,6 +17,8 @@ public class HashSet<E>
     implements Set<E>, Cloneable, java.io.Serializable
 ```
 
+UML
+
 ![HashMap_UML](/img/java/HashSet_UML.png)
 
 ## 二、数据成员

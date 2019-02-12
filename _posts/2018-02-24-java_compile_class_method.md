@@ -89,7 +89,7 @@ private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifier
 
 #### 编译方法
 
-经过`canBeCompiled() Line 627`被判定可以被编译的方法送到`compileMethod() Line 725`等待编译。
+经过`canBeCompiled() Line 627`判定的方法送到`compileMethod() Line 725`等待编译。
 
 ```java
 // Are we compiling this class?

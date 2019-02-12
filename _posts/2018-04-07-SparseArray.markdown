@@ -11,7 +11,7 @@ tags:
 
 ### 一、前言
 
-SparseArrays<E>是Android原生提供的稀疏数组，用于代替HashMap容器类。准确说，是在一部分场景中代替HashMap<Integer, Object>，提供从int映射到Object<E>的能力，优点是具有高效的内存利用率。
+SparseArrays<E>是Android提供的稀疏数组，用于代替HashMap容器类。准确说，是在一部分场景中代替HashMap<Integer, Object>，提供从int映射到Object<E>的能力，优点是具有高效的内存利用率。
 
 ```java
 public class SparseArray<E> implements Cloneable

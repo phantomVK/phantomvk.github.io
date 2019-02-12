@@ -198,7 +198,7 @@ static class Node<K,V> implements Map.Entry<K,V> {
 
 通常，判断Hash算法是否高效的方式，是看元素是否均匀分放到不同桶中，最好一个桶存放一个元素。即使存放更多元素，也希望每个桶能均匀存放相同数量。如果哈希算法不佳，导致一个桶中存放元素数量特别多，将严重影响存取性能。
 
-为降低碰撞几率，需设置负载因子 loadFactor(默认值0.75)。假设用默认桶数量capacity(初始值16)，通过`threshold = capacity * loadFactor`可知当键值对数量超过12时触发扩容。当然，通过单纯使用大量桶，即便不经优化的哈希算法，也能把元素相对均匀地放在不同桶中，类似通过空间换时间。事实上，JDK中的HashMap经过长期验证和修改，已在空间和时间两者取得平衡。
+为降低碰撞几率，需设置负载因子 loadFactor(默认值0.75)。假设用默认桶数量capacity(初始值16)，通过`threshold = capacity * loadFactor`可知当键值对数量超过12时触发扩容。当然，通过单纯使用大量桶，即便不经优化的哈希算法，也能把元素相对均匀地放在不同桶中，类似通过空间换时间。而JDK的HashMap经过长期验证和修改，已在空间和时间两者取得平衡。
 
 ```java
 static final int hash(Object key) {
@@ -239,7 +239,7 @@ static final int tableSizeFor(int cap) {
 
 ![HashMap_tableSizeFor](/img/java/HashMap_tableSizeFor.png)
 
-从图中看出，当流程进行到`n|=n>>>4`，后续步骤运算结果已经固定不变。参数cap为15计算得到最终结果为16。
+当流程进行到`n|=n>>>4`，后续步骤运算结果已经固定不变。参数cap为15计算得到最终结果为16。
 
 ## 六、成员方法
 

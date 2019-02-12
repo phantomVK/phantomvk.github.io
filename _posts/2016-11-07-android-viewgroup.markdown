@@ -12,11 +12,11 @@ tags:
 
 # 前言
 
-上一篇文章 [Android View 事件分发源码剖析](http://phantomvk.coding.me/2016/10/18/Android_View/) 详细分析View事件分发的细节。接下来继续学习ViewGroup事件分发。此次源码同样基于Android SDK 23，即Android 6.0。不同Framework源码可能不一样，请自行斟酌。
+上一篇文章 [Android View 事件分发源码剖析](/2016/10/18/Android_View/) 详细分析View事件分发的细节。接下来继续学习ViewGroup事件分发。此次源码同样基于Android SDK 23，即Android 6.0。不同Framework源码可能不一样，请自行斟酌。
 
 # 一、 代码构建
 
-继承LinearLayout重写**dispatchTouchEvent()**、**onInterceptTouchEvent()**、**onTouchEvent()**方法。
+继承LinearLayout重写**dispatchTouchEvent()**、**onInterceptTouchEvent()**、**onTouchEvent()**方法。因为 __ViewGroup__ 可以有子视图，所以相比 __View__ 多了 __onInterceptTouchEvent()__，决定点击事件是否传递给子视图。
 
 ```java
 public class MyLinearLayout extends LinearLayout {

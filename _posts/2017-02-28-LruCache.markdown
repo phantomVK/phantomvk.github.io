@@ -18,7 +18,7 @@ LruCache是Android提供的缓存工具类，根据最近最少使用算法缓�
 public class LruCache<K, V>
 ```
 
-资源缓存除了最近最少使用外，还巧妙利用Java对象引用类型完成内存回收。这4种类型分别是强、软、弱、虚。
+资源缓存除了最近最少使用外，还巧妙利用Java对象引用类型完成内存回收。
 
 被操作的元素会移到队列末位。一段时间后本来处于队列末位的元素，因为其他元素的操作逐渐前进到队头。如果队列空间足够，所有元素都不会移除。否则处于队头的元素优先移除，腾出空间容纳新元素。所以使用热度高的资源得到有效缓存，长时间没有使用的资源会被移出队列。
 
@@ -26,7 +26,7 @@ public class LruCache<K, V>
 
 ## 二、数据成员
 
-`LruCache`通过`LinkedHashMap`数据结构来完成item的保存，传送门：[LinkedHashMap源码阅读](https://phantomvk.github.io/2018/07/09/LinkedHashMap/)。
+`LruCache`通过`LinkedHashMap`数据结构来完成item的保存，传送门：[LinkedHashMap源码阅读](/2018/07/09/LinkedHashMap/)。
 
 ```java
 private final LinkedHashMap<K, V> map;
@@ -35,11 +35,14 @@ private final LinkedHashMap<K, V> map;
 两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可能是键的个数(针对Key)，也可能是值总体积(针对Value)。例如通过LruCache缓存图片，既可以通过限制图片数量，也可以限制缓存图片容量总大小实现内存管理。
 
 ```java
+// 以保存数据大小
 private int size;
+
+// 最大数据可保存大小
 private int maxSize;
 ```
 
-用来保存各种操作统计次数，如：每次添加元素`putCount`递增。这些统计可以作为性能优化的参考值。
+统计所有操作次数，如：每次添加元素`putCount`递增。统计结果可作为性能优化的参考值。
 
 ```java
 private int putCount;     // 加入
@@ -51,9 +54,9 @@ private int missCount;    // 命中失败
 
 ## 三、构造方法
 
-参数`maxSize`记录整个列表最大保存数。为避免严重的哈希冲突，`LinkedHashMap`哈希因子设定为0.75。
+参数`maxSize`记录整个列表最大保存数。为避免严重的哈希冲突，默认哈希因子设定为0.75。
 
-`LinkedHashMap`构造函数参数`accessOrder`为`true`时以访问顺序排列元素，否则以插入顺序排列元素为准。从源码可知`LruCache`使用`LinkedHashMap`时`accessOrder`为`true`。
+`LinkedHashMap`构造函数参数`accessOrder`为`true`时以访问顺序排列元素，否则以插入顺序排列元素为准。从源码可知`LruCache`的`accessOrder`为`true`。
 
 ```java
 public LruCache(int maxSize) {
@@ -67,11 +70,11 @@ public LruCache(int maxSize) {
 
 ## 四、成员方法
 
-`LruCache`作为一个二次封装`LinkedHashMap`类，在增删查改上提供非常有限但实用的方法。关键操作都是线程安全的，可放心在多线程中操作同一个`LruCache`实例。
+`LruCache`作为一个二次封装`LinkedHashMap`类，在增删查改上提供有限但实用的方法。关键操作都是线程安全的，可放心在多线程操作`LruCache`实例。
 
 ### 4.1 设置大小
 
-可以修改列表最大保存数量，如果maxSize变小，则需要通过`trimToSize()`移除多余元素。
+可以修改列表最大保存数量。如果maxSize变小，会自动通过`trimToSize()`移除多余元素。
 
 ```java
 public void resize(int maxSize) {
@@ -87,11 +90,13 @@ public void resize(int maxSize) {
 }
 ```
 
-### 4.2 添加、获取
+### 4.2 存取
 
-通过非空键取值，如果对应键命中就会把值返回，且把这个元素移动到队列首位。没有命中会根据`create()`方法做后续决定。
+通过非空键取值，对应键命中把值返回，且把这个元素移动到队列首位。
 
 ![LruCache_get](/img/android/lrucache/LruCache_get.png)
+
+没有命中会根据`create()`做后续决定。
 
 ```java
 public final V get(K key) {
@@ -146,9 +151,7 @@ public final V get(K key) {
 }
 ```
 
-添加键值逻辑比较简单：已存在的值会被新值取代且移到队列首位，旧值作为方法返回值。
-
-如果缓存没有满，则新值直接存入：
+添加键值逻辑比较简单：已存在的值会被新值取代且移到队列首位，旧值作为方法返回值。如果缓存没有满，则新值直接存入。
 
 ![LruCache_put](/img/android/lrucache/LruCache_put.png)
 
@@ -188,9 +191,13 @@ public final V put(K key, V value) {
 
 ### 4.3 调整容量
 
-已保存元素数量大于新队列容量值，调整过程中选择近期最少使用的item出列。若`maxSize`值为`-1`，所有元素依次移除直至队列为空。
+已保存元素数量大于新队列容量值，调整过程中选择近期最少使用的item出列。
+
+下图把原长度从10裁剪为5，元素A到E被移除：
 
 ![LruCache_resize](/img/android/lrucache/LruCache_trimToSize.png)
+
+若`maxSize`值为`-1`，所有元素依次移除直至队列为空。
 
 ```java
 public void trimToSize(int maxSize) {
@@ -263,13 +270,13 @@ public final V remove(K key) {
 
 #### 4.5.1 entryRemoved()
 
-有些类型的实例拥有独特的对象回收逻辑，当实例被移出队列时，应该通过此(需重写)方法完成销毁操作。否则这个被移除的对象仅按照虚拟机垃圾回收策略进行回收。
-
-要确定item是否有特殊释放需要，忽略释放操作可能会造成严重的内存泄漏问题。
+有些类型的实例拥有独特的对象回收逻辑，当实例被移出队列时，应该通过(需重写)此方法完成销毁操作。否则这个被移除的对象仅按照虚拟机垃圾回收策略进行回收。
 
 ```java
 protected void entryRemoved(boolean evicted, K key, V oldValue, V newValue) {}
 ```
+
+要确定item是否有特殊释放需要，忽略释放操作可能会造成严重的内存泄漏问题。
 
 #### 4.5.2 create()
 
@@ -297,74 +304,12 @@ private int safeSizeOf(K key, V value) {
 
 拿图片缓存为例：虽然可以控制图片在队列中缓存的数量，但却无法控制图片在内存中的占用。可能出现队列保存若干张图，每张图片占用多达16M内存，以至于为数不多的图片占用大量内存。
 
-为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阈值，也要强制释放队列最近最少使用的资源。当被释放图片以后再次使用时，可通过create(K key)重新加载。
-
 ```java
 protected int sizeOf(K key, V value) {
     return 1;
 }
 ```
 
+为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阈值，也要强制释放队列LRU资源。当被释放图片后再次使用，应通过create(K key)重新加载。
+
 默认值为1，表示元素占用一个单位。条目的size计算方法在运行时不能改变，否则会导致数量控制失效。
-
-### 4.7 清空
-
-调用方法会移除队列保存所有的item
-
-```java
-public final void evictAll() {
-    trimToSize(-1);
-}
-```
-
-### 4.8 Getter
-获取队列统计和容量大小的数据
-
-```java
-// 方法没有重载，返回缓存元素数量
-// 对于其他类型元素，方法返回所有元素体积总大小
-public synchronized final int size() {
-    return size;
-}
-
-// 方法没有被重载，返回缓存元素数量最大值
-// 对于其他类型元素，方法返回缓存元素体积最大值
-public synchronized final int maxSize() {
-    return maxSize;
-}
-
-// 元素命中次数
-public synchronized final int hitCount() {
-    return hitCount;
-}
-
-// 元素命中失败次数
-public synchronized final int missCount() {
-    return missCount;
-}
-
-// 新元素创建次数
-public synchronized final int createCount() {
-    return createCount;
-}
-
-// 元素插入次数
-public synchronized final int putCount() {
-    return putCount;
-}
-
-// 元素丢弃次数
-public synchronized final int evictionCount() {
-    return evictionCount;
-}
-```
-
-### 4.9 队列快照
-
-返回队列快照的浅拷贝，且保留所有元素最近访问顺序
-
-```java
-public synchronized final Map<K, V> snapshot() {
-    return new LinkedHashMap<K, V>(map);
-}
-```
