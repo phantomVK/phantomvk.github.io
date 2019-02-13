@@ -41,7 +41,7 @@ __mChangedScrap__ 保存数据发生改变的 __ViewHolder__，即调用 __notif
 ArrayList<RecyclerView.ViewHolder> mChangedScrap = null;
 ```
 
-__mCachedViews__ 用于解决滑动抖动的问题，默认容量为2，可以根据需要调优。
+__mCachedViews__ 用于解决滑动抖动的问题，默认容量为 __DEFAULT_CACHE_SIZE = 2__，可以根据需要调优。
 
 ```java
 final ArrayList<RecyclerView.ViewHolder> mCachedViews = new ArrayList();
@@ -81,6 +81,7 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
 
     // 0) 从mChangedScrap获取ViewHolder
     if (mState.isPreLayout()) {
+        // 用position作为参数
         holder = getChangedScrapViewForPosition(position);
         fromScrapOrHiddenOrCache = holder != null;
     }
