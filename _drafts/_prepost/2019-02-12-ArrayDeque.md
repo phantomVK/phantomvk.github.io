@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "Java源码系列(22) -- ArrayDeque"
-date:       2019-01-03
+title:      "Java源码系列(23) -- ArrayDeque"
+date:       2019-02-12
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -15,7 +15,7 @@ __ArrayDeque__ 是实现 __Deque__ 接口且大小可变的双端队列数组。
 
 此类线程不安全，如果没有外部同步约束，就不支持多线程并发存取。值得注意的是，本双端队列不接受空对象，作为栈使用时比 __Stack__ 快，作为队列使用时比 __LinkedList__ 快。
 
-大多数 __ArrayDeque__ 方法执行消耗常量时间，除了__remove(Object)__、 __removeFirstOccurrence__， __removeLastOccurrence__、 __contains__、 __iterator__ 和批量操作是线性时间消耗的。
+大多数 __ArrayDeque__ 方法执行消耗常量时间，除了 __remove(Object)__、 __removeFirstOccurrence__，__removeLastOccurrence__、__contains__、__iterator__ 和批量操作是线性时间消耗的。
 
 ```java
 public class ArrayDeque<E> extends AbstractCollection<E>
@@ -523,8 +523,6 @@ public boolean isEmpty() {
 #### 7.12 位操作
 
 ```java
-// A tiny bit set implementation
-
 private static long[] nBits(int n) {
     return new long[((n - 1) >> 6) + 1];
 }
@@ -582,10 +580,8 @@ public void clear() {
 调用了以下方法
 
 ```java
-/**
- * Nulls out slots starting at array index i, upto index end.
- * Condition i == end means "empty" - nothing to do.
- */
+// Nulls out slots starting at array index i, upto index end.
+// Condition i == end means "empty" - nothing to do.
 private static void circularClear(Object[] es, int i, int end) {
     // assert 0 <= i && i < es.length;
     // assert 0 <= end && end < es.length;
