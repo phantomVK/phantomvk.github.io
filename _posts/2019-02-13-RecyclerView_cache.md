@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "RecyclerView缓存机制"
-date:       2019-01-01
+date:       2019-02-13
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -9,59 +9,65 @@ tags:
     - Android
 ---
 
-Android 27.1.1
+## RecyclerView与性能
 
-第一级缓存
+使用 __RecyclerView__ 的难度可大可小。仅作为单一类型列表展示，只要对视图布局进行优化，减低层次复杂度，几乎不可能存在性能问题。
+
+若列表分类多、样式差异大，类似微信聊天消息界面，问题的难度提升不少。需要在预加载、复用上做进一步调优，单纯实现 __onCreateViewHolder()__ 和 __onBindViewHolder()__ 并不能满足需求。
+
+总的来说，就是追求视图出现在屏幕前耗费最少时间的目标。
+
+__RecyclerView__ 缓存分为3级，每级有各自的缓存数量和策略。
+
+![RecyclerView_cache_level](/img/android/RecyclerView/RecyclerView_cache_level.png)
+
+当所有缓存层均没有所需实例，最后由 __onCreateViewHolder()__ 创建并绑定数据。
+
+源码版本：Android 27.1.1
+
+## 一级缓存
+
+一级缓存包含三个容器实例：__mAttachedScrap__、__mChangedScrap__、__mCachedViews__。根据不同场景 __ViewHolder__ 缓存到不同容器。
+
+__mAttachedScrap__ 保存依附于 __RecyclerView__ 的 __ViewHolder__。包含移出屏幕但未从 __RecyclerView__ 移除的 __ViewHolder__。
 
 ```java
 final ArrayList<RecyclerView.ViewHolder> mAttachedScrap = new ArrayList();
 ```
 
+__mChangedScrap__ 保存数据发生改变的 __ViewHolder__，即调用 __notifyDataSetChanged()__ 等系列方法后需要更新的 __ViewHolder__。
+
 ```java
 ArrayList<RecyclerView.ViewHolder> mChangedScrap = null;
 ```
 
-mCachedViews目的用于解决滑动抖动的问题，默认容量为2
+__mCachedViews__ 用于解决滑动抖动的问题，默认容量为2，可以根据需要调优。
 
 ```java
 final ArrayList<RecyclerView.ViewHolder> mCachedViews = new ArrayList();
 ```
 
-第二级缓存
+### 二级缓存
 
-开发者自定义的外部缓存，需实现ViewCacheExtension唯一抽象方法`getViewForPositionAndType()`。若没有定义的话本级缓存默认为null。
+开发者自定义的缓存，需实现 __ViewCacheExtension__ 抽象类。若没有定义的话此缓存默认为null。
 
 ```java
 private RecyclerView.ViewCacheExtension mViewCacheExtension;
 ```
 
-第三级缓存
+### 三级缓存
+
+__mCachedViews__ 无法保存屏幕上所有移除的 __ViewHolder__ 时，剩余的 __ViewHolder__ 根据 __type__ 分类放入缓存池中。
 
 ```java
 RecyclerView.RecycledViewPool mRecyclerPool;
 ```
 
-RecyclerView的内部类Recycler
+## Recycler
+
+以下是 __RecyclerView__ 的内部类 __Recycler__ 去除类签名的源码。Adapter利用position获取 __ViewHolder__，若一级缓存命失、__mViewCacheExtension__ 为空，则从缓存池查找对象。
 
 ```java
-/**
- * Attempts to get the ViewHolder for the given position, either from the Recycler scrap,
- * cache, the RecycledViewPool, or creating it directly.
- * <p>
- * If a deadlineNs other than {@link #FOREVER_NS} is passed, this method early return
- * rather than constructing or binding a ViewHolder if it doesn't think it has time.
- * If a ViewHolder must be constructed and not enough time remains, null is returned. If a
- * ViewHolder is aquired and must be bound but not enough time remains, an unbound holder is
- * returned. Use {@link ViewHolder#isBound()} on the returned object to check for this.
- *
- * @param position Position of ViewHolder to be returned.
- * @param dryRun True if the ViewHolder should not be removed from scrap/cache/
- * @param deadlineNs Time, relative to getNanoTime(), by which bind/create work should
- *                   complete. If FOREVER_NS is passed, this method will not fail to
- *                   create/bind the holder if needed.
- *
- * @return ViewHolder for requested position
- */
 @Nullable
 ViewHolder tryGetViewHolderForPositionByDeadline(int position,
         boolean dryRun, long deadlineNs) {
@@ -72,14 +78,16 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
     }
     boolean fromScrapOrHiddenOrCache = false;
     ViewHolder holder = null;
-    // 0) If there is a changed scrap, try to find from there
+
+    // 0) 从mChangedScrap获取ViewHolder
     if (mState.isPreLayout()) {
         holder = getChangedScrapViewForPosition(position);
         fromScrapOrHiddenOrCache = holder != null;
     }
-    // 1) Find by position from scrap/hidden list/cache
+
+    // 1) 用position从scrap、hidden list、cache中获取
     if (holder == null) {
-        // 从第一级缓存中获取
+        // 从第一级缓存中获取，从mAttachedScrap和mCachedViews中获取ViewHolder
         holder = getScrapOrHiddenOrCachedHolderForPosition(position, dryRun);
         if (holder != null) {
             if (!validateViewHolderForOffsetPosition(holder)) {
@@ -102,6 +110,8 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
             }
         }
     }
+    
+    // 一级缓存失败
     if (holder == null) {
         final int offsetPosition = mAdapterHelper.findPositionOffset(position);
         if (offsetPosition < 0 || offsetPosition >= mAdapter.getItemCount()) {
@@ -110,19 +120,20 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
                     + "state:" + mState.getItemCount() + exceptionLabel());
         }
 
+        // 用offsetPosition获取ViewType
         final int type = mAdapter.getItemViewType(offsetPosition);
-        // 2) Find from scrap/cache via stable ids, if exists
+        // 2) 通过stable ids从scrap/cache查找
         if (mAdapter.hasStableIds()) {
             holder = getScrapOrCachedViewForId(mAdapter.getItemId(offsetPosition),
                     type, dryRun);
             if (holder != null) {
-                // update position
+                // 更新position
                 holder.mPosition = offsetPosition;
                 fromScrapOrHiddenOrCache = true;
             }
         }
         
-        // 从第二级缓存ViewCacheExtension中获取缓存内容
+        // 从第二级缓存ViewCacheExtension中获取缓存内容，即mViewCacheExtension
         if (holder == null && mViewCacheExtension != null) {
             // We are NOT sending the offsetPosition because LayoutManager does not
             // know it.
@@ -142,13 +153,10 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
             }
         }
         
-        // 从第三级缓存RecycledViewPool中获取缓存内容
-        // 获取ViewHolder内layout可重用，但是数据需要重新绑定
+        // 从三级缓存RecycledViewPool中获取缓存内容
+        // ViewHolder内layout可重用，但是数据需要重新绑定
         if (holder == null) { // fallback to pool
-            if (DEBUG) {
-                Log.d(TAG, "tryGetViewHolderForPositionByDeadline("
-                        + position + ") fetching from shared pool");
-            }
+            // 根据目标类型获取ViewHolder
             holder = getRecycledViewPool().getRecycledView(type);
             if (holder != null) {
                 holder.resetInternal();
@@ -178,8 +186,6 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
 
             long end = getNanoTime();
             mRecyclerPool.factorInCreateTime(type, end - start);
-            if (DEBUG) {
-                Log.d(TAG, "tryGetViewHolderForPositionByDeadline created new ViewHolder");
             }
         }
     }
@@ -211,6 +217,7 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
                     + exceptionLabel());
         }
         final int offsetPosition = mAdapterHelper.findPositionOffset(position);
+        // 以下方法调用mAdapter.bindViewHolder把内容绑定到ViewHolder
         bound = tryBindViewHolderByDeadline(holder, offsetPosition, position, deadlineNs);
     }
 
@@ -231,16 +238,13 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
 }
 ```
 
-第一级缓存获取
+#### getScrapOrHiddenOrCachedHolderForPosition()
+
+从 __attach scrap__、__hidden children__ 或 __cache__ 根据 __position__ 返回 __ViewHolder__
 
 ```java
-/**
- * Returns a view for the position either from attach scrap, hidden children, or cache.
- *
- * @param position Item position
- * @param dryRun  Does a dry run, finds the ViewHolder but does not remove
- * @return a ViewHolder that can be re-used for this position.
- */
+// @param position 条目位置
+// @param dryRun   进行空转，只查找ViewHolder而不移除
 ViewHolder getScrapOrHiddenOrCachedHolderForPosition(int position, boolean dryRun) {
     final int scrapCount = mAttachedScrap.size();
 
@@ -295,200 +299,122 @@ ViewHolder getScrapOrHiddenOrCachedHolderForPosition(int position, boolean dryRu
 }
 ```
 
-内部类RecycledViewPool
+#### tryBindViewHolderByDeadline()
 
 ```java
-/**
- * RecycledViewPool lets you share Views between multiple RecyclerViews.
- * <p>
- * If you want to recycle views across RecyclerViews, create an instance of RecycledViewPool
- * and use {@link RecyclerView#setRecycledViewPool(RecycledViewPool)}.
- * <p>
- * RecyclerView automatically creates a pool for itself if you don't provide one.
- */
-public static class RecycledViewPool {
-    private static final int DEFAULT_MAX_SCRAP = 5;
-
-    /**
-     * Tracks both pooled holders, as well as create/bind timing metadata for the given type.
-     *
-     * Note that this tracks running averages of create/bind time across all RecyclerViews
-     * (and, indirectly, Adapters) that use this pool.
-     *
-     * 1) This enables us to track average create and bind times across multiple adapters. Even
-     * though create (and especially bind) may behave differently for different Adapter
-     * subclasses, sharing the pool is a strong signal that they'll perform similarly, per type.
-     *
-     * 2) If {@link #willBindInTime(int, long, long)} returns false for one view, it will return
-     * false for all other views of its type for the same deadline. This prevents items
-     * constructed by {@link GapWorker} prefetch from being bound to a lower priority prefetch.
-     */
-    static class ScrapData {
-        final ArrayList<ViewHolder> mScrapHeap = new ArrayList<>();
-        int mMaxScrap = DEFAULT_MAX_SCRAP;
-        long mCreateRunningAverageNs = 0;
-        long mBindRunningAverageNs = 0;
+private boolean tryBindViewHolderByDeadline(ViewHolder holder, int offsetPosition,
+        int position, long deadlineNs) {
+    // 设置holder的RecyclerView
+    holder.mOwnerRecyclerView = RecyclerView.this;
+    // holder的viewType
+    final int viewType = holder.getItemViewType();
+    long startBindNs = getNanoTime();
+    if (deadlineNs != FOREVER_NS
+            && !mRecyclerPool.willBindInTime(viewType, startBindNs, deadlineNs)) {
+        // abort - we have a deadline we can't meet
+        return false;
     }
-    SparseArray<ScrapData> mScrap = new SparseArray<>();
-
-    private int mAttachCount = 0;
-
-    /**
-     * Discard all ViewHolders.
-     */
-    public void clear() {
-        for (int i = 0; i < mScrap.size(); i++) {
-            ScrapData data = mScrap.valueAt(i);
-            data.mScrapHeap.clear();
-        }
+    // 绑定视图数据
+    mAdapter.bindViewHolder(holder, offsetPosition);
+    long endBindNs = getNanoTime();
+    mRecyclerPool.factorInBindTime(holder.getItemViewType(), endBindNs - startBindNs);
+    attachAccessibilityDelegateOnBind(holder);
+    if (mState.isPreLayout()) {
+        holder.mPreLayoutPosition = position;
     }
+    return true;
+}
+```
 
-    /**
-     * Sets the maximum number of ViewHolders to hold in the pool before discarding.
-     *
-     * @param viewType ViewHolder Type
-     * @param max Maximum number
-     */
-    public void setMaxRecycledViews(int viewType, int max) {
-        ScrapData scrapData = getScrapDataForType(viewType);
-        scrapData.mMaxScrap = max;
-        final ArrayList<ViewHolder> scrapHeap = scrapData.mScrapHeap;
-        while (scrapHeap.size() > max) {
-            scrapHeap.remove(scrapHeap.size() - 1);
-        }
-    }
+## RecycledViewPool
 
-    /**
-     * Returns the current number of Views held by the RecycledViewPool of the given view type.
-     */
-    public int getRecycledViewCount(int viewType) {
-        return getScrapDataForType(viewType).mScrapHeap.size();
-    }
+__RecycledViewPool__ 可在多个 __RecyclerViews__ 间共享。如果这么做，则需要自行创建 __RecycledViewPool__ 实例，把实例通过 __RecyclerView#setRecycledViewPool(RecycledViewPool)__ 绑定到 __RecyclerView__ 上。如果没有给 __RecyclerView__指定任何 __RecycledViewPool__，则会自行创建该实例。、
 
-    /**
-     * Acquire a ViewHolder of the specified type from the pool, or {@code null} if none are
-     * present.
-     *
-     * @param viewType ViewHolder type.
-     * @return ViewHolder of the specified type acquired from the pool, or {@code null} if none
-     * are present.
-     */
-    @Nullable
-    public ViewHolder getRecycledView(int viewType) {
-        final ScrapData scrapData = mScrap.get(viewType);
-        if (scrapData != null && !scrapData.mScrapHeap.isEmpty()) {
-            final ArrayList<ViewHolder> scrapHeap = scrapData.mScrapHeap;
-            return scrapHeap.remove(scrapHeap.size() - 1);
-        }
-        return null;
-    }
+每个 __type__ 默认缓存5个 __ViewHolder__，可针对不同 __type__ 定义缓存数量。例如增加体积较小 __ViewHolder__ 的缓存数量，保证缓存对象足够填满屏幕且无需创建新对象。
 
-    /**
-     * Total number of ViewHolders held by the pool.
-     *
-     * @return Number of ViewHolders held by the pool.
-     */
-    int size() {
-        int count = 0;
-        for (int i = 0; i < mScrap.size(); i++) {
-            ArrayList<ViewHolder> viewHolders = mScrap.valueAt(i).mScrapHeap;
-            if (viewHolders != null) {
-                count += viewHolders.size();
-            }
-        }
-        return count;
-    }
+```java
+private static final int DEFAULT_MAX_SCRAP = 5;
+```
 
-    /**
-     * Add a scrap ViewHolder to the pool.
-     * <p>
-     * If the pool is already full for that ViewHolder's type, it will be immediately discarded.
-     *
-     * @param scrap ViewHolder to be added to the pool.
-     */
-    public void putRecycledView(ViewHolder scrap) {
-        final int viewType = scrap.getItemViewType();
-        final ArrayList<ViewHolder> scrapHeap = getScrapDataForType(viewType).mScrapHeap;
-        if (mScrap.get(viewType).mMaxScrap <= scrapHeap.size()) {
-            return;
-        }
-        if (DEBUG && scrapHeap.contains(scrap)) {
-            throw new IllegalArgumentException("this scrap item already exists");
-        }
-        scrap.resetInternal();
-        scrapHeap.add(scrap);
-    }
+__ScrapData__ 是 __RecycledViewPool__的内部类
+```java
+static class ScrapData {
+    // 保存ViewHolder的列表
+    final ArrayList<ViewHolder> mScrapHeap = new ArrayList<>();
+    // 记录本type最多可保留多少ViewHolder
+    int mMaxScrap = DEFAULT_MAX_SCRAP;
+    long mCreateRunningAverageNs = 0;
+    long mBindRunningAverageNs = 0;
+}
+```
 
-    long runningAverage(long oldAverage, long newValue) {
-        if (oldAverage == 0) {
-            return newValue;
-        }
-        return (oldAverage / 4 * 3) + (newValue / 4);
-    }
+根据分类缓存 __ScrapData__
 
-    void factorInCreateTime(int viewType, long createTimeNs) {
-        ScrapData scrapData = getScrapDataForType(viewType);
-        scrapData.mCreateRunningAverageNs = runningAverage(
-                scrapData.mCreateRunningAverageNs, createTimeNs);
-    }
+```java
+SparseArray<ScrapData> mScrap = new SparseArray<>();
+```
 
-    void factorInBindTime(int viewType, long bindTimeNs) {
-        ScrapData scrapData = getScrapDataForType(viewType);
-        scrapData.mBindRunningAverageNs = runningAverage(
-                scrapData.mBindRunningAverageNs, bindTimeNs);
-    }
+调整指定 __viewType__ 视图缓存的最大值
 
-    boolean willCreateInTime(int viewType, long approxCurrentNs, long deadlineNs) {
-        long expectedDurationNs = getScrapDataForType(viewType).mCreateRunningAverageNs;
-        return expectedDurationNs == 0 || (approxCurrentNs + expectedDurationNs < deadlineNs);
-    }
-
-    boolean willBindInTime(int viewType, long approxCurrentNs, long deadlineNs) {
-        long expectedDurationNs = getScrapDataForType(viewType).mBindRunningAverageNs;
-        return expectedDurationNs == 0 || (approxCurrentNs + expectedDurationNs < deadlineNs);
-    }
-
-    void attach(Adapter adapter) {
-        mAttachCount++;
-    }
-
-    void detach() {
-        mAttachCount--;
-    }
-
-
-    /**
-     * Detaches the old adapter and attaches the new one.
-     * <p>
-     * RecycledViewPool will clear its cache if it has only one adapter attached and the new
-     * adapter uses a different ViewHolder than the oldAdapter.
-     *
-     * @param oldAdapter The previous adapter instance. Will be detached.
-     * @param newAdapter The new adapter instance. Will be attached.
-     * @param compatibleWithPrevious True if both oldAdapter and newAdapter are using the same
-     *                               ViewHolder and view types.
-     */
-    void onAdapterChanged(Adapter oldAdapter, Adapter newAdapter,
-            boolean compatibleWithPrevious) {
-        if (oldAdapter != null) {
-            detach();
-        }
-        if (!compatibleWithPrevious && mAttachCount == 0) {
-            clear();
-        }
-        if (newAdapter != null) {
-            attach(newAdapter);
-        }
-    }
-
-    private ScrapData getScrapDataForType(int viewType) {
-        ScrapData scrapData = mScrap.get(viewType);
-        if (scrapData == null) {
-            scrapData = new ScrapData();
-            mScrap.put(viewType, scrapData);
-        }
-        return scrapData;
+```java
+public void setMaxRecycledViews(int viewType, int max) {
+    ScrapData scrapData = getScrapDataForType(viewType);
+    // 修改mMaxScrap的值
+    scrapData.mMaxScrap = max;
+    final ArrayList<ViewHolder> scrapHeap = scrapData.mScrapHeap;
+    // 裁剪多余缓存实例
+    while (scrapHeap.size() > max) {
+        scrapHeap.remove(scrapHeap.size() - 1);
     }
 }
 ```
 
+例如：若下图样式的 __ViewHolder__ 仅缓存5个，多余视图移出屏幕后会销毁。下次需要该 __ViewHolder__ 又要重新构建，所以提高缓存数量可减少这种情况的发生。
+
+![RecyclerView_demo](/img/android/RecyclerView/RecyclerView_demo_30.png)
+
+根据 __viewType__ 从缓存池获取 __ScrapData__，再从 __ScrapData__ 取出有效 __ViewHolder__。如果缓存池内没有缓存该实例则返回null。
+
+```java
+@Nullable
+public ViewHolder getRecycledView(int viewType) {
+    final ScrapData scrapData = mScrap.get(viewType);
+    if (scrapData != null && !scrapData.mScrapHeap.isEmpty()) {
+        final ArrayList<ViewHolder> scrapHeap = scrapData.mScrapHeap;
+        // 从列表取出一个ViewHolder
+        return scrapHeap.remove(scrapHeap.size() - 1);
+    }
+    return null;
+}
+```
+
+读取 __ViewHolder__ 的 __viewType__ 并找到对应 __scrapHeap__ 列表，把 __ViewHolder__ 缓存到该列表
+
+```java
+public void putRecycledView(ViewHolder scrap) {
+    final int viewType = scrap.getItemViewType();
+    final ArrayList<ViewHolder> scrapHeap = getScrapDataForType(viewType).mScrapHeap;
+    if (mScrap.get(viewType).mMaxScrap <= scrapHeap.size()) {
+        return;
+    }
+    scrap.resetInternal();
+    scrapHeap.add(scrap);
+}
+```
+
+根据 __viewType__ 获取 __ScrapData__
+
+```java
+private ScrapData getScrapDataForType(int viewType) {
+    ScrapData scrapData = mScrap.get(viewType);
+    if (scrapData == null) {
+        scrapData = new ScrapData();
+        mScrap.put(viewType, scrapData);
+    }
+    return scrapData;
+}
+```
+
+## 参考链接
+
+- [RecyclerView缓存原理，有图有真相](https://juejin.im/post/5b79a0b851882542b13d204b)
