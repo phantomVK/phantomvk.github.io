@@ -13,17 +13,13 @@ tags:
 
 使用 __RecyclerView__ 的难度可大可小。仅作为单一类型列表展示，只要对视图布局进行优化，减低层次复杂度，几乎不可能存在性能问题。
 
-若列表分类多、样式差异大，类似微信聊天消息界面，问题的难度提升不少。需要在预加载、复用上做进一步调优，单纯实现 __onCreateViewHolder()__ 和 __onBindViewHolder()__ 并不能满足需求。
-
-总的来说，就是追求视图出现在屏幕前耗费最少时间的目标。
+若列表分类多、样式差异大，类似微信聊天消息界面，问题的难度提升不少。需要在预加载、复用上做进一步调优，单纯实现 __onCreateViewHolder()__ 和 __onBindViewHolder()__ 并不能满足需求。总的来说，就是追求视图出现在屏幕前耗费最少时间的目标。
 
 __RecyclerView__ 缓存分为3级，每级有各自的缓存数量和策略。
 
 ![RecyclerView_cache_level](/img/android/RecyclerView/RecyclerView_cache_level.png)
 
-当所有缓存层均没有所需实例，最后由 __onCreateViewHolder()__ 创建并绑定数据。
-
-源码版本：Android 27.1.1
+当所有缓存层均没有所需实例，最后由 __onCreateViewHolder()__ 创建并绑定数据。源码版本：Android 27.1.1
 
 ## 一级缓存
 
@@ -41,7 +37,7 @@ __mChangedScrap__ 保存数据发生改变的 __ViewHolder__，即调用 __notif
 ArrayList<RecyclerView.ViewHolder> mChangedScrap = null;
 ```
 
-__mCachedViews__ 用于解决滑动抖动的问题，默认容量为 __DEFAULT_CACHE_SIZE = 2__，可以根据需要调优。
+__mCachedViews__ 用于解决滑动抖动的问题，默认容量为2，可根据需要调优。
 
 ```java
 final ArrayList<RecyclerView.ViewHolder> mCachedViews = new ArrayList();
@@ -49,7 +45,7 @@ final ArrayList<RecyclerView.ViewHolder> mCachedViews = new ArrayList();
 
 ### 二级缓存
 
-开发者自定义的缓存，需实现 __ViewCacheExtension__ 抽象类。若没有定义的话此缓存默认为null。
+开发者自定义的缓存，需实现 __ViewCacheExtension__ 抽象类。若没有定义此缓存默认为null。
 
 ```java
 private RecyclerView.ViewCacheExtension mViewCacheExtension;
@@ -112,7 +108,7 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
         }
     }
     
-    // 一级缓存失败
+    // 用posotion查找缓存失败，尝试使用stable ids获取缓存
     if (holder == null) {
         final int offsetPosition = mAdapterHelper.findPositionOffset(position);
         if (offsetPosition < 0 || offsetPosition >= mAdapter.getItemCount()) {
@@ -123,7 +119,7 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
 
         // 用offsetPosition获取ViewType
         final int type = mAdapter.getItemViewType(offsetPosition);
-        // 2) 通过stable ids从scrap/cache查找
+        // 2) 通过stable ids和type从scrap/cache查找
         if (mAdapter.hasStableIds()) {
             holder = getScrapOrCachedViewForId(mAdapter.getItemId(offsetPosition),
                     type, dryRun);
@@ -155,7 +151,7 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
         }
         
         // 从三级缓存RecycledViewPool中获取缓存内容
-        // ViewHolder内layout可重用，但是数据需要重新绑定
+        // ViewHolder内layout可重用，但是数据需重新绑定
         if (holder == null) { // fallback to pool
             // 根据目标类型获取ViewHolder
             holder = getRecycledViewPool().getRecycledView(type);
@@ -245,7 +241,7 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
 
 ```java
 // @param position 条目位置
-// @param dryRun   进行空转，只查找ViewHolder而不移除
+// @param dryRun   空转，只查找ViewHolder而不移除
 ViewHolder getScrapOrHiddenOrCachedHolderForPosition(int position, boolean dryRun) {
     final int scrapCount = mAttachedScrap.size();
 
@@ -279,7 +275,7 @@ ViewHolder getScrapOrHiddenOrCachedHolderForPosition(int position, boolean dryRu
         }
     }
 
-    // Search in our first-level recycled view cache.
+    // 从一级缓存查找已回收的视图缓存
     final int cacheSize = mCachedViews.size();
     for (int i = 0; i < cacheSize; i++) {
         final ViewHolder holder = mCachedViews.get(i);
@@ -329,7 +325,7 @@ private boolean tryBindViewHolderByDeadline(ViewHolder holder, int offsetPositio
 
 ## RecycledViewPool
 
-__RecycledViewPool__ 可在多个 __RecyclerViews__ 间共享。如果这么做，则需要自行创建 __RecycledViewPool__ 实例，把实例通过 __RecyclerView#setRecycledViewPool(RecycledViewPool)__ 绑定到 __RecyclerView__ 上。如果没有给 __RecyclerView__指定任何 __RecycledViewPool__，则会自行创建该实例。、
+__RecycledViewPool__ 可在多个 __RecyclerViews__ 间共享。如果这么做，则需要自行创建 __RecycledViewPool__ 实例，把实例通过 __RecyclerView#setRecycledViewPool(RecycledViewPool)__ 绑定到 __RecyclerView__ 上。如果没有给 __RecyclerView__指定任何 __RecycledViewPool__，则会自行创建该实例。
 
 每个 __type__ 默认缓存5个 __ViewHolder__，可针对不同 __type__ 定义缓存数量。例如增加体积较小 __ViewHolder__ 的缓存数量，保证缓存对象足够填满屏幕且无需创建新对象。
 
@@ -337,14 +333,16 @@ __RecycledViewPool__ 可在多个 __RecyclerViews__ 间共享。如果这么做�
 private static final int DEFAULT_MAX_SCRAP = 5;
 ```
 
-__ScrapData__ 是 __RecycledViewPool__的内部类
+__ScrapData__ 是 __RecycledViewPool__ 的内部类
 ```java
 static class ScrapData {
     // 保存ViewHolder的列表
     final ArrayList<ViewHolder> mScrapHeap = new ArrayList<>();
-    // 记录本type最多可保留多少ViewHolder
+    // 本类型最多可保留多少ViewHolder
     int mMaxScrap = DEFAULT_MAX_SCRAP;
+    // 记录创建视图的平均时长
     long mCreateRunningAverageNs = 0;
+    // 记录视图绑定的平均时长
     long mBindRunningAverageNs = 0;
 }
 ```
