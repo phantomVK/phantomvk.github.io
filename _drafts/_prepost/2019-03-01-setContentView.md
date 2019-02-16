@@ -40,7 +40,6 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback{
 }
 ```
 
-
 ## AppCompatActivity
 
 以下是 __AppCompatActivity__ 的类注释
@@ -427,18 +426,9 @@ protected DecorView generateDecor(int featureId) {
     // the context we have. Otherwise we want the application context, so we don't cling to the
     // activity.
     Context context;
+    // 处理Context和主题相关逻辑，省略
     if (mUseDecorContext) {
-        Context applicationContext = getContext().getApplicationContext();
-        if (applicationContext == null) {
-            context = getContext();
-        } else {
-            context = new DecorContext(applicationContext, getContext());
-            if (mTheme != -1) {
-                context.setTheme(mTheme);
-            }
-        }
-    } else {
-        context = getContext();
+        .....
     }
     // 创建新DecorView
     return new DecorView(context, featureId, this, getAttributes());
@@ -620,7 +610,7 @@ __setContentView(int resId)__ 工作流程：
 - __Activity__ 把 __PhoneWindow__ 的配置工作交给代理进行；
 - 代理给 __PhoneWindow__ 的 __mDecor__ 创建 __DecorView__ 实例；
 - 并根据 __Activity__ 主题样式选择 __layoutResource__，填充后赋值给 __mContentRoot__；
-- 把  __mContentRoot__ 加到 __PhoneWindow__ 的 __mDecor__ 作为子视图；
+- 把 __mContentRoot__ 加到 __PhoneWindow__ 的 __mDecor__ 作为子视图；
 - 在 __mDecor__ 找一个 __id__ 为 __android.R.id.content__ 的视图赋值给  __contentParent__；
 - 最后，根据开发者定义的布局 __resId__，实例化后加到 __contentParent__ 内.
 
