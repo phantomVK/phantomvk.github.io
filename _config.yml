@@ -12,12 +12,12 @@ keyword: "phantomVK, Android技术博客, Android源码, 机器学习, 数据挖
 
 # SNS settings
 RSS: false
-zhihu_username:     phantomvk
 github_username:    phantomvk
-weibo_username:     phantomvk
+zhihu_username:     phantomvk
+# weibo_username:     phantomvk
 #twitter_username:   
 #facebook_username:  
-#linkedin_username: firstname-lastname-idxxxx
+linkedin_username:  文康-谭-652a4a12a
 
 
 
