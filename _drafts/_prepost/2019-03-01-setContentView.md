@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "setContentView源码解析"
-date:       2019-02-15
+date:       2019-03-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -11,7 +11,7 @@ tags:
 
 ## Activity
 
-__Window__ 是 __Activity__ 的数据成员
+__mWindow__ 是 __Activity__ 的数据成员，源码来自Android 27.1.1
 
 ```java
 public class Activity extends ContextThemeWrapper
@@ -27,7 +27,7 @@ public class Activity extends ContextThemeWrapper
 }
 ```
 
-__PhoneWindow__ 是 __Window__ 的实现。变量为 __DecorView__ 类型的 __mDecor__，这是界面的根布局。
+__PhoneWindow__ 是 __Window__ 的实现。变量为 __DecorView__ 类型的 __mDecor__，是界面的根布局。
 
 ```java
 public class PhoneWindow extends Window implements MenuBuilder.Callback{
@@ -63,6 +63,8 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback{
  */
 ```
 
+__AppCompatActivity__ 继承关系：
+
 ![AppCompatActivity](/img/android/Activity/AppCompatActivity.png)
 
 __AppCompatActivity__ 重写 __Activity__ 的 __setContentView()__，把相关工作交给代理类完成，而不是 __Activity.setContentView()__。本文分析流程将沿着代理类的实现进行解释。
@@ -88,7 +90,7 @@ public AppCompatDelegate getDelegate() {
 
 ## AppCompatDelegate
 
-代理实现类没有看见 __AppCompatDelegateImplV9__
+在代理实现类中没有看见 __AppCompatDelegateImplV9__ 的分支
 
 ```java
 private static AppCompatDelegate create(Context context, Window window,
@@ -103,7 +105,7 @@ private static AppCompatDelegate create(Context context, Window window,
 }
 ```
 
-__AppCompatDelegateImplV14__ 继承自 __AppCompatDelegateImplV9__，V23以下工作都交给它处理。
+__AppCompatDelegateImplV14__ 继承自 __AppCompatDelegateImplV9__，可知v23以下工作都交给v14处理。
 
 ```java
 @RequiresApi(14)
@@ -140,12 +142,12 @@ private boolean mSubDecorInstalled;
 
 ```java
 private void ensureSubDecor() {
-    // 先检查标志位，确实SubDecor是否已经装载
+    // 先检查标志位，确定SubDecor是否已装载
     if (!mSubDecorInstalled) {
         // 构建SubDecor
         mSubDecor = createSubDecor();
 
-        // 如果在decor之前已经设置标题，则在decor装载完毕后设置这个标题
+        // 如果在decor之前已经配置标题，则在decor装载完毕后使用这个标题
         CharSequence title = getTitle();
         if (!TextUtils.isEmpty(title)) {
             onTitleChanged(title);
@@ -183,7 +185,7 @@ private ViewGroup createSubDecor() {
                 "You need to use a Theme.AppCompat theme (or descendant) with this activity.");
     }
 
-    // 从主体获取属性值，通过requestWindowFeature()把对应属性标为true
+    // 从主题获取样式，并通过requestWindowFeature()把对应属性标为true
     if (a.getBoolean(R.styleable.AppCompatTheme_windowNoTitle, false)) {
         requestWindowFeature(Window.FEATURE_NO_TITLE);
     } else if (a.getBoolean(R.styleable.AppCompatTheme_windowActionBar, false)) {
@@ -205,10 +207,11 @@ private ViewGroup createSubDecor() {
     ViewGroup subDecor = null;
 
 
+    // 由主题配置决定使用的布局，填充视图赋值给subDecor
     if (!mWindowNoTitle) {
-        // 配置标题相关代码，省略
+        .....
     } else {
-        // 配置标题相关代码，省略
+        .....
     }
 
     if (subDecor == null) {
@@ -234,6 +237,8 @@ private ViewGroup createSubDecor() {
 
     // 从PhoneWindow中获取content布局对象
     final ViewGroup windowContentView = (ViewGroup) mWindow.findViewById(android.R.id.content);
+
+    // 把DecorView内的视图全部放入到subDecor的contentView内
     if (windowContentView != null) {
         // There might be Views already added to the Window's content view so we need to
         // migrate them to our content view
@@ -243,9 +248,10 @@ private ViewGroup createSubDecor() {
             contentView.addView(child);
         }
 
-        // Useful for fragments.
+        // 把PhoneWindow内名为android.R.id.content视图的id去掉
         windowContentView.setId(View.NO_ID);
         // 设置contentView的id为android.R.id.content
+        // 相当于PhoneWindow把同名id让给subDecor的子视图使用
         contentView.setId(android.R.id.content);
 
         // The decorContent may have a foreground drawable set (windowContentOverlay).
@@ -256,6 +262,7 @@ private ViewGroup createSubDecor() {
     }
 
     // Now set the Window's content view with the decor
+    // 还要subDecor加入到PhoneWindow作为子视图
     mWindow.setContentView(subDecor);
 
     contentView.setAttachListener(new ContentFrameLayout.OnAttachListener() {
@@ -273,7 +280,7 @@ private ViewGroup createSubDecor() {
 ```
 
 
-如果什么样式都没有配置，则会选择 __R.layout.screen_simple__ 作为布局。可见里面id为 __content__ 的视图为 __FrameLayout__，其实就是我们填充 __Activity__ 的父布局。这个也是赋值给 __mContentParent__ 的实例。
+如果什么样式都没有配置，会自动选择 __R.layout.screen_simple__ 作为布局。可见里面id为 __content__ 的视图为 __FrameLayout__，里面保存着我们填充的 __Activity__ 布局。这个也是赋值给 __mContentParent__ 的实例。
 
 ```xml
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -299,7 +306,7 @@ private ViewGroup createSubDecor() {
 </LinearLayout>
 ```
 
-
+从主图获取样式 __featureId__，由此id决定特性是否开启
 
 ```java
 @Override
@@ -347,7 +354,7 @@ public boolean requestWindowFeature(int featureId) {
 
 ## PhoneWindow
 
-__PhoneWindow__ 的父类 __Window__。
+__Window__ 是 __PhoneWindow__ 的父类，定义一些列绘制窗口的抽象方法。
 
 ```java
 /**
@@ -381,7 +388,7 @@ public final View getDecorView() {
 
 #### installDecor()
 
-如果 __mDecor__ 没有创建，则必须先创建 __DecorVIew__ 并赋值
+如果 __mDecor__ 没有创建，则必须先创建 __DecorView__ 并赋值
 
 ```java
 private void installDecor() {
@@ -433,13 +440,16 @@ protected DecorView generateDecor(int featureId) {
     } else {
         context = getContext();
     }
+    // 创建新DecorView
     return new DecorView(context, featureId, this, getAttributes());
 }
 ```
 
 #### generateLayout(DecorView decor)
 
-__DecorView__ 创建完成后就能给 __DecorView__ 添加布局。本方法根据窗口的风格样式，选择窗口对应的资源根布局文件。作为mDecor的根布局添加到mDecor中，然后从这个布局里面，获取id名为 __content__ 的 __FrameLayout__ 赋值给 __mContentParent__ 变量。对比 __mContentRoot__，__mContentRoot__ 其实就是 __mContentParent__ 所在的父布局。
+__DecorView__ 创建完成赋值给 __mDecor__。本方法根据窗口的风格样式，选择窗口对应的资源根布局文件，作为 __mDecor__ 的子布局进行添加。
+
+然后从这个布局里面，获取id名为 __content__ 的 __FrameLayout__ 赋值给 __mContentParent__ 变量。对比 __mContentRoot__，__mContentRoot__ 其实就是 __mContentParent__ 所在的父布局。
 
 ```java
 protected ViewGroup generateLayout(DecorView decor) protected ViewGroup generateLayout(DecorView decor) {
@@ -512,9 +522,10 @@ protected ViewGroup generateLayout(DecorView decor) protected ViewGroup generate
     }
 
     mDecor.startChanging();
-    // 用layoutResource构建布局
+    // 用layoutResource构建布局并加入到mDecor
     mDecor.onResourcesLoaded(mLayoutInflater, layoutResource);
 
+    // 从mDecor内查找id为content的子视图
     ViewGroup contentParent = (ViewGroup)findViewById(ID_ANDROID_CONTENT);
     if (contentParent == null) {
         throw new RuntimeException("Window couldn't find content container view");
@@ -569,23 +580,21 @@ void onResourcesLoaded(LayoutInflater inflater, int layoutResource) {
 }
 ```
 
-前文提到，Activity主题的样式决定变量 __layoutResource__ 所指明的布局。一般通过以下形式指定样式
+前文提到，Activity主题样式决定 __layoutResource__ 所指布局，一般通过 __xml__ 指定样式：
 
 ```xml
 android:theme="@style/Theme.AppCompat.Light.NoActionBar"
 ```
 
-此外，也常用以下代码配置相关参数，由 __getLocalFeature()__ 负责处理
+__requestWindowFeature()__ 配置相关参数，由 __getLocalFeature()__ 负责处理
 
 ```java
 requestWindowFeature(Window.FEATURE_NO_TITLE);
-getWindow().setBackgroundDrawable(null);
-getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 ```
 
 ## 填充布局
 
-经过上面一圈的论述，回到原来关注的调用点，上面的所有操作都发生在 __ensureSubDecor()__ 内。随后的工作就是实例化界面的视图并加入到 __contentParent__。
+经过上面 __DecorView__ 创建和初始化的论述，现在回到原来关注的调用点上。随后填充视图并加入到 __contentParent__，这个视图就是日常使用的 __setContentView(int resId)__ 的 __resId__
 
 ```java
 @Override
@@ -601,8 +610,27 @@ public void setContentView(int resId) {
 }
 ```
 
-完成所有工作后调用 __mOriginalWindowCallback.onContentChanged();__ 发出通知
+工作完成，回调 __onContentChanged()__ 发出通知
+
+## 总结
+
+__setContentView(int resId)__ 工作流程：
+
+- __Activity__ 的 __mWindow__ 已提前初始化为 __PhoneWindow__ 类型实例；
+- __Activity__ 把 __PhoneWindow__ 的配置工作交给代理进行；
+- 代理给 __PhoneWindow__ 的 __mDecor__ 创建 __DecorView__ 实例；
+- 并根据 __Activity__ 主题样式选择 __layoutResource__，填充后赋值给 __mContentRoot__；
+- 把  __mContentRoot__ 加到 __PhoneWindow__ 的 __mDecor__ 作为子视图；
+- 在 __mDecor__ 找一个 __id__ 为 __android.R.id.content__ 的视图赋值给  __contentParent__；
+- 最后，根据开发者定义的布局 __resId__，实例化后加到 __contentParent__ 内.
+
+所有工作完成后，界面布局层次如下：
+
+![Window](/img/android/Activity/Window.png)
 
 ## 参考链接
 
 - [Android应用setContentView与LayoutInflater加载解析机制源码分析](https://blog.csdn.net/yanbober/article/details/45970721)
+
+- [Android Window 机制探索](https://juejin.im/entry/5a123c31f265da430d579cda)
+
