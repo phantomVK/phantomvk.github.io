@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "setContentView源码解析"
-date:       2019-03-01
+date:       2019-02-18
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -305,7 +305,7 @@ private ViewGroup createSubDecor() {
 </LinearLayout>
 ```
 
-从主图获取样式 __featureId__，由此id决定特性是否开启
+从主题获取样式 __featureId__，由此id决定特性是否开启
 
 ```java
 @Override
