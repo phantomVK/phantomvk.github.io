@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "setContentView源码解析"
+title:      "Android源码系列(20) -- setContentView"
 date:       2019-02-18
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
 ## Activity
@@ -22,7 +22,7 @@ public class Activity extends ContextThemeWrapper
         AutofillManager.AutofillClient {
         
     private Window mWindow;
-    
+
     .....
 }
 ```
