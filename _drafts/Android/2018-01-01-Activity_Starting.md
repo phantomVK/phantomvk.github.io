@@ -3551,9 +3551,6 @@ private void handleLaunchActivity(ActivityClientRecord r, Intent customIntent) {
     // Make sure we are running with the most recent config.
     handleConfigurationChanged(null, null);
 
-    if (localLOGV) Slog.v(
-        TAG, "Handling launch of " + r);
-
     // Initialize before creating the activity
     WindowManagerGlobal.initialize();
 
@@ -3646,7 +3643,9 @@ private Activity handleLaunchActivity(ActivityClientRecord r, Intent customInten
 
     Activity activity = null;
     try {
+        // 获取类加载器
         java.lang.ClassLoader cl = r.packageInfo.getClassLoader();
+        // 通过Instrumentation创建Activity对象
         activity = mInstrumentation.newActivity(
                 cl, component.getClassName(), r.intent);
         StrictMode.incrementExpectedActivityCount(activity.getClass());
@@ -3664,6 +3663,7 @@ private Activity handleLaunchActivity(ActivityClientRecord r, Intent customInten
     }
 
     try {
+        // 获取Application对象
         Application app = r.packageInfo.makeApplication(false, mInstrumentation);
 
         if (activity != null) {
@@ -3691,6 +3691,7 @@ private Activity handleLaunchActivity(ActivityClientRecord r, Intent customInten
             if (r.isPersistable()) {
                 mInstrumentation.callActivityOnCreate(activity, r.state, r.persistentState);
             } else {
+                // 里面调用onCreate()
                 mInstrumentation.callActivityOnCreate(activity, r.state);
             }
             if (!activity.mCalled) {
@@ -3701,6 +3702,7 @@ private Activity handleLaunchActivity(ActivityClientRecord r, Intent customInten
             r.activity = activity;
             r.stopped = true;
             if (!r.activity.mFinished) {
+                // 里面调用onStart
                 activity.performStart();
                 r.stopped = false;
             }
