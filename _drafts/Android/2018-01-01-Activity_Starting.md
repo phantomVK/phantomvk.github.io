@@ -112,7 +112,7 @@ public void startActivityForResult(Intent intent, int requestCode) {
  */
 public void startActivityForResult(Intent intent, int requestCode, @Nullable Bundle options) {
     if (mParent == null) {
-        // 看小结3.1的解析
+        // 看小结3.1的解析，mToken是IBinder对象
         Instrumentation.ActivityResult ar =
             mInstrumentation.execStartActivity(
                 this, mMainThread.getApplicationThread(), mToken, this,
@@ -206,7 +206,7 @@ public void execStartActivitiesAsUser(Context who, IBinder contextThread,
         int result = ActivityManagerNative.getDefault()
             .startActivities(whoThread, who.getBasePackageName(), intents, resolvedTypes,
                     token, options, userId);
-        // 检查Activity是否启动成功
+        // 检查Activity启动结果
         checkStartActivityResult(result, intents[0]);
     } catch (RemoteException e) {
         throw new RuntimeException("Failure from system", e);
@@ -2613,17 +2613,17 @@ void startSpecificActivityLocked(ActivityRecord r,
                 app.addPackage(r.info.packageName, r.info.applicationInfo.versionCode,
                         mService.mProcessStats);
             }
+            // 目标Activity已经启动
             realStartActivityLocked(r, app, andResume, checkConfig);
             return;
         } catch (RemoteException e) {
-            Slog.w(TAG, "Exception when starting activity "
-                    + r.intent.getComponent().flattenToShortString(), e);
         }
 
         // If a dead object exception was thrown -- fall through to
         // restart the application.
     }
 
+    // 需要启动的Activity所属进程不存在，通过Zygote创建应用进程
     mService.startProcessLocked(r.processName, r.info.applicationInfo, true, 0,
             "activity", r.intent.getComponent(), false, false, true);
 }
@@ -2742,6 +2742,216 @@ final ProcessRecord startProcessLocked(String processName, ApplicationInfo info,
             app, hostingType, hostingNameStr, abiOverride, entryPoint, entryPointArgs);
     checkTime(startTime, "startProcess: done starting proc!");
     return (app.pid != 0) ? app : null;
+}
+```
+
+```java
+private final void startProcessLocked(ProcessRecord app,
+        String hostingType, String hostingNameStr) {
+    startProcessLocked(app, hostingType, hostingNameStr, null /* abiOverride */,
+            null /* entryPoint */, null /* entryPointArgs */);
+}
+
+private final void startProcessLocked(ProcessRecord app, String hostingType,
+        String hostingNameStr, String abiOverride, String entryPoint, String[] entryPointArgs) {
+    long startTime = SystemClock.elapsedRealtime();
+    if (app.pid > 0 && app.pid != MY_PID) {
+        checkTime(startTime, "startProcess: removing from pids map");
+        synchronized (mPidsSelfLocked) {
+            mPidsSelfLocked.remove(app.pid);
+            mHandler.removeMessages(PROC_START_TIMEOUT_MSG, app);
+        }
+        checkTime(startTime, "startProcess: done removing from pids map");
+        app.setPid(0);
+    }
+
+    if (DEBUG_PROCESSES && mProcessesOnHold.contains(app)) Slog.v(TAG_PROCESSES,
+            "startProcessLocked removing on hold: " + app);
+    mProcessesOnHold.remove(app);
+
+    checkTime(startTime, "startProcess: starting to update cpu stats");
+    updateCpuStats();
+    checkTime(startTime, "startProcess: done updating cpu stats");
+
+    try {
+        try {
+            if (AppGlobals.getPackageManager().isPackageFrozen(app.info.packageName)) {
+                // This is caught below as if we had failed to fork zygote
+                throw new RuntimeException("Package " + app.info.packageName + " is frozen!");
+            }
+        } catch (RemoteException e) {
+            throw e.rethrowAsRuntimeException();
+        }
+
+        int uid = app.uid;
+        int[] gids = null;
+        int mountExternal = Zygote.MOUNT_EXTERNAL_NONE;
+        if (!app.isolated) {
+            int[] permGids = null;
+            try {
+                checkTime(startTime, "startProcess: getting gids from package manager");
+                final IPackageManager pm = AppGlobals.getPackageManager();
+                permGids = pm.getPackageGids(app.info.packageName, app.userId);
+                MountServiceInternal mountServiceInternal = LocalServices.getService(
+                        MountServiceInternal.class);
+                mountExternal = mountServiceInternal.getExternalStorageMountMode(uid,
+                        app.info.packageName);
+            } catch (RemoteException e) {
+                throw e.rethrowAsRuntimeException();
+            }
+
+            /*
+             * Add shared application and profile GIDs so applications can share some
+             * resources like shared libraries and access user-wide resources
+             */
+            if (ArrayUtils.isEmpty(permGids)) {
+                gids = new int[2];
+            } else {
+                gids = new int[permGids.length + 2];
+                System.arraycopy(permGids, 0, gids, 2, permGids.length);
+            }
+            gids[0] = UserHandle.getSharedAppGid(UserHandle.getAppId(uid));
+            gids[1] = UserHandle.getUserGid(UserHandle.getUserId(uid));
+        }
+        checkTime(startTime, "startProcess: building args");
+        if (mFactoryTest != FactoryTest.FACTORY_TEST_OFF) {
+            if (mFactoryTest == FactoryTest.FACTORY_TEST_LOW_LEVEL
+                    && mTopComponent != null
+                    && app.processName.equals(mTopComponent.getPackageName())) {
+                uid = 0;
+            }
+            if (mFactoryTest == FactoryTest.FACTORY_TEST_HIGH_LEVEL
+                    && (app.info.flags&ApplicationInfo.FLAG_FACTORY_TEST) != 0) {
+                uid = 0;
+            }
+        }
+        int debugFlags = 0;
+        if ((app.info.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            debugFlags |= Zygote.DEBUG_ENABLE_DEBUGGER;
+            // Also turn on CheckJNI for debuggable apps. It's quite
+            // awkward to turn on otherwise.
+            debugFlags |= Zygote.DEBUG_ENABLE_CHECKJNI;
+        }
+        // Run the app in safe mode if its manifest requests so or the
+        // system is booted in safe mode.
+        if ((app.info.flags & ApplicationInfo.FLAG_VM_SAFE_MODE) != 0 ||
+            mSafeMode == true) {
+            debugFlags |= Zygote.DEBUG_ENABLE_SAFEMODE;
+        }
+        if ("1".equals(SystemProperties.get("debug.checkjni"))) {
+            debugFlags |= Zygote.DEBUG_ENABLE_CHECKJNI;
+        }
+        String jitDebugProperty = SystemProperties.get("debug.usejit");
+        if ("true".equals(jitDebugProperty)) {
+            debugFlags |= Zygote.DEBUG_ENABLE_JIT;
+        } else if (!"false".equals(jitDebugProperty)) {
+            // If we didn't force disable by setting false, defer to the dalvik vm options.
+            if ("true".equals(SystemProperties.get("dalvik.vm.usejit"))) {
+                debugFlags |= Zygote.DEBUG_ENABLE_JIT;
+            }
+        }
+        String genDebugInfoProperty = SystemProperties.get("debug.generate-debug-info");
+        if ("true".equals(genDebugInfoProperty)) {
+            debugFlags |= Zygote.DEBUG_GENERATE_DEBUG_INFO;
+        }
+        if ("1".equals(SystemProperties.get("debug.jni.logging"))) {
+            debugFlags |= Zygote.DEBUG_ENABLE_JNI_LOGGING;
+        }
+        if ("1".equals(SystemProperties.get("debug.assert"))) {
+            debugFlags |= Zygote.DEBUG_ENABLE_ASSERT;
+        }
+
+        String requiredAbi = (abiOverride != null) ? abiOverride : app.info.primaryCpuAbi;
+        if (requiredAbi == null) {
+            requiredAbi = Build.SUPPORTED_ABIS[0];
+        }
+
+        String instructionSet = null;
+        if (app.info.primaryCpuAbi != null) {
+            instructionSet = VMRuntime.getInstructionSet(app.info.primaryCpuAbi);
+        }
+
+        app.gids = gids;
+        app.requiredAbi = requiredAbi;
+        app.instructionSet = instructionSet;
+
+        // Start the process.  It will either succeed and return a result containing
+        // the PID of the new process, or else throw a RuntimeException.
+        boolean isActivityProcess = (entryPoint == null);
+        if (entryPoint == null) entryPoint = "android.app.ActivityThread";
+        Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "Start proc: " +
+                app.processName);
+        checkTime(startTime, "startProcess: asking zygote to start proc");
+        // 调用Process.start()，通过socket发送消息给zygote
+        // Zygote派生出一个子进程，子进程将通过反射调用ActivityThread的main函数
+        Process.ProcessStartResult startResult = Process.start(entryPoint,
+                app.processName, uid, uid, gids, debugFlags, mountExternal,
+                app.info.targetSdkVersion, app.info.seinfo, requiredAbi, instructionSet,
+                app.info.dataDir, entryPointArgs);
+        checkTime(startTime, "startProcess: returned from zygote!");
+        Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
+
+        if (app.isolated) {
+            mBatteryStatsService.addIsolatedUid(app.uid, app.info.uid);
+        }
+        mBatteryStatsService.noteProcessStart(app.processName, app.info.uid);
+        checkTime(startTime, "startProcess: done updating battery stats");
+
+        EventLog.writeEvent(EventLogTags.AM_PROC_START,
+                UserHandle.getUserId(uid), startResult.pid, uid,
+                app.processName, hostingType,
+                hostingNameStr != null ? hostingNameStr : "");
+
+        if (app.persistent) {
+            Watchdog.getInstance().processStarted(app.processName, startResult.pid);
+        }
+
+        checkTime(startTime, "startProcess: building log message");
+        StringBuilder buf = mStringBuilder;
+        buf.setLength(0);
+        buf.append("Start proc ");
+        buf.append(startResult.pid);
+        buf.append(':');
+        buf.append(app.processName);
+        buf.append('/');
+        UserHandle.formatUid(buf, uid);
+        if (!isActivityProcess) {
+            buf.append(" [");
+            buf.append(entryPoint);
+            buf.append("]");
+        }
+        buf.append(" for ");
+        buf.append(hostingType);
+        if (hostingNameStr != null) {
+            buf.append(" ");
+            buf.append(hostingNameStr);
+        }
+        Slog.i(TAG, buf.toString());
+        app.setPid(startResult.pid);
+        app.usingWrapper = startResult.usingWrapper;
+        app.removed = false;
+        app.killed = false;
+        app.killedByAm = false;
+        checkTime(startTime, "startProcess: starting to update pids map");
+        synchronized (mPidsSelfLocked) {
+            this.mPidsSelfLocked.put(startResult.pid, app);
+            if (isActivityProcess) {
+                Message msg = mHandler.obtainMessage(PROC_START_TIMEOUT_MSG);
+                msg.obj = app;
+                mHandler.sendMessageDelayed(msg, startResult.usingWrapper
+                        ? PROC_START_TIMEOUT_WITH_WRAPPER : PROC_START_TIMEOUT);
+            }
+        }
+        checkTime(startTime, "startProcess: done updating pids map");
+    } catch (RuntimeException e) {
+        // XXX do better error recovery.
+        app.setPid(0);
+        mBatteryStatsService.noteProcessFinish(app.processName, app.info.uid);
+        if (app.isolated) {
+            mBatteryStatsService.removeIsolatedUid(app.uid, app.info.uid);
+        }
+        Slog.e(TAG, "Failure starting process " + app.processName, e);
+    }
 }
 ```
 
