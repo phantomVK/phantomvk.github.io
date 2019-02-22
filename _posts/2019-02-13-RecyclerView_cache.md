@@ -9,7 +9,7 @@ tags:
     - Android
 ---
 
-## RecyclerView与性能
+## 一、RecyclerView与性能
 
 使用 __RecyclerView__ 的难度可大可小。仅作为单一类型列表展示，只要对视图布局进行优化，减低层次复杂度，几乎不可能存在性能问题。
 
@@ -21,7 +21,7 @@ __RecyclerView__ 缓存分为3级，每级有各自的缓存数量和策略。
 
 当所有缓存层均没有所需实例，最后由 __onCreateViewHolder()__ 创建并绑定数据。源码版本：Android 27.1.1
 
-## 一级缓存
+## 二、一级缓存
 
 一级缓存包含三个容器实例：__mAttachedScrap__、__mChangedScrap__、__mCachedViews__。根据不同场景 __ViewHolder__ 缓存到不同容器。
 
@@ -43,7 +43,7 @@ __mCachedViews__ 用于解决滑动抖动的问题，默认容量为2，可根�
 final ArrayList<RecyclerView.ViewHolder> mCachedViews = new ArrayList();
 ```
 
-### 二级缓存
+## 三、二级缓存
 
 开发者自定义的缓存，需实现 __ViewCacheExtension__ 抽象类。若没有定义此缓存默认为null。
 
@@ -51,7 +51,7 @@ final ArrayList<RecyclerView.ViewHolder> mCachedViews = new ArrayList();
 private RecyclerView.ViewCacheExtension mViewCacheExtension;
 ```
 
-### 三级缓存
+## 四、三级缓存
 
 __mCachedViews__ 无法保存屏幕上所有移除的 __ViewHolder__ 时，剩余的 __ViewHolder__ 根据 __type__ 分类放入缓存池中。
 
@@ -59,7 +59,9 @@ __mCachedViews__ 无法保存屏幕上所有移除的 __ViewHolder__ 时，剩�
 RecyclerView.RecycledViewPool mRecyclerPool;
 ```
 
-## Recycler
+## 五、Recycler
+
+#### 5.1 tryGetViewHolderForPositionByDeadline()
 
 以下是 __RecyclerView__ 的内部类 __Recycler__ 去除类签名的源码。Adapter利用position获取 __ViewHolder__，若一级缓存命失、__mViewCacheExtension__ 为空，则从缓存池查找对象。
 
@@ -235,7 +237,7 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
 }
 ```
 
-#### getScrapOrHiddenOrCachedHolderForPosition()
+#### 5.2 getScrapOrHiddenOrCachedHolderForPosition()
 
 从 __attach scrap__、__hidden children__ 或 __cache__ 根据 __position__ 返回 __ViewHolder__
 
@@ -296,7 +298,7 @@ ViewHolder getScrapOrHiddenOrCachedHolderForPosition(int position, boolean dryRu
 }
 ```
 
-#### tryBindViewHolderByDeadline()
+#### 5.3 tryBindViewHolderByDeadline()
 
 ```java
 private boolean tryBindViewHolderByDeadline(ViewHolder holder, int offsetPosition,
@@ -323,7 +325,7 @@ private boolean tryBindViewHolderByDeadline(ViewHolder holder, int offsetPositio
 }
 ```
 
-## RecycledViewPool
+## 六、RecycledViewPool
 
 __RecycledViewPool__ 可在多个 __RecyclerViews__ 间共享。如果这么做，则需要自行创建 __RecycledViewPool__ 实例，把实例通过 __RecyclerView#setRecycledViewPool(RecycledViewPool)__ 绑定到 __RecyclerView__ 上。如果没有给 __RecyclerView__指定任何 __RecycledViewPool__，则会自行创建该实例。
 
@@ -414,6 +416,6 @@ private ScrapData getScrapDataForType(int viewType) {
 }
 ```
 
-## 参考链接
+## 七、参考链接
 
 - [RecyclerView缓存原理，有图有真相](https://juejin.im/post/5b79a0b851882542b13d204b)

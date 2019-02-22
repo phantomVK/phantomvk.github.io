@@ -2596,7 +2596,7 @@ private void completePauseLocked(boolean resumeNext) {
 ```java
 void startSpecificActivityLocked(ActivityRecord r,
         boolean andResume, boolean checkConfig) {
-    // Is this activity's application already running?
+    // activity的application是否在运行？
     ProcessRecord app = mService.getProcessRecordLocked(r.processName,
             r.info.applicationInfo.uid, true);
 
