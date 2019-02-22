@@ -9,7 +9,7 @@ tags:
     - Android源码系列
 ---
 
-## Activity
+## 一、Activity
 
 __mWindow__ 是 __Activity__ 的数据成员，源码来自Android 27.1.1
 
@@ -40,7 +40,7 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback{
 }
 ```
 
-## AppCompatActivity
+## 二、AppCompatActivity
 
 以下是 __AppCompatActivity__ 的类注释
 
@@ -87,7 +87,7 @@ public AppCompatDelegate getDelegate() {
 }
 ```
 
-## AppCompatDelegate
+## 三、AppCompatDelegate
 
 在代理实现类中没有看见 __AppCompatDelegateImplV9__ 的分支
 
@@ -351,7 +351,7 @@ public boolean requestWindowFeature(int featureId) {
 }
 ```
 
-## PhoneWindow
+## 四、PhoneWindow
 
 __Window__ 是 __PhoneWindow__ 的父类，定义一些列绘制窗口的抽象方法。
 
@@ -582,7 +582,7 @@ __requestWindowFeature()__ 配置相关参数，由 __getLocalFeature()__ 负责
 requestWindowFeature(Window.FEATURE_NO_TITLE);
 ```
 
-## 填充布局
+## 五、填充布局
 
 经过上面 __DecorView__ 创建和初始化的论述，现在回到原来关注的调用点上。随后填充视图并加入到 __contentParent__，这个视图就是日常使用的 __setContentView(int resId)__ 的 __resId__
 
@@ -602,7 +602,11 @@ public void setContentView(int resId) {
 
 工作完成，回调 __onContentChanged()__ 发出通知
 
-## 总结
+## 六、总结
+
+所有工作完成后，界面布局层次如下：
+
+![Window](/img/android/Activity/Window.png)
 
 __setContentView(int resId)__ 工作流程：
 
@@ -614,11 +618,7 @@ __setContentView(int resId)__ 工作流程：
 - 在 __mDecor__ 找一个 __id__ 为 __android.R.id.content__ 的视图赋值给  __contentParent__；
 - 最后，根据开发者定义的布局 __resId__，实例化后加到 __contentParent__ 内.
 
-所有工作完成后，界面布局层次如下：
-
-![Window](/img/android/Activity/Window.png)
-
-## 参考链接
+## 七、参考链接
 
 - [Android应用setContentView与LayoutInflater加载解析机制源码分析](https://blog.csdn.net/yanbober/article/details/45970721)
 
