@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "图解Activity启动流程"
-date:       2018-07-01
+date:       2019-02-22
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -227,11 +227,63 @@ __ActivityManagerNative.getDefault()__ 返回 __ActivityManagerProxy__ 代理类
 static public IActivityManager getDefault() {
     return gDefault.get();
 }
+
+// 创建单例获取IActivityManager对象
+private static final Singleton<IActivityManager> gDefault = new Singleton<IActivityManager>() {
+    protected IActivityManager create() {
+        // 通过ServiceManager获取名为"activity"的IBinder
+        IBinder b = ServiceManager.getService("activity");
+        IActivityManager am = asInterface(b);
+        return am;
+    }
+};
 ```
+
+获取的 __Binder__ 对象转换为 __IActivityManager__ 对象
+
+```java
+public abstract class ActivityManagerNative extends Binder implements IActivityManager
+{
+    /**
+     * Cast a Binder object into an activity manager interface, generating
+     * a proxy if needed.
+     */
+    static public IActivityManager asInterface(IBinder obj) {
+        if (obj == null) {
+            return null;
+        }
+        IActivityManager in =
+            (IActivityManager)obj.queryLocalInterface(descriptor);
+        if (in != null) {
+            return in;
+        }
+
+        return new ActivityManagerProxy(obj);
+    }
+    .....
+}
+```
+
+
 
 #### 2.5 ActivityManagerProxy
 
 __ActivityManagerProxy__ 是 __ActivityManagerNative__ 的内部类，实现 __IActivityManager__ 接口，__IActivityManager__ 又实现接口 __IInterface__。可知 __ActivityManagerProxy__ 间接实现接口 __IInterface__。 __IInterface__ 则定义了IPC可使用的方法。
+
+```java
+// 继承Binder类，实现IActivityManager接口
+public abstract class ActivityManagerNative extends Binder implements IActivityManager {}
+
+// ActivityManagerService继承ActivityManagerNative
+public final class ActivityManagerService extends ActivityManagerNative
+        implements Watchdog.Monitor, BatteryStatsImpl.BatteryCallback {}
+
+// ActivityManagerNative的代理类ActivityManagerProxy
+// 方法的优先逻辑都把转移给ActivityManagerService完成
+class ActivityManagerProxy implements IActivityManager {}
+```
+
+
 
 到这里经过的流程：
 
@@ -3528,7 +3580,7 @@ final ProcessRecord startProcessLocked(String processName, ApplicationInfo info,
 }
 ```
 
-#### ActivityStackSupervisor.startSpecificActivityLocked
+#### 2.33 ActivityStackSupervisor.startSpecificActivityLocked
 
 ```java
 void startSpecificActivityLocked(ActivityRecord r,
@@ -3566,7 +3618,7 @@ void startSpecificActivityLocked(ActivityRecord r,
 }
 ```
 
-#### ActivityManagerService.startProcessLocked
+#### 2.34 ActivityManagerService.startProcessLocked
 
 
 ```java
@@ -3581,7 +3633,7 @@ final ProcessRecord startProcessLocked(String processName,
 }
 ```
 
-#### ActivityManagerService.startProcessLocked
+#### 2.35 ActivityManagerService.startProcessLocked
 
 ```java
 private final void startProcessLocked(ProcessRecord app,
@@ -3793,7 +3845,7 @@ private final void startProcessLocked(ProcessRecord app, String hostingType,
 }
 ```
 
-#### ActivityThread
+#### 2.36 ActivityThread
 
 ```java
 public final class ActivityThread {
@@ -3844,7 +3896,7 @@ public final class ActivityThread {
 }
 ```
 
-#### ActivityManagerService.attachApplicationLocked
+#### 2.37 ActivityManagerService.attachApplicationLocked
 
 ```java
 private final boolean attachApplicationLocked(IApplicationThread thread,
@@ -4071,7 +4123,7 @@ private final boolean attachApplicationLocked(IApplicationThread thread,
 }
 ```
 
-#### ActivityStackSupervisor.attachApplicationLocked
+#### 2.38 ActivityStackSupervisor.attachApplicationLocked
 
 ```java
 boolean attachApplicationLocked(ProcessRecord app) throws RemoteException {
@@ -4108,7 +4160,7 @@ boolean attachApplicationLocked(ProcessRecord app) throws RemoteException {
 }
 ```
 
-#### ActivityStackSupervisor.realStartActivityLocked
+#### 2.39 ActivityStackSupervisor.realStartActivityLocked
 
 ```java
 final boolean realStartActivityLocked(ActivityRecord r,
@@ -4298,7 +4350,7 @@ final boolean realStartActivityLocked(ActivityRecord r,
 }
 ```
 
-#### ApplicationThreadProxy.ApplicationThreadProxy
+#### 2.40 ApplicationThreadProxy.ApplicationThreadProxy
 
 ```java
 public final void scheduleLaunchActivity(Intent intent, IBinder token, int ident, ActivityInfo info, Configuration curConfig, Configuration overrideConfig, CompatibilityInfo compatInfo, String referrer, IVoiceInteractor voiceInteractor, int procState, Bundle state, PersistableBundle persistentState, List<ResultInfo> pendingResults, List<ReferrerIntent> pendingNewIntents, boolean notResumed, boolean isForward, ProfilerInfo profilerInfo) throws RemoteException {
@@ -4337,7 +4389,7 @@ public final void scheduleLaunchActivity(Intent intent, IBinder token, int ident
  }
 ```
 
-#### ActivityStackSupervisor.realStartActivityLocked
+#### 2.41 ActivityStackSupervisor.realStartActivityLocked
 
 ```java
 final boolean realStartActivityLocked(ActivityRecord r,
@@ -4529,7 +4581,7 @@ final boolean realStartActivityLocked(ActivityRecord r,
 }
 ```
 
-#### ApplicationThreadNative.onTransact
+#### 2.42 ApplicationThreadNative.onTransact
 
 ```java
 @Override
@@ -4630,7 +4682,7 @@ public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
 }
 ```
 
-#### ApplicationThread.scheduleLaunchActivity
+#### 2.43 ApplicationThread.scheduleLaunchActivity
 
 __ActivityThread__ 的内部类
 
@@ -4693,121 +4745,15 @@ private class ApplicationThread extends ApplicationThreadNative {
 }
 ```
 
-#### H.handleMessage
+#### 2.44 ActivivtyThread.H.handleMessage
 
 ActivivtyThread内部类 H
 
 ```java
 private class H extends Handler {
     public static final int LAUNCH_ACTIVITY         = 100;
-    public static final int PAUSE_ACTIVITY          = 101;
-    public static final int PAUSE_ACTIVITY_FINISHING= 102;
-    public static final int STOP_ACTIVITY_SHOW      = 103;
-    public static final int STOP_ACTIVITY_HIDE      = 104;
-    public static final int SHOW_WINDOW             = 105;
-    public static final int HIDE_WINDOW             = 106;
-    public static final int RESUME_ACTIVITY         = 107;
-    public static final int SEND_RESULT             = 108;
-    public static final int DESTROY_ACTIVITY        = 109;
-    public static final int BIND_APPLICATION        = 110;
-    public static final int EXIT_APPLICATION        = 111;
-    public static final int NEW_INTENT              = 112;
-    public static final int RECEIVER                = 113;
-    public static final int CREATE_SERVICE          = 114;
-    public static final int SERVICE_ARGS            = 115;
-    public static final int STOP_SERVICE            = 116;
-
-    public static final int CONFIGURATION_CHANGED   = 118;
-    public static final int CLEAN_UP_CONTEXT        = 119;
-    public static final int GC_WHEN_IDLE            = 120;
-    public static final int BIND_SERVICE            = 121;
-    public static final int UNBIND_SERVICE          = 122;
-    public static final int DUMP_SERVICE            = 123;
-    public static final int LOW_MEMORY              = 124;
-    public static final int ACTIVITY_CONFIGURATION_CHANGED = 125;
-    public static final int RELAUNCH_ACTIVITY       = 126;
-    public static final int PROFILER_CONTROL        = 127;
-    public static final int CREATE_BACKUP_AGENT     = 128;
-    public static final int DESTROY_BACKUP_AGENT    = 129;
-    public static final int SUICIDE                 = 130;
-    public static final int REMOVE_PROVIDER         = 131;
-    public static final int ENABLE_JIT              = 132;
-    public static final int DISPATCH_PACKAGE_BROADCAST = 133;
-    public static final int SCHEDULE_CRASH          = 134;
-    public static final int DUMP_HEAP               = 135;
-    public static final int DUMP_ACTIVITY           = 136;
-    public static final int SLEEPING                = 137;
-    public static final int SET_CORE_SETTINGS       = 138;
-    public static final int UPDATE_PACKAGE_COMPATIBILITY_INFO = 139;
-    public static final int TRIM_MEMORY             = 140;
-    public static final int DUMP_PROVIDER           = 141;
-    public static final int UNSTABLE_PROVIDER_DIED  = 142;
-    public static final int REQUEST_ASSIST_CONTEXT_EXTRAS = 143;
-    public static final int TRANSLUCENT_CONVERSION_COMPLETE = 144;
-    public static final int INSTALL_PROVIDER        = 145;
-    public static final int ON_NEW_ACTIVITY_OPTIONS = 146;
-    public static final int CANCEL_VISIBLE_BEHIND = 147;
-    public static final int BACKGROUND_VISIBLE_BEHIND_CHANGED = 148;
-    public static final int ENTER_ANIMATION_COMPLETE = 149;
-
-    String codeToString(int code) {
-        if (DEBUG_MESSAGES) {
-            switch (code) {
-                case LAUNCH_ACTIVITY: return "LAUNCH_ACTIVITY";
-                case PAUSE_ACTIVITY: return "PAUSE_ACTIVITY";
-                case PAUSE_ACTIVITY_FINISHING: return "PAUSE_ACTIVITY_FINISHING";
-                case STOP_ACTIVITY_SHOW: return "STOP_ACTIVITY_SHOW";
-                case STOP_ACTIVITY_HIDE: return "STOP_ACTIVITY_HIDE";
-                case SHOW_WINDOW: return "SHOW_WINDOW";
-                case HIDE_WINDOW: return "HIDE_WINDOW";
-                case RESUME_ACTIVITY: return "RESUME_ACTIVITY";
-                case SEND_RESULT: return "SEND_RESULT";
-                case DESTROY_ACTIVITY: return "DESTROY_ACTIVITY";
-                case BIND_APPLICATION: return "BIND_APPLICATION";
-                case EXIT_APPLICATION: return "EXIT_APPLICATION";
-                case NEW_INTENT: return "NEW_INTENT";
-                case RECEIVER: return "RECEIVER";
-                case CREATE_SERVICE: return "CREATE_SERVICE";
-                case SERVICE_ARGS: return "SERVICE_ARGS";
-                case STOP_SERVICE: return "STOP_SERVICE";
-                case CONFIGURATION_CHANGED: return "CONFIGURATION_CHANGED";
-                case CLEAN_UP_CONTEXT: return "CLEAN_UP_CONTEXT";
-                case GC_WHEN_IDLE: return "GC_WHEN_IDLE";
-                case BIND_SERVICE: return "BIND_SERVICE";
-                case UNBIND_SERVICE: return "UNBIND_SERVICE";
-                case DUMP_SERVICE: return "DUMP_SERVICE";
-                case LOW_MEMORY: return "LOW_MEMORY";
-                case ACTIVITY_CONFIGURATION_CHANGED: return "ACTIVITY_CONFIGURATION_CHANGED";
-                case RELAUNCH_ACTIVITY: return "RELAUNCH_ACTIVITY";
-                case PROFILER_CONTROL: return "PROFILER_CONTROL";
-                case CREATE_BACKUP_AGENT: return "CREATE_BACKUP_AGENT";
-                case DESTROY_BACKUP_AGENT: return "DESTROY_BACKUP_AGENT";
-                case SUICIDE: return "SUICIDE";
-                case REMOVE_PROVIDER: return "REMOVE_PROVIDER";
-                case ENABLE_JIT: return "ENABLE_JIT";
-                case DISPATCH_PACKAGE_BROADCAST: return "DISPATCH_PACKAGE_BROADCAST";
-                case SCHEDULE_CRASH: return "SCHEDULE_CRASH";
-                case DUMP_HEAP: return "DUMP_HEAP";
-                case DUMP_ACTIVITY: return "DUMP_ACTIVITY";
-                case SLEEPING: return "SLEEPING";
-                case SET_CORE_SETTINGS: return "SET_CORE_SETTINGS";
-                case UPDATE_PACKAGE_COMPATIBILITY_INFO: return "UPDATE_PACKAGE_COMPATIBILITY_INFO";
-                case TRIM_MEMORY: return "TRIM_MEMORY";
-                case DUMP_PROVIDER: return "DUMP_PROVIDER";
-                case UNSTABLE_PROVIDER_DIED: return "UNSTABLE_PROVIDER_DIED";
-                case REQUEST_ASSIST_CONTEXT_EXTRAS: return "REQUEST_ASSIST_CONTEXT_EXTRAS";
-                case TRANSLUCENT_CONVERSION_COMPLETE: return "TRANSLUCENT_CONVERSION_COMPLETE";
-                case INSTALL_PROVIDER: return "INSTALL_PROVIDER";
-                case ON_NEW_ACTIVITY_OPTIONS: return "ON_NEW_ACTIVITY_OPTIONS";
-                case CANCEL_VISIBLE_BEHIND: return "CANCEL_VISIBLE_BEHIND";
-                case BACKGROUND_VISIBLE_BEHIND_CHANGED: return "BACKGROUND_VISIBLE_BEHIND_CHANGED";
-                case ENTER_ANIMATION_COMPLETE: return "ENTER_ANIMATION_COMPLETE";
-            }
-        }
-        return Integer.toString(code);
-    }
+    
     public void handleMessage(Message msg) {
-        if (DEBUG_MESSAGES) Slog.v(TAG, ">>> handling: " + codeToString(msg.what));
         switch (msg.what) {
             case LAUNCH_ACTIVITY: {
                 Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "activityStart");
@@ -4825,7 +4771,7 @@ private class H extends Handler {
 }
 ```
 
-#### ActivityThread.handleLaunchActivity
+#### 2.45 ActivityThread.handleLaunchActivity
 
 ```java
 private void handleLaunchActivity(ActivityClientRecord r, Intent customIntent) {
@@ -4910,7 +4856,7 @@ private void handleLaunchActivity(ActivityClientRecord r, Intent customIntent) {
 }
 ```
 
-#### ActivityThread.performLaunchActivity
+#### 2.46 ActivityThread.performLaunchActivity
 
 ```java
 private Activity handleLaunchActivity(ActivityClientRecord r, Intent customIntent) {
