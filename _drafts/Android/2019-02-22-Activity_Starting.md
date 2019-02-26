@@ -283,8 +283,6 @@ public final class ActivityManagerService extends ActivityManagerNative
 class ActivityManagerProxy implements IActivityManager {}
 ```
 
-
-
 到这里经过的流程：
 
 - 已启动 __Activity__ 希望启动新界面，启动工作交给 __Instrumentation__ 进行操作；
@@ -333,7 +331,7 @@ class ActivityManagerProxy implements IActivityManager {
         } else {
             data.writeInt(0);
         }
-        // Client发起IPC希望启动新Activity，进入小节2.6
+        // Client发起IPC启动新Activity，进入小节2.6
         mRemote.transact(START_ACTIVITY_TRANSACTION, data, reply, 0);
         reply.readException();
         int result = reply.readInt();
@@ -346,11 +344,13 @@ class ActivityManagerProxy implements IActivityManager {
 }
 ```
 
+最后调用者通过 __Binder__ IPC请求服务端支持 __START_ACTIVITY_TRANSACTION__ 功能
+
 #### 2.6 ActivityManagerNative
 
-__Client__ 端的请求通过自己 __ActivityManagerNative__ 的代理发起请求，__Server__ 端的 __ActivityManagerNative__ 收到IPC。虽然两端使用同一个类，但是两端如果不在同一个进程，则各自持有各自同名类实例，跨进程通讯通过 __Binder__ 驱动完成。
+__Client__ 端请求通过自己的 __ActivityManagerNative__ 代理发起请求，__Server__ 端的 __ActivityManagerNative__ 收到该请求。虽然两端使用同一个类，若两端不在同一个进程，则各自持有自己的同名类实例，并通过 __Binder__ 驱动跨进程通讯。
 
-下列方法是__Server__ 端收到IPC请求后，根据请求执行启动页面的操作。
+下列方法是 __Server__ 端收到IPC请求后，根据请求执行启动页面的操作。
 
 ```java
 @Override
@@ -362,6 +362,7 @@ public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
         data.enforceInterface(IActivityManager.descriptor);
         IBinder b = data.readStrongBinder();
         IApplicationThread app = ApplicationThreadNative.asInterface(b);
+        // 从data读取Activity启动所需参数
         String callingPackage = data.readString();
         Intent intent = Intent.CREATOR.createFromParcel(data);
         String resolvedType = data.readString();
@@ -373,14 +374,13 @@ public boolean onTransact(int code, Parcel data, Parcel reply, int flags)
                 ? ProfilerInfo.CREATOR.createFromParcel(data) : null;
         Bundle options = data.readInt() != 0
                 ? Bundle.CREATOR.createFromParcel(data) : null;
-        // 到小节2.7
+        // 用获取的参数启动界面，见小节2.7
         int result = startActivity(app, callingPackage, intent, resolvedType,
                 resultTo, resultWho, requestCode, startFlags, profilerInfo, options);
         reply.writeNoException();
         reply.writeInt(result);
         return true;
     }
-
     .....
 }
 ```
@@ -400,7 +400,7 @@ public final int startActivity(IApplicationThread caller, String callingPackage,
 }
 ```
 
-进入下面的重载方法，该方法内又把工作交给 __ActivityStackSupervisor__ 类进行。
+__startActivityAsUser__ 辗转进入下面这个重载方法，该方法又把工作交给 __ActivityStackSupervisor__ 进行。
 
 ```java
 @Override
@@ -410,7 +410,7 @@ public final int startActivityAsUser(IApplicationThread caller, String callingPa
     enforceNotIsolatedCaller("startActivity");
     userId = handleIncomingUser(Binder.getCallingPid(), Binder.getCallingUid(), userId,
             false, ALLOW_FULL_ONLY, "startActivity", null);
-    // 看小节2.8
+    // ActivityStackSupervisor，看小节2.8
     return mStackSupervisor.startActivityMayWait(caller, -1, callingPackage, intent,
             resolvedType, null, null, resultTo, resultWho, requestCode, startFlags,
             profilerInfo, null, null, options, false, userId, null, null);
@@ -422,24 +422,25 @@ public final int startActivityAsUser(IApplicationThread caller, String callingPa
 __ActivityStackSupervisor__ 是 __Activity__ 栈的管理类，数据成员有很多保存不同状态页面的容器类
 
 ```java
-/** List of activities that are ready to be stopped, but waiting for the next activity to
- * settle down before doing so. */
+// List of activities that are ready to be stopped, but waiting for the next activity to
+// settle down before doing so.
 final ArrayList<ActivityRecord> mStoppingActivities = new ArrayList<>();
 
-/** List of activities that are ready to be finished, but waiting for the previous activity to
- * settle down before doing so.  It contains ActivityRecord objects. */
+// List of activities that are ready to be finished, but waiting for the previous activity to
+// settle down before doing so.  It contains ActivityRecord objects.
 final ArrayList<ActivityRecord> mFinishingActivities = new ArrayList<>();
 
-/** List of activities that are in the process of going to sleep. */
+// List of activities that are in the process of going to sleep.
 final ArrayList<ActivityRecord> mGoingToSleepActivities = new ArrayList<>();
 ```
 
-工作继续交给同类的方法 __startActivityMayWait()__
+工作交给同类的方法 __startActivityMayWait()__
 
 ```java
-// caller: 
-// callingUid: 
-// intent: 
+// caller: ApplicationThreadProxy，和调用者进程ApplicationThread通讯的Binder代理类
+// callingUid: -1
+// callingPackage: ContextImpl.getBasePackageName()用于调用者Activity所在包名
+// intent: 启动Activity的参数
 // resolvedType: 
 // voiceSession: 
 // voiceInteractor: 
@@ -697,13 +698,10 @@ public static IPackageManager getPackageManager() {
 ```java
 public static IPackageManager getPackageManager() {
     if (sPackageManager != null) {
-        //Slog.v("PackageManager", "returning cur default = " + sPackageManager);
         return sPackageManager;
     }
     IBinder b = ServiceManager.getService("package");
-    //Slog.v("PackageManager", "default service binder = " + b);
     sPackageManager = IPackageManager.Stub.asInterface(b);
-    //Slog.v("PackageManager", "default service = " + sPackageManager);
     return sPackageManager;
 }
 ```
@@ -720,7 +718,8 @@ public ResolveInfo resolveIntent(Intent intent, String resolvedType,
         int flags, int userId) {
     if (!sUserManager.exists(userId)) return null;
     enforceCrossUserPermission(Binder.getCallingUid(), userId, false, false, "resolve intent");
-    List<ResolveInfo> query = queryIntentActivities(intent, resolvedType, flags, userId);
+    List<ResolveInfo> query = queryIntentActivities(intent, resolvedType, flags, userId);=
+    // 选择最合适的Activity
     return chooseBestActivity(intent, resolvedType, flags, query, userId);
 }
 ```
@@ -1112,6 +1111,10 @@ final void doPendingActivityLaunchesLocked(boolean doResume) {
 ```
 
 #### 2.16 ActivityStackSupervisor.startActivityUncheckedLocked
+
+r是指本次将要启动的Activity
+
+sourceRecord是指调用者
 
 ```java
 final int startActivityUncheckedLocked(final ActivityRecord r, ActivityRecord sourceRecord,

@@ -11,10 +11,10 @@ tags:
 
 ## 一、Activity
 
-__mWindow__ 是 __Activity__ 的数据成员，源码来自Android 27.1.1
+__mWindow__ 是 __Activity__ 的数据成员，源码来自 __Android 27.1.1__
 
 ```java
-public class Activity extends ContextThemeWrapper
+public class Activity extends ContextThemeWrappers
         implements LayoutInflater.Factory2,
         Window.Callback, KeyEvent.Callback,
         OnCreateContextMenuListener, ComponentCallbacks2,
@@ -27,7 +27,7 @@ public class Activity extends ContextThemeWrapper
 }
 ```
 
-__PhoneWindow__ 是 __Window__ 的实现。变量为 __DecorView__ 类型的 __mDecor__，是界面的根布局。
+__PhoneWindow__ 是 __Window__ 的具体实现。__mDecor__ 为 __DecorView__ 类型的成员 ，是界面的根布局。
 
 ```java
 public class PhoneWindow extends Window implements MenuBuilder.Callback{
@@ -42,31 +42,11 @@ public class PhoneWindow extends Window implements MenuBuilder.Callback{
 
 ## 二、AppCompatActivity
 
-以下是 __AppCompatActivity__ 的类注释
-
-```
-/**
- * Base class for activities that use the
- * <a href="{@docRoot}tools/extras/support-library.html">support library</a> action bar features.
- *
- * <p>You can add an {@link android.support.v7.app.ActionBar} to your activity when running on API level 7 or higher
- * by extending this class for your activity and setting the activity theme to
- * {@link android.support.v7.appcompat.R.style#Theme_AppCompat Theme.AppCompat} or a similar theme.
- *
- * <div class="special reference">
- * <h3>Developer Guides</h3>
- *
- * <p>For information about how to use the action bar, including how to add action items, navigation
- * modes and more, read the <a href="{@docRoot}guide/topics/ui/actionbar.html">Action
- * Bar</a> API guide.</p>
- */
-```
-
 __AppCompatActivity__ 继承关系：
 
 ![AppCompatActivity](/img/android/Activity/AppCompatActivity.png)
 
-__AppCompatActivity__ 重写 __Activity__ 的 __setContentView()__，把相关工作交给代理类完成，而不是 __Activity.setContentView()__。本文分析流程将沿着代理类的实现进行解释。
+__AppCompatActivity__ 重写 __Activity.setContentView()__ 方法，把相关工作交给代理类完成。本文分析流程将沿着代理类的实现进行解释。
 
 ```java
 @Override
@@ -75,7 +55,7 @@ public void setContentView(@LayoutRes int layoutResID) {
 }
 ```
 
-获取代理类 __AppCompatDelegate__
+通过单例模式获取代理类 __AppCompatDelegate__ 实例。因为获取操作一定在主线程执行，所以不需要增加线程保护等操作。
 
 ```java
 @NonNull
@@ -118,26 +98,28 @@ class AppCompatDelegateImplV14 extends AppCompatDelegateImplV9 {
 ```java
 @Override
 public void setContentView(int resId) {
+    // 先初始化SubDecor
     ensureSubDecor();
     // mSubDecor里获取名为android.R.id.content的ViewGroup
     ViewGroup contentParent = (ViewGroup) mSubDecor.findViewById(android.R.id.content);
     // 移除contentParent里所有视图
     contentParent.removeAllViews();
-    // 传入的Activity resId在这里填充并加入到contentParent
+    // 传入的resId在这里填充并添加到contentParent
     LayoutInflater.from(mContext).inflate(resId, contentParent);
+    // 通知Window
     mOriginalWindowCallback.onContentChanged();
 }
 ```
 
-#### ensureSubDecor()
+#### 3.1 ensureSubDecor()
 
-标记window的sub-decor布局是否已经装载的标志位，变量位于 __AppCompatDelegateImplV9__
+标记 __Window__ 的 __subDecor__ 布局是否已经装载标志位，变量位于 __AppCompatDelegateImplV9__
 
 ```java
 private boolean mSubDecorInstalled;
 ```
 
-上述的 __setContentView()__ 调用 __ensureSubDecor()__ 。里面最重要的调用方法是 __createSubDecor()__ 
+上述 __setContentView()__ 调用 __ensureSubDecor()__，里面最重要的调用方法是 __createSubDecor()__ 。如果多次调用 __setContentView(int resId)__ 方法，则后续 __mSubDecorInstalled__ 标志位为 __true__ 而不初始化 __SubDecor__。
 
 ```java
 private void ensureSubDecor() {
@@ -154,8 +136,10 @@ private void ensureSubDecor() {
 
         applyFixedSizeWindow();
 
+        // 空实现，里面没有逻辑
         onSubDecorInstalled(mSubDecor);
 
+        // 标记SubDecor已装载
         mSubDecorInstalled = true;
 
         // Invalidate if the panel menu hasn't been created before this.
@@ -171,7 +155,9 @@ private void ensureSubDecor() {
 }
 ```
 
-#### createSubDecor()
+#### 3.2 createSubDecor()
+
+上述 __mSubDecorInstalled__ 为空则创建 __SubDecor__
 
 ```java
 private ViewGroup createSubDecor() {
@@ -208,11 +194,21 @@ private ViewGroup createSubDecor() {
 
     // 由主题配置决定使用的布局，填充视图赋值给subDecor
     if (!mWindowNoTitle) {
-        .....
+        if (mIsFloating) {
+                // 类似这种根据样式选择布局，并初始化subDecor
+                subDecor = (ViewGroup) inflater.inflate(
+                        R.layout.abc_dialog_title_material, null);
+
+                // 悬浮windows没有action bar，重置该标志位
+                mHasActionBar = mOverlayActionBar = false;
+        } else if (mHasActionBar) {
+            .....
+        }
     } else {
         .....
     }
 
+    // 上面决策完毕后subDecor不为空
     if (subDecor == null) {
         throw new IllegalArgumentException(
                 "AppCompat does not support the current theme features: { "
@@ -237,17 +233,15 @@ private ViewGroup createSubDecor() {
     // 从PhoneWindow中获取content布局对象
     final ViewGroup windowContentView = (ViewGroup) mWindow.findViewById(android.R.id.content);
 
-    // 把DecorView内的视图全部放入到subDecor的contentView内
     if (windowContentView != null) {
-        // There might be Views already added to the Window's content view so we need to
-        // migrate them to our content view
+        // 把PhoneWindow的视图放入subDecor的contentView
         while (windowContentView.getChildCount() > 0) {
             final View child = windowContentView.getChildAt(0);
             windowContentView.removeViewAt(0);
             contentView.addView(child);
         }
 
-        // 把PhoneWindow内名为android.R.id.content视图的id去掉
+        // 把PhoneWindow名为android.R.id.content视图的id去掉
         windowContentView.setId(View.NO_ID);
         // 设置contentView的id为android.R.id.content
         // 相当于PhoneWindow把同名id让给subDecor的子视图使用
@@ -260,8 +254,7 @@ private ViewGroup createSubDecor() {
         }
     }
 
-    // Now set the Window's content view with the decor
-    // 还要subDecor加入到PhoneWindow作为子视图
+    // 还要subDecor加到PhoneWindow作为子视图
     mWindow.setContentView(subDecor);
 
     contentView.setAttachListener(new ContentFrameLayout.OnAttachListener() {
@@ -279,7 +272,7 @@ private ViewGroup createSubDecor() {
 ```
 
 
-如果什么样式都没有配置，会自动选择 __R.layout.screen_simple__ 作为布局。可见里面id为 __content__ 的视图为 __FrameLayout__，里面保存着我们填充的 __Activity__ 布局。这个也是赋值给 __mContentParent__ 的实例。
+如果什么样式都没有配置，__subDecor__ 会默认选择 __R.layout.screen_simple__ 作为布局。从以下xml布局可见里面id为 __content__ 的视图为 __FrameLayout__，里面保存着我们填充的 __Activity__ 布局。这个也是赋值给 __mContentParent__ 的视图。
 
 ```xml
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -305,9 +298,22 @@ private ViewGroup createSubDecor() {
 </LinearLayout>
 ```
 
+#### 3.3 requestWindowFeature()
+
 从主题获取样式 __featureId__，由此id决定特性是否开启
 
 ```java
+// true if this activity has an action bar.
+boolean mHasActionBar;
+// true if this activity's action bar overlays other activity content.
+boolean mOverlayActionBar;
+// true if this any action modes should overlay the activity content
+boolean mOverlayActionMode;
+// true if this activity is floating (e.g. Dialog)
+boolean mIsFloating;
+// true if this activity has no title
+boolean mWindowNoTitle;
+
 @Override
 public boolean requestWindowFeature(int featureId) {
     featureId = sanitizeWindowFeatureId(featureId);
@@ -353,25 +359,23 @@ public boolean requestWindowFeature(int featureId) {
 
 ## 四、PhoneWindow
 
-__Window__ 是 __PhoneWindow__ 的父类，定义一些列绘制窗口的抽象方法。
+__Window__ 是 __PhoneWindow__ 的父类，定义一些列绘制窗口的抽象方法，作为顶级视图添加到 __window manager__。
 
 ```java
-/**
- * Abstract base class for a top-level window look and behavior policy.  An
- * instance of this class should be used as the top-level view added to the
- * window manager. It provides standard UI policies such as a background, title
- * area, default key processing, etc.
- *
- * <p>The only existing implementation of this abstract class is
- * android.view.PhoneWindow, which you should instantiate when needing a
- * Window.
- */
+// Abstract base class for a top-level window look and behavior policy.  An
+// instance of this class should be used as the top-level view added to the
+// window manager. It provides standard UI policies such as a background, title
+// area, default key processing, etc.
+//
+// <p>The only existing implementation of this abstract class is
+// android.view.PhoneWindow, which you should instantiate when needing a
+// Window.
 public abstract class Window {
     .....
 }
 ```
 
-#### getDecorView()
+#### 4.1 getDecorView()
 
 检查是否已经创建 __mDecor__ 
 
@@ -385,7 +389,7 @@ public final View getDecorView() {
 }
 ```
 
-#### installDecor()
+#### 4.2 installDecor()
 
 如果 __mDecor__ 没有创建，则必须先创建 __DecorView__ 并赋值
 
@@ -407,7 +411,7 @@ private void installDecor() {
 
     // Decor已经装载完毕，开始初始化mContentParent
     if (mContentParent == null) {
-        // 返回布局内id名为content的布局并复制到mContentParent
+        // 返回布局内id名为content的布局并赋值到mContentParent
         mContentParent = generateLayout(mDecor);
 
         .....
@@ -416,7 +420,7 @@ private void installDecor() {
 }
 ```
 
-#### generateDecor(featureId)
+#### 4.3 generateDecor(featureId)
 
 创建 __DecorView__ 实例
 
@@ -435,7 +439,7 @@ protected DecorView generateDecor(int featureId) {
 }
 ```
 
-#### generateLayout(DecorView decor)
+#### 4.4 generateLayout(DecorView decor)
 
 __DecorView__ 创建完成赋值给 __mDecor__。本方法根据窗口的风格样式，选择窗口对应的资源根布局文件，作为 __mDecor__ 的子布局进行添加。
 
@@ -533,7 +537,7 @@ protected ViewGroup generateLayout(DecorView decor) protected ViewGroup generate
 
 __installDecor()__ 中调用 __generateDecor()__ 和 __generateLayout__，完成构建 __DecorView__ 实例，并把其子视图内名为 __content__ 的视图绑定到变量 __mContentParent__ 。
 
-#### onResourcesLoaded
+#### 4.5 onResourcesLoaded
 
 这个方法负责把 __layoutResource__ 构建为视图，加入到 __DecorView__
 

@@ -13,7 +13,7 @@ tags:
 
 使用 __RecyclerView__ 的难度可大可小。仅作为单一类型列表展示，只要对视图布局进行优化，减低层次复杂度，几乎不可能存在性能问题。
 
-若列表分类多、样式差异大，类似微信聊天消息界面，问题的难度提升不少。需要在预加载、复用上做进一步调优，单纯实现 __onCreateViewHolder()__ 和 __onBindViewHolder()__ 并不能满足需求。总的来说，就是追求视图出现在屏幕前耗费最少时间的目标。
+若列表分类多、样式差异大，类似微信聊天消息界面，问题的难度提升不少。需要在预加载、复用上做进一步调优，单纯实现 __onCreateViewHolder()__ 和 __onBindViewHolder()__ 并不能满足需求。总的来说，就是以追求视图出现在屏幕前耗费最少时间为目标。
 
 __RecyclerView__ 缓存分为3级，每级有各自的缓存数量和策略。
 
@@ -287,10 +287,6 @@ ViewHolder getScrapOrHiddenOrCachedHolderForPosition(int position, boolean dryRu
             if (!dryRun) {
                 mCachedViews.remove(i);
             }
-            if (DEBUG) {
-                Log.d(TAG, "getScrapOrHiddenOrCachedHolderForPosition(" + position
-                        + ") found match in cache: " + holder);
-            }
             return holder;
         }
     }
@@ -327,7 +323,7 @@ private boolean tryBindViewHolderByDeadline(ViewHolder holder, int offsetPositio
 
 ## 六、RecycledViewPool
 
-__RecycledViewPool__ 可在多个 __RecyclerViews__ 间共享。如果这么做，则需要自行创建 __RecycledViewPool__ 实例，把实例通过 __RecyclerView#setRecycledViewPool(RecycledViewPool)__ 绑定到 __RecyclerView__ 上。如果没有给 __RecyclerView__指定任何 __RecycledViewPool__，则会自行创建该实例。
+__RecycledViewPool__ 可在多个 __RecyclerViews__ 间共享。如果这么做，则需创建 __RecycledViewPool__，通过 __RecyclerView.setRecycledViewPool(RecycledViewPool)__ 绑定到 __RecyclerView__ 上。如果没有给 __RecyclerView__ 指定任何 __RecycledViewPool__，则会自行创建该实例。
 
 每个 __type__ 默认缓存5个 __ViewHolder__，可针对不同 __type__ 定义缓存数量。例如增加体积较小 __ViewHolder__ 的缓存数量，保证缓存对象足够填满屏幕且无需创建新对象。
 
@@ -370,7 +366,7 @@ public void setMaxRecycledViews(int viewType, int max) {
 }
 ```
 
-例如：若下图样式的 __ViewHolder__ 仅缓存5个，多余视图移出屏幕后会销毁。下次需要该 __ViewHolder__ 又要重新构建，所以提高缓存数量可减少这种情况的发生。
+例如：下图样式的 __ViewHolder__ 仅缓存5个，多余视图移出屏幕后会销毁。下次需要该 __ViewHolder__ 又要重新构建，所以提高缓存数量可减少这种情况的发生。
 
 ![RecyclerView_demo](/img/android/RecyclerView/RecyclerView_demo_30.png)
 
