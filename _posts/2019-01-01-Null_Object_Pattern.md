@@ -50,7 +50,7 @@ class UserNull() : User("", "", "") {
 }
 ```
 
-当然，父类可(根据实际)允许子类重写部分父类方法，以下是 __User__ 的方法使用 __open__ 修饰允许重写。
+当然，父类可(根据实际)允许子类重写部分父类方法，以下是 __User__ 方法使用 __open__ 修饰允许重写。
 
 ```java
 open class User(private val userId: String,

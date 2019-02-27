@@ -267,7 +267,7 @@ public boolean contains(Object o) {
             for (int i = takeIndex, end = putIndex,
                      to = (i < end) ? end : items.length;
                  ; i = 0, to = end) {
-                // 先遍历唤醒数组的后段，元素没有命中，再遍历数组前端
+                // 先遍历唤醒数组的后段，元素没有命中，再遍历数组前段
                 for (; i < to; i++)
                     if (o.equals(items[i]))
                         return true;

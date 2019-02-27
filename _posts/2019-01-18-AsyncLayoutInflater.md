@@ -18,7 +18,7 @@ tags:
 public final class AsyncLayoutInflater
 ```
 
-这适用于懒创建或响应用户交互的UI部分。有利于主线程继续响应用户时，重量级填充操作继续执行。填充布局需要来自 __ViewGroup.generateLayoutParams(AttributeSet)__ 的父布局，该方法线程安全。所有视图在构建过程中，禁止创建任何 __Handler__ 或调用 __Looper#myLooper()__ 。若布局无法在子线程进行异步填充，则操作会回退到主线程上执行。
+这适用于懒创建或响应用户交互的UI部分。有利于主线程继续响应用户时，重量级填充操作继续执行。填充布局需要来自 __ViewGroup.generateLayoutParams(AttributeSet)__ 的父布局，该方法线程安全。所有视图在构建过程中，禁止创建任何 __Handler__ 或调用 __Looper.myLooper()__ 。若布局无法在子线程进行异步填充，则操作会回退到主线程上执行。
 
 注意，视图填充完成后不会加入到父布局中。这相当于调用 __LayoutInflater.inflate(int, ViewGroup, boolean)__ 时参数 __attachToRoot__ 为 __false__。因为调用者很可能希望在 __OnInflateFinishedListener__ 通过调用 __ViewGroup.addView(View)__ 把视图放入父布局。
 
