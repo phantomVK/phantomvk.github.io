@@ -604,7 +604,12 @@ public void setContentView(int resId) {
 }
 ```
 
-工作完成，回调 __onContentChanged()__ 发出通知
+工作完成，回调 __onContentChanged()__ 发出通知，而 __Activity__ 基类实现为空逻辑。
+
+```java
+public void onContentChanged() {
+}
+```
 
 ## 六、总结
 
