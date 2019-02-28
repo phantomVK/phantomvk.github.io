@@ -38,20 +38,6 @@ private static final class ReceiverRecord {
         filter = _filter;
         receiver = _receiver;
     }
-
-    @Override
-    public String toString() {
-        StringBuilder builder = new StringBuilder(128);
-        builder.append("Receiver{");
-        builder.append(receiver);
-        builder.append(" filter=");
-        builder.append(filter);
-        if (dead) {
-            builder.append(" DEAD");
-        }
-        builder.append("}");
-        return builder.toString();
-    }
 }
 ```
 

@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "FireFox配置PAC"
-date:       2016-11-25
+date:       2017-03-21
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true

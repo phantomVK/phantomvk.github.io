@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "NumPy学习手记"
-date:       2016-10-30
+date:       2017-05-02
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true

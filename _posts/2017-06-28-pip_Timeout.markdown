@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "pip 下载超时 镜像源配置"
-date:       2016-10-28
+date:       2017-06-28
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 tags:

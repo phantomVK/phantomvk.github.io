@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "树莓派设置USB无线网卡"
-date:       2017-10-09
+date:       2017-09-28
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true

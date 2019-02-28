@@ -23,99 +23,86 @@ Glide.with(this)
 
 ```java
 @NonNull
-  Glide build(@NonNull Context context) {
-    if (sourceExecutor == null) {
-      sourceExecutor = GlideExecutor.newSourceExecutor();
-    }
-
-    if (diskCacheExecutor == null) {
-      diskCacheExecutor = GlideExecutor.newDiskCacheExecutor();
-    }
-
-    if (animationExecutor == null) {
-      animationExecutor = GlideExecutor.newAnimationExecutor();
-    }
-
-    if (memorySizeCalculator == null) {
-      memorySizeCalculator = new MemorySizeCalculator.Builder(context).build();
-    }
-
-    if (connectivityMonitorFactory == null) {
-      connectivityMonitorFactory = new DefaultConnectivityMonitorFactory();
-    }
-
-    if (bitmapPool == null) {
-      int size = memorySizeCalculator.getBitmapPoolSize();
-      if (size > 0) {
-        bitmapPool = new LruBitmapPool(size);
-      } else {
-        bitmapPool = new BitmapPoolAdapter();
-      }
-    }
-
-    if (arrayPool == null) {
-      arrayPool = new LruArrayPool(memorySizeCalculator.getArrayPoolSizeInBytes());
-    }
-
-    if (memoryCache == null) {
-      memoryCache = new LruResourceCache(memorySizeCalculator.getMemoryCacheSize());
-    }
-
-    if (diskCacheFactory == null) {
-      diskCacheFactory = new InternalCacheDiskCacheFactory(context);
-    }
-
-    if (engine == null) {
-      engine =
-          new Engine(
-              memoryCache,
-              diskCacheFactory,
-              diskCacheExecutor,
-              sourceExecutor,
-              GlideExecutor.newUnlimitedSourceExecutor(),
-              GlideExecutor.newAnimationExecutor(),
-              isActiveResourceRetentionAllowed);
-    }
-
-    if (defaultRequestListeners == null) {
-      defaultRequestListeners = Collections.emptyList();
-    } else {
-      defaultRequestListeners = Collections.unmodifiableList(defaultRequestListeners);
-    }
-
-    RequestManagerRetriever requestManagerRetriever =
-        new RequestManagerRetriever(requestManagerFactory);
-
-    return new Glide(
-        context,
-        engine,
-        memoryCache,
-        bitmapPool,
-        arrayPool,
-        requestManagerRetriever,
-        connectivityMonitorFactory,
-        logLevel,
-        defaultRequestOptions.lock(),
-        defaultTransitionOptions,
-        defaultRequestListeners,
-        isLoggingRequestOriginsEnabled);
+Glide build(@NonNull Context context) {
+  if (sourceExecutor == null) {
+    sourceExecutor = GlideExecutor.newSourceExecutor();
   }
+
+  if (diskCacheExecutor == null) {
+    diskCacheExecutor = GlideExecutor.newDiskCacheExecutor();
+  }
+
+  if (animationExecutor == null) {
+    animationExecutor = GlideExecutor.newAnimationExecutor();
+  }
+
+  if (memorySizeCalculator == null) {
+    memorySizeCalculator = new MemorySizeCalculator.Builder(context).build();
+  }
+
+  if (connectivityMonitorFactory == null) {
+    connectivityMonitorFactory = new DefaultConnectivityMonitorFactory();
+  }
+
+  if (bitmapPool == null) {
+    int size = memorySizeCalculator.getBitmapPoolSize();
+    if (size > 0) {
+      bitmapPool = new LruBitmapPool(size);
+    } else {
+      bitmapPool = new BitmapPoolAdapter();
+    }
+  }
+
+  if (arrayPool == null) {
+    arrayPool = new LruArrayPool(memorySizeCalculator.getArrayPoolSizeInBytes());
+  }
+
+  if (memoryCache == null) {
+    memoryCache = new LruResourceCache(memorySizeCalculator.getMemoryCacheSize());
+  }
+
+  if (diskCacheFactory == null) {
+    diskCacheFactory = new InternalCacheDiskCacheFactory(context);
+  }
+
+  if (engine == null) {
+    engine =
+        new Engine(
+            memoryCache,
+            diskCacheFactory,
+            diskCacheExecutor,
+            sourceExecutor,
+            GlideExecutor.newUnlimitedSourceExecutor(),
+            GlideExecutor.newAnimationExecutor(),
+            isActiveResourceRetentionAllowed);
+  }
+
+  if (defaultRequestListeners == null) {
+    defaultRequestListeners = Collections.emptyList();
+  } else {
+    defaultRequestListeners = Collections.unmodifiableList(defaultRequestListeners);
+  }
+
+  RequestManagerRetriever requestManagerRetriever =
+      new RequestManagerRetriever(requestManagerFactory);
+
+  return new Glide(
+      context,
+      engine,
+      memoryCache,
+      bitmapPool,
+      arrayPool,
+      requestManagerRetriever,
+      connectivityMonitorFactory,
+      logLevel,
+      defaultRequestOptions.lock(),
+      defaultTransitionOptions,
+      defaultRequestListeners,
+      isLoggingRequestOriginsEnabled);
+}
 ```
 
 ```java
-package com.bumptech.glide.load.engine.cache;
-
-import android.annotation.TargetApi;
-import android.app.ActivityManager;
-import android.content.Context;
-import android.os.Build;
-import android.support.annotation.VisibleForTesting;
-import android.text.format.Formatter;
-import android.util.DisplayMetrics;
-import android.util.Log;
-import com.bumptech.glide.util.Preconditions;
-import com.bumptech.glide.util.Synthetic;
-
 /**
  * A calculator that tries to intelligently determine cache sizes for a given device based on some
  * constants and the devices screen density, width, and height.
@@ -164,26 +151,6 @@ public final class MemorySizeCalculator {
       float part = availableSize / (builder.bitmapPoolScreens + builder.memoryCacheScreens);
       memoryCacheSize = Math.round(part * builder.memoryCacheScreens);
       bitmapPoolSize = Math.round(part * builder.bitmapPoolScreens);
-    }
-
-    if (Log.isLoggable(TAG, Log.DEBUG)) {
-      Log.d(
-          TAG,
-          "Calculation complete"
-              + ", Calculated memory cache size: "
-              + toMb(memoryCacheSize)
-              + ", pool size: "
-              + toMb(bitmapPoolSize)
-              + ", byte array size: "
-              + toMb(arrayPoolSize)
-              + ", memory class limited? "
-              + (targetMemoryCacheSize + targetBitmapPoolSize > maxSize)
-              + ", max size: "
-              + toMb(maxSize)
-              + ", memoryClass: "
-              + builder.activityManager.getMemoryClass()
-              + ", isLowMemoryDevice: "
-              + isLowMemoryDevice(builder.activityManager));
     }
   }
 
@@ -451,32 +418,6 @@ public class LruResourceCache extends LruCache<Key, Resource<?>> implements Memo
 ```
 
 ```java
-package com.bumptech.glide.load.engine;
-
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.annotation.VisibleForTesting;
-import android.support.v4.util.Pools;
-import android.util.Log;
-import com.bumptech.glide.GlideContext;
-import com.bumptech.glide.Priority;
-import com.bumptech.glide.load.DataSource;
-import com.bumptech.glide.load.Key;
-import com.bumptech.glide.load.Options;
-import com.bumptech.glide.load.Transformation;
-import com.bumptech.glide.load.engine.cache.DiskCache;
-import com.bumptech.glide.load.engine.cache.DiskCacheAdapter;
-import com.bumptech.glide.load.engine.cache.MemoryCache;
-import com.bumptech.glide.load.engine.executor.GlideExecutor;
-import com.bumptech.glide.request.ResourceCallback;
-import com.bumptech.glide.util.Executors;
-import com.bumptech.glide.util.LogTime;
-import com.bumptech.glide.util.Preconditions;
-import com.bumptech.glide.util.Synthetic;
-import com.bumptech.glide.util.pool.FactoryPools;
-import java.util.Map;
-import java.util.concurrent.Executor;
-
 /**
  * Responsible for starting loads and managing active and cached resources.
  */

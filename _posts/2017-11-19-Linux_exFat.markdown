@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Linux挂载exFat分区"
-date:       2017-12-03
+date:       2017-11-19
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false

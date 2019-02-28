@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "简单Android闪屏页控制逻辑"
-date:       2017-02-13
+date:       2017-01-27
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
