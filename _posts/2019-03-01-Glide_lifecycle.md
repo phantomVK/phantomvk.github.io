@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "Glide生命周期"
-date:       2019-02-28
+title:      "Glide生命周期管理"
+date:       2019-03-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
