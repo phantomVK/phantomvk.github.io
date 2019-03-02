@@ -102,267 +102,397 @@ Glide build(@NonNull Context context) {
 }
 ```
 
+## MemorySizeCalculator
+
+返回以这台设备的条件为准，按字节为单位的bitmap池推荐容量值
+
+```java
+public int getBitmapPoolSize() {
+  return bitmapPoolSize;
+}
+```
+
+上述方法没有实际计算逻辑，只是返回下面这个数据成员的大小。这个数组用 __final__ 关键字修饰，可知这个变量只能在首次初始化时计算值。
+
+```java
+private final int bitmapPoolSize;
+```
+
+实际上，这个 __bitmapPoolSize__ 确实在 __MemorySizeCalculator__ 初始化的时候计算的，看具体构造方法
+
+```java
+MemorySizeCalculator(MemorySizeCalculator.Builder builder) {
+  this.context = builder.context;
+
+  arrayPoolSize =
+      isLowMemoryDevice(builder.activityManager)
+          ? builder.arrayPoolSizeBytes / LOW_MEMORY_BYTE_ARRAY_POOL_DIVISOR
+          : builder.arrayPoolSizeBytes;
+  int maxSize =
+      getMaxSize(
+          builder.activityManager, builder.maxSizeMultiplier, builder.lowMemoryMaxSizeMultiplier);
+
+  // 获取当前设备屏幕宽度
+  int widthPixels = builder.screenDimensions.getWidthPixels();
+  // 获取当前设备屏幕高度
+  int heightPixels = builder.screenDimensions.getHeightPixels();
+  // 根据ARGB_8888为标准算屏幕像素的内存占用大小
+  int screenSize = widthPixels * heightPixels * BYTES_PER_ARGB_8888_PIXEL;
+
+  int targetBitmapPoolSize = Math.round(screenSize * builder.bitmapPoolScreens);
+
+  int targetMemoryCacheSize = Math.round(screenSize * builder.memoryCacheScreens);
+  int availableSize = maxSize - arrayPoolSize;
+
+  if (targetMemoryCacheSize + targetBitmapPoolSize <= availableSize) {
+    memoryCacheSize = targetMemoryCacheSize;
+    bitmapPoolSize = targetBitmapPoolSize;
+  } else {
+    float part = availableSize / (builder.bitmapPoolScreens + builder.memoryCacheScreens);
+    memoryCacheSize = Math.round(part * builder.memoryCacheScreens);
+    bitmapPoolSize = Math.round(part * builder.bitmapPoolScreens);
+  }
+}
+```
+
+## LruBitmapPool
+
+__GlideBuilder__ 的 __build()__ 逻辑内， 
+
+```java
+if (bitmapPool == null) {
+  int size = memorySizeCalculator.getBitmapPoolSize();
+  if (size > 0) {
+    bitmapPool = new LruBitmapPool(size);
+  } else {
+    bitmapPool = new BitmapPoolAdapter();
+  }
+}
+```
+
+
 ```java
 /**
- * A calculator that tries to intelligently determine cache sizes for a given device based on some
- * constants and the devices screen density, width, and height.
+ * An {@link com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool} implementation that uses an
+ * {@link com.bumptech.glide.load.engine.bitmap_recycle.LruPoolStrategy} to bucket {@link Bitmap}s
+ * and then uses an LRU eviction policy to evict {@link android.graphics.Bitmap}s from the least
+ * recently used bucket in order to keep the pool below a given maximum size limit.
  */
-public final class MemorySizeCalculator {
-  private static final String TAG = "MemorySizeCalculator";
-  @VisibleForTesting
-  static final int BYTES_PER_ARGB_8888_PIXEL = 4;
-  private static final int LOW_MEMORY_BYTE_ARRAY_POOL_DIVISOR = 2;
+public class LruBitmapPool implements BitmapPool {
+  private static final String TAG = "LruBitmapPool";
+  private static final Bitmap.Config DEFAULT_CONFIG = Bitmap.Config.ARGB_8888;
 
-  private final int bitmapPoolSize;
-  private final int memoryCacheSize;
-  private final Context context;
-  private final int arrayPoolSize;
+  private final LruPoolStrategy strategy;
+  private final Set<Bitmap.Config> allowedConfigs;
+  private final long initialMaxSize;
+  private final BitmapTracker tracker;
 
-  interface ScreenDimensions {
-    int getWidthPixels();
-    int getHeightPixels();
+  private long maxSize;
+  private long currentSize;
+  private int hits;
+  private int misses;
+  private int puts;
+  private int evictions;
+
+  // Exposed for testing only.
+  LruBitmapPool(long maxSize, LruPoolStrategy strategy, Set<Bitmap.Config> allowedConfigs) {
+    this.initialMaxSize = maxSize;
+    this.maxSize = maxSize;
+    this.strategy = strategy;
+    this.allowedConfigs = allowedConfigs;
+    this.tracker = new NullBitmapTracker();
   }
 
-  // Package private to avoid PMD warning.
-  MemorySizeCalculator(MemorySizeCalculator.Builder builder) {
-    this.context = builder.context;
+  /**
+   * Constructor for LruBitmapPool.
+   *
+   * @param maxSize The initial maximum size of the pool in bytes.
+   */
+  public LruBitmapPool(long maxSize) {
+    this(maxSize, getDefaultStrategy(), getDefaultAllowedConfigs());
+  }
 
-    arrayPoolSize =
-        isLowMemoryDevice(builder.activityManager)
-            ? builder.arrayPoolSizeBytes / LOW_MEMORY_BYTE_ARRAY_POOL_DIVISOR
-            : builder.arrayPoolSizeBytes;
-    int maxSize =
-        getMaxSize(
-            builder.activityManager, builder.maxSizeMultiplier, builder.lowMemoryMaxSizeMultiplier);
+  /**
+   * Constructor for LruBitmapPool.
+   *
+   * @param maxSize        The initial maximum size of the pool in bytes.
+   * @param allowedConfigs A white listed put of {@link android.graphics.Bitmap.Config} that are
+   *                       allowed to be put into the pool. Configs not in the allowed put will be
+   *                       rejected.
+   */
+  // Public API.
+  @SuppressWarnings("unused")
+  public LruBitmapPool(long maxSize, Set<Bitmap.Config> allowedConfigs) {
+    this(maxSize, getDefaultStrategy(), allowedConfigs);
+  }
 
-    int widthPixels = builder.screenDimensions.getWidthPixels();
-    int heightPixels = builder.screenDimensions.getHeightPixels();
-    int screenSize = widthPixels * heightPixels * BYTES_PER_ARGB_8888_PIXEL;
+  @Override
+  public long getMaxSize() {
+    return maxSize;
+  }
 
-    int targetBitmapPoolSize = Math.round(screenSize * builder.bitmapPoolScreens);
+  @Override
+  public synchronized void setSizeMultiplier(float sizeMultiplier) {
+    maxSize = Math.round(initialMaxSize * sizeMultiplier);
+    evict();
+  }
 
-    int targetMemoryCacheSize = Math.round(screenSize * builder.memoryCacheScreens);
-    int availableSize = maxSize - arrayPoolSize;
+  @Override
+  public synchronized void put(Bitmap bitmap) {
+    if (bitmap == null) {
+      throw new NullPointerException("Bitmap must not be null");
+    }
+    if (bitmap.isRecycled()) {
+      throw new IllegalStateException("Cannot pool recycled bitmap");
+    }
+    if (!bitmap.isMutable() || strategy.getSize(bitmap) > maxSize
+        || !allowedConfigs.contains(bitmap.getConfig())) {
+      if (Log.isLoggable(TAG, Log.VERBOSE)) {
+        Log.v(TAG, "Reject bitmap from pool"
+                + ", bitmap: " + strategy.logBitmap(bitmap)
+                + ", is mutable: " + bitmap.isMutable()
+                + ", is allowed config: " + allowedConfigs.contains(bitmap.getConfig()));
+      }
+      bitmap.recycle();
+      return;
+    }
 
-    if (targetMemoryCacheSize + targetBitmapPoolSize <= availableSize) {
-      memoryCacheSize = targetMemoryCacheSize;
-      bitmapPoolSize = targetBitmapPoolSize;
+    final int size = strategy.getSize(bitmap);
+    strategy.put(bitmap);
+    tracker.add(bitmap);
+
+    puts++;
+    currentSize += size;
+
+    if (Log.isLoggable(TAG, Log.VERBOSE)) {
+      Log.v(TAG, "Put bitmap in pool=" + strategy.logBitmap(bitmap));
+    }
+    dump();
+
+    evict();
+  }
+
+  private void evict() {
+    trimToSize(maxSize);
+  }
+
+  @Override
+  @NonNull
+  public Bitmap get(int width, int height, Bitmap.Config config) {
+    Bitmap result = getDirtyOrNull(width, height, config);
+    if (result != null) {
+      // Bitmaps in the pool contain random data that in some cases must be cleared for an image
+      // to be rendered correctly. we shouldn't force all consumers to independently erase the
+      // contents individually, so we do so here. See issue #131.
+      result.eraseColor(Color.TRANSPARENT);
     } else {
-      float part = availableSize / (builder.bitmapPoolScreens + builder.memoryCacheScreens);
-      memoryCacheSize = Math.round(part * builder.memoryCacheScreens);
-      bitmapPoolSize = Math.round(part * builder.bitmapPoolScreens);
+      result = createBitmap(width, height, config);
+    }
+
+    return result;
+  }
+
+  @NonNull
+  @Override
+  public Bitmap getDirty(int width, int height, Bitmap.Config config) {
+    Bitmap result = getDirtyOrNull(width, height, config);
+    if (result == null) {
+      result = createBitmap(width, height, config);
+    }
+    return result;
+  }
+
+  @NonNull
+  private static Bitmap createBitmap(int width, int height, @Nullable Bitmap.Config config) {
+    return Bitmap.createBitmap(width, height, config != null ? config : DEFAULT_CONFIG);
+  }
+
+  @TargetApi(Build.VERSION_CODES.O)
+  private static void assertNotHardwareConfig(Bitmap.Config config) {
+    // Avoid short circuiting on sdk int since it breaks on some versions of Android.
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+      return;
+    }
+
+    if (config == Bitmap.Config.HARDWARE) {
+      throw new IllegalArgumentException("Cannot create a mutable Bitmap with config: " + config
+          + ". Consider setting Downsampler#ALLOW_HARDWARE_CONFIG to false in your RequestOptions"
+          + " and/or in GlideBuilder.setDefaultRequestOptions");
     }
   }
 
-  /**
-   * Returns the recommended memory cache size for the device it is run on in bytes.
-   */
-  public int getMemoryCacheSize() {
-    return memoryCacheSize;
+  @Nullable
+  private synchronized Bitmap getDirtyOrNull(
+      int width, int height, @Nullable Bitmap.Config config) {
+    assertNotHardwareConfig(config);
+    // Config will be null for non public config types, which can lead to transformations naively
+    // passing in null as the requested config here. See issue #194.
+    final Bitmap result = strategy.get(width, height, config != null ? config : DEFAULT_CONFIG);
+    if (result == null) {
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "Missing bitmap=" + strategy.logBitmap(width, height, config));
+      }
+      misses++;
+    } else {
+      hits++;
+      currentSize -= strategy.getSize(result);
+      tracker.remove(result);
+      normalize(result);
+    }
+    if (Log.isLoggable(TAG, Log.VERBOSE)) {
+      Log.v(TAG, "Get bitmap=" + strategy.logBitmap(width, height, config));
+    }
+    dump();
+
+    return result;
   }
 
-  /**
-   * Returns the recommended bitmap pool size for the device it is run on in bytes.
-   */
-  public int getBitmapPoolSize() {
-    return bitmapPoolSize;
-  }
-
-  /**
-   * Returns the recommended array pool size for the device it is run on in bytes.
-   */
-  public int getArrayPoolSizeInBytes() {
-    return arrayPoolSize;
-  }
-
-  private static int getMaxSize(ActivityManager activityManager, float maxSizeMultiplier,
-      float lowMemoryMaxSizeMultiplier) {
-    final int memoryClassBytes = activityManager.getMemoryClass() * 1024 * 1024;
-    final boolean isLowMemoryDevice = isLowMemoryDevice(activityManager);
-    return Math.round(memoryClassBytes * (isLowMemoryDevice ? lowMemoryMaxSizeMultiplier
-        : maxSizeMultiplier));
-  }
-
-  private String toMb(int bytes) {
-    return Formatter.formatFileSize(context, bytes);
+  // Setting these two values provides Bitmaps that are essentially equivalent to those returned
+  // from Bitmap.createBitmap.
+  private static void normalize(Bitmap bitmap) {
+    bitmap.setHasAlpha(true);
+    maybeSetPreMultiplied(bitmap);
   }
 
   @TargetApi(Build.VERSION_CODES.KITKAT)
-  @Synthetic static boolean isLowMemoryDevice(ActivityManager activityManager) {
-    // Explicitly check with an if statement, on some devices both parts of boolean expressions
-    // can be evaluated even if we'd normally expect a short circuit.
-    //noinspection SimplifiableIfStatement
+  private static void maybeSetPreMultiplied(Bitmap bitmap) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-      return activityManager.isLowRamDevice();
-    } else {
-      return true;
+      bitmap.setPremultiplied(true);
     }
   }
 
-  /**
-   * Constructs an {@link MemorySizeCalculator} with reasonable defaults that can be optionally
-   * overridden.
-   */
-  // Public API.
-  @SuppressWarnings({"WeakerAccess", "unused"})
-  public static final class Builder {
-    @VisibleForTesting
-    static final int MEMORY_CACHE_TARGET_SCREENS = 2;
+  @Override
+  public void clearMemory() {
+    if (Log.isLoggable(TAG, Log.DEBUG)) {
+      Log.d(TAG, "clearMemory");
+    }
+    trimToSize(0);
+  }
 
-    /**
-     * On Android O+, we use {@link android.graphics.Bitmap.Config#HARDWARE} for all reasonably
-     * sized images unless we're creating thumbnails for the first time. As a result, the Bitmap
-     * pool is much less important on O than it was on previous versions.
-     */
-    static final int BITMAP_POOL_TARGET_SCREENS =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.O ? 4 : 1;
+  @SuppressLint("InlinedApi")
+  @Override
+  public void trimMemory(int level) {
+    if (Log.isLoggable(TAG, Log.DEBUG)) {
+      Log.d(TAG, "trimMemory, level=" + level);
+    }
+    if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_BACKGROUND) {
+      clearMemory();
+    } else if (level >= android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN
+        || level == android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL) {
+      trimToSize(getMaxSize() / 2);
+    }
+  }
 
-    static final float MAX_SIZE_MULTIPLIER = 0.4f;
-    static final float LOW_MEMORY_MAX_SIZE_MULTIPLIER = 0.33f;
-    // 4MB.
-    static final int ARRAY_POOL_SIZE_BYTES = 4 * 1024 * 1024;
-
-    @Synthetic final Context context;
-
-    // Modifiable (non-final) for testing.
-    @Synthetic ActivityManager activityManager;
-    @Synthetic ScreenDimensions screenDimensions;
-
-    @Synthetic float memoryCacheScreens = MEMORY_CACHE_TARGET_SCREENS;
-    @Synthetic float bitmapPoolScreens = BITMAP_POOL_TARGET_SCREENS;
-    @Synthetic float maxSizeMultiplier = MAX_SIZE_MULTIPLIER;
-    @Synthetic float lowMemoryMaxSizeMultiplier = LOW_MEMORY_MAX_SIZE_MULTIPLIER;
-    @Synthetic int arrayPoolSizeBytes = ARRAY_POOL_SIZE_BYTES;
-
-    public Builder(Context context) {
-      this.context = context;
-      activityManager =
-          (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
-      screenDimensions =
-          new DisplayMetricsScreenDimensions(context.getResources().getDisplayMetrics());
-
-      // On Android O+ Bitmaps are allocated natively, ART is much more efficient at managing
-      // garbage and we rely heavily on HARDWARE Bitmaps, making Bitmap re-use much less important.
-      // We prefer to preserve RAM on these devices and take the small performance hit of not
-      // re-using Bitmaps and textures when loading very small images or generating thumbnails.
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isLowMemoryDevice(activityManager)) {
-        bitmapPoolScreens = 0;
+  private synchronized void trimToSize(long size) {
+    while (currentSize > size) {
+      final Bitmap removed = strategy.removeLast();
+      // TODO: This shouldn't ever happen, see #331.
+      if (removed == null) {
+        if (Log.isLoggable(TAG, Log.WARN)) {
+          Log.w(TAG, "Size mismatch, resetting");
+          dumpUnchecked();
+        }
+        currentSize = 0;
+        return;
       }
-    }
-
-    /**
-     * Sets the number of device screens worth of pixels the
-     * {@link com.bumptech.glide.load.engine.cache.MemoryCache} should be able to hold and
-     * returns this Builder.
-     */
-    public Builder setMemoryCacheScreens(float memoryCacheScreens) {
-      Preconditions.checkArgument(memoryCacheScreens >= 0,
-          "Memory cache screens must be greater than or equal to 0");
-      this.memoryCacheScreens = memoryCacheScreens;
-      return this;
-    }
-
-    /**
-     * Sets the number of device screens worth of pixels the
-     * {@link com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool} should be able to hold and
-     * returns this Builder.
-     */
-    public Builder setBitmapPoolScreens(float bitmapPoolScreens) {
-      Preconditions.checkArgument(bitmapPoolScreens >= 0,
-          "Bitmap pool screens must be greater than or equal to 0");
-      this.bitmapPoolScreens = bitmapPoolScreens;
-      return this;
-    }
-
-    /**
-     * Sets the maximum percentage of the device's memory class for standard devices that can be
-     * taken up by Glide's {@link com.bumptech.glide.load.engine.cache.MemoryCache} and
-     * {@link com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool} put together, and returns
-     * this builder.
-     */
-    public Builder setMaxSizeMultiplier(float maxSizeMultiplier) {
-      Preconditions.checkArgument(maxSizeMultiplier >= 0 && maxSizeMultiplier <= 1,
-          "Size multiplier must be between 0 and 1");
-      this.maxSizeMultiplier = maxSizeMultiplier;
-      return this;
-    }
-
-    /**
-     * Sets the maximum percentage of the device's memory class for low ram devices that can be
-     * taken up by Glide's {@link com.bumptech.glide.load.engine.cache.MemoryCache} and
-     * {@link com.bumptech.glide.load.engine.bitmap_recycle.BitmapPool} put together, and returns
-     * this builder.
-     *
-     * @see ActivityManager#isLowRamDevice()
-     */
-    public Builder setLowMemoryMaxSizeMultiplier(float lowMemoryMaxSizeMultiplier) {
-      Preconditions.checkArgument(
-          lowMemoryMaxSizeMultiplier >= 0 && lowMemoryMaxSizeMultiplier <= 1,
-              "Low memory max size multiplier must be between 0 and 1");
-      this.lowMemoryMaxSizeMultiplier = lowMemoryMaxSizeMultiplier;
-      return this;
-    }
-
-    /**
-     * Sets the size in bytes of the {@link
-     * com.bumptech.glide.load.engine.bitmap_recycle.ArrayPool} to use to store temporary
-     * arrays while decoding data and returns this builder.
-     *
-     * <p>This number will be halved on low memory devices that return {@code true} from
-     * {@link ActivityManager#isLowRamDevice()}.
-     */
-    public Builder setArrayPoolSize(int arrayPoolSizeBytes) {
-      this.arrayPoolSizeBytes = arrayPoolSizeBytes;
-      return this;
-    }
-
-    @VisibleForTesting
-    Builder setActivityManager(ActivityManager activityManager) {
-      this.activityManager = activityManager;
-      return this;
-    }
-
-    @VisibleForTesting
-    Builder setScreenDimensions(ScreenDimensions screenDimensions) {
-      this.screenDimensions = screenDimensions;
-      return this;
-    }
-
-    public MemorySizeCalculator build() {
-      return new MemorySizeCalculator(this);
+      tracker.remove(removed);
+      currentSize -= strategy.getSize(removed);
+      evictions++;
+      if (Log.isLoggable(TAG, Log.DEBUG)) {
+        Log.d(TAG, "Evicting bitmap=" + strategy.logBitmap(removed));
+      }
+      dump();
+      removed.recycle();
     }
   }
 
-  private static final class DisplayMetricsScreenDimensions implements ScreenDimensions {
-    private final DisplayMetrics displayMetrics;
+  private void dump() {
+    if (Log.isLoggable(TAG, Log.VERBOSE)) {
+      dumpUnchecked();
+    }
+  }
 
-    DisplayMetricsScreenDimensions(DisplayMetrics displayMetrics) {
-      this.displayMetrics = displayMetrics;
+  private void dumpUnchecked() {
+    Log.v(TAG, "Hits=" + hits + ", misses=" + misses + ", puts=" + puts + ", evictions=" + evictions
+        + ", currentSize=" + currentSize + ", maxSize=" + maxSize + "\nStrategy=" + strategy);
+  }
+
+  private static LruPoolStrategy getDefaultStrategy() {
+    final LruPoolStrategy strategy;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+      strategy = new SizeConfigStrategy();
+    } else {
+      strategy = new AttributeStrategy();
+    }
+    return strategy;
+  }
+
+  @TargetApi(Build.VERSION_CODES.O)
+  private static Set<Bitmap.Config> getDefaultAllowedConfigs() {
+    Set<Bitmap.Config> configs = new HashSet<>(Arrays.asList(Bitmap.Config.values()));
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+      // GIFs, among other types, end up with a native Bitmap config that doesn't map to a java
+      // config and is treated as null in java code. On KitKat+ these Bitmaps can be reconfigured
+      // and are suitable for re-use.
+      configs.add(null);
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      configs.remove(Bitmap.Config.HARDWARE);
+    }
+    return Collections.unmodifiableSet(configs);
+  }
+
+  private interface BitmapTracker {
+    void add(Bitmap bitmap);
+
+    void remove(Bitmap bitmap);
+  }
+
+  @SuppressWarnings("unused")
+  // Only used for debugging
+  private static class ThrowingBitmapTracker implements BitmapTracker {
+    private final Set<Bitmap> bitmaps = Collections.synchronizedSet(new HashSet<Bitmap>());
+
+    @Override
+    public void add(Bitmap bitmap) {
+      if (bitmaps.contains(bitmap)) {
+        throw new IllegalStateException(
+            "Can't add already added bitmap: " + bitmap + " [" + bitmap.getWidth() + "x" + bitmap
+                .getHeight() + "]");
+      }
+      bitmaps.add(bitmap);
     }
 
     @Override
-    public int getWidthPixels() {
-      return displayMetrics.widthPixels;
+    public void remove(Bitmap bitmap) {
+      if (!bitmaps.contains(bitmap)) {
+        throw new IllegalStateException("Cannot remove bitmap not in tracker");
+      }
+      bitmaps.remove(bitmap);
+    }
+  }
+
+  private static final class NullBitmapTracker implements BitmapTracker {
+
+    @Synthetic
+    NullBitmapTracker() { }
+
+    @Override
+    public void add(Bitmap bitmap) {
+      // Do nothing.
     }
 
     @Override
-    public int getHeightPixels() {
-      return displayMetrics.heightPixels;
+    public void remove(Bitmap bitmap) {
+      // Do nothing.
     }
   }
 }
 ```
 
+## LruResourceCache
+
 ```java
-package com.bumptech.glide.load.engine.cache;
-
-import android.annotation.SuppressLint;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import com.bumptech.glide.load.Key;
-import com.bumptech.glide.load.engine.Resource;
-import com.bumptech.glide.util.LruCache;
-
 /**
  * An LRU in memory cache for {@link com.bumptech.glide.load.engine.Resource}s.
  */
@@ -417,416 +547,104 @@ public class LruResourceCache extends LruCache<Key, Resource<?>> implements Memo
 }
 ```
 
+## Engine
+
 ```java
-/**
- * Responsible for starting loads and managing active and cached resources.
+[/**
+ * Starts a load for the given arguments.
+ *
+ * <p>Must be called on the main thread.
+ *
+ * <p>The flow for any request is as follows:
+ *
+ * <ul>
+ *   <li>Check the current set of actively used resources, return the active resource if present,
+ *       and move any newly inactive resources into the memory cache.
+ *   <li>Check the memory cache and provide the cached resource if present.
+ *   <li>Check the current set of in progress loads and add the cb to the in progress load if one
+ *       is present.
+ *   <li>Start a new load.
+ * </ul>
+ *
+ * <p>Active resources are those that have been provided to at least one request and have not yet
+ * been released. Once all consumers of a resource have released that resource, the resource then
+ * goes to cache. If the resource is ever returned to a new consumer from cache, it is re-added to
+ * the active resources. If the resource is evicted from the cache, its resources are recycled and
+ * re-used if possible and the resource is discarded. There is no strict requirement that
+ * consumers release their resources so active resources are held weakly.
+ *
+ * @param width The target width in pixels of the desired resource.
+ * @param height The target height in pixels of the desired resource.
+ * @param cb The callback that will be called when the load completes.
  */
-public class Engine implements EngineJobListener,
-    MemoryCache.ResourceRemovedListener,
-    EngineResource.ResourceListener {
-  private static final String TAG = "Engine";
-  private static final int JOB_POOL_SIZE = 150;
-  private static final boolean VERBOSE_IS_LOGGABLE = Log.isLoggable(TAG, Log.VERBOSE);
-  private final Jobs jobs;
-  private final EngineKeyFactory keyFactory;
-  private final MemoryCache cache;
-  private final EngineJobFactory engineJobFactory;
-  private final ResourceRecycler resourceRecycler;
-  private final LazyDiskCacheProvider diskCacheProvider;
-  private final DecodeJobFactory decodeJobFactory;
-  private final ActiveResources activeResources;
+public synchronized <R> LoadStatus load(
+    GlideContext glideContext,
+    Object model,
+    Key signature,
+    int width,
+    int height,
+    Class<?> resourceClass,
+    Class<R> transcodeClass,
+    Priority priority,
+    DiskCacheStrategy diskCacheStrategy,
+    Map<Class<?>, Transformation<?>> transformations,
+    boolean isTransformationRequired,
+    boolean isScaleOnlyOrNoTransform,
+    Options options,
+    boolean isMemoryCacheable,
+    boolean useUnlimitedSourceExecutorPool,
+    boolean useAnimationPool,
+    boolean onlyRetrieveFromCache,
+    ResourceCallback cb,
+    Executor callbackExecutor) {
+  long startTime = VERBOSE_IS_LOGGABLE ? LogTime.getLogTime() : 0;
 
-  public Engine(
-      MemoryCache memoryCache,
-      DiskCache.Factory diskCacheFactory,
-      GlideExecutor diskCacheExecutor,
-      GlideExecutor sourceExecutor,
-      GlideExecutor sourceUnlimitedExecutor,
-      GlideExecutor animationExecutor,
-      boolean isActiveResourceRetentionAllowed) {
-    this(
-        memoryCache,
-        diskCacheFactory,
-        diskCacheExecutor,
-        sourceExecutor,
-        sourceUnlimitedExecutor,
-        animationExecutor,
-        /*jobs=*/ null,
-        /*keyFactory=*/ null,
-        /*activeResources=*/ null,
-        /*engineJobFactory=*/ null,
-        /*decodeJobFactory=*/ null,
-        /*resourceRecycler=*/ null,
-        isActiveResourceRetentionAllowed);
-  }
+  // 通过多个参数计算该图片的Key；如果参数完全一样，下一也能算出相同Key
+  EngineKey key = keyFactory.buildKey(model, signature, width, height, transformations,
+      resourceClass, transcodeClass, options);
 
-  @VisibleForTesting
-  Engine(MemoryCache cache,
-      DiskCache.Factory diskCacheFactory,
-      GlideExecutor diskCacheExecutor,
-      GlideExecutor sourceExecutor,
-      GlideExecutor sourceUnlimitedExecutor,
-      GlideExecutor animationExecutor,
-      Jobs jobs,
-      EngineKeyFactory keyFactory,
-      ActiveResources activeResources,
-      EngineJobFactory engineJobFactory,
-      DecodeJobFactory decodeJobFactory,
-      ResourceRecycler resourceRecycler,
-      boolean isActiveResourceRetentionAllowed) {
-    this.cache = cache;
-    this.diskCacheProvider = new LazyDiskCacheProvider(diskCacheFactory);
-
-    if (activeResources == null) {
-      activeResources = new ActiveResources(isActiveResourceRetentionAllowed);
-    }
-    this.activeResources = activeResources;
-    activeResources.setListener(this);
-
-    if (keyFactory == null) {
-      keyFactory = new EngineKeyFactory();
-    }
-    this.keyFactory = keyFactory;
-
-    if (jobs == null) {
-      jobs = new Jobs();
-    }
-    this.jobs = jobs;
-
-    if (engineJobFactory == null) {
-      engineJobFactory =
-          new EngineJobFactory(
-              diskCacheExecutor, sourceExecutor, sourceUnlimitedExecutor, animationExecutor, this);
-    }
-    this.engineJobFactory = engineJobFactory;
-
-    if (decodeJobFactory == null) {
-      decodeJobFactory = new DecodeJobFactory(diskCacheProvider);
-    }
-    this.decodeJobFactory = decodeJobFactory;
-
-    if (resourceRecycler == null) {
-      resourceRecycler = new ResourceRecycler();
-    }
-    this.resourceRecycler = resourceRecycler;
-
-    cache.setResourceRemovedListener(this);
-  }
-
-  /**
-   * Starts a load for the given arguments.
-   *
-   * <p>Must be called on the main thread.
-   *
-   * <p>The flow for any request is as follows:
-   *
-   * <ul>
-   *   <li>Check the current set of actively used resources, return the active resource if present,
-   *       and move any newly inactive resources into the memory cache.
-   *   <li>Check the memory cache and provide the cached resource if present.
-   *   <li>Check the current set of in progress loads and add the cb to the in progress load if one
-   *       is present.
-   *   <li>Start a new load.
-   * </ul>
-   *
-   * <p>Active resources are those that have been provided to at least one request and have not yet
-   * been released. Once all consumers of a resource have released that resource, the resource then
-   * goes to cache. If the resource is ever returned to a new consumer from cache, it is re-added to
-   * the active resources. If the resource is evicted from the cache, its resources are recycled and
-   * re-used if possible and the resource is discarded. There is no strict requirement that
-   * consumers release their resources so active resources are held weakly.
-   *
-   * @param width The target width in pixels of the desired resource.
-   * @param height The target height in pixels of the desired resource.
-   * @param cb The callback that will be called when the load completes.
-   */
-  public synchronized <R> LoadStatus load(
-      GlideContext glideContext,
-      Object model,
-      Key signature,
-      int width,
-      int height,
-      Class<?> resourceClass,
-      Class<R> transcodeClass,
-      Priority priority,
-      DiskCacheStrategy diskCacheStrategy,
-      Map<Class<?>, Transformation<?>> transformations,
-      boolean isTransformationRequired,
-      boolean isScaleOnlyOrNoTransform,
-      Options options,
-      boolean isMemoryCacheable,
-      boolean useUnlimitedSourceExecutorPool,
-      boolean useAnimationPool,
-      boolean onlyRetrieveFromCache,
-      ResourceCallback cb,
-      Executor callbackExecutor) {
-    long startTime = VERBOSE_IS_LOGGABLE ? LogTime.getLogTime() : 0;
-
-    EngineKey key = keyFactory.buildKey(model, signature, width, height, transformations,
-        resourceClass, transcodeClass, options);
-
-    EngineResource<?> active = loadFromActiveResources(key, isMemoryCacheable);
-    if (active != null) {
-      cb.onResourceReady(active, DataSource.MEMORY_CACHE);
-      if (VERBOSE_IS_LOGGABLE) {
-        logWithTimeAndKey("Loaded resource from active resources", startTime, key);
-      }
-      return null;
-    }
-
-    EngineResource<?> cached = loadFromCache(key, isMemoryCacheable);
-    if (cached != null) {
-      cb.onResourceReady(cached, DataSource.MEMORY_CACHE);
-      if (VERBOSE_IS_LOGGABLE) {
-        logWithTimeAndKey("Loaded resource from cache", startTime, key);
-      }
-      return null;
-    }
-
-    EngineJob<?> current = jobs.get(key, onlyRetrieveFromCache);
-    if (current != null) {
-      current.addCallback(cb, callbackExecutor);
-      if (VERBOSE_IS_LOGGABLE) {
-        logWithTimeAndKey("Added to existing load", startTime, key);
-      }
-      return new LoadStatus(cb, current);
-    }
-
-    EngineJob<R> engineJob =
-        engineJobFactory.build(
-            key,
-            isMemoryCacheable,
-            useUnlimitedSourceExecutorPool,
-            useAnimationPool,
-            onlyRetrieveFromCache);
-
-    DecodeJob<R> decodeJob =
-        decodeJobFactory.build(
-            glideContext,
-            model,
-            key,
-            signature,
-            width,
-            height,
-            resourceClass,
-            transcodeClass,
-            priority,
-            diskCacheStrategy,
-            transformations,
-            isTransformationRequired,
-            isScaleOnlyOrNoTransform,
-            onlyRetrieveFromCache,
-            options,
-            engineJob);
-
-    jobs.put(key, engineJob);
-
-    engineJob.addCallback(cb, callbackExecutor);
-    engineJob.start(decodeJob);
-
+  // 算出key先从loadFromActiveResources()获取活跃的资源
+  EngineResource<?> active = loadFromActiveResources(key, isMemoryCacheable);
+  if (active != null) {
+    cb.onResourceReady(active, DataSource.MEMORY_CACHE);
     if (VERBOSE_IS_LOGGABLE) {
-      logWithTimeAndKey("Started new load", startTime, key);
+      logWithTimeAndKey("Loaded resource from active resources", startTime, key);
     }
-    return new LoadStatus(cb, engineJob);
+    return null;
   }
 
-  private static void logWithTimeAndKey(String log, long startTime, Key key) {
-    Log.v(TAG, log + " in " + LogTime.getElapsedMillis(startTime) + "ms, key: " + key);
+  // 上面方法没有成功获取资源，尝试loadFromCache()
+  EngineResource<?> cached = loadFromCache(key, isMemoryCacheable);
+  if (cached != null) {
+    cb.onResourceReady(cached, DataSource.MEMORY_CACHE);
+    if (VERBOSE_IS_LOGGABLE) {
+      logWithTimeAndKey("Loaded resource from cache", startTime, key);
+    }
+    return null;
   }
 
-  @Nullable
-  private EngineResource<?> loadFromActiveResources(Key key, boolean isMemoryCacheable) {
-    if (!isMemoryCacheable) {
-      return null;
+  EngineJob<?> current = jobs.get(key, onlyRetrieveFromCache);
+  if (current != null) {
+    current.addCallback(cb, callbackExecutor);
+    if (VERBOSE_IS_LOGGABLE) {
+      logWithTimeAndKey("Added to existing load", startTime, key);
     }
-    EngineResource<?> active = activeResources.get(key);
-    if (active != null) {
-      active.acquire();
-    }
-
-    return active;
+    return new LoadStatus(cb, current);
   }
 
-  private EngineResource<?> loadFromCache(Key key, boolean isMemoryCacheable) {
-    if (!isMemoryCacheable) {
-      return null;
-    }
+  EngineJob<R> engineJob =
+      engineJobFactory.build(
+          key,
+          isMemoryCacheable,
+          useUnlimitedSourceExecutorPool,
+          useAnimationPool,
+          onlyRetrieveFromCache);
 
-    EngineResource<?> cached = getEngineResourceFromCache(key);
-    if (cached != null) {
-      cached.acquire();
-      activeResources.activate(key, cached);
-    }
-    return cached;
-  }
-
-  private EngineResource<?> getEngineResourceFromCache(Key key) {
-    Resource<?> cached = cache.remove(key);
-
-    final EngineResource<?> result;
-    if (cached == null) {
-      result = null;
-    } else if (cached instanceof EngineResource) {
-      // Save an object allocation if we've cached an EngineResource (the typical case).
-      result = (EngineResource<?>) cached;
-    } else {
-      result = new EngineResource<>(cached, true /*isMemoryCacheable*/, true /*isRecyclable*/);
-    }
-    return result;
-  }
-
-  public void release(Resource<?> resource) {
-    if (resource instanceof EngineResource) {
-      ((EngineResource<?>) resource).release();
-    } else {
-      throw new IllegalArgumentException("Cannot release anything but an EngineResource");
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  @Override
-  public synchronized void onEngineJobComplete(
-      EngineJob<?> engineJob, Key key, EngineResource<?> resource) {
-    // A null resource indicates that the load failed, usually due to an exception.
-    if (resource != null) {
-      resource.setResourceListener(key, this);
-
-      if (resource.isCacheable()) {
-        activeResources.activate(key, resource);
-      }
-    }
-
-    jobs.removeIfCurrent(key, engineJob);
-  }
-
-  @Override
-  public synchronized void onEngineJobCancelled(EngineJob<?> engineJob, Key key) {
-    jobs.removeIfCurrent(key, engineJob);
-  }
-
-  @Override
-  public void onResourceRemoved(@NonNull final Resource<?> resource) {
-    resourceRecycler.recycle(resource);
-  }
-
-  @Override
-  public synchronized void onResourceReleased(Key cacheKey, EngineResource<?> resource) {
-    activeResources.deactivate(cacheKey);
-    if (resource.isCacheable()) {
-      cache.put(cacheKey, resource);
-    } else {
-      resourceRecycler.recycle(resource);
-    }
-  }
-
-  public void clearDiskCache() {
-    diskCacheProvider.getDiskCache().clear();
-  }
-
-  @VisibleForTesting
-  public void shutdown() {
-    engineJobFactory.shutdown();
-    diskCacheProvider.clearDiskCacheIfCreated();
-    activeResources.shutdown();
-  }
-
-  /**
-   * Allows a request to indicate it no longer is interested in a given load.
-   *
-   * <p>Non-final for mocking.
-   */
-  public class LoadStatus {
-    private final EngineJob<?> engineJob;
-    private final ResourceCallback cb;
-
-    LoadStatus(ResourceCallback cb, EngineJob<?> engineJob) {
-      this.cb = cb;
-      this.engineJob = engineJob;
-    }
-
-    public void cancel() {
-      // Acquire the Engine lock so that a new request can't get access to a particular EngineJob
-      // just after the EngineJob has been cancelled. Without this lock, we'd allow new requests
-      // to find the cancelling EngineJob in our Jobs data structure. With this lock, the EngineJob
-      // is both cancelled and removed from Jobs atomically.
-      synchronized (Engine.this) {
-        engineJob.removeCallback(cb);
-      }
-    }
-  }
-
-  private static class LazyDiskCacheProvider implements DecodeJob.DiskCacheProvider {
-
-    private final DiskCache.Factory factory;
-    private volatile DiskCache diskCache;
-
-    LazyDiskCacheProvider(DiskCache.Factory factory) {
-      this.factory = factory;
-    }
-
-    @VisibleForTesting
-    synchronized void clearDiskCacheIfCreated() {
-      if (diskCache == null) {
-        return;
-      }
-      diskCache.clear();
-    }
-
-    @Override
-    public DiskCache getDiskCache() {
-      if (diskCache == null) {
-        synchronized (this) {
-          if (diskCache == null) {
-            diskCache = factory.build();
-          }
-          if (diskCache == null) {
-            diskCache = new DiskCacheAdapter();
-          }
-        }
-      }
-      return diskCache;
-    }
-  }
-
-  @VisibleForTesting
-  static class DecodeJobFactory {
-    @Synthetic final DecodeJob.DiskCacheProvider diskCacheProvider;
-    @Synthetic final Pools.Pool<DecodeJob<?>> pool =
-        FactoryPools.threadSafe(JOB_POOL_SIZE,
-            new FactoryPools.Factory<DecodeJob<?>>() {
-          @Override
-          public DecodeJob<?> create() {
-            return new DecodeJob<>(diskCacheProvider, pool);
-          }
-        });
-    private int creationOrder;
-
-    DecodeJobFactory(DecodeJob.DiskCacheProvider diskCacheProvider) {
-      this.diskCacheProvider = diskCacheProvider;
-    }
-
-    @SuppressWarnings("unchecked")
-    <R> DecodeJob<R> build(GlideContext glideContext,
-        Object model,
-        EngineKey loadKey,
-        Key signature,
-        int width,
-        int height,
-        Class<?> resourceClass,
-        Class<R> transcodeClass,
-        Priority priority,
-        DiskCacheStrategy diskCacheStrategy,
-        Map<Class<?>, Transformation<?>> transformations,
-        boolean isTransformationRequired,
-        boolean isScaleOnlyOrNoTransform,
-        boolean onlyRetrieveFromCache,
-        Options options,
-        DecodeJob.Callback<R> callback) {
-      DecodeJob<R> result = Preconditions.checkNotNull((DecodeJob<R>) pool.acquire());
-      return result.init(
+  DecodeJob<R> decodeJob =
+      decodeJobFactory.build(
           glideContext,
           model,
-          loadKey,
+          key,
           signature,
           width,
           height,
@@ -839,71 +657,47 @@ public class Engine implements EngineJobListener,
           isScaleOnlyOrNoTransform,
           onlyRetrieveFromCache,
           options,
-          callback,
-          creationOrder++);
-    }
+          engineJob);
+
+  jobs.put(key, engineJob);
+
+  engineJob.addCallback(cb, callbackExecutor);
+  engineJob.start(decodeJob);
+
+  if (VERBOSE_IS_LOGGABLE) {
+    logWithTimeAndKey("Started new load", startTime, key);
+  }
+  return new LoadStatus(cb, engineJob);
+}
+```
+
+```java
+@Nullable
+private EngineResource<?> loadFromActiveResources(Key key, boolean isMemoryCacheable) {
+  if (!isMemoryCacheable) {
+    return null;
+  }
+  EngineResource<?> active = activeResources.get(key);
+  if (active != null) {
+    active.acquire();
   }
 
-  @VisibleForTesting
-  static class EngineJobFactory {
-    @Synthetic final GlideExecutor diskCacheExecutor;
-    @Synthetic final GlideExecutor sourceExecutor;
-    @Synthetic final GlideExecutor sourceUnlimitedExecutor;
-    @Synthetic final GlideExecutor animationExecutor;
-    @Synthetic final EngineJobListener listener;
-    @Synthetic final Pools.Pool<EngineJob<?>> pool =
-        FactoryPools.threadSafe(
-            JOB_POOL_SIZE,
-            new FactoryPools.Factory<EngineJob<?>>() {
-              @Override
-              public EngineJob<?> create() {
-                return new EngineJob<>(
-                    diskCacheExecutor,
-                    sourceExecutor,
-                    sourceUnlimitedExecutor,
-                    animationExecutor,
-                    listener,
-                    pool);
-              }
-            });
+  return active;
+}
+```
 
-    EngineJobFactory(
-        GlideExecutor diskCacheExecutor,
-        GlideExecutor sourceExecutor,
-        GlideExecutor sourceUnlimitedExecutor,
-        GlideExecutor animationExecutor,
-        EngineJobListener listener) {
-      this.diskCacheExecutor = diskCacheExecutor;
-      this.sourceExecutor = sourceExecutor;
-      this.sourceUnlimitedExecutor = sourceUnlimitedExecutor;
-      this.animationExecutor = animationExecutor;
-      this.listener = listener;
-    }
-
-    @VisibleForTesting
-    void shutdown() {
-      Executors.shutdownAndAwaitTermination(diskCacheExecutor);
-      Executors.shutdownAndAwaitTermination(sourceExecutor);
-      Executors.shutdownAndAwaitTermination(sourceUnlimitedExecutor);
-      Executors.shutdownAndAwaitTermination(animationExecutor);
-    }
-
-    @SuppressWarnings("unchecked")
-    <R> EngineJob<R> build(
-        Key key,
-        boolean isMemoryCacheable,
-        boolean useUnlimitedSourceGeneratorPool,
-        boolean useAnimationPool,
-        boolean onlyRetrieveFromCache) {
-      EngineJob<R> result = Preconditions.checkNotNull((EngineJob<R>) pool.acquire());
-      return result.init(
-          key,
-          isMemoryCacheable,
-          useUnlimitedSourceGeneratorPool,
-          useAnimationPool,
-          onlyRetrieveFromCache);
-    }
+```java
+private EngineResource<?> loadFromCache(Key key, boolean isMemoryCacheable) {
+  if (!isMemoryCacheable) {
+    return null;
   }
+
+  EngineResource<?> cached = getEngineResourceFromCache(key);
+  if (cached != null) {
+    cached.acquire();
+    activeResources.activate(key, cached);
+  }
+  return cached;
 }
 ```
 

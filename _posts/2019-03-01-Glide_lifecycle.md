@@ -256,6 +256,142 @@ class ActivityFragmentLifecycle implements Lifecycle {
 
 最后，定制的 __Fragment__ 监听 __Activity__ 生命周期变化，告知 __ActivityFragmentLifecycle__ ，随后 __ActivityFragmentLifecycle__ 回调所有注册的监听器，实现应用进入后台暂停加载等功能。
 
+下面就是 __ActivityFragmentLifecycle__ 回调的逻辑类，负责请求的跟踪、取消、重启、完成和失败的管理。
+
+```java
+public class RequestTracker {
+  private static final String TAG = "RequestTracker";
+  // Most requests will be for views and will therefore be held strongly (and safely) by the view
+  // via the tag. However, a user can always pass in a different type of target which may end up not
+  // being strongly referenced even though the user still would like the request to finish. Weak
+  // references are therefore only really functional in this context for view targets. Despite the
+  // side affects, WeakReferences are still essentially required. A user can always make repeated
+  // requests into targets other than views, or use an activity manager in a fragment pager where
+  // holding strong references would steadily leak bitmaps and/or views.
+  private final Set<Request> requests =
+      Collections.newSetFromMap(new WeakHashMap<Request, Boolean>());
+  // A set of requests that have not completed and are queued to be run again. We use this list to
+  // maintain hard references to these requests to ensure that they are not garbage collected
+  // before they start running or while they are paused. See #346.
+  // 维护未完成的请求列表
+  @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
+  private final List<Request> pendingRequests = new ArrayList<>();
+  private boolean isPaused;
+
+  // 开始跟踪指定请求
+  public void runRequest(@NonNull Request request) {
+    requests.add(request);
+    if (!isPaused) {
+      request.begin();
+    } else {
+      request.clear();
+      if (Log.isLoggable(TAG, Log.VERBOSE)) {
+        Log.v(TAG, "Paused, delaying request");
+      }
+      pendingRequests.add(request);
+    }
+  }
+
+  @VisibleForTesting
+  void addRequest(Request request) {
+    requests.add(request);
+  }
+
+  /**
+   * Stops tracking the given request, clears, and recycles it, and returns {@code true} if the
+   * request was removed or invalid or {@code false} if the request was not found.
+   */
+  public boolean clearRemoveAndRecycle(@Nullable Request request) {
+    // It's safe for us to recycle because this is only called when the user is explicitly clearing
+    // a Target so we know that there are no remaining references to the Request.
+    return clearRemoveAndMaybeRecycle(request, /*isSafeToRecycle=*/ true);
+  }
+
+  private boolean clearRemoveAndMaybeRecycle(@Nullable Request request, boolean isSafeToRecycle) {
+     if (request == null) {
+       // If the Request is null, the request is already cleared and we don't need to search further
+       // for its owner.
+      return true;
+    }
+    boolean isOwnedByUs = requests.remove(request);
+    // Avoid short circuiting.
+    isOwnedByUs = pendingRequests.remove(request) || isOwnedByUs;
+    if (isOwnedByUs) {
+      request.clear();
+      if (isSafeToRecycle) {
+        request.recycle();
+      }
+    }
+    return isOwnedByUs;
+  }
+
+  // 停止所有正在进行的请求
+  public void pauseRequests() {
+    isPaused = true;
+    for (Request request : Util.getSnapshot(requests)) {
+      if (request.isRunning()) {
+        request.clear();
+        pendingRequests.add(request);
+      }
+    }
+  }
+
+  // 停止所有正在进行的请求，释放已完成任务的关联bitmaps
+  public void pauseAllRequests() {
+    isPaused = true;
+    for (Request request : Util.getSnapshot(requests)) {
+      if (request.isRunning() || request.isComplete()) {
+        request.clear();
+        pendingRequests.add(request);
+      }
+    }
+  }
+
+  // 重启所有未完成或曾经失败的任务
+  public void resumeRequests() {
+    isPaused = false;
+    for (Request request : Util.getSnapshot(requests)) {
+      // We don't need to check for cleared here. Any explicit clear by a user will remove the
+      // Request from the tracker, so the only way we'd find a cleared request here is if we cleared
+      // it. As a result it should be safe for us to resume cleared requests.
+      if (!request.isComplete() && !request.isRunning()) {
+        request.begin();
+      }
+    }
+    pendingRequests.clear();
+  }
+
+  // 取消所有请求并清理任务持有的资源，取消的请求将不能再次重启
+  public void clearRequests() {
+    for (Request request : Util.getSnapshot(requests)) {
+      // It's unsafe to recycle the Request here because we don't know who might else have a
+      // reference to it.
+      clearRemoveAndMaybeRecycle(request, /*isSafeToRecycle=*/ false);
+    }
+    pendingRequests.clear();
+  }
+
+  /**
+   * Restarts failed requests and cancels and restarts in progress requests.
+   */
+  public void restartRequests() {
+    for (Request request : Util.getSnapshot(requests)) {
+      if (!request.isComplete() && !request.isCleared()) {
+        request.clear();
+        if (!isPaused) {
+          request.begin();
+        } else {
+          // Ensure the request will be restarted in onResume.
+          pendingRequests.add(request);
+        }
+      }
+    }
+  }
+}
+```
+
+
+
 ## 总结
 
 通过上述流程可知，__Glide__ 的图片加载生命周期管理依赖传入的实例。
