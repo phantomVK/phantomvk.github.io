@@ -165,7 +165,7 @@ private ViewGroup createSubDecor() {
 
     if (!a.hasValue(R.styleable.AppCompatTheme_windowActionBar)) {
         a.recycle();
-        // AppCompat需配合Theme.AppCompat使用，否则会抛出以下异常
+        // AppCompatActivity需配合Theme.AppCompat使用，否则会抛出以下异常
         throw new IllegalStateException(
                 "You need to use a Theme.AppCompat theme (or descendant) with this activity.");
     }
@@ -208,7 +208,7 @@ private ViewGroup createSubDecor() {
         .....
     }
 
-    // 上面决策完毕后subDecor不为空
+    // 上面配置设置完毕后subDecor不能为空
     if (subDecor == null) {
         throw new IllegalArgumentException(
                 "AppCompat does not support the current theme features: { "
@@ -313,7 +313,11 @@ boolean mOverlayActionMode;
 boolean mIsFloating;
 // true if this activity has no title
 boolean mWindowNoTitle;
+```
 
+由 __requestWindowFeature__ 修改上述布尔值
+
+```java
 @Override
 public boolean requestWindowFeature(int featureId) {
     featureId = sanitizeWindowFeatureId(featureId);

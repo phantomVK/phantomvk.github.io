@@ -63,12 +63,13 @@ RecyclerView.RecycledViewPool mRecyclerPool;
 
 #### 5.1 tryGetViewHolderForPositionByDeadline()
 
-以下是 __RecyclerView__ 的内部类 __Recycler__ 去除类签名的源码。Adapter利用position获取 __ViewHolder__，若一级缓存命失、__mViewCacheExtension__ 为空，则从缓存池查找对象。
+以下是 __RecyclerView__ 的内部类 __Recycler__ 去除类签名的源码。__Adapter__ 利用position获取 __ViewHolder__：若一级缓存命失、__mViewCacheExtension__ 为空，则从缓存池查找对象。
 
 ```java
 @Nullable
 ViewHolder tryGetViewHolderForPositionByDeadline(int position,
         boolean dryRun, long deadlineNs) {
+    // 越界检查
     if (position < 0 || position >= mState.getItemCount()) {
         throw new IndexOutOfBoundsException("Invalid item position " + position
                 + "(" + position + "). Item count:" + mState.getItemCount()
@@ -81,6 +82,7 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
     if (mState.isPreLayout()) {
         // 用position作为参数
         holder = getChangedScrapViewForPosition(position);
+        // from scrap.
         fromScrapOrHiddenOrCache = holder != null;
     }
 
@@ -121,8 +123,8 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
 
         // 用offsetPosition获取ViewType
         final int type = mAdapter.getItemViewType(offsetPosition);
-        // 2) 通过stable ids和type从scrap/cache查找
         if (mAdapter.hasStableIds()) {
+            // 2) 通过stable ids和type从scrap/cache查找
             holder = getScrapOrCachedViewForId(mAdapter.getItemId(offsetPosition),
                     type, dryRun);
             if (holder != null) {
@@ -154,7 +156,7 @@ ViewHolder tryGetViewHolderForPositionByDeadline(int position,
         
         // 从三级缓存RecycledViewPool中获取缓存内容
         // ViewHolder内layout可重用，但是数据需重新绑定
-        if (holder == null) { // fallback to pool
+        if (holder == null) {
             // 根据目标类型获取ViewHolder
             holder = getRecycledViewPool().getRecycledView(type);
             if (holder != null) {

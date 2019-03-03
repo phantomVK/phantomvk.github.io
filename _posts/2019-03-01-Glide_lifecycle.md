@@ -9,6 +9,8 @@ tags:
     - Glide
 ---
 
+## 前言
+
 图片加载时只需调用以下代码，__Glide__ 就会全自动完成下载、缓存、缩放、展示等流程。
 
 ```java
@@ -17,11 +19,11 @@ Glide.with(this)
         .into(imageView)
 ```
 
-其中包含应用进入后台，图片会暂停加载的策略。通过这篇文章，探究 __Glide__ 是如何实现开发者不主动触发逻辑，就能达到任务生命周期自动管理的奥秘。
+其中包含应用进入后台，图片会暂停加载的策略。通过这篇文章，探究 __Glide__ 是如何实现开发者不主动触发逻辑，就能实现任务生命周期自动管理的奥秘。__Glide 4.9.0__
 
 ## Glide
 
-上面的`Glide.with(this)`根据传入实参类型，例如：__FragmentActivity__、__Fragment__、__Context__ 等不同选择目标重载方法。这里选择 __FragmentActivity__ 进行解析，因为 __AppCompatActivity__ 的父类是 __FragmentActivity__。
+上面的`Glide.with(this)`根据传入实参类型，例如：__FragmentActivity__、__Fragment__、__Context__ 等不同选择目标重载方法。这里通过 __FragmentActivity__ 进行解析，因为 __AppCompatActivity__ 的父类是 __FragmentActivity__。
 
 ```java
 public static RequestManager with(@NonNull FragmentActivity activity) {
@@ -29,7 +31,7 @@ public static RequestManager with(@NonNull FragmentActivity activity) {
 }
 ```
 
-先获取 __Glide__ 单例，然后从这个单例里获取 __RequestManagerRetriever__ 的实例。
+先获取 __Glide__ 单例，然后从这个单例里获取 __RequestManagerRetriever__ 实例。
 
 ```java
 private static RequestManagerRetriever getRetriever(@Nullable Context context) {
@@ -62,9 +64,7 @@ public RequestManager get(@NonNull FragmentActivity activity) {
 }
 ```
 
-从上面可见，条件判断语句根据应用是否在前台走分支。因为本文关心是应用在前台的逻辑，所以直接走 __else__。
-
-进入分支后可见从 __Activity__ 实例获取 __FragmentManager__。 
+从上面可见条件判断根据应用是否在前台走分支，而本文仅关心应用在前台的逻辑。进入分支后可见从 __Activity__ 实例获取 __FragmentManager__。 
 
 ```java
 private RequestManager supportFragmentGet(
@@ -130,7 +130,7 @@ final Map<FragmentManager, SupportRequestManagerFragment> pendingSupportRequestM
 
 ## SupportRequestManagerFragment
 
-接下来看看上面提及的 __SupportRequestManagerFragment__。从签名可知继承父类 __Fragment__，但不像一般 __Fragment__ 包含填充的UI界面，而是仅包含生命周期的相关回调操作。说白了，就是借用 __Fragment__ 达到监听 __Activity__ 生命周期的目标。
+接下来看看上面提及的 __SupportRequestManagerFragment__。从签名可知继承父类 __Fragment__，但不像一般 __Fragment__ 包含填充的UI界面，而是仅包含生命周期的相关回调操作。说白了，就是借用 __Fragment__ 达到监听 __Activity__ 生命周期的目的。
 
 ```java
 public class SupportRequestManagerFragment extends Fragment {
@@ -270,10 +270,8 @@ public class RequestTracker {
   // holding strong references would steadily leak bitmaps and/or views.
   private final Set<Request> requests =
       Collections.newSetFromMap(new WeakHashMap<Request, Boolean>());
-  // A set of requests that have not completed and are queued to be run again. We use this list to
-  // maintain hard references to these requests to ensure that they are not garbage collected
-  // before they start running or while they are paused. See #346.
-  // 维护未完成的请求列表
+  // 保存未完成或准备运行请求的列表，用于持有这些请求的强引用
+  // 以保证请求在开始执行之前或暂停的时候不会被垃圾回收
   @SuppressWarnings("MismatchedQueryAndUpdateOfCollection")
   private final List<Request> pendingRequests = new ArrayList<>();
   private boolean isPaused;
@@ -297,20 +295,16 @@ public class RequestTracker {
     requests.add(request);
   }
 
-  /**
-   * Stops tracking the given request, clears, and recycles it, and returns {@code true} if the
-   * request was removed or invalid or {@code false} if the request was not found.
-   */
+  // 停止跟踪指定请求，并进行清除和回收工作
+  // 请求已被移除、失效返回true；请求找不到时返回false
   public boolean clearRemoveAndRecycle(@Nullable Request request) {
-    // It's safe for us to recycle because this is only called when the user is explicitly clearing
-    // a Target so we know that there are no remaining references to the Request.
+    // 此时回收请求是安全的，因为这个操作由用户主动清除时触发，因此可知没有其他持有请求的引用
     return clearRemoveAndMaybeRecycle(request, /*isSafeToRecycle=*/ true);
   }
 
   private boolean clearRemoveAndMaybeRecycle(@Nullable Request request, boolean isSafeToRecycle) {
      if (request == null) {
-       // If the Request is null, the request is already cleared and we don't need to search further
-       // for its owner.
+      // 请求为空表示请求已被清除，不再需要查找请求的所有者
       return true;
     }
     boolean isOwnedByUs = requests.remove(request);
@@ -364,16 +358,14 @@ public class RequestTracker {
   // 取消所有请求并清理任务持有的资源，取消的请求将不能再次重启
   public void clearRequests() {
     for (Request request : Util.getSnapshot(requests)) {
-      // It's unsafe to recycle the Request here because we don't know who might else have a
-      // reference to it.
-      clearRemoveAndMaybeRecycle(request, /*isSafeToRecycle=*/ false);
+      // 在这里回收请求的不安全的，因为不知道别的地方是否持有请求的引用
+      // 方法形参isSafeToRecycle赋值为false
+      clearRemoveAndMaybeRecycle(request, false);
     }
     pendingRequests.clear();
   }
 
-  /**
-   * Restarts failed requests and cancels and restarts in progress requests.
-   */
+  // 从起失败的、取消的、正在进行的请求
   public void restartRequests() {
     for (Request request : Util.getSnapshot(requests)) {
       if (!request.isComplete() && !request.isCleared()) {
@@ -381,7 +373,7 @@ public class RequestTracker {
         if (!isPaused) {
           request.begin();
         } else {
-          // Ensure the request will be restarted in onResume.
+          // 确保请求在onResume生命周期正常重启
           pendingRequests.add(request);
         }
       }
@@ -390,13 +382,11 @@ public class RequestTracker {
 }
 ```
 
-
-
 ## 总结
 
-通过上述流程可知，__Glide__ 的图片加载生命周期管理依赖传入的实例。
+通过上述流程可知，__Glide__ 的图片加载生命周期管理依赖传入的实例。如果实例类型为 __Activity__，__Glide__ 就能向里面注册一个没有界面的 __Fragment__ 达到监听生命周期变化的目的。
 
-如果实例类型为 __Activity__，__Glide__ 就能向里面注册一个没有界面的 __Fragment__ 达到监听生命周期变化的目的。所以，该参数应尽可能传入 __Activity__ 或 __Fragment__ 对象，最少也得是 __View__ 持有的 __Context__，而不是 __ApplicationContext__。
+所以，该参数应尽可能传入 __Activity__ 或 __Fragment__ 对象，最少也得是 __View__ 持有的 __Context__，而不是 __ApplicationContext__。
 
 ![Glide_lifecycle_hierarchy](/img/Glide/Glide_lifecycle_hierarchy.png)
 
