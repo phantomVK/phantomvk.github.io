@@ -1,13 +1,17 @@
 ---
 layout:     post
 title:      "LocalBroadcastManager"
-date:       2019-01-01
+date:       2019-03-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
     - Android
 ---
+
+## 前言
+
+## 类签名
 
 ```java
 /**
@@ -27,6 +31,10 @@ tags:
 public final class LocalBroadcastManager {
 ```
 
+## 记录
+
+#### 接收记录
+
 ```java
 private static final class ReceiverRecord {
     final IntentFilter filter;
@@ -41,6 +49,8 @@ private static final class ReceiverRecord {
 }
 ```
 
+#### 广播记录
+
 ```java
 private static final class BroadcastRecord {
     final Intent intent;
@@ -53,9 +63,9 @@ private static final class BroadcastRecord {
 }
 ```
 
-```java
-private static final String TAG = "LocalBroadcastManager";
+## 数据成员
 
+```java
 private final Context mAppContext;
 
 private final HashMap<BroadcastReceiver, ArrayList<ReceiverRecord>> mReceivers
@@ -72,17 +82,24 @@ private static final Object mLock = new Object();
 private static LocalBroadcastManager mInstance;
 ```
 
+## 单例
+
+同一个进程中，所有线程共享同一个 __LocalBroadcastManager__ 实例。而 __LocalBroadcastManager__ 初始化时持有 __ApplicationContext__，显然其生命周期和整个进程相同。
+
 ```java
 @NonNull
 public static LocalBroadcastManager getInstance(@NonNull Context context) {
     synchronized (mLock) {
         if (mInstance == null) {
+            // 持有ApplicationContext
             mInstance = new LocalBroadcastManager(context.getApplicationContext());
         }
         return mInstance;
     }
 }
 ```
+
+## 构造方法
 
 ```java
 private LocalBroadcastManager(Context context) {
@@ -102,6 +119,10 @@ private LocalBroadcastManager(Context context) {
     };
 }
 ```
+
+## 成员方法
+
+#### 注册
 
 ```java
 /**
@@ -134,6 +155,8 @@ public void registerReceiver(@NonNull BroadcastReceiver receiver,
     }
 }
 ```
+
+#### 注销
 
 ```java
 /**
@@ -174,6 +197,8 @@ public void unregisterReceiver(@NonNull BroadcastReceiver receiver) {
     }
 }
 ```
+
+#### 发送广播
 
 ```java
 /**
