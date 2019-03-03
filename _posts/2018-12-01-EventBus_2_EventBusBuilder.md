@@ -122,7 +122,7 @@ public EventBusBuilder executorService(ExecutorService executorService) {
 }
 ```
 
-方法名验证，验证以onEvent开头的方法避免拼写错误。使用此方法能排除指定订阅者类的检查，并关闭对使用修饰符 __public__、__not static__、__nor abstract__ 方法的检查。
+方法名验证，验证以onEvent开头的方法避免拼写错误。使用此方法能排除指定订阅者类的检查，并关闭对使用修饰符 __public__、__not static__、__not abstract__ 方法的检查。
 
 ```java
 public EventBusBuilder skipMethodVerificationFor(Class<?> clazz) {
