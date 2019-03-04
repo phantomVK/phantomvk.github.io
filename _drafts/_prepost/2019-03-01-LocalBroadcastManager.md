@@ -11,6 +11,12 @@ tags:
 
 ## 前言
 
+重点：
+
+- 仅支持动态广播的发送；
+- 仅支持引用内广播的发送与接收，因此无需IPC，性能较好；
+- 所有广播在相同进程内流动，不会造成安全问题；
+
 ## 类签名
 
 ```java
@@ -100,6 +106,8 @@ public static LocalBroadcastManager getInstance(@NonNull Context context) {
 ```
 
 ## 构造方法
+
+构造方法内构造了 __Handler__ 实例，负责触发广播逻辑
 
 ```java
 private LocalBroadcastManager(Context context) {
