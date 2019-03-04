@@ -9,15 +9,13 @@ tags:
     - Android
 ---
 
-## 前言
-
-重点：
-
-- 仅支持动态广播的发送；
-- 仅支持引用内广播的发送与接收，因此无需IPC，性能较好；
-- 所有广播在相同进程内流动，不会造成安全问题；
-
 ## 类签名
+
+同于在同进程内本地对象注册或发送广播的帮助类。相比全局广播有较多优点：
+
+- 你能了解到正在广播的数据不会离开应用，无需担心泄漏隐私数据；
+- 其他应用无法大宋他们的广播到你的应用中，因此不存在安全漏洞问题；
+- 相比全局广播效能更高，因为本地广播无需通过IPC发送到其他进程中；
 
 ```java
 /**
@@ -34,15 +32,14 @@ tags:
  * system.
  * </ul>
  */
-public final class LocalBroadcastManager {
+public final class LocalBroadcastManager
 ```
 
 ## 记录
 
-#### 接收记录
-
 ```java
 private static final class ReceiverRecord {
+    // 用于筛选目标广播的IntentFilter
     final IntentFilter filter;
     final BroadcastReceiver receiver;
     boolean broadcasting;
@@ -55,11 +52,11 @@ private static final class ReceiverRecord {
 }
 ```
 
-#### 广播记录
-
 ```java
 private static final class BroadcastRecord {
+    // 发送广播中携带的数据
     final Intent intent;
+    // 广播接收者
     final ArrayList<ReceiverRecord> receivers;
 
     BroadcastRecord(Intent _intent, ArrayList<ReceiverRecord> _receivers) {
@@ -72,19 +69,24 @@ private static final class BroadcastRecord {
 ## 数据成员
 
 ```java
+// ApplicationContext
 private final Context mAppContext;
 
 private final HashMap<BroadcastReceiver, ArrayList<ReceiverRecord>> mReceivers
         = new HashMap<>();
 private final HashMap<String, ArrayList<ReceiverRecord>> mActions = new HashMap<>();
 
+// 等待处理的广播的列表
 private final ArrayList<BroadcastRecord> mPendingBroadcasts = new ArrayList<>();
 
+// 有待处理广播的标志位
 static final int MSG_EXEC_PENDING_BROADCASTS = 1;
 
 private final Handler mHandler;
 
+// 同步锁
 private static final Object mLock = new Object();
+// 保存同步锁单例的静态变量
 private static LocalBroadcastManager mInstance;
 ```
 
@@ -112,12 +114,14 @@ public static LocalBroadcastManager getInstance(@NonNull Context context) {
 ```java
 private LocalBroadcastManager(Context context) {
     mAppContext = context;
+    // 在主线程回调
     mHandler = new Handler(context.getMainLooper()) {
 
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
                 case MSG_EXEC_PENDING_BROADCASTS:
+                    // 执行队列中的广播
                     executePendingBroadcasts();
                     break;
                 default:
@@ -143,7 +147,9 @@ private LocalBroadcastManager(Context context) {
  */
 public void registerReceiver(@NonNull BroadcastReceiver receiver,
         @NonNull IntentFilter filter) {
+    // 先获取同步锁
     synchronized (mReceivers) {
+        // 用传入的变量构造ReceiverRecord
         ReceiverRecord entry = new ReceiverRecord(filter, receiver);
         ArrayList<ReceiverRecord> filters = mReceivers.get(receiver);
         if (filters == null) {
@@ -208,6 +214,8 @@ public void unregisterReceiver(@NonNull BroadcastReceiver receiver) {
 
 #### 发送广播
 
+通过 __Intent__ 发送广播
+
 ```java
 /**
  * Broadcast the given intent to all interested BroadcastReceivers.  This
@@ -258,6 +266,7 @@ public boolean sendBroadcast(@NonNull Intent intent) {
                     receivers.get(i).broadcasting = false;
                 }
                 mPendingBroadcasts.add(new BroadcastRecord(intent, receivers));
+                // 向消息队列放入消息，表示有广播可以分发
                 if (!mHandler.hasMessages(MSG_EXEC_PENDING_BROADCASTS)) {
                     mHandler.sendEmptyMessage(MSG_EXEC_PENDING_BROADCASTS);
                 }
@@ -268,6 +277,8 @@ public boolean sendBroadcast(@NonNull Intent intent) {
     return false;
 }
 ```
+
+发送同步广播，但如果 __Intent__ 有的接收者，则此方法会阻塞线程并直接分发广播。__sendBroadcast(Intent)__ 方法会把广播放入消息队列等候派发，这个方法会马上占用线程派发。
 
 ```java
 /**
@@ -282,24 +293,34 @@ public void sendBroadcastSync(@NonNull Intent intent) {
 }
 ```
 
+存在有效的广播时触发这个方法，向满足条件的接收者派发广播记录
+
 ```java
 private void executePendingBroadcasts() {
     while (true) {
         final BroadcastRecord[] brs;
         synchronized (mReceivers) {
+            // 获取待处理广播的数量
             final int N = mPendingBroadcasts.size();
             if (N <= 0) {
                 return;
             }
+            // 创建与待处理广播数量相同的数组
             brs = new BroadcastRecord[N];
+            // 把所有待处理的广播赋值到新创建的数组中
             mPendingBroadcasts.toArray(brs);
+            // 清除待处理广播的列表
             mPendingBroadcasts.clear();
         }
+        // 遍历刚创建数组的广播事件
         for (int i=0; i<brs.length; i++) {
+            // 逐个取出广播
             final BroadcastRecord br = brs[i];
+            // 获取广播接收者的数量
             final int nbr = br.receivers.size();
             for (int j=0; j<nbr; j++) {
                 final ReceiverRecord rec = br.receivers.get(j);
+                // 把广播记录派发给所有事件接收者
                 if (!rec.dead) {
                     rec.receiver.onReceive(mAppContext, br.intent);
                 }
