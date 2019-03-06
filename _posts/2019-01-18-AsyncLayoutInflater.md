@@ -37,19 +37,22 @@ Handler mHandler;
 InflateThread mInflateThread;
 ```
 
-收到请求后进行填充操作
+如果请求在子线程填充的过程中出现异常，则任务会派发到主线程重试一次
 
 ```java
 private Callback mHandlerCallback = new Callback() {
     @Override
     public boolean handleMessage(Message msg) {
+        // 获取填充请求，进行视图的填充，以下操作都在主线程进行
         InflateRequest request = (InflateRequest) msg.obj;
         if (request.view == null) {
             request.view = mInflater.inflate(
                     request.resid, request.parent, false);
         }
+        // 填充成功，触发回调
         request.callback.onInflateFinished(
                 request.view, request.resid, request.parent);
+        // 填充完成，回收请求以便以后复用
         mInflateThread.releaseRequest(request);
         return true;
     }
@@ -63,6 +66,7 @@ private Callback mHandlerCallback = new Callback() {
 ```java
 public AsyncLayoutInflater(@NonNull Context context) {
     mInflater = new BasicInflater(context);
+    // 由于Handler在主线程创建，所以内部默认使用主线程
     mHandler = new Handler(mHandlerCallback);
     mInflateThread = InflateThread.getInstance();
 }
