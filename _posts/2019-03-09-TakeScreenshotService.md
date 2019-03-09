@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "Android源码系列(19) -- TakeScreenshotService"
-date:       2019-01-08
+title:      "Android源码系列(22) -- TakeScreenshotService"
+date:       2019-03-09
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -9,7 +9,7 @@ tags:
     - Android源码系列
 ---
 
-上一篇文章 [Android源码系列(18) -- GlobalScreenshot](/2019/01/07/GlobalScreenshot/) 介绍系统是如何获取接收截图操作的通知或截取屏幕。本文作为后续文章，继续补充截图通过什么方法写入到磁盘，并通知媒体存储更新记录。源码版本 __Android28__
+上一篇文章 [Android源码系列(21) -- GlobalScreenshot](/2019/01/07/GlobalScreenshot/) 介绍系统是如何获取接收截图操作的通知或截取屏幕。本文作为后续文章，继续补充截图通过什么方法写入到磁盘，并通知媒体存储更新记录。源码版本 __Android28__
 
 ## 一、SaveImageInBackgroundData
 
@@ -76,7 +76,7 @@ private final SaveImageInBackgroundData mParams;
 private final NotificationManager mNotificationManager;
 private final Notification.Builder mNotificationBuilder, mPublicNotificationBuilder;
 
-// 保存截图的文件夹路径
+// 保存截图的路径
 private final File mScreenshotDir;
 
 // 截图文件名
@@ -85,7 +85,7 @@ private final String mImageFileName;
 // 截图文件路径
 private final String mImageFilePath;
 
-// 截图事件
+// 截图时间
 private final long mImageTime;
 private final BigPictureStyle mNotificationStyle;
 
@@ -178,9 +178,7 @@ SaveImageInBackgroundTask(Context context, SaveImageInBackgroundData data,
     mNotificationManager.notify(SystemMessage.NOTE_GLOBAL_SCREENSHOT,
             mNotificationBuilder.build());
 
-    /**
-     * 以下代码用于更新图片已经写入磁盘的通知信息
-     */
+    // 以下代码用于更新图片已经写入磁盘的通知信息
 
     // On the tablet, the large icon makes the notification appear as if it is clickable (and
     // on small devices, the large icon is not shown) so defer showing the large icon until
@@ -230,11 +228,12 @@ protected Void doInBackground(Void... params) {
         // 创建截屏文件夹的目录
         mScreenshotDir.mkdirs();
 
-        // DATE_TAKEN的时间戳单位是毫秒，但DATE_MODIFIED和DATE_ADDED，这里进行转换
+        // DATE_TAKEN的时间戳单位是毫秒，但DATE_MODIFIED和DATE_ADDED单位是秒，这里进行转换
         long dateSeconds = mImageTime / 1000;
 
         // 截图位图写入文件流
         OutputStream out = new FileOutputStream(mImageFilePath);
+        // 格式PNG，质量100表示最低压缩
         image.compress(Bitmap.CompressFormat.PNG, 100, out);
         out.flush();
         out.close();
@@ -396,7 +395,7 @@ protected void onCancelled(Void params) {
 }
 ```
 
-##三、DeleteImageInBackgroundTask
+## 三、DeleteImageInBackgroundTask
 
 在后台删除媒体存储的图片，此类继承 __AsyncTask__。
 

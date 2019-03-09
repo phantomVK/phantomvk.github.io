@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "Android源码系列(18) -- GlobalScreenshot"
-date:       2019-01-07
+title:      "Android源码系列(21) -- GlobalScreenshot"
+date:       2019-03-09
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -9,11 +9,11 @@ tags:
     - Android源码系列
 ---
 
-这篇文章介绍Android如何实现屏幕截取操作，为截取事件提供思路。在下篇文章[Android源码系列(18) -- TakeScreenshotService](/2019/01/08/TakeScreenshotService/)将介绍截图如何写入系统磁盘。源码版本 __Android 28__。
+这篇文章介绍系统如何实现屏幕截取操作，并为拦截截屏事件提供思路。下篇文章 [Android源码系列(22) -- TakeScreenshotService](/2019/01/08/TakeScreenshotService/) 将介绍截图如何写入系统磁盘。源码版本 __Android 28__。
 
 ## 一、TakeScreenshotService
 
-__TakeScreenshotService__ 是 __Service__，通过IPC的方式接受截屏请求，并通过 __GlobalScreenshot__ 实现屏幕截取和图片保存。
+__TakeScreenshotService__ 是 __Service__ 的子类，通过IPC的方式接受截屏请求，并通过 __GlobalScreenshot__ 实现屏幕截取和图片保存逻辑。
 
 ```java
 public class TakeScreenshotService extends Service {
@@ -25,6 +25,7 @@ public class TakeScreenshotService extends Service {
         @Override
         public void handleMessage(Message msg) {
             final Messenger callback = msg.replyTo;
+
             // 构建finisher响应Messenger
             Runnable finisher = new Runnable() {
                 @Override
@@ -71,6 +72,7 @@ public class TakeScreenshotService extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
+        // 返回IBinder支持IPC
         return new Messenger(mHandler).getBinder();
     }
 
@@ -96,6 +98,7 @@ class GlobalScreenshot
 static final String SCREENSHOT_URI_ID = "android:screenshot_uri_id";
 static final String SHARING_INTENT = "android:screenshot_sharing_intent";
 
+// 动画展示时间的配置
 private static final int SCREENSHOT_FLASH_TO_PEAK_DURATION = 130;
 private static final int SCREENSHOT_DROP_IN_DURATION = 430;
 private static final int SCREENSHOT_DROP_OUT_DELAY = 500;
@@ -170,8 +173,7 @@ public GlobalScreenshot(Context context) {
     mScreenshotFlash = (ImageView) mScreenshotLayout.findViewById(R.id.global_screenshot_flash);
     mScreenshotSelectorView = (ScreenshotSelectorView) mScreenshotLayout.findViewById(
             R.id.global_screenshot_selector);
-    // 令此布局获取焦点
-    mScreenshotLayout.setFocusable(true);
+    mScreenshotLayout.setFocusable(true); // 令此布局获取焦点
     mScreenshotSelectorView.setFocusable(true);
     mScreenshotSelectorView.setFocusableInTouchMode(true);
     mScreenshotLayout.setOnTouchListener(new View.OnTouchListener() {
@@ -195,15 +197,17 @@ public GlobalScreenshot(Context context) {
     mWindowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
     mNotificationManager =
         (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+    // 从WindowManager获取Display
     mDisplay = mWindowManager.getDefaultDisplay();
     mDisplayMetrics = new DisplayMetrics();
+    // 测量Display参数
     mDisplay.getRealMetrics(mDisplayMetrics);
 
-    // 获取各自的目标尺寸
+    // 获取通知图标的尺寸
     mNotificationIconSize =
         r.getDimensionPixelSize(android.R.dimen.notification_large_icon_height);
 
-    // 范围占背景的两边
+    // 背景的边距
     mBgPadding = (float) r.getDimensionPixelSize(R.dimen.global_screenshot_bg_padding);
     mBgPaddingScale = mBgPadding /  mDisplayMetrics.widthPixels;
 
@@ -213,6 +217,7 @@ public GlobalScreenshot(Context context) {
         panelWidth = r.getDimensionPixelSize(R.dimen.notification_panel_width);
     } catch (Resources.NotFoundException e) {
     }
+
     // panelWidth在上述异常出现时为0
     if (panelWidth <= 0) {
         // includes notification_panel_width==match_parent (-1)
@@ -229,10 +234,11 @@ public GlobalScreenshot(Context context) {
 
 #### 2.4 saveScreenshotInWorkerThread
 
-调用方法时截图已经保存在内存中。此方法会创建新工作任务，并在子线程把截图保存到媒体存储。__SaveImageInBackgroundTask__ 继承 __AsyncTask__。
+调用方法时截图已经保存在内存中。此方法会创建新工作任务，并在 __AsyncTask__ 子线程把截图保存到媒体存储。
 
 ```java
 private void saveScreenshotInWorkerThread(Runnable finisher) {
+    // 创建空任务，把参数填到对象中
     SaveImageInBackgroundData data = new SaveImageInBackgroundData();
     data.context = mContext;
     data.image = mScreenBitmap; // 截图
@@ -281,7 +287,7 @@ private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean
     int width = crop.width();
     int height = crop.height();
 
-    // 截取屏幕
+    // 从SurfaceControl获得截取的Bitmap
     mScreenBitmap = SurfaceControl.screenshot(crop, width, height, rot);
 
     // 检查获取的屏幕截图是否为空
@@ -306,7 +312,9 @@ private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean
 
 ```java
 void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarVisible) {
+    // 计算全屏的DisplayMetrics
     mDisplay.getRealMetrics(mDisplayMetrics);
+    // 并把全屏宽高的参数传到方法内
     takeScreenshot(finisher, statusBarVisible, navBarVisible,
             new Rect(0, 0, mDisplayMetrics.widthPixels, mDisplayMetrics.heightPixels));
 }
@@ -321,19 +329,22 @@ void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisib
         final boolean navBarVisible) {
     // 向WindowManager添加选择器布局
     mWindowManager.addView(mScreenshotLayout, mWindowLayoutParams);
+
     // 处理选择器的点击事件
     mScreenshotSelectorView.setOnTouchListener(new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
             ScreenshotSelectorView view = (ScreenshotSelectorView) v;
             switch (event.getAction()) {
-                case MotionEvent.ACTION_DOWN:
+                case MotionEvent.ACTION_DOWN: // 获取ACTION_DOWN操作，开始截屏
                     view.startSelection((int) event.getX(), (int) event.getY());
                     return true;
-                case MotionEvent.ACTION_MOVE:
+
+                case MotionEvent.ACTION_MOVE: // 选择截屏范围
                     view.updateSelection((int) event.getX(), (int) event.getY());
                     return true;
-                case MotionEvent.ACTION_UP:
+
+                case MotionEvent.ACTION_UP: // 手指离开屏幕，结束选择
                     view.setVisibility(View.GONE);
                     mWindowManager.removeView(mScreenshotLayout);
                     // 获取选择的矩形区域
@@ -351,6 +362,7 @@ void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisib
                         }
                     }
 
+                    // 结束选择操作
                     view.stopSelection();
                     return true;
             }
@@ -358,6 +370,8 @@ void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisib
             return false;
         }
     });
+
+    // 先mScreenshotLayout发出requestFocus()
     mScreenshotLayout.post(new Runnable() {
         @Override
         public void run() {
@@ -539,8 +553,7 @@ private ValueAnimator createScreenshotDropOutAnimation(int w, int h, boolean sta
             }
         });
     } else {
-        // In the case where there is a status bar, animate to the origin of the bar (top-left)
-        // 屏幕上有状态栏，动画仅状态栏的左上方
+        // 屏幕上有状态栏，动画到状态栏的左上方
         final float scaleDurationPct = (float) SCREENSHOT_DROP_OUT_SCALE_DURATION
                 / SCREENSHOT_DROP_OUT_DURATION;
         final Interpolator scaleInterpolator = new Interpolator() {
