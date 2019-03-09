@@ -19,13 +19,11 @@ public class LinkedBlockingDeque<E>
     implements BlockingDeque<E>, java.io.Serializable
 ```
 
-如果构造方法的容量参数没有指定，则 __Integer#MAX_VALUE__ 将作为默认容量使用。而队列元素插入时，对应链节点动态创建。
+如果构造方法的容量参数没有指定，则 __Integer.MAX_VALUE__ 将作为默认容量使用。而队列元素插入时，对应链节点动态创建。
 
-多数操作能在常量时间内完成执行。例外的是 __remove(Object)__、__removeFirstOccurrence__ 、__removeLastOccurrence__、 __contains__、__iterator.remove()__ 和批量操作等方法，消耗的时间是线性的。
+多数操作能在常量时间内完成执行。例外的是 __remove(Object)__、__removeFirstOccurrence__ 、__removeLastOccurrence__、 __contains__、__iterator.remove()__ 和批量操作等方法，消耗的时间是线性的。源码来自JDK11
 
 ![LinkedBlockingDeque_UML](/img/java/LinkedBlockingDeque_UML.png)
-
-源码来自JDK11
 
 ## 二、Node
 
@@ -84,7 +82,7 @@ private final Condition notFull = lock.newCondition();
 
 ## 四、构造方法
 
-用 __Integer#MAX_VALUE__ 构建实例
+用 __Integer.MAX_VALUE__ 构建实例
 
 ```java
 public LinkedBlockingDeque() {
@@ -101,7 +99,7 @@ public LinkedBlockingDeque(int capacity) {
     this.capacity = capacity;
 }
 ```
-默认 __Integer#MAX_VALUE__ 构建实例，且用指定集合的元素作为双端队列的初始元素
+默认 __Integer.MAX_VALUE__ 构建实例，且用指定集合的元素作为双端队列的初始元素
 
 ```java
 public LinkedBlockingDeque(Collection<? extends E> c) {

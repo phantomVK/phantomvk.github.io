@@ -19,9 +19,7 @@ public abstract class IntentService extends Service
 
 这种 “工作队列处理器” 模式主要适用于从应用主线程转移任务。 __IntentService__ 是简化这种模式和关注处理者的类，只需继承此类并实现 __onHandleIntent(Intent)__。__IntentService__ 会接收Intent，启动工作线程进行处理，并在适当时候关闭Service（没有任务时）。
 
-所有工作由一个工作线程串行处理，不会阻塞主线程。处理逻辑需要实现抽象方法 __onHandleIntent__ 实现。
-
-源码来自Android 28
+所有工作由子线程串行处理，不会阻塞主线程。处理逻辑需要实现抽象方法 __onHandleIntent__ 实现。源码来自Android 28
 
 ## 二、数据成员
 

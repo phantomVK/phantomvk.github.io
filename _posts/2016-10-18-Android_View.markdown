@@ -17,7 +17,7 @@ tags:
 
 #### 1.1 自定义Button
 
-为能看见事件调用方法，所以继承 __Button__ 类，并重载 __dispatchTouchEvent()__ 和 __onTouchEvent()__ 。
+继承 __Button__ 类观察事件调用方法，并重载 __dispatchTouchEvent()__ 和 __onTouchEvent()__ 。
 
 ```java
 public class MyButton extends Button {
