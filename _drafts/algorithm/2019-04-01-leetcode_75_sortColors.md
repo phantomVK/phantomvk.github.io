@@ -37,18 +37,15 @@ tags:
 public static void sortColors(int[] arr) {
     if (arr == null || arr.length == 0) return;
 
+    int curr = 0;
     int left = 0;
     int right = arr.length - 1;
-    int curr = 0;
 
     while (curr <= right) {
         if (arr[curr] == 0) {
-            swap(arr, left, curr);
-            curr++;
-            left++;
+            swap(arr, left++, curr++);
         } else if (arr[curr] == 2) {
-            swap(arr, right, curr);
-            right--;
+            swap(arr, right--, curr);
         } else {
             curr++;
         }
