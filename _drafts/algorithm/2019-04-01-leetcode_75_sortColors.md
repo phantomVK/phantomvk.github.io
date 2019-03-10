@@ -15,8 +15,7 @@ tags:
 
 此题中，我们使用整数 0、 1 和 2 分别表示红色、白色和蓝色。
 
-**注意:**
-不能使用代码库中的排序函数来解决这道题。
+**注意:** 不能使用代码库中的排序函数来解决这道题。
 
 **示例:**
 
@@ -31,21 +30,21 @@ tags:
   首先，迭代计算出0、1 和 2 元素的个数，然后按照0、1、2的排序，重写当前数组。
 - 你能想出一个仅使用常数空间的一趟扫描算法吗？
 
-## 答案
+## 方案
 
 ```java
-public static void sortColors(int[] arr) {
-    if (arr == null || arr.length == 0) return;
+public void sortColors(int[] nums) {
+    if (nums == null || nums.length == 0 || nums.length == 1) return;
 
     int curr = 0;
-    int left = 0;
-    int right = arr.length - 1;
+    int start = 0;
+    int right = nums.length - 1;
 
     while (curr <= right) {
-        if (arr[curr] == 0) {
-            swap(arr, left++, curr++);
-        } else if (arr[curr] == 2) {
-            swap(arr, right--, curr);
+        if (nums[curr] == 0) {
+            swap(nums, curr++, start++);
+        } else if (nums[curr] == 2) {
+            swap(nums, curr, right--);
         } else {
             curr++;
         }
