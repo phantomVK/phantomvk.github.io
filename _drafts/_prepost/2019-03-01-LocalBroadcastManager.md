@@ -1,15 +1,15 @@
 ---
 layout:     post
-title:      "LocalBroadcastManager"
+title:      "Android源码系列() -- LocalBroadcastManager"
 date:       2019-03-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
-## 类签名
+## 一、类签名
 
 同于在同进程内本地对象注册或发送广播的帮助类。相比全局广播有较多优点：
 
@@ -136,34 +136,34 @@ private LocalBroadcastManager(Context context) {
 
 #### 注册
 
+注册一个匹配指定 __IntentFilter__ 时触发的 __BroadcastReceiver__。
+
 ```java
-/**
- * Register a receive for any local broadcasts that match the given IntentFilter.
- *
- * @param receiver The BroadcastReceiver to handle the broadcast.
- * @param filter Selects the Intent broadcasts to be received.
- *
- * @see #unregisterReceiver
- */
 public void registerReceiver(@NonNull BroadcastReceiver receiver,
         @NonNull IntentFilter filter) {
     // 先获取同步锁
     synchronized (mReceivers) {
         // 用传入的变量构造ReceiverRecord
         ReceiverRecord entry = new ReceiverRecord(filter, receiver);
+        // 从mReceivers查找该receiver是否已经存在记录
         ArrayList<ReceiverRecord> filters = mReceivers.get(receiver);
+        // 记录为空，则创建新的filters
         if (filters == null) {
             filters = new ArrayList<>(1);
             mReceivers.put(receiver, filters);
         }
+        // key为receiver，value为ReceiverRecord
         filters.add(entry);
+
         for (int i=0; i<filter.countActions(); i++) {
+            // 从filter逐个获取Action
             String action = filter.getAction(i);
             ArrayList<ReceiverRecord> entries = mActions.get(action);
             if (entries == null) {
                 entries = new ArrayList<ReceiverRecord>(1);
                 mActions.put(action, entries);
             }
+            // key为Action，value为ReceiverRecord
             entries.add(entry);
         }
     }
@@ -172,19 +172,13 @@ public void registerReceiver(@NonNull BroadcastReceiver receiver,
 
 #### 注销
 
+注销已经注册的 __BroadcastReceiver__。所有该 __BroadcastReceiver__ 的 __filters__ 也会被移除。
+
 ```java
-/**
- * Unregister a previously registered BroadcastReceiver.  <em>All</em>
- * filters that have been registered for this BroadcastReceiver will be
- * removed.
- *
- * @param receiver The BroadcastReceiver to unregister.
- *
- * @see #registerReceiver
- */
 public void unregisterReceiver(@NonNull BroadcastReceiver receiver) {
     synchronized (mReceivers) {
         final ArrayList<ReceiverRecord> filters = mReceivers.remove(receiver);
+        // 该Receiver没有注册过，结束方法的执行
         if (filters == null) {
             return;
         }
@@ -214,23 +208,9 @@ public void unregisterReceiver(@NonNull BroadcastReceiver receiver) {
 
 #### 发送广播
 
-通过 __Intent__ 发送广播
+通过 __Intent__ 发送广播。此方法的调用是异步的，方法执行后会马上返回，而接收器也会同时执行。
 
 ```java
-/**
- * Broadcast the given intent to all interested BroadcastReceivers.  This
- * call is asynchronous; it returns immediately, and you will continue
- * executing while the receivers are run.
- *
- * @param intent The Intent to broadcast; all receivers matching this
- *     Intent will receive the broadcast.
- *
- * @see #registerReceiver
- *
- * @return Returns true if the intent has been scheduled for delivery to one or more
- * broadcast receivers.  (Note tha delivery may not ultimately take place if one of those
- * receivers is unregistered before it is dispatched.)
- */
 public boolean sendBroadcast(@NonNull Intent intent) {
     synchronized (mReceivers) {
         final String action = intent.getAction();
@@ -278,14 +258,9 @@ public boolean sendBroadcast(@NonNull Intent intent) {
 }
 ```
 
-发送同步广播，但如果 __Intent__ 有的接收者，则此方法会阻塞线程并直接分发广播。__sendBroadcast(Intent)__ 方法会把广播放入消息队列等候派发，这个方法会马上占用线程派发。
+发送同步广播，但如果发送的 __Intent__ 有接收者，则此方法会阻塞线程并直接分发广播。__sendBroadcast(Intent)__ 方法会把广播放入消息队列等候派发，这个方法会马上占用线程派发，直到派发工作完成。
 
 ```java
-/**
- * Like {@link #sendBroadcast(Intent)}, but if there are any receivers for
- * the Intent this function will block and immediately dispatch them before
- * returning.
- */
 public void sendBroadcastSync(@NonNull Intent intent) {
     if (sendBroadcast(intent)) {
         executePendingBroadcasts();

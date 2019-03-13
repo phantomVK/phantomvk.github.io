@@ -249,7 +249,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                             && isChildrenDrawingOrderEnabled();
                     final View[] children = mChildren;
                     
-                    // 从最底层的父视图开始遍历找寻newTouchTarget
+                    // 从最上层的视图开始遍历找寻newTouchTarget
                     for (int i = childrenCount - 1; i >= 0; i--) {
                         // child的索引
                         final int childIndex = customOrder

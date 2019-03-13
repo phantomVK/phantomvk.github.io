@@ -25,12 +25,14 @@ tags:
 - 线程生命周期
 - HashTable、HashMap、ConcurrentHashMap、LinkedHashMap
 - ArrayList & LinkedList
-- java内存模型，五个部分：程序计数器、栈、本地栈、堆、方法区
+- Java内存模型，五个部分：程序计数器、栈、本地栈、堆、方法区
 
 
 
 ## Android
 
+- dp、px、dip的解释和区别
+- Message、Handler、MessageQueue、Looper
 - Binder机制及底层原理
 - LRUCache
 - 优化：网络、内存、布局、电量、业务、性能
@@ -49,10 +51,8 @@ tags:
 - APK打包流程、xml打包后所在文件
 - AndroidMenifest文件合并
 - Activity启动模式、任务栈、reparent
-- Message、Handler、MessageQueue、Looper
 - BoradcastReceiver & LocalBoradcast
 - Memory leak detection
-- dp、px、dip
 - invalidate、postInvalidate、requestLayout应用场景
 - Bitmap加载优化
 
