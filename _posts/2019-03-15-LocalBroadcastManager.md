@@ -1,7 +1,7 @@
 ---
 layout:     post
-title:      "Android源码系列() -- LocalBroadcastManager"
-date:       2019-03-01
+title:      "Android源码系列(23) -- LocalBroadcastManager"
+date:       2019-03-15
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -11,31 +11,21 @@ tags:
 
 ## 一、类签名
 
-同于在同进程内本地对象注册或发送广播的帮助类。相比全局广播有较多优点：
-
-- 你能了解到正在广播的数据不会离开应用，无需担心泄漏隐私数据；
-- 其他应用无法大宋他们的广播到你的应用中，因此不存在安全漏洞问题；
-- 相比全局广播效能更高，因为本地广播无需通过IPC发送到其他进程中；
+用于同进程本地对象注册或发送广播的帮助类。如果广播信息只需要在同进程内收发，则无需发送全局广播，仅发送本地广播即可。当然，同一应用功能逻辑应用了多进程，则不能用本地广播进行通讯，因为不同的进程持有不同的实例，各个实例之间没有关联。
 
 ```java
-/**
- * Helper to register for and send broadcasts of Intents to local objects
- * within your process.  This has a number of advantages over sending
- * global broadcasts with {@link android.content.Context#sendBroadcast}:
- * <ul>
- * <li> You know that the data you are broadcasting won't leave your app, so
- * don't need to worry about leaking private data.
- * <li> It is not possible for other applications to send these broadcasts to
- * your app, so you don't need to worry about having security holes they can
- * exploit.
- * <li> It is more efficient than sending a global broadcast through the
- * system.
- * </ul>
- */
 public final class LocalBroadcastManager
 ```
 
-## 记录
+相比全局广播有以下优点：
+
+- 正在广播的数据不会离开同进程范围，无需担心泄漏隐私数据；
+- 其他应用无法发送他们的广播到你的应用中，因此不存在安全漏洞问题；
+- 相比全局广播效率更高，因为本地广播无需通过IPC和其他进程交互；
+
+## 二、记录
+
+注册广播接收者
 
 ```java
 private static final class ReceiverRecord {
@@ -52,6 +42,8 @@ private static final class ReceiverRecord {
 }
 ```
 
+发送广播信息
+
 ```java
 private static final class BroadcastRecord {
     // 发送广播中携带的数据
@@ -66,7 +58,7 @@ private static final class BroadcastRecord {
 }
 ```
 
-## 数据成员
+## 三、数据成员
 
 ```java
 // ApplicationContext
@@ -82,17 +74,19 @@ private final ArrayList<BroadcastRecord> mPendingBroadcasts = new ArrayList<>();
 // 有待处理广播的标志位
 static final int MSG_EXEC_PENDING_BROADCASTS = 1;
 
+// Handler单例
 private final Handler mHandler;
 
 // 同步锁
 private static final Object mLock = new Object();
+
 // 保存同步锁单例的静态变量
 private static LocalBroadcastManager mInstance;
 ```
 
-## 单例
+## 四、实例
 
-同一个进程中，所有线程共享同一个 __LocalBroadcastManager__ 实例。而 __LocalBroadcastManager__ 初始化时持有 __ApplicationContext__，显然其生命周期和整个进程相同。
+同一个进程中所有线程共享同一个 __LocalBroadcastManager__ 实例。而 __LocalBroadcastManager__ 初始化时持有 __ApplicationContext__，显然其生命周期和整个进程相同。
 
 ```java
 @NonNull
@@ -107,14 +101,15 @@ public static LocalBroadcastManager getInstance(@NonNull Context context) {
 }
 ```
 
-## 构造方法
+## 五、构造方法
 
-构造方法内构造了 __Handler__ 实例，负责触发广播逻辑
+构造方法内构造了 __Handler__ 实例，负责触发分派到的广播
 
 ```java
 private LocalBroadcastManager(Context context) {
     mAppContext = context;
-    // 在主线程回调
+
+    // 构造Handler，在主线程回调
     mHandler = new Handler(context.getMainLooper()) {
 
         @Override
@@ -132,9 +127,9 @@ private LocalBroadcastManager(Context context) {
 }
 ```
 
-## 成员方法
+## 六、成员方法
 
-#### 注册
+#### 6.1 注册
 
 注册一个匹配指定 __IntentFilter__ 时触发的 __BroadcastReceiver__。
 
@@ -170,9 +165,9 @@ public void registerReceiver(@NonNull BroadcastReceiver receiver,
 }
 ```
 
-#### 注销
+#### 6.2 注销
 
-注销已经注册的 __BroadcastReceiver__。所有该 __BroadcastReceiver__ 的 __filters__ 也会被移除。
+注销已经注册的 __BroadcastReceiver__，所有该 __BroadcastReceiver__ 的 __filters__ 也会被移除。
 
 ```java
 public void unregisterReceiver(@NonNull BroadcastReceiver receiver) {
@@ -206,7 +201,7 @@ public void unregisterReceiver(@NonNull BroadcastReceiver receiver) {
 }
 ```
 
-#### 发送广播
+#### 6.3 发送广播
 
 通过 __Intent__ 发送广播。此方法的调用是异步的，方法执行后会马上返回，而接收器也会同时执行。
 
@@ -258,7 +253,7 @@ public boolean sendBroadcast(@NonNull Intent intent) {
 }
 ```
 
-发送同步广播，但如果发送的 __Intent__ 有接收者，则此方法会阻塞线程并直接分发广播。__sendBroadcast(Intent)__ 方法会把广播放入消息队列等候派发，这个方法会马上占用线程派发，直到派发工作完成。
+发送同步广播，但如果发送的 __Intent__ 有接收者，则此方法会阻塞线程并直接分发广播。相比 __sendBroadcast(Intent)__ 方法把广播放入消息队列等候派发，这个方法会马上占用线程派发，直到派发工作完成。
 
 ```java
 public void sendBroadcastSync(@NonNull Intent intent) {
@@ -305,6 +300,6 @@ private void executePendingBroadcasts() {
 }
 ```
 
-## 参考链接
+## 七、参考链接
 
 - [LocalBroadcastManager原理分析](https://gityuan.com/2017/04/23/local_broadcast_manager/)
