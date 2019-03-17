@@ -9,6 +9,8 @@ tags:
     - Java
 ---
 
+如果运行结果没有同时出现 __o1没出现死锁__ 和 __o2没出现死锁__ 就表示两个线程均已死锁
+
 ```java
 public class DeadLockClass {
     public static void main(String[] args) {

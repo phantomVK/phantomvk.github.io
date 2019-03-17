@@ -54,4 +54,3 @@ pool-1-thread-5: world
 pool-1-thread-3: world
 pool-1-thread-2: world
 ```
-
