@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "重现onPause到onResume生命周期"
+title:      "透明Activity生命周期变化"
 date:       2016-12-16
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
@@ -9,17 +9,15 @@ tags:
     - Android
 ---
 
-最近重看《Android开发艺术探索》一书，其中第3页`Activity`生命周期`onPause`到`onResume`过程的确如作者所说“在一般的开发中用不上”，但是作为开发者还是有研究的必要。
+最近重看《Android开发艺术探索》一书，其中第3页 __Activity__ 生命周期 __onPause__ 到 __onResume__ 过程的确如作者所说“在一般的开发中用不上”，但是作为开发者还是有研究的必要。
 
-`onResume`的状态是`Activity`前台可见正在活动，`onPause`是置于前台可见停止活动。从后者到前者的变化场景，可以通过一个透明的`Dialog`弹出遮蔽`MainActivity`重现。
+__onResume__ 的状态是 __Activity__ 前台可见正在活动，__onPause__ 是置于前台可见停止活动。从后者到前者的变化场景，可以通过一个透明的 __Dialog__ 弹出遮蔽 __MainActivity__ 重现。
 
-不过，这是个“特殊”的`Dialog`。一般`Dialog`弹出时，背景可见`MainActivity`依然是`onResume`，表明这个`Activity`的生命周期并没有因为这个`Dialog`的弹出而变化。
+不过，这是个“特殊”的 __Dialog__。一般 __Dialog__ 弹出时，背景可见 __MainActivity__ 依然是 __onResume__，表明这个 __Activity__ 的生命周期并没有因为这个 __Dialog__ 的弹出而变化。
 
-但是，我们使用`Activity`实现`Dialog`时，由于是`MainActivity`启动`DialogActivity`，所以`MainActivity`生命周期必然会变化。
-
+但是，我们使用 __Activity__ 实现 __Dialog__ 时，由于是 __MainActivity__ 启动 __DialogActivity__，所以 __MainActivity__ 生命周期必然会变化。
 
 __MainActivity.java代码__
-
 
 ```java
 public class MainActivity extends AppCompatActivity {
@@ -80,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
 
 __MainActivity.java对应activity_main.xml__
 
-`Button`只是用来启动`Dialog_Activity`
+__Button__ 只是用来启动 __Dialog_Activity__
 
 ```xml
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -117,7 +115,6 @@ public class DialogActivity extends Activity {
 
 __test_dialog.xml__
 
-
 ```java
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -133,10 +130,9 @@ __test_dialog.xml__
 </LinearLayout>
 ```
 
-
 __AndroidManifest.xml__
 
-注意： `DialogActivity`使用主题`@android:style/Theme.Dialog`，不然无法实现上述生命周期。
+注意： __DialogActivity__ 使用主题 __@android:style/Theme.Dialog__，不然无法实现上述生命周期。
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -170,7 +166,7 @@ __AndroidManifest.xml__
 12-16 23:59:35.811 7477-7477/com.phantomvk.exampleapp I/System.out: onStart
 12-16 23:59:35.811 7477-7477/com.phantomvk.exampleapp I/System.out: onResume
 
-// 点击Button后，MainActivity仅仅是暂停(onPause)，没有去停止(onStop)
+// 点击Button后，MainActivity仅仅是暂停(onPause)，没有停止(onStop)
 12-16 23:59:50.731 7477-7477/com.phantomvk.exampleapp I/System.out: onPause
 
 // 在DialogActivity里面退出，MainActivity状态变为onResume
@@ -182,8 +178,6 @@ __AndroidManifest.xml__
 12-17 00:00:31.151 7477-7477/com.phantomvk.exampleapp I/System.out: onDestroy
 ```
 
-上述代码已经成功重现`onPause` -> `onResume`。
-
-运行截图如下
+上述代码已经成功重现 onPause -> onResume。运行截图如下
 
 ![img](/img/android/images/onPause_onResume.png)

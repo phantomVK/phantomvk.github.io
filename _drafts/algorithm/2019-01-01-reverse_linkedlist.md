@@ -35,7 +35,11 @@ public class ReverseLinkedList {
 
     }
 }
+```
 
+节点类
+
+```java
 class Node {
     private int mData;
     private Node mNext;
