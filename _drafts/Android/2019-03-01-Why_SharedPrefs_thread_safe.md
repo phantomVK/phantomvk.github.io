@@ -18,135 +18,12 @@ __ActivityThread__ 把 __ApplicationThread__ 注册到 __ActivityManagerService_
 private final boolean attachApplicationLocked(IApplicationThread thread,
         int pid) {
 
-    // Find the application record that is being attached...  either via
-    // the pid if we are running in multiple processes, or just pull the
-    // next app record if we are emulating process with anonymous threads.
-    ProcessRecord app;
-    if (pid != MY_PID && pid >= 0) {
-        synchronized (mPidsSelfLocked) {
-            app = mPidsSelfLocked.get(pid);
-        }
-    } else {
-        app = null;
-    }
+    .....
 
-    if (app == null) {
-        Slog.w(TAG, "No pending application record for pid " + pid
-                + " (IApplicationThread " + thread + "); dropping process");
-        EventLog.writeEvent(EventLogTags.AM_DROP_PROCESS, pid);
-        if (pid > 0 && pid != MY_PID) {
-            Process.killProcessQuiet(pid);
-            //TODO: killProcessGroup(app.info.uid, pid);
-        } else {
-            try {
-                thread.scheduleExit();
-            } catch (Exception e) {
-                // Ignore exceptions.
-            }
-        }
-        return false;
-    }
-
-    // If this application record is still attached to a previous
-    // process, clean it up now.
-    if (app.thread != null) {
-        handleAppDiedLocked(app, true, true);
-    }
-
-    // Tell the process all about itself.
-
-    if (DEBUG_ALL) Slog.v(
-            TAG, "Binding process pid " + pid + " to record " + app);
-
-    final String processName = app.processName;
     try {
-        AppDeathRecipient adr = new AppDeathRecipient(
-                app, pid, thread);
-        thread.asBinder().linkToDeath(adr, 0);
-        app.deathRecipient = adr;
-    } catch (RemoteException e) {
-        app.resetPackageList(mProcessStats);
-        startProcessLocked(app, "link fail", processName);
-        return false;
-    }
+        .....
 
-    EventLog.writeEvent(EventLogTags.AM_PROC_BOUND, app.userId, app.pid, app.processName);
-
-    app.makeActive(thread, mProcessStats);
-    app.curAdj = app.setAdj = -100;
-    app.curSchedGroup = app.setSchedGroup = Process.THREAD_GROUP_DEFAULT;
-    app.forcingToForeground = null;
-    updateProcessForegroundLocked(app, false, false);
-    app.hasShownUi = false;
-    app.debugging = false;
-    app.cached = false;
-    app.killedByAm = false;
-
-    mHandler.removeMessages(PROC_START_TIMEOUT_MSG, app);
-
-    boolean normalMode = mProcessesReady || isAllowedWhileBooting(app.info);
-    List<ProviderInfo> providers = normalMode ? generateApplicationProvidersLocked(app) : null;
-
-    if (!normalMode) {
-        Slog.i(TAG, "Launching preboot mode app: " + app);
-    }
-
-    if (DEBUG_ALL) Slog.v(
-        TAG, "New app record " + app
-        + " thread=" + thread.asBinder() + " pid=" + pid);
-    try {
-        int testMode = IApplicationThread.DEBUG_OFF;
-        if (mDebugApp != null && mDebugApp.equals(processName)) {
-            testMode = mWaitForDebugger
-                ? IApplicationThread.DEBUG_WAIT
-                : IApplicationThread.DEBUG_ON;
-            app.debugging = true;
-            if (mDebugTransient) {
-                mDebugApp = mOrigDebugApp;
-                mWaitForDebugger = mOrigWaitForDebugger;
-            }
-        }
-        String profileFile = app.instrumentationProfileFile;
-        ParcelFileDescriptor profileFd = null;
-        int samplingInterval = 0;
-        boolean profileAutoStop = false;
-        if (mProfileApp != null && mProfileApp.equals(processName)) {
-            mProfileProc = app;
-            profileFile = mProfileFile;
-            profileFd = mProfileFd;
-            samplingInterval = mSamplingInterval;
-            profileAutoStop = mAutoStopProfiler;
-        }
-        boolean enableOpenGlTrace = false;
-        if (mOpenGlTraceApp != null && mOpenGlTraceApp.equals(processName)) {
-            enableOpenGlTrace = true;
-            mOpenGlTraceApp = null;
-        }
-
-        // If the app is being launched for restore or full backup, set it up specially
-        boolean isRestrictedBackupMode = false;
-        if (mBackupTarget != null && mBackupAppName.equals(processName)) {
-            isRestrictedBackupMode = (mBackupTarget.backupMode == BackupRecord.RESTORE)
-                    || (mBackupTarget.backupMode == BackupRecord.RESTORE_FULL)
-                    || (mBackupTarget.backupMode == BackupRecord.BACKUP_FULL);
-        }
-
-        ensurePackageDexOpt(app.instrumentationInfo != null
-                ? app.instrumentationInfo.packageName
-                : app.info.packageName);
-        if (app.instrumentationClass != null) {
-            ensurePackageDexOpt(app.instrumentationClass.getPackageName());
-        }
-        if (DEBUG_CONFIGURATION) Slog.v(TAG_CONFIGURATION, "Binding proc "
-                + processName + " with config " + mConfiguration);
-        ApplicationInfo appInfo = app.instrumentationInfo != null
-                ? app.instrumentationInfo : app.info;
-        app.compat = compatibilityInfoForPackageLocked(appInfo);
-        if (profileFd != null) {
-            profileFd = profileFd.dup();
-        }
-        ProfilerInfo profilerInfo = profileFile == null ? null
-                : new ProfilerInfo(profileFile, profileFd, samplingInterval, profileAutoStop);
+        // 经过上述处理后，通过IPC调用ApplicationThread.bindApplication()
         thread.bindApplication(processName, appInfo, providers, app.instrumentationClass,
                 profilerInfo, app.instrumentationArguments, app.instrumentationWatcher,
                 app.instrumentationUiAutomationConnection, testMode, enableOpenGlTrace,
@@ -168,72 +45,7 @@ private final boolean attachApplicationLocked(IApplicationThread thread,
         return false;
     }
 
-    // Remove this record from the list of starting applications.
-    mPersistentStartingProcesses.remove(app);
-    if (DEBUG_PROCESSES && mProcessesOnHold.contains(app)) Slog.v(TAG_PROCESSES,
-            "Attach application locked removing on hold: " + app);
-    mProcessesOnHold.remove(app);
-
-    boolean badApp = false;
-    boolean didSomething = false;
-
-    // See if the top visible activity is waiting to run in this process...
-    if (normalMode) {
-        try {
-            if (mStackSupervisor.attachApplicationLocked(app)) {
-                didSomething = true;
-            }
-        } catch (Exception e) {
-            Slog.wtf(TAG, "Exception thrown launching activities in " + app, e);
-            badApp = true;
-        }
-    }
-
-    // Find any services that should be running in this process...
-    if (!badApp) {
-        try {
-            didSomething |= mServices.attachApplicationLocked(app, processName);
-        } catch (Exception e) {
-            Slog.wtf(TAG, "Exception thrown starting services in " + app, e);
-            badApp = true;
-        }
-    }
-
-    // Check if a next-broadcast receiver is in this process...
-    if (!badApp && isPendingBroadcastProcessLocked(pid)) {
-        try {
-            didSomething |= sendPendingBroadcastsLocked(app);
-        } catch (Exception e) {
-            // If the app died trying to launch the receiver we declare it 'bad'
-            Slog.wtf(TAG, "Exception thrown dispatching broadcasts in " + app, e);
-            badApp = true;
-        }
-    }
-
-    // Check whether the next backup agent is in this process...
-    if (!badApp && mBackupTarget != null && mBackupTarget.appInfo.uid == app.uid) {
-        if (DEBUG_BACKUP) Slog.v(TAG_BACKUP,
-                "New app is backup target, launching agent for " + app);
-        ensurePackageDexOpt(mBackupTarget.appInfo.packageName);
-        try {
-            thread.scheduleCreateBackupAgent(mBackupTarget.appInfo,
-                    compatibilityInfoForPackageLocked(mBackupTarget.appInfo),
-                    mBackupTarget.backupMode);
-        } catch (Exception e) {
-            Slog.wtf(TAG, "Exception thrown creating backup agent in " + app, e);
-            badApp = true;
-        }
-    }
-
-    if (badApp) {
-        app.kill("error during init", true);
-        handleAppDiedLocked(app, false, true);
-        return false;
-    }
-
-    if (!didSomething) {
-        updateOomAdjLocked();
-    }
+    .....
 
     return true;
 }
@@ -251,12 +63,7 @@ public final void bindApplication(String processName, ApplicationInfo appInfo,
         Configuration config, CompatibilityInfo compatInfo, Map<String, IBinder> services,
         Bundle coreSettings) {
 
-    if (services != null) {
-        // Setup the service cache in the ServiceManager
-        ServiceManager.initServiceCache(services);
-    }
-
-    setCoreSettings(coreSettings);
+    .....
 
     /*
      * Two possible indications that this package could be
@@ -310,7 +117,7 @@ public final void bindApplication(String processName, ApplicationInfo appInfo,
     data.config = config;
     data.compatInfo = compatInfo;
     data.initProfilerInfo = profilerInfo;
-    // ApplicationThread通过Handler发送消息到ActivityThread
+    // ApplicationThread内通过Handler发送消息到ActivityThread
     sendMessage(H.BIND_APPLICATION, data);
 }
 ```
@@ -343,6 +150,9 @@ public void handleMessage(Message msg) {
 上面调用的就是 __ActivityThread__ 的 __handleBindApplication(data)__
 
 ```java
+// ActivityThread的成员变量mInstrumentation
+Instrumentation mInstrumentation;
+
 private void handleBindApplication(AppBindData data) {
     mBoundApplication = data;
     mConfiguration = new Configuration(data.config);
@@ -351,6 +161,7 @@ private void handleBindApplication(AppBindData data) {
     mProfiler = new Profiler();
     .....
 
+    // 创建ContextImpl
     final ContextImpl appContext = ContextImpl.createAppContext(this, data.info);
     if (!Process.isIsolated()) {
         final File cacheDir = appContext.getCacheDir();
@@ -372,8 +183,122 @@ private void handleBindApplication(AppBindData data) {
     }
 
     .....
+        
+    if (data.instrumentationName != null) {
+        InstrumentationInfo ii = null;
+        try {
+            ii = appContext.getPackageManager().
+                getInstrumentationInfo(data.instrumentationName, 0);
+        } catch (PackageManager.NameNotFoundException e) {
+        }
+        if (ii == null) {
+            throw new RuntimeException(
+                "Unable to find instrumentation info for: "
+                + data.instrumentationName);
+        }
+
+        mInstrumentationPackageName = ii.packageName;
+        mInstrumentationAppDir = ii.sourceDir;
+        mInstrumentationSplitAppDirs = ii.splitSourceDirs;
+        mInstrumentationLibDir = ii.nativeLibraryDir;
+        mInstrumentedAppDir = data.info.getAppDir();
+        mInstrumentedSplitAppDirs = data.info.getSplitAppDirs();
+        mInstrumentedLibDir = data.info.getLibDir();
+
+        ApplicationInfo instrApp = new ApplicationInfo();
+        instrApp.packageName = ii.packageName;
+        instrApp.sourceDir = ii.sourceDir;
+        instrApp.publicSourceDir = ii.publicSourceDir;
+        instrApp.splitSourceDirs = ii.splitSourceDirs;
+        instrApp.splitPublicSourceDirs = ii.splitPublicSourceDirs;
+        instrApp.dataDir = ii.dataDir;
+        instrApp.nativeLibraryDir = ii.nativeLibraryDir;
+        LoadedApk pi = getPackageInfo(instrApp, data.compatInfo,
+                appContext.getClassLoader(), false, true, false);
+        ContextImpl instrContext = ContextImpl.createAppContext(this, pi);
+
+        try {
+            // 获取类加载器
+            java.lang.ClassLoader cl = instrContext.getClassLoader();
+            // 通过反射创建mInstrumentation实例
+            // 类名由data.instrumentationName.getClassName()指定
+            mInstrumentation = (Instrumentation)
+                cl.loadClass(data.instrumentationName.getClassName()).newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException(
+                "Unable to instantiate instrumentation "
+                + data.instrumentationName + ": " + e.toString(), e);
+        }
+
+        // 上面创建的ContextImpl实例，引用保存在Instrumentation实例里面
+        // 每个进程是一个ActivityThread，其中只有一个Instrumentation实例
+        // 可知ContextImpl在一个进程里只有一个实例，所以进程能控制其线程安全
+        mInstrumentation.init(this, instrContext, appContext,
+               new ComponentName(ii.packageName, ii.name), data.instrumentationWatcher,
+               data.instrumentationUiAutomationConnection);
+
+        if (mProfiler.profileFile != null && !ii.handleProfiling
+                && mProfiler.profileFd == null) {
+            mProfiler.handlingProfiling = true;
+            File file = new File(mProfiler.profileFile);
+            file.getParentFile().mkdirs();
+            Debug.startMethodTracing(file.toString(), 8 * 1024 * 1024);
+        }
+
+    } else {
+        mInstrumentation = new Instrumentation();
+    }
+    
+    .....
 }
 ```
+
+## Instrumentation
+
+```java
+public class Instrumentation {
+    // 用于线程同步的实例
+    private final Object mSync = new Object();
+    // 持有ActivityThread
+    private ActivityThread mThread = null;
+    // 从ActivityThread的线程Looper获得mMessageQueue
+    private MessageQueue mMessageQueue = null;
+    private Context mInstrContext;
+    // ApplicationContext，就是ContextImpl的实例
+    private Context mAppContext;
+    private ComponentName mComponent;
+    private Thread mRunner;
+    private List<ActivityWaiter> mWaitingActivities;
+    private List<ActivityMonitor> mActivityMonitors;
+    private IInstrumentationWatcher mWatcher;
+    private IUiAutomationConnection mUiAutomationConnection;
+    private boolean mAutomaticPerformanceSnapshots = false;
+    private PerformanceCollector mPerformanceCollector;
+    private Bundle mPerfMetrics = new Bundle();
+    private UiAutomation mUiAutomation;
+    
+    .....
+        
+    // 实例创建后通过给成员变量赋值
+    final void init(ActivityThread thread,
+            Context instrContext, Context appContext, ComponentName component, 
+            IInstrumentationWatcher watcher, IUiAutomationConnection uiAutomationConnection) {
+        mThread = thread;
+        mMessageQueue = mThread.getLooper().myQueue();
+        mInstrContext = instrContext;
+        mAppContext = appContext;
+        mComponent = component;
+        mWatcher = watcher;
+        mUiAutomationConnection = uiAutomationConnection;
+    }
+}
+```
+
+## ContextImpl
+
+而在 __ContextImpl__ 里面，持有一个静态哈希表，键为文件的包路径，值为该包路径对应的 __SharedPreferences__ 的实例。如果该包路径实例不存在就创建新实例，否则从哈希表中获取实例。
+
+由于 __getSharedPreferences__ 内部把 __ContextImpl.class__ 类实例作为锁对象，所以每次获取指定包路径对应实例都是线程安全的。
 
 ```java
 /**
@@ -430,10 +355,27 @@ class ContextImpl extends Context {
         }
         return sp;
     }
-    
+
     .....
 }
 ```
+
+## 总结
+
+上面的解析已经移除很多不相关的源码，流程已经足够简洁。
+
+总结流程如下：
+
+- __ApplicationThread__ 是 __ActivityThread__ 的内部类，也是其成员变量之一；
+
+- __ActivityThread__ 创建后把自己的 __ApplicationThread__ 实例 __IPC__ 注册到 __ActivityManagerService__；
+- __ActivityManagerService__ 注册 __ApplicationThread__ 之后 __IPC__ 调用后者 __bindApplication()__ 方法，表示注册工作已完成。拜托 __ApplicationThread__ 告知 __ActivityThread__ 继续进行 __Application__ 初始化；
+- __ApplicationThread.bindApplication()__ 通过发送标志为 __BIND_APPLICATION__ 的 __Message__ 告知 __ActivityThread__ 进行 __Applicatoin__ 初始化；
+- __ActivityThread__ 执行 __handleBindApplication()__，方法内部创建 __Instrumentation__ 保存在成员变量 __mInstrumentation__；
+- 方法内部随后也创建 __ContextImpl__ 实例，把 __ContextImpl__ 实例引用保存于 __mInstrumentation__；
+- 所有以上所有实例均只有一个，且 __SharedPreferences__ 的获取线程安全；
+
+延伸问题，上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件，但实际 __Google__ 并不认可这种操作。因为多个文件写入操作没有在系统层调度协调，不能保证同时写入的安全。
 
 ## 参考链接
 
