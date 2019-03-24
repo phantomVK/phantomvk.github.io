@@ -1,18 +1,24 @@
 ---
 layout:     post
 title:      "SharedPreferences与线程安全"
-date:       2019-01-01
+date:       2019-03-24
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
     - Android
 ---
-为何 __SharedPreferences__ 线程安全，且为何 __SharedPreferences__ 进程不安全
+## 一、前言
 
-__Android 23__
+__SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供便捷的键值对持久化服务。同时，支持同步和异步的数据提交方式，保证主线程尽少被影响。
 
-__ActivityThread__ 把 __ApplicationThread__ 注册到 __ActivityManagerService__，注册完成后 __ActivityManagerService__ 通过IPC调用 __IApplicationThread.bindApplication(...)__ 
+虽然此工具类因方便使用的优点深得开发者的青睐，但其实现多线程操作、多进程操作是否安全的问题，却鲜有人探究。对 __SharedPreferences__ 存取操作感兴趣的读者，这里先为您呈上文章 [Android源码系列(12) -- SharedPreferences](/2018/09/14/SharedPreferences/)，请慢用。
+
+接下来，将透过应用进程启动的流程，一步步得出主题结论。因为涉及 __ActivityThread__、__ApplicationThread__、__ActivityManagerService__、Android IPC等知识，请自行查阅，本文不再赘述。本文源码来自 __Android 23__。
+
+## 二、ActivityThread
+
+省略前面系统的 __Zygote__ 进程孵化出具体应用进程的 __ActivityThread__，直到 __ActivityThread__ 把 __ApplicationThread__ 注册到 __ActivityManagerService__。注册完成后 __ActivityManagerService__ 通过IPC调用 __IApplicationThread.bindApplication(...)__ 
 
 ```java
 private final boolean attachApplicationLocked(IApplicationThread thread,
@@ -51,7 +57,7 @@ private final boolean attachApplicationLocked(IApplicationThread thread,
 }
 ```
 
-实现方法是 __ActivityThread.ApplicationThread.bindApplication__
+实现方法是 __ActivityThread.ApplicationThread.bindApplication()__
 
 ```java
 public final void bindApplication(String processName, ApplicationInfo appInfo,
@@ -65,22 +71,6 @@ public final void bindApplication(String processName, ApplicationInfo appInfo,
 
     .....
 
-    /*
-     * Two possible indications that this package could be
-     * sharing its runtime with other packages:
-     *
-     * 1.) the sharedUserId attribute is set in the manifest,
-     *     indicating a request to share a VM with other
-     *     packages with the same sharedUserId.
-     *
-     * 2.) the application element of the manifest has an
-     *     attribute specifying a non-default process name,
-     *     indicating the desire to run in another packages VM.
-     *
-     * If sharing is enabled we do not have a unique application
-     * in a process and therefore cannot rely on the package
-     * name inside the runtime.
-     */
     IPackageManager pm = getPackageManager();
     android.content.pm.PackageInfo pi = null;
     try {
@@ -94,14 +84,14 @@ public final void bindApplication(String processName, ApplicationInfo appInfo,
          !appInfo.packageName.equals(pi.applicationInfo.processName));
         boolean sharable = (sharedUserIdSet || processNameNotDefault);
 
-        // Tell the VMRuntime about the application, unless it is shared
-        // inside a process.
+        // 除非应用是个共享进程，否则把应用信息告诉VMRuntime
         if (!sharable) {
             VMRuntime.registerAppInfo(appInfo.packageName, appInfo.dataDir,
                                     appInfo.processName);
         }
     }
 
+    // 构建AppBindData
     AppBindData data = new AppBindData();
     data.processName = processName;
     data.appInfo = appInfo;
@@ -128,7 +118,7 @@ __ActivityThread__ 的 __Handler__ 实现类 __H__ 接收 __BIND_APPLICATION__ �
 private class H extends Handler
 ```
 
-回调 __H__ 的方法 __handleMessage(Message msg__ 
+回调 __H__ 的方法 __handleMessage(Message msg__) 
 
 ```java
 public void handleMessage(Message msg) {
@@ -137,6 +127,7 @@ public void handleMessage(Message msg) {
 
         case BIND_APPLICATION:
             Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "bindApplication");
+            // 从Message取出传送的对象
             AppBindData data = (AppBindData)msg.obj;
             handleBindApplication(data);
             Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
@@ -147,7 +138,7 @@ public void handleMessage(Message msg) {
 }
 ```
 
-上面调用的就是 __ActivityThread__ 的 __handleBindApplication(data)__
+上面调用 __ActivityThread__ 的 __handleBindApplication(data)__
 
 ```java
 // ActivityThread的成员变量mInstrumentation
@@ -253,7 +244,7 @@ private void handleBindApplication(AppBindData data) {
 }
 ```
 
-## Instrumentation
+## 三、Instrumentation
 
 ```java
 public class Instrumentation {
@@ -294,23 +285,19 @@ public class Instrumentation {
 }
 ```
 
-## ContextImpl
+## 四、ContextImpl
 
 而在 __ContextImpl__ 里面，持有一个静态哈希表，键为文件的包路径，值为该包路径对应的 __SharedPreferences__ 的实例。如果该包路径实例不存在就创建新实例，否则从哈希表中获取实例。
 
 由于 __getSharedPreferences__ 内部把 __ContextImpl.class__ 类实例作为锁对象，所以每次获取指定包路径对应实例都是线程安全的。
 
+根据类签名可知 __ContextImpl__ 是 __Context__ 的具体实现类，为 __Activity__ 和其他应用组件提供基础上下文对象。
+
 ```java
-/**
- * Common implementation of Context API, which provides the base
- * context object for Activity and other application components.
- */
 class ContextImpl extends Context {
     .....
     
-    /**
-     * Map from package name, to preference name, to cached preferences.
-     */
+    // 包名和对应已缓存的SharedPreferencesImpl实例
     private static ArrayMap<String, ArrayMap<String, SharedPreferencesImpl>> sSharedPrefs;
     
     @Override
@@ -346,6 +333,7 @@ class ContextImpl extends Context {
                 return sp;
             }
         }
+        // 只在HONEYCOMB或以下的版本会对不可预料的数据进行重载
         if ((mode & Context.MODE_MULTI_PROCESS) != 0 ||
             getApplicationInfo().targetSdkVersion < android.os.Build.VERSION_CODES.HONEYCOMB) {
             // If somebody else (some other process) changed the prefs
@@ -360,7 +348,7 @@ class ContextImpl extends Context {
 }
 ```
 
-## 总结
+## 五、总结
 
 上面的解析已经移除很多不相关的源码，流程已经足够简洁。
 
@@ -377,6 +365,8 @@ class ContextImpl extends Context {
 
 延伸问题，上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件，但实际 __Google__ 并不认可这种操作。因为多个文件写入操作没有在系统层调度协调，不能保证同时写入的安全。
 
-## 参考链接
+## 六、参考链接
 
-- https://stackoverflow.com/questions/4693387/sharedpreferences-and-thread-safety
+- [SharedPreferences and Thread Safety - StackOverflow](https://stackoverflow.com/questions/4693387/sharedpreferences-and-thread-safety)
+- [SharedPreferences.Editor.apply()](https://developer.android.com/reference/android/content/SharedPreferences.Editor.html#apply())
+- [SharedPreferences.Editor.commit()](https://developer.android.com/reference/android/content/SharedPreferences.Editor.html#commit())
