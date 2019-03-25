@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "SharedPreferences与线程安全"
-date:       2019-03-24
+date:       2019-03-25
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -10,15 +10,15 @@ tags:
 ---
 ## 一、前言
 
-__SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供便捷的键值对持久化服务。同时，支持同步和异步的数据提交方式，保证主线程尽少被影响。
+__SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供便捷的键值对持久化服务。同时，支持同步和异步的数据提交方式，尽少影响主线程的运行。
 
-虽然此工具类因方便使用的优点深得开发者的青睐，但其实现多线程操作、多进程操作是否安全的问题，却鲜有人探究。对 __SharedPreferences__ 存取操作感兴趣的读者，这里先为您呈上文章 [Android源码系列(12) -- SharedPreferences](/2018/09/14/SharedPreferences/)，请慢用。
+虽然此工具类因使用方便深得开发者的青睐，但其多线程操作、多进程操作是否安全的问题，却鲜有人探究。对 __SharedPreferences__ 存取操作感兴趣的读者，这里先为您呈上文章 [Android源码系列(12) -- SharedPreferences](/2018/09/14/SharedPreferences/)，请慢用。
 
 接下来，将透过应用进程启动的流程，一步步得出主题结论。因为涉及 __ActivityThread__、__ApplicationThread__、__ActivityManagerService__、Android IPC等知识，请自行查阅，本文不再赘述。本文源码来自 __Android 23__。
 
 ## 二、ActivityThread
 
-省略前面系统的 __Zygote__ 进程孵化出具体应用进程的 __ActivityThread__，直到 __ActivityThread__ 把 __ApplicationThread__ 注册到 __ActivityManagerService__。注册完成后 __ActivityManagerService__ 通过IPC调用 __IApplicationThread.bindApplication(...)__ 
+省略前面源Activity检查和创建操作，直到新应用的 __ActivityThread__ 把 __ApplicationThread__ 注册到 __ActivityManagerService__。注册完成后 __ActivityManagerService__ 通过IPC调用 __IApplicationThread.bindApplication(...)__ 
 
 ```java
 private final boolean attachApplicationLocked(IApplicationThread thread,
@@ -303,13 +303,18 @@ class ContextImpl extends Context {
     @Override
     public SharedPreferences getSharedPreferences(String name, int mode) {
         SharedPreferencesImpl sp;
+        // 把ContextImpl的类作为锁对象
         synchronized (ContextImpl.class) {
+            // 缓存用的哈希表为空则创建该对象
             if (sSharedPrefs == null) {
                 sSharedPrefs = new ArrayMap<String, ArrayMap<String, SharedPreferencesImpl>>();
             }
 
+            // 获取应用的包名
             final String packageName = getPackageName();
+            // 检查应用的包名是否已经缓存对应实例
             ArrayMap<String, SharedPreferencesImpl> packagePrefs = sSharedPrefs.get(packageName);
+            // 为空则需要为该应用包名创建新实例
             if (packagePrefs == null) {
                 packagePrefs = new ArrayMap<String, SharedPreferencesImpl>();
                 sSharedPrefs.put(packageName, packagePrefs);
@@ -324,10 +329,13 @@ class ContextImpl extends Context {
                     name = "null";
                 }
             }
-
+            
+            // 参数中还可以指定更具体的包名，则也进行初始化的等工作
             sp = packagePrefs.get(name);
             if (sp == null) {
+                // 创建SharedPreferences的存储文件
                 File prefsFile = getSharedPrefsFile(name);
+                // 用该文件创建SharedPreferences实例
                 sp = new SharedPreferencesImpl(prefsFile, mode);
                 packagePrefs.put(name, sp);
                 return sp;
@@ -359,11 +367,11 @@ class ContextImpl extends Context {
 - __ActivityThread__ 创建后把自己的 __ApplicationThread__ 实例 __IPC__ 注册到 __ActivityManagerService__；
 - __ActivityManagerService__ 注册 __ApplicationThread__ 之后 __IPC__ 调用后者 __bindApplication()__ 方法，表示注册工作已完成。拜托 __ApplicationThread__ 告知 __ActivityThread__ 继续进行 __Application__ 初始化；
 - __ApplicationThread.bindApplication()__ 通过发送标志为 __BIND_APPLICATION__ 的 __Message__ 告知 __ActivityThread__ 进行 __Applicatoin__ 初始化；
-- __ActivityThread__ 执行 __handleBindApplication()__，方法内部创建 __Instrumentation__ 保存在成员变量 __mInstrumentation__；
-- 方法内部随后也创建 __ContextImpl__ 实例，把 __ContextImpl__ 实例引用保存于 __mInstrumentation__；
-- 所有以上所有实例均只有一个，且 __SharedPreferences__ 的获取线程安全；
+- __ActivityThread__ 执行 __handleBindApplication()__，方法内部创建 __Instrumentation__ 后保存在成员变量 __mInstrumentation__；
+- 方法内部随后也创建 __ContextImpl__ 实例，把 __ContextImpl__ 实例保存在 __mInstrumentation__；
+- 所有以上所有实例均只有一个，且 __SharedPreferences__ 内操作线程安全；
 
-延伸问题，上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件，但实际 __Google__ 并不认可这种操作。因为多个文件写入操作没有在系统层调度协调，不能保证同时写入的安全。
+延伸问题，上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件，但实际 __Google__ 并不认可这种操作。因为多个文件写入操作没有在系统层进行协调，不能保证同时写入的安全，因此可能会造成数据的丢失。
 
 ## 六、参考链接
 
