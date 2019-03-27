@@ -371,7 +371,7 @@ class ContextImpl extends Context {
 - 方法内部随后也创建 __ContextImpl__ 实例，把 __ContextImpl__ 实例保存在 __mInstrumentation__；
 - 所有以上所有实例均只有一个，且 __SharedPreferences__ 内操作线程安全；
 
-延伸问题，上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件，但实际 __Google__ 并不认可这种操作。因为多个文件写入操作没有在系统层进行协调，不能保证同时写入的安全，因此可能会造成数据的丢失。
+延伸问题，上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件，但实际 __Google__ 并不认可这种操作。因为多个进程同时写入文件的操作没有在系统层进行协调，不能保证其安全，所以可能会造成数据的丢失。
 
 ## 六、参考链接
 
