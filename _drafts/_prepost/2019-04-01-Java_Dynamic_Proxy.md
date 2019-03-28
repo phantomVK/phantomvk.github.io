@@ -46,7 +46,7 @@ class User(private val userId: String,
 
 实现动态代理的关键是实现 __InvocationHandler__。使用动态代理，是为了把所有方法代理到同一实例中，所以实现 __InvocationHandler__ 时还需要提供有参构造方法，让外部传入接收委托的实例。
 
-不过，这次并不需要委托任何行为，而只是通过动态代理这个中转，以抛出异常的方式阻止实例里所有方法的调用。由以下代码可见，该实现类无需保存被委托类实例，只是在实现方法里抛异常阻止调用。
+不过，这次并不需要委托任何行为，而只是通过动态代理这个中转，以抛出异常的方式阻止实例里所有方法的调用。由以下代码可见，该中介类无需保存被委托类实例，只是在实现方法里抛异常阻止调用。
 
 ```java
 class Handler : InvocationHandler {
@@ -58,7 +58,7 @@ class Handler : InvocationHandler {
 }
 ```
 
-实现 __InvocationHandler__ 之后就可以创建实例。按照惯例，空对象单例对象一般和其模型放在一起。
+实现中介类 __InvocationHandler__ 之后就可以创建实例。按照惯例，空对象单例对象一般和其模型放在一起。
 
 ```java
 class User(private val userId: String,
