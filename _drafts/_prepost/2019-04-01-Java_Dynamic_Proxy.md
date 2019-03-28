@@ -4,12 +4,14 @@ title:      "Java动态代理"
 date:       2019-04-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    true
+catalog:    false
 tags:
     - Java
 ---
 
-动态代理需要把所有行为抽象到接口中
+之前[空对象模式](/2019/01/01/Null_Object_Pattern/)一文中，讨论约束空对象方法调用时，提到可以使用 __动态代理__ 实现。现在就来实现这个方式，并复用前文的数据模型。而动态代理的具体运行逻辑详情，将在以后文章单独进行源码剖析。
+
+和静态代理一样，动态代理也需要把所有行为抽象化，于是把以前写在 __User__ 的行为全部抽象到接口 __IUser__。
 
 ```java
 interface IUser{
@@ -20,6 +22,8 @@ interface IUser{
     fun getRemark(): String
 }
 ```
+
+然后 __User__ 模型实现该抽象接口
 
 ```java
 class User(private val userId: String,
@@ -40,13 +44,21 @@ class User(private val userId: String,
 }
 ```
 
+实现动态代理的关键是实现 __InvocationHandler__。使用动态代理，是为了把所有方法代理到同一实例中，所以实现 __InvocationHandler__ 时还需要提供有参构造方法，让外部传入接收委托的实例。
+
+不过，这次并不需要委托任何行为，而只是通过动态代理这个中转，以抛出异常的方式阻止实例里所有方法的调用。由以下代码可见，该实现类无需保存被委托类实例，只是在实现方法里抛异常阻止调用。
+
 ```java
 class Handler : InvocationHandler {
+    // 实现唯一的抽象方法
     override fun invoke(proxy: Any, method: Method, args: Array<out Any>): Any {
+        // 抛出异常
         throw IllegalAccessException("Access to this method is denied.")
     }
 }
 ```
+
+实现 __InvocationHandler__ 之后就可以创建实例。按照惯例，空对象单例对象一般和其模型放在一起。
 
 ```java
 class User(private val userId: String,
@@ -57,6 +69,7 @@ class User(private val userId: String,
 
     companion object {
         val defUser by lazy {
+            // 创建空对象实例，这个实例里所有方法已被代理
             Proxy.newProxyInstance(
                     IUser::class.java.classLoader,
                     arrayOf(IUser::class.java),
@@ -66,6 +79,8 @@ class User(private val userId: String,
 }
 ```
 
+这个被代理的实例使用方式和普通对象无异
+
 ```java
 object ProxyRunner {
     @JvmStatic fun main(args: Array<String>) {
@@ -73,6 +88,8 @@ object ProxyRunner {
     }
 }
 ```
+
+只是在运行时会走代理逻辑，然后主动抛出预定实现的异常：
 
 ```
 Exception in thread "main" java.lang.reflect.UndeclaredThrowableException
