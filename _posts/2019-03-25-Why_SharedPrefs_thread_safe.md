@@ -152,7 +152,7 @@ private void handleBindApplication(AppBindData data) {
     mProfiler = new Profiler();
     .....
 
-    // 创建ContextImpl
+    // 创建ContextImpl实例
     final ContextImpl appContext = ContextImpl.createAppContext(this, data.info);
     if (!Process.isIsolated()) {
         final File cacheDir = appContext.getCacheDir();
@@ -330,7 +330,7 @@ class ContextImpl extends Context {
                 }
             }
             
-            // 参数中还可以指定更具体的包名，则也进行初始化的等工作
+            // 参数中还可以指定更具体的包名，也进行初始化的等工作
             sp = packagePrefs.get(name);
             if (sp == null) {
                 // 创建SharedPreferences的存储文件
