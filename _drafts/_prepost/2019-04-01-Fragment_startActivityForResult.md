@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Fragment startActivityForResult"
+title:      "Fragment.startActivityForResult"
 date:       2019-04-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -8,8 +8,6 @@ catalog:    true
 tags:
     - Android
 ---
-
-__Fragment__
 
 在 __Fragment__ 内部调用自有方法 __startActivityForResult__
 
@@ -19,28 +17,26 @@ public void startActivityForResult(Intent intent, int requestCode) {
 }
 ```
 
-该方法辗转调用到同名的重载方法
+该方法辗转调用同名重载方法，方法内调用名为 __mHost__ 变量的方法，类型为 __FragmentHostCallback__。
 
 ```java
-// Host this fragment is attached to.
+// fragment所依附的宿主
 FragmentHostCallback mHost;
 
 public void startActivityForResult(Intent intent, int requestCode, @Nullable Bundle options) {
+    // 如果Fragment没有绑定到Activity，就会排除异常
     if (mHost == null) {
         throw new IllegalStateException("Fragment " + this + " not attached to Activity");
     }
+    // 调用方法
     mHost.onStartActivityFromFragment(this /*fragment*/, intent, requestCode, options);
 }
 ```
 
-__FragmentHostCallback__ 是一个抽象类，继承抽象类 __FragmentContainer__。如果具体类实现抽象类 __FragmentContainer__，则表示这个具体类具有保存和展示Fragment的能力。
+__FragmentHostCallback__ 是一个抽象类，继承抽象类 __FragmentContainer__。实现该抽象类表示具体实现类具有保存和展示Fragment的能力。
 
 ```java
 public abstract class FragmentHostCallback<E> extends FragmentContainer {
-   /**
-     * Starts a new {@link Activity} from the given fragment.
-     * See {@link FragmentActivity#startActivityForResult(Intent, int, Bundle)}.
-     */
     public void onStartActivityFromFragment(
             Fragment fragment, Intent intent, int requestCode, @Nullable Bundle options) {
         if (requestCode != -1) {
@@ -52,7 +48,7 @@ public abstract class FragmentHostCallback<E> extends FragmentContainer {
 }
 ```
 
-__FragmentHostCallback__ 的实际实现类，是 __FragmentActivity__ 的内部类 __HostCallbacks__
+__FragmentHostCallback__ 的实际实现类，是 __FragmentActivity__ 的内部类 __HostCallbacks__。实现抽象类的同时还重写了父类的实现逻辑，当 __Fragment__ 调用该方法时，实际是调用了__FragmentActivity__ 实现的成员方法。
 
 ```java
 public class FragmentActivity extends BaseFragmentActivityApi16 implements
@@ -75,12 +71,9 @@ public class FragmentActivity extends BaseFragmentActivityApi16 implements
 }
 ```
 
-__FragmentActivity__
+那看看宿主 __FragmentActivity__ 的方法实现。方法内的实参 __requestCode__ 高16位保存 __(requestIndex+1)__ 的值，低16位保存来自 __Fragment__ 的 __requestCode__ 值。
 
 ```java
-/**
- * Called by Fragment.startActivityForResult() to implement its behavior.
- */
 public void startActivityFromFragment(Fragment fragment, Intent intent,
         int requestCode, @Nullable Bundle options) {
     mStartedActivityFromFragment = true;
@@ -99,29 +92,32 @@ public void startActivityFromFragment(Fragment fragment, Intent intent,
 }
 ```
 
-当结果从其他Activity回到Fragment所在宿主的Activity时，宿主页面先检查requestIndex的值，判断原始请求是否来自Fragment
+当结果从其他 __Activity__ 回到 __Fragment__ 所在宿主 __Activity__ 时，宿主页面先检查 __requestIndex__ 的值，判断原始请求是否来自 __Fragment__。
 
 ```java
 @Override
 protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     mFragments.noteStateNotSaved();
+    // 取出requestCode高16位
     int requestIndex = requestCode>>16;
     if (requestIndex != 0) {
         requestIndex--;
 
+        // 用requestCode查找对应的请求Fragment
         String who = mPendingFragmentActivityResults.get(requestIndex);
         mPendingFragmentActivityResults.remove(requestIndex);
         if (who == null) {
             Log.w(TAG, "Activity result delivered for unknown Fragment.");
             return;
         }
-        // 从自己的Fragment栈中查找返回数据的最终归宿
+        // 从Activity的Fragment栈中查找返回数据的最终归宿，即Fragment实例
         Fragment targetFragment = mFragments.findFragmentByWho(who);
         // Fragment如果已经被销毁则可能为空
         if (targetFragment == null) {
             Log.w(TAG, "Activity result no fragment exists for who: " + who);
         } else {
-            // 进行与操作之后就是原始请求的requestCode，让Fragment自行处理逻辑
+            // 进行与操作之后就是请求中原始的requestCode
+            // 作为参数和返回结果让Fragment自行处理逻辑
             targetFragment.onActivityResult(requestCode & 0xffff, resultCode, data);
         }
         return;
@@ -138,4 +134,4 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 }
 ```
 
-由于上述调用位于 __FragmentActivity__ 中，如果重写该方法的时候没有调用 super.onActivityResult(int requestCode, int resultCode, Intent data)，则页面内的Fragment无法接受到该通知
+由于上述调用位于 __FragmentActivity__ 中，如果重写该方法的时候没有调用 __super.onActivityResult(int requestCode, int resultCode, Intent data)__，则页面内的 __Fragment__ 无法接受到该结果通知。

@@ -10,9 +10,9 @@ tags:
 ---
 ## 一、前言
 
-__SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供便捷的键值对持久化服务。同时，支持同步和异步的数据提交方式，尽少影响主线程的运行。
+__SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供便捷的键值对持久化服务。同时支持同步和异步两种数据提交方式，尽少影响主线程的运行。
 
-虽然此工具类因使用方便深得开发者的青睐，但其多线程操作、多进程操作是否安全的问题，却鲜有人探究。对 __SharedPreferences__ 存取操作感兴趣的读者，这里先为您呈上文章 [Android源码系列(12) -- SharedPreferences](/2018/09/14/SharedPreferences/)，请慢用。
+虽然此工具类因使用方便深得开发者的青睐，但其多线程操作、多进程操作是否安全的问题，却鲜有人探究。对 __SharedPreferences__ 存取操作感兴趣的读者，这里先为您呈上文章 [Android源码系列(12) -- SharedPreferences](/2018/09/14/SharedPreferences/)。
 
 接下来，将透过应用进程启动的流程，一步步得出主题结论。因为涉及 __ActivityThread__、__ApplicationThread__、__ActivityManagerService__、Android IPC等知识，请自行查阅，本文不再赘述。本文源码来自 __Android 23__。
 
@@ -21,8 +21,7 @@ __SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供�
 省略前面源Activity检查和创建操作，直到新应用的 __ActivityThread__ 把 __ApplicationThread__ 注册到 __ActivityManagerService__。注册完成后 __ActivityManagerService__ 通过IPC调用 __IApplicationThread.bindApplication(...)__ 
 
 ```java
-private final boolean attachApplicationLocked(IApplicationThread thread,
-        int pid) {
+private final boolean attachApplicationLocked(IApplicationThread thread, int pid) {
 
     .....
 
@@ -211,7 +210,7 @@ private void handleBindApplication(AppBindData data) {
         try {
             // 获取类加载器
             java.lang.ClassLoader cl = instrContext.getClassLoader();
-            // 通过反射创建mInstrumentation实例
+            // 通过反射创建Instrumentation实例
             // 类名由data.instrumentationName.getClassName()指定
             mInstrumentation = (Instrumentation)
                 cl.loadClass(data.instrumentationName.getClassName()).newInstance();

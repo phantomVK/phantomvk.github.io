@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "手写线程阻塞"
+title:      "手写Java线程阻塞"
 date:       2019-03-20
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -9,7 +9,7 @@ tags:
     - Java
 ---
 
-如果运行结果没有同时出现 __o1没出现死锁__ 和 __o2没出现死锁__ 就表示两个线程均已死锁
+如果运行结果没有同时出现 __o1没出现死锁__ 和 __o2没出现死锁__，表示两个线程已死锁
 
 ```java
 public class DeadLockClass {
