@@ -83,7 +83,9 @@ public void startActivityFromFragment(Fragment fragment, Intent intent,
             return;
         }
         checkForValidRequestCode(requestCode);
+        // Activity给Fragment的请求生成请求索引值，用于在后续匹配返回时的Fragment
         int requestIndex = allocateRequestIndex(fragment);
+        // 请求索引放在requestCode实参高16位，Fragment提供的requestCode放在实参低16位
         ActivityCompat.startActivityForResult(
                 this, intent, ((requestIndex + 1) << 16) + (requestCode & 0xffff), options);
     } finally {
@@ -135,3 +137,5 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 ```
 
 由于上述调用位于 __FragmentActivity__ 中，如果重写该方法的时候没有调用 __super.onActivityResult(int requestCode, int resultCode, Intent data)__，则页面内的 __Fragment__ 无法接受到该结果通知。
+
+同时可知，__Activity__ 自己调用 __onActivityResult__ 方法时传入的 __requestCode__ 不可能大于 __0xffff__ ，否则就会和来自 __Fragment__ 的请求混淆。
