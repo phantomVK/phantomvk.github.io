@@ -111,7 +111,7 @@ public final void bindApplication(String processName, ApplicationInfo appInfo,
 }
 ```
 
-__ActivityThread__ 的 __Handler__ 实现类 __H__ 接收 __BIND_APPLICATION__ 指令并执行逻辑
+__ActivityThread__ 的 __Handler__ 实现类 __H__ 接收 __BIND_APPLICATION__ 指令并执行逻辑，这个 __Handler__ 和对应的 __Looper__ 组件就是常说的主线程消息队列，运行在主线程上。
 
 ```java
 private class H extends Handler
@@ -125,11 +125,10 @@ public void handleMessage(Message msg) {
         .....
 
         case BIND_APPLICATION:
-            Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "bindApplication");
             // 从Message取出传送的对象
             AppBindData data = (AppBindData)msg.obj;
+            // 调用方法
             handleBindApplication(data);
-            Trace.traceEnd(Trace.TRACE_TAG_ACTIVITY_MANAGER);
             break;
         
         .....
@@ -137,7 +136,7 @@ public void handleMessage(Message msg) {
 }
 ```
 
-上面调用 __ActivityThread__ 的 __handleBindApplication(data)__
+从上面的逻辑开始调用 __ActivityThread__ 的 __handleBindApplication(data)__
 
 ```java
 // ActivityThread的成员变量mInstrumentation
@@ -226,15 +225,8 @@ private void handleBindApplication(AppBindData data) {
         mInstrumentation.init(this, instrContext, appContext,
                new ComponentName(ii.packageName, ii.name), data.instrumentationWatcher,
                data.instrumentationUiAutomationConnection);
-
-        if (mProfiler.profileFile != null && !ii.handleProfiling
-                && mProfiler.profileFd == null) {
-            mProfiler.handlingProfiling = true;
-            File file = new File(mProfiler.profileFile);
-            file.getParentFile().mkdirs();
-            Debug.startMethodTracing(file.toString(), 8 * 1024 * 1024);
-        }
-
+        
+        .....
     } else {
         mInstrumentation = new Instrumentation();
     }
@@ -251,7 +243,7 @@ public class Instrumentation {
     private final Object mSync = new Object();
     // 持有ActivityThread
     private ActivityThread mThread = null;
-    // 从ActivityThread的线程Looper获得mMessageQueue
+    // 从ActivityThread的线程Looper获得MessageQueue
     private MessageQueue mMessageQueue = null;
     private Context mInstrContext;
     // ApplicationContext，就是ContextImpl的实例
@@ -319,23 +311,22 @@ class ContextImpl extends Context {
                 sSharedPrefs.put(packageName, packagePrefs);
             }
 
-            // At least one application in the world actually passes in a null
-            // name.  This happened to work because when we generated the file name
-            // we would stringify it to "null.xml".  Nice.
             if (mPackageInfo.getApplicationInfo().targetSdkVersion <
                     Build.VERSION_CODES.KITKAT) {
+                // 若传入的文件名为空则设置为"null"，仅对KITKAT以下版本应用有效
                 if (name == null) {
                     name = "null";
                 }
             }
             
-            // 参数中还可以指定更具体的包名，也进行初始化的等工作
+            // 参数中还可以指定更具体的包名，并进行初始化等工作
             sp = packagePrefs.get(name);
             if (sp == null) {
                 // 创建SharedPreferences的存储文件
                 File prefsFile = getSharedPrefsFile(name);
                 // 用该文件创建SharedPreferences实例
                 sp = new SharedPreferencesImpl(prefsFile, mode);
+                // 放入缓存
                 packagePrefs.put(name, sp);
                 return sp;
             }
@@ -343,9 +334,7 @@ class ContextImpl extends Context {
         // 只在HONEYCOMB或以下的版本会对不可预料的数据进行重载
         if ((mode & Context.MODE_MULTI_PROCESS) != 0 ||
             getApplicationInfo().targetSdkVersion < android.os.Build.VERSION_CODES.HONEYCOMB) {
-            // If somebody else (some other process) changed the prefs
-            // file behind our back, we reload it.  This has been the
-            // historical (if undocumented) behavior.
+            // 若文件被其他进程修改，就重新加载该文件，仅对HONEYCOMB以下版本应用有效
             sp.startReloadIfChangedUnexpectedly();
         }
         return sp;
