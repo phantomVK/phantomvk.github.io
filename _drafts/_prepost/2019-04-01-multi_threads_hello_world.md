@@ -1,10 +1,10 @@
 ---
 layout:     post
-title:      "5个线程先打印Hello在打印world"
+title:      "5个线程先打印Hello再打印world"
 date:       2019-04-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    true
+catalog:    false
 tags:
     - Java
 ---
