@@ -11,9 +11,13 @@ tags:
 
 #### 问题
 
-5个线程内部打印 __Hello__ 和 __world__，要求实现方法令5个线程先打印出全部 __Hello__ 再打印全部 __word__。
+5个线程内部打印 __Hello__ 和 __world__：要求方法令5个线程先连续打印全部 __Hello__，再连续打印全部 __world__。
 
 #### 实现
+
+使用 __CyclicBarrier__ 解决问题。所有线程遇到 __CyclicBarrier__ 的 __await()__ 时会等待 __CyclicBarrier__ 的放行通知。而可放行的具体就是到达  __CyclicBarrier__ 的线程数目。
+
+题目中指明5个线程合作，就可以先让5个线程打印 __Hello__。
 
 ```java
 public class CyclicBarrierAnswer {
