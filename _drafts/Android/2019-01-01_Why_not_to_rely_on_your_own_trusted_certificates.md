@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      ""
+title:      "为什么不要依赖自制受信SSL证书"
 date:       2019-01-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -15,9 +15,15 @@ HttpUrlConnection
 
 DownloadManager
 
+WebView
+
+Glide
+
 
 
 [square / okhttp - CustomTrust.java](<https://github.com/square/okhttp/blob/master/samples/guide/src/main/java/okhttp3/recipes/CustomTrust.java>)
+
+[HTTPS](https://github.com/square/okhttp/wiki/HTTPS)
 
 
 
