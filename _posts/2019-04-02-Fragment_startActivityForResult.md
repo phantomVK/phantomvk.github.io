@@ -61,7 +61,8 @@ public class FragmentActivity extends BaseFragmentActivityApi16 implements
         ActivityCompat.RequestPermissionsRequestCodeValidator {
             
     .....
-
+        
+    // 面试考点：非静态内部类隐式持有外部类的实例引用
     class HostCallbacks extends FragmentHostCallback<FragmentActivity> {
         .....
 
@@ -140,6 +141,6 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 }
 ```
 
-由于上述调用位于 __FragmentActivity__ 中，如果重写该方法的时候没有调用 __super.onActivityResult(int requestCode, int resultCode, Intent data)__，则页面内的 __Fragment__ 无法接受到该结果通知。
+由于上述调用位于 __FragmentActivity__ 中，如果重写该方法的时候没有调用 __super.onActivityResult(int requestCode, int resultCode, Intent data)__，则页面内的 __Fragment__ 无法接受该结果通知。
 
 同时可知，__Activity__ 自己调用 __onActivityResult__ 方法时传入的 __requestCode__ 不能大于 __0xffff__，否则会和来自 __Fragment__ 的请求 __requestCode__ 混淆。

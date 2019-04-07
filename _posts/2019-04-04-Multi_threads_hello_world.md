@@ -15,7 +15,7 @@ tags:
 
 #### 实现
 
-题目中指明5个线程合作，就可以先让5个线程打印 __Hello__。线程打印完毕后就在 __CyclicBarrier__ 实例上等待，直到 __CyclicBarrier__ 累计线程数到达指定值，所有线程都会同时放行。放行后的线程继续打印 __world__ 即可完成要求。
+题目中指明5个线程合作，那么可以先让5个线程打印 __Hello__。线程打印完毕后就在 __CyclicBarrier__ 实例上等待，直到 __CyclicBarrier__ 累计线程数到达指定值，所有线程都会同时放行。放行后的线程继续打印 __world__ 即可完成要求。
 
 ```java
 public class CyclicBarrierAnswer {
