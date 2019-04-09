@@ -31,7 +31,7 @@ public static RequestManager with(@NonNull FragmentActivity activity) {
 }
 ```
 
-先获取 __Glide__ 单例，然后从这个单例里获取 __RequestManagerRetriever__ 实例。
+先获取 __Glide__ 单例，然后从这个单例里获取 __RequestManagerRetriever__ 实例。检查参数提供的 __Context__ 是否为空：当 __Fragment__ 与页面绑定前或解除绑定后，这些生命周期内获得宿主 __Activity__ 为空。
 
 ```java
 private static RequestManagerRetriever getRetriever(@Nullable Context context) {
@@ -319,7 +319,7 @@ public class RequestTracker {
     return isOwnedByUs;
   }
 
-  // 停止所有正在进行的请求
+  // 暂停所有正在进行的请求
   public void pauseRequests() {
     isPaused = true;
     for (Request request : Util.getSnapshot(requests)) {
@@ -330,7 +330,7 @@ public class RequestTracker {
     }
   }
 
-  // 停止所有正在进行的请求，释放已完成任务的关联bitmaps
+  // 暂停所有正在进行的请求，释放已完成任务的关联bitmaps
   public void pauseAllRequests() {
     isPaused = true;
     for (Request request : Util.getSnapshot(requests)) {

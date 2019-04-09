@@ -209,7 +209,7 @@ public GlobalScreenshot(Context context) {
 
     // 背景的边距
     mBgPadding = (float) r.getDimensionPixelSize(R.dimen.global_screenshot_bg_padding);
-    mBgPaddingScale = mBgPadding /  mDisplayMetrics.widthPixels;
+    mBgPaddingScale = mBgPadding / mDisplayMetrics.widthPixels;
 
     // 确定最优化的预览尺寸
     int panelWidth = 0;
@@ -249,7 +249,7 @@ private void saveScreenshotInWorkerThread(Runnable finisher) {
     if (mSaveInBgTask != null) {
         mSaveInBgTask.cancel(false);
     }
-    // 由此.execute()可知任务在AsyncTask是串行执行的
+    // 由execute()可知任务在AsyncTask中串行执行
     mSaveInBgTask = new SaveImageInBackgroundTask(mContext, data, mNotificationManager)
             .execute();
 }
@@ -259,7 +259,7 @@ private void saveScreenshotInWorkerThread(Runnable finisher) {
 
 #### 2.5 getDegreesForRotation
 
-获取屏幕旋转角度
+获取屏幕旋转角度，矫正图片
 
 ```java
 private float getDegreesForRotation(int value) {
@@ -308,7 +308,7 @@ private void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean
 }
 ```
 
-以下方法截取全屏图片，调用了上面的方法。根据屏幕宽高创建一个 __Rect__。
+以下方法截取全屏图片，调用了上面的方法。根据全屏宽高创建 __Rect__。
 
 ```java
 void takeScreenshot(Runnable finisher, boolean statusBarVisible, boolean navBarVisible) {
@@ -327,10 +327,10 @@ __takeScreenshot()__ 截取全屏，此方法能截取屏幕的部分区域。
 ```java
 void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisible,
         final boolean navBarVisible) {
-    // 向WindowManager添加选择器布局
+    // 向WindowManager添加截屏布局
     mWindowManager.addView(mScreenshotLayout, mWindowLayoutParams);
 
-    // 处理选择器的点击事件
+    // 准备选择器的点击事件
     mScreenshotSelectorView.setOnTouchListener(new View.OnTouchListener() {
         @Override
         public boolean onTouch(View v, MotionEvent event) {
@@ -371,7 +371,7 @@ void takeScreenshotPartial(final Runnable finisher, final boolean statusBarVisib
         }
     });
 
-    // 先mScreenshotLayout发出requestFocus()
+    // 显示mScreenshotLayout并发出requestFocus()，开始截屏操作
     mScreenshotLayout.post(new Runnable() {
         @Override
         public void run() {
@@ -403,7 +403,7 @@ void stopScreenshot() {
 ```java
 private void startAnimation(final Runnable finisher, int w, int h, boolean statusBarVisible,
         boolean navBarVisible) {
-    // 手机处于省电模式的话显示一个toast提示用于已截屏
+    // 手机处于省电模式，显示一个toast提示用于已截屏
     PowerManager powerManager = (PowerManager) mContext.getSystemService(Context.POWER_SERVICE);
     if (powerManager.isPowerSaveMode()) {
         Toast.makeText(mContext, R.string.screenshot_saved_title, Toast.LENGTH_SHORT).show();
@@ -452,148 +452,6 @@ private void startAnimation(final Runnable finisher, int w, int h, boolean statu
             mScreenshotAnimation.start();
         }
     });
-}
-```
-
-通过代码构造动画
-
-```java
-private ValueAnimator createScreenshotDropInAnimation() {
-    final float flashPeakDurationPct = ((float) (SCREENSHOT_FLASH_TO_PEAK_DURATION)
-            / SCREENSHOT_DROP_IN_DURATION);
-    final float flashDurationPct = 2f * flashPeakDurationPct;
-    final Interpolator flashAlphaInterpolator = new Interpolator() {
-        @Override
-        public float getInterpolation(float x) {
-            // Flash the flash view in and out quickly
-            if (x <= flashDurationPct) {
-                return (float) Math.sin(Math.PI * (x / flashDurationPct));
-            }
-            return 0;
-        }
-    };
-    final Interpolator scaleInterpolator = new Interpolator() {
-        @Override
-        public float getInterpolation(float x) {
-            // We start scaling when the flash is at it's peak
-            if (x < flashPeakDurationPct) {
-                return 0;
-            }
-            return (x - flashDurationPct) / (1f - flashDurationPct);
-        }
-    };
-    ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
-    anim.setDuration(SCREENSHOT_DROP_IN_DURATION);
-    anim.addListener(new AnimatorListenerAdapter() {
-        @Override
-        public void onAnimationStart(Animator animation) {
-            mBackgroundView.setAlpha(0f);
-            mBackgroundView.setVisibility(View.VISIBLE);
-            mScreenshotView.setAlpha(0f);
-            mScreenshotView.setTranslationX(0f);
-            mScreenshotView.setTranslationY(0f);
-            mScreenshotView.setScaleX(SCREENSHOT_SCALE + mBgPaddingScale);
-            mScreenshotView.setScaleY(SCREENSHOT_SCALE + mBgPaddingScale);
-            mScreenshotView.setVisibility(View.VISIBLE);
-            mScreenshotFlash.setAlpha(0f);
-            mScreenshotFlash.setVisibility(View.VISIBLE);
-        }
-        @Override
-        public void onAnimationEnd(android.animation.Animator animation) {
-            mScreenshotFlash.setVisibility(View.GONE);
-        }
-    });
-    anim.addUpdateListener(new AnimatorUpdateListener() {
-        @Override
-        public void onAnimationUpdate(ValueAnimator animation) {
-            float t = (Float) animation.getAnimatedValue();
-            float scaleT = (SCREENSHOT_SCALE + mBgPaddingScale)
-                - scaleInterpolator.getInterpolation(t)
-                    * (SCREENSHOT_SCALE - SCREENSHOT_DROP_IN_MIN_SCALE);
-            mBackgroundView.setAlpha(scaleInterpolator.getInterpolation(t) * BACKGROUND_ALPHA);
-            mScreenshotView.setAlpha(t);
-            mScreenshotView.setScaleX(scaleT);
-            mScreenshotView.setScaleY(scaleT);
-            mScreenshotFlash.setAlpha(flashAlphaInterpolator.getInterpolation(t));
-        }
-    });
-    return anim;
-}
-```
-
-通过代码构造动画
-
-```java
-private ValueAnimator createScreenshotDropOutAnimation(int w, int h, boolean statusBarVisible,
-        boolean navBarVisible) {
-    ValueAnimator anim = ValueAnimator.ofFloat(0f, 1f);
-    anim.setStartDelay(SCREENSHOT_DROP_OUT_DELAY);
-    anim.addListener(new AnimatorListenerAdapter() {
-        @Override
-        public void onAnimationEnd(Animator animation) {
-            mBackgroundView.setVisibility(View.GONE);
-            mScreenshotView.setVisibility(View.GONE);
-            mScreenshotView.setLayerType(View.LAYER_TYPE_NONE, null);
-        }
-    });
-
-    if (!statusBarVisible || !navBarVisible) {
-        // 没有状态栏或导航栏，截屏提示直接淡出屏幕
-        anim.setDuration(SCREENSHOT_FAST_DROP_OUT_DURATION);
-        anim.addUpdateListener(new AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                float t = (Float) animation.getAnimatedValue();
-                float scaleT = (SCREENSHOT_DROP_IN_MIN_SCALE + mBgPaddingScale)
-                        - t * (SCREENSHOT_DROP_IN_MIN_SCALE - SCREENSHOT_FAST_DROP_OUT_MIN_SCALE);
-                mBackgroundView.setAlpha((1f - t) * BACKGROUND_ALPHA);
-                mScreenshotView.setAlpha(1f - t);
-                mScreenshotView.setScaleX(scaleT);
-                mScreenshotView.setScaleY(scaleT);
-            }
-        });
-    } else {
-        // 屏幕上有状态栏，动画到状态栏的左上方
-        final float scaleDurationPct = (float) SCREENSHOT_DROP_OUT_SCALE_DURATION
-                / SCREENSHOT_DROP_OUT_DURATION;
-        final Interpolator scaleInterpolator = new Interpolator() {
-            @Override
-            public float getInterpolation(float x) {
-                if (x < scaleDurationPct) {
-                    // Decelerate, and scale the input accordingly
-                    return (float) (1f - Math.pow(1f - (x / scaleDurationPct), 2f));
-                }
-                return 1f;
-            }
-        };
-
-        // Determine the bounds of how to scale
-        float halfScreenWidth = (w - 2f * mBgPadding) / 2f;
-        float halfScreenHeight = (h - 2f * mBgPadding) / 2f;
-        final float offsetPct = SCREENSHOT_DROP_OUT_MIN_SCALE_OFFSET;
-        final PointF finalPos = new PointF(
-            -halfScreenWidth + (SCREENSHOT_DROP_OUT_MIN_SCALE + offsetPct) * halfScreenWidth,
-            -halfScreenHeight + (SCREENSHOT_DROP_OUT_MIN_SCALE + offsetPct) * halfScreenHeight);
-
-        // 截图通过动画移动到status bar
-        anim.setDuration(SCREENSHOT_DROP_OUT_DURATION);
-        anim.addUpdateListener(new AnimatorUpdateListener() {
-            @Override
-            public void onAnimationUpdate(ValueAnimator animation) {
-                float t = (Float) animation.getAnimatedValue();
-                float scaleT = (SCREENSHOT_DROP_IN_MIN_SCALE + mBgPaddingScale)
-                    - scaleInterpolator.getInterpolation(t)
-                        * (SCREENSHOT_DROP_IN_MIN_SCALE - SCREENSHOT_DROP_OUT_MIN_SCALE);
-                mBackgroundView.setAlpha((1f - t) * BACKGROUND_ALPHA);
-                mScreenshotView.setAlpha(1f - scaleInterpolator.getInterpolation(t));
-                mScreenshotView.setScaleX(scaleT);
-                mScreenshotView.setScaleY(scaleT);
-                mScreenshotView.setTranslationX(t * finalPos.x);
-                mScreenshotView.setTranslationY(t * finalPos.y);
-            }
-        });
-    }
-    return anim;
 }
 ```
 
