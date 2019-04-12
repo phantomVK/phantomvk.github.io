@@ -7,10 +7,12 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - tags
+    - Android
 ---
 
 Android 28
+
+调用 __requestLayout()__ 会调用 __scheduleTraversals()__
 
 ```java
 @Override
@@ -23,6 +25,8 @@ public void requestLayout() {
 }
 ```
 
+建立新 __TraversalRunnable__，放到主线程的消息队列中
+
 ```java
 final class TraversalRunnable implements Runnable {
     @Override
@@ -31,26 +35,6 @@ final class TraversalRunnable implements Runnable {
     }
 }
 final TraversalRunnable mTraversalRunnable = new TraversalRunnable();
-```
-
-```java
-void doTraversal() {
-    if (mTraversalScheduled) {
-        mTraversalScheduled = false;
-        mHandler.getLooper().getQueue().removeSyncBarrier(mTraversalBarrier);
-
-        if (mProfile) {
-            Debug.startMethodTracing("ViewAncestor");
-        }
-
-        performTraversals();
-
-        if (mProfile) {
-            Debug.stopMethodTracing();
-            mProfile = false;
-        }
-    }
-}
 ```
 
 ```java
@@ -68,6 +52,26 @@ void scheduleTraversals() {
     }
 }
 ```
+
+消息队列回调事件触发此方法
+
+```java
+void doTraversal() {
+    if (mTraversalScheduled) {
+        mTraversalScheduled = false;
+        mHandler.getLooper().getQueue().removeSyncBarrier(mTraversalBarrier);
+
+        performTraversals();
+
+        if (mProfile) {
+            Debug.stopMethodTracing();
+            mProfile = false;
+        }
+    }
+}
+```
+
+继续走到 __performTraversals()__
 
 ```java
 private void performTraversals() {
