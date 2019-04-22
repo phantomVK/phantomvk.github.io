@@ -9,8 +9,8 @@ tags:
     - tags
 ---
 
-设备：Samsung Galaxy S4
-系统：Android 5.0.1
+设备：__Samsung Galaxy S4__
+系统：__Android 5.0.1__
 
 ```java
 class MainActivity : AppCompatActivity() {
