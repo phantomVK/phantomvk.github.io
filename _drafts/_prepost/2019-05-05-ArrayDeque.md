@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Java源码系列(23) -- ArrayDeque"
-date:       2019-02-12
+date:       2019-05-05
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -577,7 +577,7 @@ public void clear() {
 }
 ```
 
-调用了以下方法
+调用以下方法
 
 ```java
 // Nulls out slots starting at array index i, upto index end.
