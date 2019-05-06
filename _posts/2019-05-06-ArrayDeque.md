@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Java源码系列(23) -- ArrayDeque"
-date:       2019-05-05
+date:       2019-05-06
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -11,9 +11,7 @@ tags:
 
 ## 一、类签名
 
-__ArrayDeque__ 是实现 __Deque__ 接口且容量可变的双端队列数组。数组实现的双端队列没有容量限制，需要更多空间时再进行扩容。
-
-此类线程不安全，如果没有外部同步约束，就不支持多线程并发存取。值得注意的是，本双端队列不接受空对象，作为栈使用时比 __Stack__ 快，作为队列使用时比 __LinkedList__ 快。
+__ArrayDeque__ 是实现 __Deque__ 接口且容量可变的双端队列数组。数组实现的双端队列没有容量限制，需要更多空间时再进行扩容。此类线程不安全，如果没有外部同步约束，就不支持多线程并发。值得注意的是，本双端队列不接受空对象，作为栈使用时比 __Stack__ 快，作为队列使用时比 __LinkedList__ 快。
 
 大多数 __ArrayDeque__ 方法执行消耗常量时间，除了 __remove(Object)__、 __removeFirstOccurrence__，__removeLastOccurrence__、__contains__、__iterator__ 和批量操作是线性时间消耗的。
 
@@ -28,25 +26,23 @@ public class ArrayDeque<E> extends AbstractCollection<E>
 for (int i = start; i < end; i++) ... elements[i]
 ```
 
-因为在环形数组，元素全部保存在两个互不相交的切片，通过给元素的遍历写出与众不同的嵌套循环，来帮助虚拟机。仅一个热的内圈循环体而不是两、三个，简化了维护人手，并促使虚拟机把循环内联到调用者内。
-
 源码来自 JDK11
 
 ## 二、数据成员
 
-保存双端数组队列的变量。当数组的 __cells__ 没有持有双端队列元素时为空。数组存在至少一个空位，作为队列的尾部
+保存双端数组队列变量。当数组的 __cells__ 没有持有双端队列元素时为空。数组存在至少一个空位，作为队列的尾部
 
 ```java
 transient Object[] elements;
 ```
 
-头元素在数组中的索引值，下标值对应元素由remove()或pop()方法移除。若队列没有元素，head为[0, elements.length)间任意值，与尾引用值相同
+头元素在数组中的索引值，下标值对应元素由remove()或pop()方法移除。若队列没有元素，head为 __[0, elements.length)__ 间任意值，与尾引用值相同
 
 ```java
 transient int head;
 ```
 
-下一个元素存入数组尾部的索引值，所以elements[tail]一直为空
+下一个元素存入数组尾部的索引值，所以 __elements[tail]__ 一直为空
 
 ```java
 transient int tail;
@@ -62,7 +58,7 @@ private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
 ## 四、扩容方法
 
-增加至少 __needed__ 个数组空间，值必须为正数。方法计算新容量值时，已经进行整形值向上溢出的处理
+增加至少 __needed__ 个数组空间，值必须为正数。方法计算新容量值时，已经完成整形值向上溢出的处理
 
 ```java
 private void grow(int needed) {
@@ -75,7 +71,7 @@ private void grow(int needed) {
     // 或 newCapacity = Integer.MAX_VALUE
     int newCapacity;
 
-    // 若原容量值小于64，则jump为原值两倍再加2，否则jump为原值一半
+    // 若原容量值小于64，则jump为原值加2，否则jump为原值一半
     int jump = (oldCapacity < 64) ? (oldCapacity + 2) : (oldCapacity >> 1);
 
     // 计算jump是否比理想扩容值needed小
@@ -175,13 +171,6 @@ static final int inc(int i, int distance, int modulus) {
     return i;
 }
 
-/**
- * Subtracts j from i, mod modulus.
- * Index i must be logically ahead of index j.
- * Precondition: 0 <= i < modulus, 0 <= j < modulus.
- * @return the "circular distance" from j to i; corner case i == j
- * is disambiguated to "empty", returning 0.
- */
 // 从i减去j，并对i取模的能力
 // 索引i必须在逻辑上在索引j之前
 // 先决条件: 0 <= i < modulus, 0 <= j < modulus； 
@@ -195,13 +184,6 @@ static final int sub(int i, int j, int modulus) {
 @SuppressWarnings("unchecked")
 static final <E> E elementAt(Object[] es, int i) {
     return (E) es[i];
-}
-
-static final <E> E nonNullElementAt(Object[] es, int i) {
-    @SuppressWarnings("unchecked") E e = (E) es[i];
-    if (e == null)
-        throw new ConcurrentModificationException();
-    return e;
 }
 ```
 
@@ -456,15 +438,6 @@ public E pop() {
     return removeFirst();
 }
 
-/**
- * This can result in forward or backwards motion of array elements.
- * We optimize for least element motion.
- *
- * <p>This method is called delete rather than remove to emphasize
- * that its semantics differ from those of {@link List#remove(int)}.
- *
- * @return true if elements near tail moved backwards
- */
 // 从元素数组中移除指定索引的元素。
 boolean delete(int i) {
     final Object[] es = elements;
@@ -566,7 +539,7 @@ public boolean remove(Object o) {
 }
 ```
 
-#### 7.14clear
+#### 7.14 clear
 
 从移除队列中所有元素
 
@@ -628,8 +601,8 @@ private <T> T[] toArray(Class<T[]> klazz) {
 
 本方法可以实现队列转数组的功能：__String[] y = x.toArray(new String[0]);__。且值得注意的是，传入 __toArray(new Object[0])__ 和 传入 __toArray()__ 的效果完全相同。
 
-指定数组元素的运行时类型不是双端队列元素的运行时类型的子类时抛出 __ArrayStoreException__；
-指定数组为空抛出 __NullPointerException__；
+数组元素的运行时类型不匹配双端队列元素的运行时类型时，抛出 __ArrayStoreException__；
+数组为空抛出 __NullPointerException__；
 
 ```java
 @SuppressWarnings("unchecked")
