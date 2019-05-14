@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Java源码系列(23) -- ArrayDeque"
-date:       2019-05-06
+date:       2019-05-14
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
