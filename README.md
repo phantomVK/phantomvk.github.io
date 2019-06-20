@@ -1,18 +1,18 @@
 # Jekyll
 
-Jekyll主题来自[Hux Blog](https://github.com/Huxpro/huxpro.github.io)(Powered by Jekyll with Hux Theme)，修改源码并增加新功能。
+本 __Jekyll__ 主题来自[Hux Blog](https://github.com/Huxpro/huxpro.github.io)，修改源码并增加新功能。
 
-## 使用方法
+## 功能及配置
 
 ### 一、Fork or Clone
 
-Fork工程到Github仓库或Clone到本地：
+__Fork__ 本工程到您的 __Github__ 或 __Clone__ 到本地：
 
 ```bash
 $ git clone https://github.com/phantomVK/phantomvk.github.io.git
 ```
 
-项目文件夹名修改形如`GithubUsername.github.io`。
+然后把项目文件夹名修改形如：`GithubUsername.github.io`。
 
 ### 二、修改配置参数
 
