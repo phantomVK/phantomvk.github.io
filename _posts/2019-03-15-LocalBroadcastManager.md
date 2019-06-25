@@ -11,15 +11,15 @@ tags:
 
 ## 一、类签名
 
-用于同进程本地对象注册或发送广播的帮助类。如果广播信息只需要在同进程内收发，则无需发送全局广播，仅发送本地广播即可。当然，同一应用功能逻辑应用了多进程，则不能用本地广播进行通讯，因为不同的进程持有不同的实例，各个实例之间没有关联。
+用于同进程本地对象注册或发送广播的帮助类。如果广播信息只需要在同进程内收发，则无需发送全局广播，仅发送本地广播即可。同一应用开启多进程，不能在不同进程间用本地广播进行通讯，因为不同进程持有不同 __LocalBroadcastManager__ 实例，每个实例间没有关联。
 
 ```java
 public final class LocalBroadcastManager
 ```
 
-相比全局广播有以下优点：
+相比全局广播，本地广播有以下优点：
 
-- 正在广播的数据不会离开同进程范围，无需担心泄漏隐私数据；
+- 正在广播的数据不会离开进程发送到外部，无需担心泄漏隐私数据；
 - 其他应用无法发送他们的广播到你的应用中，因此不存在安全漏洞问题；
 - 相比全局广播效率更高，因为本地广播无需通过IPC和其他进程交互；
 
@@ -150,10 +150,12 @@ public void registerReceiver(@NonNull BroadcastReceiver receiver,
         // key为receiver，value为ReceiverRecord
         filters.add(entry);
 
+        // 按照Action记录对应的ReceiverRecord
         for (int i=0; i<filter.countActions(); i++) {
             // 从filter逐个获取Action
             String action = filter.getAction(i);
             ArrayList<ReceiverRecord> entries = mActions.get(action);
+            // 这个Action没有记录过，则创建新记录
             if (entries == null) {
                 entries = new ArrayList<ReceiverRecord>(1);
                 mActions.put(action, entries);
@@ -187,10 +189,14 @@ public void unregisterReceiver(@NonNull BroadcastReceiver receiver) {
                     for (int k=receivers.size()-1; k>=0; k--) {
                         final ReceiverRecord rec = receivers.get(k);
                         if (rec.receiver == receiver) {
+                            // 标记该接收器已经失效
                             rec.dead = true;
+                            // 从列表移除接收器
                             receivers.remove(k);
                         }
                     }
+                  
+                    // actions没有接收器，就直接把整个actions记录移除
                     if (receivers.size() <= 0) {
                         mActions.remove(action);
                     }
@@ -215,6 +221,7 @@ public boolean sendBroadcast(@NonNull Intent intent) {
         final String scheme = intent.getScheme();
         final Set<String> categories = intent.getCategories();
 
+        // 根据发送的action，找出已经注册的接收者记录
         ArrayList<ReceiverRecord> entries = mActions.get(intent.getAction());
         if (entries != null) {
             ArrayList<ReceiverRecord> receivers = null;
@@ -263,7 +270,7 @@ public void sendBroadcastSync(@NonNull Intent intent) {
 }
 ```
 
-存在有效的广播时触发这个方法，向满足条件的接收者派发广播记录
+存在有效的广播时触发这个方法，向满足条件的接收者派发广播记录。整个派发过程都在主线程上进行，如果接收器处理逻辑耗时，会阻塞主线程。
 
 ```java
 private void executePendingBroadcasts() {

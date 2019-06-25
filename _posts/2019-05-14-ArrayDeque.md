@@ -58,7 +58,7 @@ private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
 ## 四、扩容方法
 
-增加至少 __needed__ 个数组空间，值必须为正数。方法计算新容量值时，已经完成整形值向上溢出的处理
+增加至少 __needed__ 个数组空间，必须为正数。方法计算新容量值时，已经完成整形值向上溢出的处理
 
 ```java
 private void grow(int needed) {
@@ -71,7 +71,7 @@ private void grow(int needed) {
     // 或 newCapacity = Integer.MAX_VALUE
     int newCapacity;
 
-    // 若原容量值小于64，则jump为原值加2，否则jump为原值一半
+    // 若原容量值小于64，jump为原值加2，否则jump为原值一半
     int jump = (oldCapacity < 64) ? (oldCapacity + 2) : (oldCapacity >> 1);
 
     // 计算jump是否比理想扩容值needed小
@@ -93,11 +93,14 @@ private void grow(int needed) {
             es[i] = null;
     }
 }
+```
 
-// 为边缘条件进行容量计算，尤其是向上移除的情况
+为边缘条件进行容量计算，尤其是向上溢出的情况。
+
+```java
 private int newCapacity(int needed, int jump) {
     final int oldCapacity = elements.length, minCapacity;
-    
+
     if ((minCapacity = oldCapacity + needed) - MAX_ARRAY_SIZE > 0) {
         // 最大容量值溢出
         if (minCapacity < 0)
@@ -131,7 +134,7 @@ public ArrayDeque() {
 
 ```java
 public ArrayDeque(int numElements) {
-    // 若numElements大于1小于MAX_VALUE，大小为numElements+1
+    // 若numElements大于1小于MAX_VALUE，大小为numElements+1，多出来的一个空间给尾指针
     elements =
         new Object[(numElements < 1) ? 1 :
                    (numElements == Integer.MAX_VALUE) ? Integer.MAX_VALUE :
@@ -350,7 +353,7 @@ public E peekLast() {
 
 #### 7.8 firstOccurrence
 
-移出第一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个。每次查找均从的头部开始，逐个遍历元素寻找匹配项。元素名并移除成功返回 __true__，元素为null或不包含该元素返回 __false__。
+移出第一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个。每次查找均从的头部开始，逐个遍历元素寻找匹配项。元素命中并移除成功返回 __true__，元素为null或不包含该元素返回 __false__。
 
 ```java
 public boolean removeFirstOccurrence(Object o) {
@@ -370,7 +373,7 @@ public boolean removeFirstOccurrence(Object o) {
 }
 ```
 
-移出最后一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个。元素名并移除成功返回 __true__，元素为null或不包含该元素返回 __false__。
+移出最后一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个。元素命中并移除成功返回 __true__，元素为null或不包含该元素返回 __false__。
 
 ```java
 public boolean removeLastOccurrence(Object o) {
@@ -414,12 +417,12 @@ public E poll() {
     return pollFirst();
 }
 
-// 仅获取元素队列头元素，但不从队列中不会移除。如果队列为空，则此方法会抛出异常
+// 仅获取元素队列头元素，但不从队列中移除。如果队列为空，此方法会抛出异常
 public E element() {
     return getFirst();
 }
 
-// 仅获取元素队列头元素，但不从队列中不会移除。如果队列为空，则此方法返回null
+// 仅获取元素队列头元素，但不从队列中移除。如果队列为空，此方法返回null
 public E peek() {
     return peekFirst();
 }
@@ -511,7 +514,7 @@ private static boolean isClear(long[] bits, int i) {
 
 #### 7.13 contains
 
-如果队列包含指定元素返回true。一般来说，队列可能存在多个相同的元素。所以本方法返回true表示队列至少存在一个元素与指定元素相等
+如果队列包含指定元素返回true。一般来说，队列可能存在多个相同的元素。所以本方法返回true表示队列至少存在一个元素与指定元素相等。
 
 ```java
 public boolean contains(Object o) {
@@ -550,7 +553,7 @@ public void clear() {
 }
 ```
 
-调用以下方法
+调用以下方法，空间逐个置空
 
 ```java
 // Nulls out slots starting at array index i, upto index end.

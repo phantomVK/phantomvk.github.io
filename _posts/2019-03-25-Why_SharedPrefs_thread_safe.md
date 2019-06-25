@@ -10,7 +10,7 @@ tags:
 ---
 ## 一、前言
 
-__SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供便捷的键值对持久化服务。同时支持同步和异步两种数据提交方式，尽少影响主线程的运行。
+__SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供便捷的键值对持久化服务。同时支持同步和异步两种数据提交方式，减少对主线程运行的影响。
 
 虽然此工具类因使用方便深得开发者的青睐，但其多线程操作、多进程操作是否安全的问题，却鲜有人探究。对 __SharedPreferences__ 存取操作感兴趣的读者，这里先为您呈上文章 [Android源码系列(12) -- SharedPreferences](/2018/09/14/SharedPreferences/)。
 
@@ -223,7 +223,7 @@ private void handleBindApplication(AppBindData data) {
         // 每个进程是一个ActivityThread，其中只有一个Instrumentation实例
         // 可知ContextImpl在一个进程里只有一个实例，所以进程能控制其线程安全
         mInstrumentation.init(this, instrContext, appContext,
-               new ComponentName(ii.packageName, ii.name), data.instrumentationWatcher,
+               new ComponentName(ii.packageName, ii.name),data.instrumentationWatcher,
                data.instrumentationUiAutomationConnection);
         
         .....
@@ -356,10 +356,10 @@ class ContextImpl extends Context {
 - __ActivityManagerService__ 注册 __ApplicationThread__ 之后 __IPC__ 调用后者 __bindApplication()__ 方法，表示注册工作已完成。拜托 __ApplicationThread__ 告知 __ActivityThread__ 继续进行 __Application__ 初始化；
 - __ApplicationThread.bindApplication()__ 通过发送标志为 __BIND_APPLICATION__ 的 __Message__ 告知 __ActivityThread__ 进行 __Applicatoin__ 初始化；
 - __ActivityThread__ 执行 __handleBindApplication()__，方法内部创建 __Instrumentation__ 后保存在成员变量 __mInstrumentation__；
-- 方法内部随后也创建 __ContextImpl__ 实例，把 __ContextImpl__ 实例保存在 __mInstrumentation__；
-- 所有以上所有实例均只有一个，且 __SharedPreferences__ 内操作线程安全；
+- 随后创建 __ContextImpl__ 实例，把该实例保存在 __mInstrumentation__；
+- 而 __ContextImpl__ 获取 __SharedPreferences__ 线程安全，且 __SharedPreferences__ 内部也操作线程安全；
 
-延伸问题，上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件，但实际 __Google__ 并不认可这种操作。因为多个进程同时写入文件的操作没有在系统层进行协调，不能保证其安全，所以可能会造成数据的丢失。
+延伸问题，上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件，但实际 __Google__ 并不认可这种操作。因为多个进程同时写入文件的操作没法在系统层进行协调，不能保证其安全，所以可能会造成数据的丢失。
 
 ## 六、参考链接
 

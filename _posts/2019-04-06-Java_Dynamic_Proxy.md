@@ -100,4 +100,4 @@ Caused by: java.lang.IllegalAccessException: Access to this method is denied.
 	... 2 more
 ```
 
-使用动态代理的好处是，后来人再增加实现方法时，无需修改已有实现逻辑，就能阻止代码运行时调用空对象方法。
+使用动态代理的好处是，再增加实现方法时无需修改已有实现逻辑，就能阻止代码运行时调用空对象方法。

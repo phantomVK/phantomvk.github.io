@@ -123,7 +123,7 @@ private boolean mSubDecorInstalled;
 
 ```java
 private void ensureSubDecor() {
-    // 先检查标志位，确定SubDecor是否已装载
+    // 先检查标志位，避免SubDecor重复
     if (!mSubDecorInstalled) {
         // 构建SubDecor
         mSubDecor = createSubDecor();
@@ -190,7 +190,6 @@ private ViewGroup createSubDecor() {
 
     final LayoutInflater inflater = LayoutInflater.from(mContext);
     ViewGroup subDecor = null;
-
 
     // 由主题配置决定使用的布局，填充视图赋值给subDecor
     if (!mWindowNoTitle) {
@@ -617,9 +616,9 @@ public void onContentChanged() {
 
 ## 六、总结
 
-所有工作完成后，界面布局层次如下：
+假设 __ContentRoot__ 布局为 __R.layout.screen_simple__，__SubDecorView__ 布局为 __R.layout.abc_screen_simple__，均为最简单的默认布局，则填充完成的效果如下：
 
-![Window](/img/android/Activity/Window.png)
+![Window](/img/android/Activity/Window.jpg)
 
 __setContentView(int resId)__ 工作流程：
 

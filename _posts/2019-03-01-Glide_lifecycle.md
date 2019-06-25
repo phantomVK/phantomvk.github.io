@@ -11,7 +11,7 @@ tags:
 
 ## 前言
 
-图片加载时只需调用以下代码，__Glide__ 就会全自动完成下载、缓存、缩放、展示等流程。
+图片加载时只需调用以下代码，__Glide__ 会自动完成下载、缓存、缩放、展示等流程。
 
 ```java
 Glide.with(this)
@@ -23,7 +23,7 @@ Glide.with(this)
 
 ## Glide
 
-上面的`Glide.with(this)`根据传入实参类型，例如：__FragmentActivity__、__Fragment__、__Context__ 等不同选择目标重载方法。这里通过 __FragmentActivity__ 进行解析，因为 __AppCompatActivity__ 的父类是 __FragmentActivity__。
+上面的`Glide.with(this)`根据传入实参类型，例如：__FragmentActivity__、__Fragment__、__Context__ 等不同选择目标重载方法。这里通过 __FragmentActivity__ 进行解析，常用 __AppCompatActivity__ 的父类是 __FragmentActivity__，便于理解。
 
 ```java
 public static RequestManager with(@NonNull FragmentActivity activity) {
@@ -31,7 +31,7 @@ public static RequestManager with(@NonNull FragmentActivity activity) {
 }
 ```
 
-先获取 __Glide__ 单例，然后从这个单例里获取 __RequestManagerRetriever__ 实例。检查参数提供的 __Context__ 是否为空：当 __Fragment__ 与页面绑定前或解除绑定后，这些生命周期内获得宿主 __Activity__ 为空。
+检查参数提供的 __Context__ 是否为空：当 __Fragment__ 与页面绑定前或解除绑定后，这些生命周期内获得宿主 __Activity__ 为空。获取 __Glide__ 单例并提取里面的 __RequestManagerRetriever__ 实例。
 
 ```java
 private static RequestManagerRetriever getRetriever(@Nullable Context context) {
@@ -48,12 +48,13 @@ private static RequestManagerRetriever getRetriever(@Nullable Context context) {
 
 ## RequestManagerRetriever
 
-忽略 __Glide__ 首次初始化流程，终于从 __RequestManagerRetriever__ 获取 __RequestManager__ 实例。
+忽略 __Glide__ 首次初始化流程，来到 __RequestManagerRetriever__ 获取 __RequestManager__ 实例的流程。
 
 ```java
 public RequestManager get(@NonNull FragmentActivity activity) {
   // 前后台判断
   if (Util.isOnBackgroundThread()) {
+    // 页面在后台时获取ApplicationContext
     return get(activity.getApplicationContext());
   } else {
     assertNotDestroyed(activity);
@@ -98,12 +99,17 @@ static final String FRAGMENT_TAG = "com.bumptech.glide.manager";
 ```java
 private SupportRequestManagerFragment getSupportRequestManagerFragment(
     @NonNull final FragmentManager fm, @Nullable Fragment parentHint, boolean isParentVisible) {
+  // 首先用FRAGMENT_TAG字符串的方式从fm里面找Fragment
   SupportRequestManagerFragment current =
       (SupportRequestManagerFragment) fm.findFragmentByTag(FRAGMENT_TAG);
-  // 判断实例为空则需构建Fragment实例并加入到Activity
+  
+  // 字符串的方式找不到
   if (current == null) {
-    // 用FragmentManager获取SupportRequestManagerFragment实例
+    // 每个FragmentActivity只有一个FragmentManager;
+    // 每个FragmentManager只存一个SupportRequestManagerFragment;
+    // 所以试着用FragmentManager获取SupportRequestManagerFragment实例
     current = pendingSupportRequestManagerFragments.get(fm);
+    // 判断实例为空则需构建Fragment实例并加入到Activity
     if (current == null) {
       // 创建新实例
       current = new SupportRequestManagerFragment();
@@ -122,7 +128,7 @@ private SupportRequestManagerFragment getSupportRequestManagerFragment(
 }
 ```
 
-所有创建的 __SupportRequestManagerFragment__ 都保存在以下哈希表中
+所有创建的 __SupportRequestManagerFragment__ 都保存在以下哈希表中，即自行保存一份关系列表
 
 ```java
 final Map<FragmentManager, SupportRequestManagerFragment> pendingSupportRequestManagerFragments = new HashMap<>();
@@ -130,7 +136,9 @@ final Map<FragmentManager, SupportRequestManagerFragment> pendingSupportRequestM
 
 ## SupportRequestManagerFragment
 
-接下来看看上面提及的 __SupportRequestManagerFragment__。从签名可知继承父类 __Fragment__，但不像一般 __Fragment__ 包含填充的UI界面，而是仅包含生命周期的相关回调操作。说白了，就是借用 __Fragment__ 达到监听 __Activity__ 生命周期的目的。
+接下来看看上面提及的 __SupportRequestManagerFragment__。
+
+从签名可知此类继承父类为 __Fragment__。但不像一般 __Fragment__ 包含UI界面，这个实例仅包含生命周期的相关回调操作。说白了，就是借用 __Fragment__ 当钩子达到监听 __Activity__ 生命周期的目的。
 
 ```java
 public class SupportRequestManagerFragment extends Fragment {
@@ -198,13 +206,14 @@ public class SupportRequestManagerFragment extends Fragment {
 
 ## ActivityFragmentLifecycle
 
-最后进入 __ActivityFragmentLifecycle__ 实现类，这个类其实就是观察者模式的具体实现。所有需要加载图片的任务，自行创建 __LifecycleListener__ 放入 __ActivityFragmentLifecycle__ 中。
+最后进入 __ActivityFragmentLifecycle__ 实现类，这个类其实就是观察者模式的具体实现。所有需要加载图片的任务，会创建 __LifecycleListener__ 监听器放入 __ActivityFragmentLifecycle__。
 
 ```java
 class ActivityFragmentLifecycle implements Lifecycle {
   // 监听器集合
   private final Set<LifecycleListener> lifecycleListeners =
       Collections.newSetFromMap(new WeakHashMap<LifecycleListener, Boolean>());
+
   private boolean isStarted;
   private boolean isDestroyed;
 
@@ -216,6 +225,7 @@ class ActivityFragmentLifecycle implements Lifecycle {
   public void addListener(@NonNull LifecycleListener listener) {
     lifecycleListeners.add(listener);
 
+    // 把最新界面状态通知给新来的LifecycleListener
     if (isDestroyed) {
       listener.onDestroy();
     } else if (isStarted) {
@@ -384,10 +394,10 @@ public class RequestTracker {
 
 ## 总结
 
-通过上述流程可知，__Glide__ 的图片加载生命周期管理依赖传入的实例。如果实例类型为 __Activity__，__Glide__ 就能向里面注册一个没有界面的 __Fragment__ 达到监听生命周期变化的目的。
+通过上述流程可知，__Glide__ 的图片加载生命周期管理依赖传入的 __Context__ 实例。如果实例类型为 __Activity__，__Glide__ 就能注册一个没有界面的 __Fragment__ 到 __Activity__，达到监听生命周期变化的目的。
 
-所以，该参数应尽可能传入 __Activity__ 或 __Fragment__ 对象，最少也得是 __View__ 持有的 __Context__，而不是 __ApplicationContext__。
+因此，该参数应尽可能传入 __Activity__ 或 __Fragment__ 对象，最少也得是 __View__ 持有的 __Context__，而不是 __ApplicationContext__。不然图片的生命周期会超过界面实际的生命周期。
 
 ![Glide_lifecycle_hierarchy](/img/Glide/Glide_lifecycle_hierarchy.png)
 
-最后，__Glide__ 监听界面生命周期变化没有什么奥秘，就是把定制的 __Fragment__ 添加到图片所在的 __Activity__ 中，利用系统机制监听周期变化，在不同周期的不同加载操作。
+最后，__Glide__ 监听界面生命周期变化没有什么奥秘，就是把定制的 __Fragment__ 添加到图片所在的 __Activity__ 中，利用系统机制监听周期变化，在不同周期通知图片进行不同操作
