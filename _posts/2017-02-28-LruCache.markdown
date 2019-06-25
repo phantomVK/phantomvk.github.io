@@ -26,16 +26,16 @@ public class LruCache<K, V>
 
 ## 二、数据成员
 
-`LruCache`通过`LinkedHashMap`数据结构来完成item的保存，传送门：[LinkedHashMap源码阅读](/2018/07/09/LinkedHashMap/)。
+`LruCache`通过`LinkedHashMap`数据结构完成item的保存，传送门：[LinkedHashMap源码阅读](/2018/07/09/LinkedHashMap/)
 
 ```java
 private final LinkedHashMap<K, V> map;
 ```
 
-两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可能是键的个数(针对Key)，也可能是值总体积(针对Value)。例如通过LruCache缓存图片，既可以通过限制图片数量，也可以限制缓存图片容量总大小实现内存管理。
+以下两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可能是键的个数(针对Key)，也可能是值总体积(针对Value)。例如通过LruCache缓存图片，既可以通过限制图片数量，也可以限制缓存图片容量总大小，实现内存管理。
 
 ```java
-// 以保存数据大小
+// 已保存数据大小
 private int size;
 
 // 最大数据可保存大小

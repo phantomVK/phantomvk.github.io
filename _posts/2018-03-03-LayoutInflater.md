@@ -462,3 +462,8 @@ private final boolean verifyClassLoader(Constructor<? extends View> constructor)
 - `root`不为null，`attachToRoot`为false，则设置布局文件最外层layout属性。当该view添加到父view时，这些layout属性起效；
 - 不设置`attachToRoot`参数且root不为null，`attachToRoot`参数默认为true。
 
+
+
+参考链接：
+
+- [Android应用程序资源的编译和打包过程分析](https://blog.csdn.net/Luoshengyang/article/details/8744683)
