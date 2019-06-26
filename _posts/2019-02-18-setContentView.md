@@ -9,9 +9,11 @@ tags:
     - Android源码系列
 ---
 
+本文章根据 __Android 27.1.1__ 的 __AppCompatActivity__ 研读，比 __Activity__ 实现源码更复杂。
+
 ## 一、Activity
 
-__mWindow__ 是 __Activity__ 的数据成员，源码来自 __Android 27.1.1__
+__mWindow__ 是 __Activity__ 的数据成员，类型是 __Window__。
 
 ```java
 public class Activity extends ContextThemeWrappers
@@ -123,7 +125,7 @@ private boolean mSubDecorInstalled;
 
 ```java
 private void ensureSubDecor() {
-    // 先检查标志位，避免SubDecor重复
+    // 先检查标志位，避免SubDecor重复初始化
     if (!mSubDecorInstalled) {
         // 构建SubDecor
         mSubDecor = createSubDecor();
@@ -157,7 +159,7 @@ private void ensureSubDecor() {
 
 #### 3.2 createSubDecor()
 
-上述 __mSubDecorInstalled__ 为空则创建 __SubDecor__
+上述 __mSubDecorInstalled__ 为 false 则创建 __SubDecor__
 
 ```java
 private ViewGroup createSubDecor() {
@@ -242,7 +244,7 @@ private ViewGroup createSubDecor() {
 
         // 把PhoneWindow名为android.R.id.content视图的id去掉
         windowContentView.setId(View.NO_ID);
-        // 设置contentView的id为android.R.id.content
+        // 设置SubDecor.contentView的id为android.R.id.content
         // 相当于PhoneWindow把同名id让给subDecor的子视图使用
         contentView.setId(android.R.id.content);
 
@@ -253,7 +255,7 @@ private ViewGroup createSubDecor() {
         }
     }
 
-    // 还要subDecor加到PhoneWindow作为子视图
+    // 还要把subDecor加到PhoneWindow作为子视图
     mWindow.setContentView(subDecor);
 
     contentView.setAttachListener(new ContentFrameLayout.OnAttachListener() {
@@ -501,8 +503,6 @@ protected ViewGroup generateLayout(DecorView decor) protected ViewGroup generate
         mClipToOutline = a.getBoolean(R.styleable.Window_windowClipToOutline, false);
         mTextColor = a.getColor(R.styleable.Window_textColor, Color.TRANSPARENT);
     }
-
-    // 填充window decor.
 
     // 通过设置的features决定layoutResource的id
     int layoutResource;
