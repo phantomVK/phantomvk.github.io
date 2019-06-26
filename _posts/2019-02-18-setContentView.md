@@ -618,7 +618,7 @@ public void onContentChanged() {
 
 假设 __ContentRoot__ 布局为 __R.layout.screen_simple__，__SubDecorView__ 布局为 __R.layout.abc_screen_simple__，均为最简单的默认布局，则填充完成的效果如下：
 
-![Window](/img/android/Activity/Window.jpg)
+![Window](/img/android/Activity/Window.png)
 
 __setContentView(int resId)__ 工作流程：
 
