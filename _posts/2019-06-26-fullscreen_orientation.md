@@ -27,7 +27,7 @@ java.lang.RuntimeException:Unable to start activity ComponentInfo{com.xx.xx/com.
 
 #### 状况
 
-代码一直都在 __Activity__ 基类的 __onCreate()__ 中调用方向锁定
+一直都在 __Activity__ 基类的 __onCreate()__ 中用代码锁定屏幕方向
 
 ```kotlin
 requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -102,4 +102,4 @@ public static boolean isTranslucentOrFloating(TypedArray attributes) {
 
 从个人角度来看，官方在这个问题上的处理手段极为粗暴。正常来说，检查全屏和屏幕方向条件后， 应该先警告开发者，且忽略已经指定的设置，保证应用运行时兼容性。
 
-结果现在非要粗暴抛出异常，非常不厚道。如果测试没有覆盖 __Android 8.0 - Android 8.1__，只验证 __Android9.0__，或者依赖第三方SDK造成问题，发生产完蛋了。
+结果现在非要粗暴抛出异常，非常不厚道。如果测试没有覆盖 __Android 8.0 - Android 8.1__，只验证 __Android9.0__，或者依赖第三方SDK引起问题，导致后果非常严重

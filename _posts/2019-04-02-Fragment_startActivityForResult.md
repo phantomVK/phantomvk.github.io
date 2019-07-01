@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Fragment.startActivityForResult逻辑"
+title:      "Fragment.startActivityForResult"
 date:       2019-04-02
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -143,4 +143,4 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
 由于上述调用位于 __FragmentActivity__ 中，如果重写该方法时没调用 __super.onActivityResult(int requestCode, int resultCode, Intent data)__，页面返回的请求没有正确处理，对应 __Fragment__ 也不会接受到该结果通知。
 
-可知，__Activity__ 自己调用 __onActivityResult__ 方法时传入的 __requestCode__ 不能大于 __0xffff__，否则会和来自 __Fragment__ 的请求 __requestCode__ 混淆。
+可知，__Activity__ 自己调用 __onActivityResult__ 方法时传入的 __requestCode__ 不能大于 __0xFFFF__，否则会和来自 __Fragment__ 的请求 __requestCode__ 混淆。
