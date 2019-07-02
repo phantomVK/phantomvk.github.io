@@ -64,9 +64,10 @@ ga_track_id: 'UA-117584603-1'            # Format: UA-xxxxxx-xx
 
 
 # Sidebar settings
-sidebar: true                           # whether or not using Sidebar.
-sidebar-about-description: "Time is elapsing."
+sidebar: true                        # whether or not using Sidebar.
+sidebar-author-name: phantomVK       # author name above sidebar's avatar.
 sidebar-avatar: /img/avatar.jpg      # use absolute URL, seeing it's used in both `/` and `/about/`
+sidebar-about-description: "Time is elapsing."
 
 
 

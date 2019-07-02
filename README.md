@@ -123,7 +123,7 @@ RSS: false
 
 ### 六、Google analytics
 
-使用新版本Google analytics方法，同时排除本地服务器浏览的流量对GA的影响。
+使用新版 __Google analytics__，并避免本地预览流量对统计结果的干扰。
 
 ```html
 {% if site.url contains 'localhost' %}
@@ -141,7 +141,7 @@ RSS: false
 {% endif %}
 {% endif %}
 ```
-### 七、HTML代码压缩
+### 七、网页压缩
 默认开启压缩，关闭压缩请按照以下步骤进行
  1. 移除`_layouts/default.html`头部以下代码:
 ```
@@ -159,9 +159,19 @@ compress_html:
   endings:        all
   startings:      [html, head, body]
 ```
+### 八、已处理
+
+- 2019-07-02: 侧边栏作者昵称没有抽象到配置文件
+
+
+### 九、待处理
+
+1. Fix: 文章双滚动条缺陷；
+2. Support: 本地文章搜索；
+3. Support: 引用代码展示行数；
 
 # License
 
     MIT License Copyright (c) 2013-2016 Blackrock Digital LLC.
     Apache License 2.0 Copyright(c) 2015-2016 Huxpro  
-    Apache License 2.0 Copyright(c) 2016 phantomVK
+    Apache License 2.0 Copyright(c) 2016-2019 phantomVK
