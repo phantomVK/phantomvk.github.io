@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - Architectural Pattern
+    - Design Patterns
 ---
 
 空对象模式(Null Object Pattern)，指通过特定的、没有负载有效数据的空对象，表示实例不存在的默认状态。可用在不能接受 __null__ 的逻辑，或者利用空对象实现区别于实例为空的应用场景。
