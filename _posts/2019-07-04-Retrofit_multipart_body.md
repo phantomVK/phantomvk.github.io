@@ -1,23 +1,33 @@
 ---
 layout:     post
-title:      ""
-subtitle:   ""
-date:       2019-01-01
+title:      "Retrofit使用MultipartBody"
+date:       2019-07-04
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    true
+catalog:    false
 tags:
-    - tags
+    - Network
 ---
+
+指定 __RequestBody__ 上传的文件路径
 
 ```kotlin
 val requestBody = RequestBody.create(MediaType.parse("file/*"), File(filepath))
+```
+
+构建 __MultipartBody __ 消息体
+
+```kotlin
 val body = MultipartBody.Builder()
         .setType(MultipartBody.FORM)
         .addFormDataPart("convertType", type)
-        .addFormDataPart("file", fileName ?: "预览文件", requestBody)
+        .addFormDataPart("file", fileName, requestBody)
         .build()
+```
 
+发出请求即可
+
+```kotlin
 val request = Request.Builder()
         .url(urlString)
         .post(body)
