@@ -1,10 +1,21 @@
-__Jekyll__ 依赖 __Ruby__ 语言，需要先安装。
+---
+layout:     post
+title:      "安装Jekyll本地环境"
+date:       2019-07-06
+author:     "phantomVK"
+header-img: "img/main_img.jpg"
+catalog:    false
+tags:
+    - Jekyll
+---
+
+__Jekyll__ 依赖 __Ruby__ 语言，需要先安装
 
 ```bash
 $ sudo apt install ruby
 ```
 
-__RubyGems__ 是 __Ruby__ 的包管理器，命令为 __gem__。安装 __Ruby__ 之后直接安装 __Jekyll__ 可能会报以下错误。
+类似 __pip__ 于 __Python__，__RubyGems__ 是 __Ruby__ 的包管理器，其终端命令为 __gem__。安装 __Ruby__ 之后用 __gem__ 直接安装 __Jekyll__ 可能会报以下错误：
 
 ```bash
 $ sudo gem install jekyll 
@@ -29,28 +40,30 @@ Gem files will remain installed in /var/lib/gems/2.5.0/gems/http_parser.rb-0.6.0
 Results logged to /var/lib/gems/2.5.0/extensions/x86_64-linux/2.5.0/http_parser.rb-0.6.0/gem_make.out
 ```
 
-所以需要安装开发套件
+因此需安装 __Ruby__ 的开发插件
 
 ```bash
 $ sudo apt-get install ruby`ruby -e 'puts RUBY_VERSION[/\d+\.\d+/]'`-dev
 ```
 
-然后再尝试安装 __Jekyll__
+继续安装 __Jekyll__
 
 ```bash
 $ sudo gem install jekyll
 ```
 
-其次 Jekyll 还依赖 __jekyll-paginate__，需要安装一下
+其次 __Jekyll__ 还依赖 __jekyll-paginate__
 
 ```bash
 $ sudo gem install jekyll-paginate
 ```
 
-所有配置完成后，移动到文件夹下启动服务即可
+所有配置完成后，终端移动到目标文件夹下启动服务即可
 
 ```bash
 $ jekyll serve
 ```
+
+参考链接：
 
 - [Error while installing json gem 'mkmf.rb can't find header files for ruby'](https://stackoverflow.com/q/20559255/8750399)
