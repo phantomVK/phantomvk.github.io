@@ -11,11 +11,11 @@ tags:
 
 ## 一、简介
 
-__EventBus__ 消息支持通过不同线程模式发送并调起目标方法，以满足 __Android__ 不同应用场景的要求。通过订阅者的[订阅方法](/2018/11/14/EventBus_1_Register/#21-订阅者)可知，线程模式通过注解参数进行配置。
+__EventBus__ 消息支持通过不同线程模式发送并调起目标方法，以满足 __Android__ 不同应用场景。通过订阅者的[订阅方法](/2018/11/14/EventBus_1_Register/#21-订阅者)可知，线程模式通过注解参数进行配置。
 
 ## 二、用法
 
-注册类必须包含至少一个接收事件的方法，如果不满足此条件，订阅类注册EventBus时会抛出异常。其次，订阅方默认在主线程被调起。
+注册类必须包含至少一个接收事件的方法，如果不满足此条件，订阅类注册到 __EventBus__ 时会抛出异常。若没有设置 __threadMode__ ，订阅方法默认在主线程调用。
 
 ```java
 @Subscribe(threadMode = ThreadMode.MAIN, sticky = false, priority = 0)
@@ -28,7 +28,7 @@ fun onEventReceived(event: UserEvent) {
 
 ## 三、类介绍
 
-__Subscribe__ 接口是用于修饰订阅方法的注解， __threadMode()__ 决定订阅者方法触发时所在的线程。
+__Subscribe__ 接口是用于修饰订阅方法的注解。
 
 ```java
 @Documented
@@ -55,7 +55,7 @@ __ThreadMode__ 枚举类包含5种线程模式：
 
 #### 4.1 POSTING
 
-订阅方法在发布线程上调起，这是 __EventBus__ 默认的线程模式。因为能完全避免线程切换，意味着此线程模式的事件分发能减少性能开销。因此，对可在短时间、主线程完成的任务，本模式是首要推荐的。就是说此模式处理事件时，方法需要迅速执行完毕，并返回方法避免阻塞(主线程)发布线程。
+订阅方法在发布线程上调起，这是 __EventBus__ 的默认线程模式。因为能完全避免线程切换，意味着此线程模式的事件分发能减少性能开销。所以可在短时间、主线程完成的任务，本模式是首要推荐的。就是说此模式处理事件时，方法需要迅速执行完毕，并返回方法避免阻塞(主线程)发布线程。
 
 #### 4.2 MAIN
 
@@ -136,7 +136,7 @@ void invokeSubscriber(Subscription subscription, Object event) {
         // event：调用时传递给方法的参数，即方法接收的消息
         subscription.subscriberMethod.method.invoke(subscription.subscriber, event);
     } catch (InvocationTargetException e) {
-        // 捕获订阅者方法运行时异常，避免导致EventBus崩溃
+        // 捕获订阅者方法运行时异常，避免EventBus崩溃
         handleSubscriberException(subscription, event, e.getCause());
     } catch (IllegalAccessException e) {
         throw new IllegalStateException("Unexpected exception", e);

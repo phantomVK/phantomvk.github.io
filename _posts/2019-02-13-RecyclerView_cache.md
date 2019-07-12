@@ -11,7 +11,7 @@ tags:
 
 ## 一、RecyclerView与性能
 
-使用 __RecyclerView__ 的难度可大可小。仅作为单一类型列表展示，只要对视图布局进行优化，减低层次复杂度，几乎不可能存在性能问题。
+使用 __RecyclerView__ 的难度可大可小。仅作为单一类型列表展示，只要对视图进行优化，降低布局复杂度，很少不可能存在性能问题。
 
 若列表分类多、样式差异大，类似微信聊天消息界面，问题的难度提升不少。需要在预加载、复用上做进一步调优，单纯实现 __onCreateViewHolder()__ 和 __onBindViewHolder()__ 并不能满足需求。总的来说，就是以追求视图出现在屏幕前耗费最少时间为目标。
 
@@ -325,9 +325,9 @@ private boolean tryBindViewHolderByDeadline(ViewHolder holder, int offsetPositio
 
 ## 六、RecycledViewPool
 
-__RecycledViewPool__ 可在多个 __RecyclerViews__ 间共享。如果这么做，则需创建 __RecycledViewPool__，通过 __RecyclerView.setRecycledViewPool(RecycledViewPool)__ 绑定到 __RecyclerView__ 上。如果没有给 __RecyclerView__ 指定任何 __RecycledViewPool__，则会自行创建该实例。
+若要把 __RecycledViewPool__ 在多个 __RecyclerViews__ 间共享，只需主动创建该实例，通过 __RecyclerView.setRecycledViewPool(RecycledViewPool)__ 绑定到 __RecyclerView__ 上。如果没有给 __RecyclerView__ 指定任何 __RecycledViewPool__，则会自行创建该实例。
 
-每个 __type__ 默认缓存5个 __ViewHolder__，可针对不同 __type__ 定义缓存数量。例如增加体积较小 __ViewHolder__ 的缓存数量，保证缓存对象足够填满屏幕且无需创建新对象。
+每个 __type__ 默认缓存5个 __ViewHolder__，可针对不同 __type__ 修改需缓存数量。例如：增加显示面积较小 __ViewHolder__ 缓存的数量，保证缓存对象足够填满屏幕又无需创建新对象。
 
 ```java
 private static final int DEFAULT_MAX_SCRAP = 5;
@@ -368,7 +368,7 @@ public void setMaxRecycledViews(int viewType, int max) {
 }
 ```
 
-例如：下图样式的 __ViewHolder__ 仅缓存5个，多余视图移出屏幕后会销毁。下次需要该 __ViewHolder__ 又要重新构建，所以提高缓存数量可减少这种情况的发生。
+例如：下图样式的 __ViewHolder__ 仅缓存5个，多余视图移出屏幕后会销毁。下次需要该 __ViewHolder__ 又要重新构建，所以提高缓存数量可减少这种情况发生次数。
 
 ![RecyclerView_demo](/img/android/RecyclerView/RecyclerView_demo_30.png)
 

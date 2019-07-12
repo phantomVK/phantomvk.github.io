@@ -87,9 +87,9 @@ private class MyTask extends AsyncTask<Void, Void, Void> { ... }
 
 ![AsyncTask_Execution](/img/android/images/AsyncTask_Execution.png)
 
-1. __onPreExecute__ 在任务执行前于主线程调用，起配置任务的作用：如在界面上显示进度条；
-2. 随后，在后台线程调用 __doInBackground__。本步骤负责执行时间较长的计算任务，参数在此步骤传递到异步任务。计算结果也在这步骤返给上一步骤。在子线程计算过程中，可通过 __publishProgress__ 传送进度到主线程；
-3. 子线程执行 __publishProgress__ 会触发主线程调用 __onProgressUpdate__，并向界面传送进度值；
+1. __onPreExecute__ 在任务执行前于主线程调用，起配置任务的作用：如在界面上弹出进度条；
+2. 随后在后台线程调用 __doInBackground__。本步骤负责执行时间较长的计算任务，参数在此步骤传递到异步任务。计算结果也在这里返给上游。在子线程计算过程中，可通过 __publishProgress__ 传送进度到主线程；
+3. 子线程执行 __publishProgress__ 触发主线程调用 __onProgressUpdate__，向界面传送进度；
 4. 后台线程执行完毕，计算结果作为参数在主线程传给方法 __onPostExecute__ ；
 
 #### 1.5 取消任务
@@ -98,7 +98,7 @@ private class MyTask extends AsyncTask<Void, Void, Void> { ... }
 
 调用 __cancel(boolean)__ 后，__doInBackground(Object[])__ 返回后的下一个执行方法是 __onCancelled(Object)__，而不是 __onPostExecute(Object)__ 。(参考[小节1.4](/2018/10/21/AsyncTask/#14-4个方法)示意图)
 
-如果可以，为了保证任务能尽早被取消，需周期性地在 __doInBackground(Object[])__ 中检查 __isCancelled()__ 方法的返回值。(参考[小节1.2](/2018/10/21/AsyncTask/#12-组成)示例代码)
+为保证任务能及时取消，需周期性地在 __doInBackground(Object[])__ 中检查 __isCancelled()__ 方法的返回值。(参考[小节1.2](/2018/10/21/AsyncTask/#12-组成)示例代码)
 
 #### 1.6 线程规则
 
@@ -108,7 +108,7 @@ private class MyTask extends AsyncTask<Void, Void, Void> { ... }
 - 任务实例必须在主线程中创建；
 - __execute__ 方法必须在主线程调用；
 - 不得手动调用 __onPreExecute()__ 、__onPostExecute()__、 __doInBackground()__、 __onProgressUpdate()__ ；
-- 每个任务仅能执行一次，任务尝试多次调用会抛出异常；
+- 每个任务仅能执行一次，任务重复启动会抛出异常；
 
 #### 1.7 内存可观察能力
 
@@ -121,17 +121,17 @@ __AsyncTask__ 保证所有回调通过以下安全、不需显式同步的方式
 
 历史实现：
 
-- 首次引入 __AsyncTasks__ 类时，任务在单个串行后台线程中执行；
+- 首次发布的 __AsyncTasks__ 类，任务在后台线程中串行执行；
 
 - 从 __VERSION_CODES.DONUT__ 开始改为线程池，并在多线程并行执行；
 
 - 为避免并行计算导致错误，从 __VERSION_CODES.HONEYCOMB__ 始任务回到单线程执行；
 
-如果确实需要并行执行，可以通过 __executeOnExecutor(java.util.concurrent.Executor, Object[])__ 达到使用 __THREAD_POOL_EXECUTOR__ 的目的。
+需要并行执行任务可以通过 __executeOnExecutor(java.util.concurrent.Executor, Object[])__ 达到使用 __THREAD_POOL_EXECUTOR__ 的目的。并行线程池无法约束任务完成的先后顺序，所以任务之间不能有依赖关系。
 
 #### 1.9 关于系统版本
 
-本文介源码来自 __Android 28__ 。但不同历史版本源码实现方法差别非常大，也会出现不同结果。所以在实际运行过程中，务必关注运行时系统版本。
+本文源码来自 __Android 28__ 。但不同历史版本源码实现方法差别非常大，也会出现不同结果。所以在实际运行过程中，务必关注运行时系统版本。
 
 ## 二、常量
 
@@ -143,13 +143,13 @@ __AsyncTask__ 保证所有回调通过以下安全、不需显式同步的方式
 private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
 ```
 
-线程池核心线程数最少2个线程、最多4个线程。在遵循此前提下，更倾向核心线程数比处理器实际核心数少1个，避免完全占用处理器而影其他后台任务的执行
+__核心线程数__ 最少2个线程、最多4个线程。遵循此前提下，__AsyncTask__ 倾向核心线程数比实际核心数少1个，避免完全占用处理器而影其他任务执行
 
 ```java
 private static final int CORE_POOL_SIZE = Math.max(2, Math.min(CPU_COUNT - 1, 4));
 ```
 
-线程池最大线程数
+线程池 __最大线程数__
 
 ```java
 private static final int MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
@@ -161,21 +161,19 @@ private static final int MAXIMUM_POOL_SIZE = CPU_COUNT * 2 + 1;
 private static final int KEEP_ALIVE_SECONDS = 30;
 ```
 
-线程工厂，为并行任务的Executor构建线程
+线程工厂为并行任务构建新线程
 
 ```java
 private static final ThreadFactory sThreadFactory = new ThreadFactory() {
-    // 原子变量，从1开始递增
-    private final AtomicInteger mCount = new AtomicInteger(1);
+    private final AtomicInteger mCount = new AtomicInteger(1); // 原子整形，从1开始递增
 
     public Thread newThread(Runnable r) {
-        // 设置线程名称
-        return new Thread(r, "AsyncTask #" + mCount.getAndIncrement());
+        return new Thread(r, "AsyncTask #" + mCount.getAndIncrement()); // 设置线程名称
     }
 };
 ```
 
-执行任务Executor的阻塞队列，队列长度128
+缓存任务的阻塞队列，长度128
 
 ```java
 private static final BlockingQueue<Runnable> sPoolWorkQueue =
@@ -202,7 +200,7 @@ static {
 
 #### 2.2 串行线程池
 
-同一进程共用一个Executor顺序执行任务，任务每次执行一个
+同一进程共用一个Executor顺序执行任务
 
 ```java
 public static final Executor SERIAL_EXECUTOR = new SerialExecutor();
@@ -282,10 +280,11 @@ private static class SerialExecutor implements Executor {
     // 存放Runnable的任务队列，ArrayDeque本身非线程安全
     final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>();
 
-    // 下一个被执行的Runnable
+    // 正在执行的Runnable
     Runnable mActive;
 
-    // SerialExecutor进程内只有一个实例，方法使用synchronized修饰，保证mTasks操作线程安全
+    // 进程内只有一个SerialExecutor实例
+    // 方法使用synchronized修饰，保证mTasks操作线程安全，用于放新任务到队列
     public synchronized void execute(final Runnable r) {
         mTasks.offer(new Runnable() {
             public void run() {
@@ -315,19 +314,19 @@ private static class SerialExecutor implements Executor {
 }
 ```
 
-任务虽然由并行执行线程池负责执行，但是所有任务都由串行执行线程池提供，从上一个已完成任务调用 __scheduleNext()__ 唤醒下一个等待任务。除非主动调用其他方法，否则每次默认只有一个任务在并行执行线程池内执行。
+虽然任务在 __THREAD_POOL_EXECUTOR__ 执行，但是都由 __SERIAL_EXECUTOR__ 调度。从上一个完成任务调用 __scheduleNext()__ 唤醒下一个任务。除非主动把任务添加到并行线程池，否则每次只有一个任务在并行执行线程池内执行。
 
 ## 五、状态枚举
 
-任务的状态枚举，用于表示指定任务当前处理状态
+任务状态枚举，表示任务当前运行时状态
 
 ```java
 public enum Status {
-    PENDING, // 任务正在尚未被执行，正在排队等待
+    PENDING, // 任务尚未执行，正在排队等待
 
     RUNNING, // 任务正在执行(运算)标志
 
-    FINISHED, // 任务已经执行完毕：先调用onPostExecute()，再把状态置为此值
+    FINISHED, // 任务执行完毕：先调用onPostExecute()，再把状态置为此值
 }
 ```
 
@@ -417,7 +416,7 @@ private void postResultIfNotInvoked(Result result) {
 }
 ```
 
-首先，把结果封装到 __AsyncTaskResult__ 中，结果类型为 __Result__，然后放到Message.obj中发送到目标 __Handler__
+首先，把结果封装到 __AsyncTaskResult__ 中，结果类型为 __Result__，然后放到 __Message.obj__ 中发送到目标 __Handler__
 
 ```java
 private Result postResult(Result result) {
@@ -655,7 +654,7 @@ private static class InternalHandler extends Handler {
 
 ## 九、WorkerRunnable
 
-WorkerRunnable实现Callable接口。相比Runnable接口，Callable会在运行成功完成后返回运行结果。此类是抽象类，子类需实现`call()`抽象方法
+WorkerRunnable实现Callable接口。相比Runnable接口，Callable会在完成后返回结果，子类需实现`call()`抽象方法
 
 ```java
 private static abstract class WorkerRunnable<Params, Result> implements Callable<Result> {

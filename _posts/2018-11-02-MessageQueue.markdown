@@ -33,7 +33,7 @@ __MessageQueue__、__Looper__ 和 __Thread__ 的关系图解：
 private final boolean mQuitAllowed;
 ```
 
-由c原生代码使用的变量（估计是指示消息队列在底层的ID）
+由C语言使用的变量（估计是指示消息队列在底层的ID）
 
 ```java
 @SuppressWarnings("unused")
@@ -46,19 +46,19 @@ private long mPtr;
 Message mMessages;
 ```
 
-IdleHandler列表
+__IdleHandler__ 列表
 
 ```java
 private final ArrayList<IdleHandler> mIdleHandlers = new ArrayList<IdleHandler>();
 ```
 
-FileDescriptorRecord的稀疏阵列
+__FileDescriptorRecord__ 的稀疏阵列
 
 ```java
 private SparseArray<FileDescriptorRecord> mFileDescriptorRecords;
 ```
 
-IdleHandler数组
+__IdleHandler__ 数组
 
 ```java
 private IdleHandler[] mPendingIdleHandlers;

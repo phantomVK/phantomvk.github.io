@@ -81,8 +81,8 @@ public IntentService(String name) {
 
 ## 五、成员方法
 
-若 __enabled__ 为 __true__，__onStartCommand(Intent, int, int)__ 返回 __Service.START_REDELIVER_INTENT__。当 __onHandleIntent(Intent)__ 执行结束前服务死亡，服务会重启并重分发最近那个intent。
-若 __enabled__ 为 __false__，服务死亡时所有Intent一并销毁。
+若 __enabled__ 为 __true__，__onStartCommand(Intent, int, int)__ 返回 __Service.START_REDELIVER_INTENT__。当 __onHandleIntent(Intent)__ 结束前服务死亡，服务会重启并重分发最近的 __Intent__。
+若 __enabled__ 为 __false__，服务死亡时销毁所有 __Intent__。
 
 ```java
 public void setIntentRedelivery(boolean enabled) {
@@ -150,24 +150,23 @@ public IBinder onBind(Intent intent) {
 }
 ```
 
-工作线程分派任务时调用此方法，需在子类实现。每次只有一个 __Intent__ 执行，但执行独立于其他应用逻辑的工作线程。运行需较长时间会阻塞相同 __IntentService__ 中的其他请求，不会阻塞其他东西。
+分派任务时调用此方法，需在子类实现。每次只有一个 __Intent__ 执行，执行独立于应用其他工作线程。运行任务需较长时间会阻塞相同 __IntentService__ 的其他请求，但不会阻塞其他线程。
 
-所有请求成功处理后 __IntentService__ 自动停止运行，开发者不需要调用 __stopSelf__ 方法。
+所有请求完成处理后 __IntentService__ 自动结束运行，无需主动调用 __stopSelf__ 方法。
 
 ```java
-// @param intent 传递给Context#startService(Intent)的实例
 @WorkerThread
+// @param intent 传递给Context#startService(Intent)的实例
 protected abstract void onHandleIntent(@Nullable Intent intent);
 ```
 
 ## 六、自动结束
 
-执行前半部分流程(1/2)：
+执行流程(1/2)：
 
-- 假设已实现 __IntentService__ 的类为 __WorkerService__；
-- UI通过 __Intent__ 对 __WorkerService__ 发起第一个任务；
--  __WorkerService__ 进入 __onCreate()__ 进行初始化；
--  __onStartCommand()__ 接收 __Intent__ 的同时，还能收到配对 __startId__；
+- 假设 __IntentService__ 实现类为 __WorkerService__，通过 __Intent__ 首次发起任务；
+-  __WorkerService__ 收起启动进入 __onCreate()__ 初始化；
+-  __onStartCommand()__ 接收 __Intent__ 同时，还能收到配对 __startId__；
 - __onStart()__ 方法内：__Intent__ 和 __startId__ 构造为 __Message__，放入消息队列等待处理；
 
 ```java
@@ -179,11 +178,11 @@ public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
 }
 ```
 
-后半部分流程(2/2)：
+执行流程(2/2)：
 
 - 当 __ServiceHandler__ 任务完成后，从 __Message__ 取出 __startId__ 去调用 __Service.stopSelf(int)__；
 - 系统知道之前传给 __WorkerService__ 的 __Intent__ 已经执行完毕；
-- 如果还有其他id的 __Intent__ 没有调用 __stopSelf__，__WorkerService__ 会持续运行直至所有id都停止
+- 若还有 __startId__ 的 __Intent__ 没有调用 __stopSelf__，__WorkerService__ 持续运行直至所有任务完成
 
 ```java
 private final class ServiceHandler extends Handler {
@@ -203,9 +202,9 @@ private final class ServiceHandler extends Handler {
 
 ## 七、相关链接
 
-[Android源码系列(4) -- Handler](/2016/12/01/Android_Handler/)
+- [Android源码系列(4) -- Handler](/2016/12/01/Android_Handler/)
 
-[Android源码系列(5) -- Looper](/2016/12/03/Android_Looper/)
+- [Android源码系列(5) -- Looper](/2016/12/03/Android_Looper/)
 
-[Android源码系列(11) -- HandlerThread](/2018/06/13/HandlerThread/)
+- [Android源码系列(11) -- HandlerThread](/2018/06/13/HandlerThread/)
 

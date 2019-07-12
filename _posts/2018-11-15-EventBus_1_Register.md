@@ -40,6 +40,8 @@ __EventBus__ 是为 __Android__ 而设，处于中心的 __publish/subscribe (�
 * 已经过累计 100,000,000+ 安装量的应用验证
 * 包含消息分发线程、订阅者优先级等高级特性
 
+官方文档没有提及，__EventBus__ 在进程(VM)创建单例，所有消息送到同进程的消息中心，由消息中心分发给同进程的实例，运行在不同进程的页面没法收到来自其他进程的消息。要实现跨进程消息分发必须使用 __Socket__、__Binder__ 等方法。
+
 #### 1.3 版本
 
 __EventBus__ 自17年年底开始，基本停止代码提交，可认为 __EventBus__ 功能稳定无变动。处于这种状况的开源库非常合适进行源码剖析，而本篇文章基于当时最新正式版 __3.1.1__ 开展。
@@ -335,7 +337,7 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
         }
     }
 
-    // 获取同一事件的阅记录数量
+    // 获取同一事件的订阅记录数量
     int size = subscriptions.size();
     for (int i = 0; i <= size; i++) {
         // 根据方法注解设置的priority值降序排序，并插入新记录事件记录
@@ -348,14 +350,14 @@ private void subscribe(Object subscriber, SubscriberMethod subscriberMethod) {
 
     // 通过订阅者类型获取，该订阅者已订阅事件类型
     List<Class<?>> subscribedEvents = typesBySubscriber.get(subscriber);
-    // 如果订阅者首次注册，则该列表为空，并存入刚订阅的事件
+    // 如果订阅者首次注册则该列表为空，并存入刚订阅的事件
     if (subscribedEvents == null) {
         subscribedEvents = new ArrayList<>();
         // 同一订阅者订阅的事件
         typesBySubscriber.put(subscriber, subscribedEvents);
     }
 
-    // 向订阅者订阅事件的列表增加新事件类型
+    // 向订阅者订阅事件列表增加新事件类型
     subscribedEvents.add(eventType);
 
     // 订阅方法的sticky为true，把历史粘性事件发送给新订阅方法
@@ -436,7 +438,7 @@ private void postToSubscription(Subscription subscription, Object event, boolean
                 // 当前线程是主线程，把事件放入后台线程处理队列
                 backgroundPoster.enqueue(subscription, event);
             } else {
-                // 不是主线程，则直接调用订阅者方法
+                // 现在是后台线程，直接调用订阅者方法
                 invokeSubscriber(subscription, event);
             }
             break;

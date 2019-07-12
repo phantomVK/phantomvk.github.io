@@ -110,7 +110,7 @@ public class SubscriberMethod {
 
     private synchronized void checkMethodString() {
         if (methodString == null) {
-            // Method.toString有较大开销，只需要去方法名即可
+            // Method.toString开销较大，只需要取方法名
             StringBuilder builder = new StringBuilder(64);
             // 三元组：订阅者类、订阅方法、订阅消息类型
             builder.append(method.getDeclaringClass().getName());
@@ -149,7 +149,7 @@ public @interface Subscribe {
 }
 ```
 
-注解方法时不需要自定义条件，使用 __@Subscribe__ 不指定参数即可。实例：
+若注解方法无需修改默认条件，则使用 __@Subscribe__ 时不指定参数即可
 
 ```java
 // 三个参数的设置
@@ -161,7 +161,7 @@ fun onEventReceived(event: UserEvent) {
 }
 ```
 
-通过特意构造的实例可知：如果实例没有可执行方法，注册到 __EventBus__ 过程的类扫描会抛出异常：
+如果实例没有可执行方法，注册到 __EventBus__ 过程的类扫描会抛出异常：
 
 ```
 java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk.playground/com.phantomvk.playground.MainActivity}: org.greenrobot.eventbus.EventBusException: Subscriber class com.phantomvk.playground.MainActivity and its super classes have no public methods with the @Subscribe annotation
@@ -171,42 +171,42 @@ java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk
 
 #### 4.1 类签名
 
-前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，降低 __SubscriberMethodFinder__ 类的理解难度。
+前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，降低这里 __SubscriberMethodFinder__ 类的理解难度。
 
 ```java
 class SubscriberMethodFinder 
 ```
 
-此类通过扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。
+通过扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。
 
 #### 4.2 常量
 
-在较新的类文件中编译器可能会添加方法， 这些方法被称为桥梁或合成方法。__EventBus__ 同时忽略这两种方法。这些修饰符都不是 __public__ 的，而是以Java类文件格式定义的：http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6-200-A.1
+较新的类文件中编译器可能会添加额外方法， 这些方法被称为桥梁或合成方法。__EventBus__ 同时忽略这两种方法。这些修饰符都不是 __public__ 的，而是以Java类文件格式定义：http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6-200-A.1
 
 ```java
 private static final int BRIDGE = 0x40;
 private static final int SYNTHETIC = 0x1000;
 ```
 
-忽视抽象方法、静态方法、桥接方法、合成方法
+忽略抽象方法、静态方法、桥接方法、合成方法
 
 ```java
 private static final int MODIFIERS_IGNORE = Modifier.ABSTRACT | Modifier.STATIC | BRIDGE | SYNTHETIC;
 ```
 
-扫描订阅者和订阅方法后生成的缓存
+扫描订阅者和订阅方法后生成缓存
 
 ```java
 private static final Map<Class<?>, List<SubscriberMethod>> METHOD_CACHE = new ConcurrentHashMap<>();
 ```
 
-FindState对象缓存池大小
+__FindState__ 对象缓存池大小
 
 ```java
 private static final int POOL_SIZE = 4;
 ```
 
-FindState对象缓存池
+__FindState__ 对象缓存池
 
 ```java
 private static final FindState[] FIND_STATE_POOL = new FindState[POOL_SIZE];
@@ -233,7 +233,7 @@ SubscriberMethodFinder(List<SubscriberInfoIndex> subscriberInfoIndexes, boolean 
 
 #### 4.5 findSubscriberMethods
 
-在订阅者类内扫描订阅者方法，如果订阅者类没有目标方法直接抛出异常。先从缓存列表中查找缓存能减少扫描的时间，缓存命中就不需要从订阅者类中进行查找。
+在订阅者类内扫描订阅者方法，如果订阅者类没有目标方法直接抛出异常。从缓存列表中查找缓存减少扫描时间，缓存命中就不需要从订阅者类中进行查找。
 
 ```java
 List<SubscriberMethod> findSubscriberMethods(Class<?> subscriberClass) {
@@ -291,7 +291,7 @@ private List<SubscriberMethod> findUsingInfo(Class<?> subscriberClass) {
     FindState findState = prepareFindState();
     // 用订阅者类初始化findState
     findState.initForSubscriber(subscriberClass);
-    // 遇到："java."、"javax."、"android."的类名clazz会置空，并令这个循环终止
+    // 遇到："java."、"javax."、"android."的类名clazz会置空，并终止这个循环
     while (findState.clazz != null) {
         // 如果订阅者之前没有注册过，则以下返回值为null，需通过反射的方式查找
         findState.subscriberInfo = getSubscriberInfo(findState);

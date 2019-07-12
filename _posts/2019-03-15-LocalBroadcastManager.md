@@ -25,12 +25,13 @@ public final class LocalBroadcastManager
 
 ## 二、记录
 
-注册广播接收者
+注册广播接收者，注册时用户提供的信息会封装到此对象，发送广播时会筛选符合条件的 __ReceiverRecord__ 。
 
 ```java
 private static final class ReceiverRecord {
-    // 用于筛选目标广播的IntentFilter
+    // 注册广播的接收条件
     final IntentFilter filter;
+    // 广播接收者
     final BroadcastReceiver receiver;
     boolean broadcasting;
     boolean dead;
@@ -42,13 +43,13 @@ private static final class ReceiverRecord {
 }
 ```
 
-发送广播信息
+筛选后符合条件的 __ReceiverRecord__ 保存到 __BroadcastRecord.receivers__，然后通过观察者模式逐个通知列表中的 __ReceiverRecord__。
 
 ```java
 private static final class BroadcastRecord {
-    // 发送广播中携带的数据
+    // 发送广播携带的数据
     final Intent intent;
-    // 广播接收者
+    // 广播接收记录
     final ArrayList<ReceiverRecord> receivers;
 
     BroadcastRecord(Intent _intent, ArrayList<ReceiverRecord> _receivers) {
@@ -86,7 +87,7 @@ private static LocalBroadcastManager mInstance;
 
 ## 四、实例
 
-同一个进程中所有线程共享同一个 __LocalBroadcastManager__ 实例。而 __LocalBroadcastManager__ 初始化时持有 __ApplicationContext__，显然其生命周期和整个进程相同。
+同进程所有线程共享一个 __LocalBroadcastManager__ 实例。而 __LocalBroadcastManager__ 初始化时持有 __ApplicationContext__，显然其生命周期和整个进程相同。
 
 ```java
 @NonNull
@@ -209,11 +210,12 @@ public void unregisterReceiver(@NonNull BroadcastReceiver receiver) {
 
 #### 6.3 发送广播
 
-通过 __Intent__ 发送广播。此方法的调用是异步的，方法执行后会马上返回，而接收器也会同时执行。
+通过 __Intent__ 发送广播。先获取线程锁 __mReceivers__，所以可以多线程操作。广播正在主线程分发的时候也会获取该锁，所以不存在线程安全问题。
 
 ```java
 public boolean sendBroadcast(@NonNull Intent intent) {
     synchronized (mReceivers) {
+        // 分析Intent
         final String action = intent.getAction();
         final String type = intent.resolveTypeIfNeeded(
                 mAppContext.getContentResolver());
@@ -227,17 +229,20 @@ public boolean sendBroadcast(@NonNull Intent intent) {
             ArrayList<ReceiverRecord> receivers = null;
             for (int i=0; i<entries.size(); i++) {
                 ReceiverRecord receiver = entries.get(i);
-
+              
+                // 同一个ReceiverRecord多次注册相同条件的IntentFilter不会重复通知
                 if (receiver.broadcasting) {
                     continue;
                 }
 
+                // 检查此ReceiverRecord是否满足接收事件的条件
                 int match = receiver.filter.match(action, type, scheme, data,
                         categories, "LocalBroadcastManager");
                 if (match >= 0) {
                     if (receivers == null) {
                         receivers = new ArrayList<ReceiverRecord>();
                     }
+                    // 加入到待通知列表
                     receivers.add(receiver);
                     receiver.broadcasting = true;
                 }
@@ -276,6 +281,7 @@ public void sendBroadcastSync(@NonNull Intent intent) {
 private void executePendingBroadcasts() {
     while (true) {
         final BroadcastRecord[] brs;
+        // 上线程锁
         synchronized (mReceivers) {
             // 获取待处理广播的数量
             final int N = mPendingBroadcasts.size();
@@ -306,7 +312,3 @@ private void executePendingBroadcasts() {
     }
 }
 ```
-
-## 七、参考链接
-
-- [LocalBroadcastManager原理分析](https://gityuan.com/2017/04/23/local_broadcast_manager/)

@@ -11,14 +11,14 @@ tags:
 
 ## 一、类签名
 
-ArrayList在多线程操作下是不安全的，为此应使用CopyOnWriteArrayList。通过CopyOnWrite(简称COW，写时复制)策略，所有读取共享同一个数组对象，修改时另拷贝出新数组，操作在新数组上完成后再用此新数组替换旧数组。
+__ArrayList__ 在多线程操作下是不安全的，为此应使用 __CopyOnWriteArrayList__。通过CopyOnWrite(简称COW，写时复制)策略，所有读取共享同一个数组对象，修改时另拷贝出新数组，操作在新数组完成后再替换掉旧数组。
 
 ```java
 public class CopyOnWriteArrayList<E>
     implements List<E>, RandomAccess, Cloneable, java.io.Serializable
 ```
 
-由于修改时方法会自行拷贝得到新数组，所以在这段时间，内存中同时存在原数组对象和新数组对象。如果修改操作过于频繁，产生大量废弃对象将增加垃圾回收负担。
+由于修改时方法会自行拷贝得到新数组，所以这段时间内存同时存在原数组和新数组对象。如果修改操作过于频繁，产生大量废弃对象将增加垃圾回收负担。
 
 由此，可推理出此类适合在读多写少的场景下使用。通过读写分离，即使修改操作费时也不会阻塞读取，而读取的数组数据未必是最新的。还有修改操作是线程安全的，每次最多只有一个线程在进行修改，以此保证数据最终一致性。
 
@@ -26,7 +26,7 @@ public class CopyOnWriteArrayList<E>
 
 ## 二、数据成员
 
-通过网上阅读JDK8版本的CopyOnWriteArrayList源码，可了解以前约束同步使用的是ReentrantLock。而在JDK10中用synchronized (lock)方式，暂时不知道对性能有多大提升。
+通过网上阅读JDK8版本的 __CopyOnWriteArrayList__ 源码，可了解以前约束同步使用的是 __ReentrantLock__。而在JDK10中用 __synchronized (lock)__ 方式，暂时不知道对性能有多大提升。
 
 ```java
 final transient Object lock = new Object();

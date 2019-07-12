@@ -15,7 +15,7 @@ tags:
 val requestBody = RequestBody.create(MediaType.parse("file/*"), File(filepath))
 ```
 
-构建 __MultipartBody __ 消息体
+构建 __MultipartBody__ 消息体
 
 ```kotlin
 val body = MultipartBody.Builder()

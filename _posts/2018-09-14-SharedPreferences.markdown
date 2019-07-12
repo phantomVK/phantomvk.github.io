@@ -11,10 +11,6 @@ tags:
 
 # 一、概述
 
-## 1.1 简介
-
-## 1.2 用法
-
 首先获取 __SharedPreferences__ 实例，调用 __sp.edit()__ 获得可编辑实例，写入数据并提交。
 
 ```java
@@ -29,7 +25,7 @@ editor.putString("String", "SharedPreferences String");
 editor.apply();
 ```
 
-__Android Studio__ 右下角有 __Device File Explorer__，按照以下路径找出保存的 `<PrefsName>.xml` 。文件名为 __getSharedPreferences("PrefsName", MODE_PRIVATE)__ 中的实参值。
+__Android Studio__ 右下角有 __Device File Explorer__，按照以下路径找出保存的 `<PrefsName>.xml` 。文件名为 __getSharedPreferences("PrefsName", MODE_PRIVATE)__ 的实参值。
 
 `/data/data/<Application Package Name>/shared_prefs/<PrefsName>.xml`
 
@@ -39,7 +35,7 @@ __Android Studio__ 右下角有 __Device File Explorer__，按照以下路径找
 <?xml version='1.0' encoding='utf-8' standalone='yes' ?>
 <map>
     <int name="Int" value="1024" />
-    <float name="Float" value="3.1415925" />
+    <float name="Float" value="3.1415926" />
     <boolean name="Boolean" value="true" />
     <long name="Long" value="47526348576" />
     <string name="String">SharedPreferences String</string>
@@ -54,12 +50,12 @@ __Android Studio__ 右下角有 __Device File Explorer__，按照以下路径找
 
 __SharedPreferences__ 是接口，源码在 __/frameworks/base/core/java/android/content__
 
-读写由getSharedPreferences返回的数据。修改操作需通过Editor对象，以保证数据一致性并控制回写的时机。此类不建议作为IPC使用，但在相同进程不同线程调用时线程安全
+读写由 __getSharedPreferences__ 返回的数据。修改操作需通过 __Editor__ 对象，以保证数据一致性并控制回写时机。不建议作为IPC使用，但相同进程的不同线程调用时线程安全。
 
 ```java
 public interface SharedPreferences {
 
-    // SharedPreference变化事件监听器，源码在后面解释
+    // SharedPreference变化事件监听器，后面解释
     public interface OnSharedPreferenceChangeListener { ... }
 
     // 编辑SharedPreference的Editor
@@ -99,7 +95,7 @@ public interface SharedPreferences {
     // 给preferences创建新Editor
     Editor edit();
     
-    // 新增事件监听器
+    // 注册事件监听器
     void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener);
     
     // 移除事件监听器
@@ -121,26 +117,26 @@ public interface OnSharedPreferenceChangeListener {
 
 #### 2.1.3 Editor接口
 
-__Editor__ 是 __SharedPreferences__ 的内部接口，用于修改 __SharedPreferences__ 的值。所有操作均为批处理，只在调用commit()或apply()后才回写到磁盘
+__Editor__ 是 __SharedPreferences__ 的内部接口，用于修改 __SharedPreferences__ 的值。所有操作均为批处理，只在调用 __commit()__ 或 __apply()__ 后才回写到磁盘
 
 ```java
 public interface Editor {
-    // 向编辑器设置一个String类型的键值对，并在commit或apply方法调用时进行回写
+    // 向编辑器设置String类型键值对，并在commit或apply方法调用时进行回写
     Editor putString(String key, @Nullable String value);
 
-    // 向编辑器设置一个String类型的键值对集合，并在commit或apply方法调用时进行回写
+    // 向编辑器设置String类型键值对集合，并在commit或apply方法调用时进行回写
     Editor putStringSet(String key, @Nullable Set<String> values);
 
-    // 向编辑器设置一个int类型的键值对，并在commit或apply方法调用时进行回写
+    // 向编辑器设置int类型键值对，并在commit或apply方法调用时进行回写
     Editor putInt(String key, int value);
 
-    // 向编辑器设置一个long类型的键值对，并在commit或apply方法调用时进行回写
+    // 向编辑器设置long类型键值对，并在commit或apply方法调用时进行回写
     Editor putLong(String key, long value);
 
-    // 向编辑器设置一个float类型的键值对，并在commit或apply方法调用时进行回写
+    // 向编辑器设置float类型键值对，并在commit或apply方法调用时进行回写
     Editor putFloat(String key, float value);
 
-    // 向编辑器设置一个boolean类型的键值对，并在commit或apply方法调用时进行回写
+    // 向编辑器设置boolean类型键值对，并在commit或apply方法调用时进行回写
     Editor putBoolean(String key, boolean value);
 
     // 移除编辑器中指定的key，并在commit或apply方法调用时进行回写
@@ -151,7 +147,7 @@ public interface Editor {
     // 移除操作在其他操作之前，即不管移除操作是否在添加之后调用，都会优先回写
     Editor clear();
 
-    // 执行所有preferences修改，当有两个editors同时修改preferences，最后一个被调用的总能被执行
+    // 执行所有preferences修改，当两个editor同时修改preferences，最后被调用的总能被执行
     // 如果不关心执行的结果值，且在主线程使用，建议通过apply提交修改
     // true提交并修改成功，false表示失败
     boolean commit();
@@ -260,8 +256,9 @@ SharedPreferencesImpl(File file, int mode) {
 
 #### 2.2.5 成员方法
 
+开始从磁盘加载
+
 ```java
-// 开始从磁盘加载
 private void startLoadFromDisk() {
     synchronized (mLock) {
         mLoaded = false;
@@ -274,7 +271,9 @@ private void startLoadFromDisk() {
         }
     }.start();
 }
+```
 
+```java
 private void loadFromDisk() {
     synchronized (mLock) {
         // 如果别的线程已经完成加载则直接跳出
@@ -327,13 +326,19 @@ private void loadFromDisk() {
         mLock.notifyAll();
     }
 }
+```
 
-// 创建备份文件
+创建备份文件
+
+```java
 static File makeBackupFile(File prefsFile) {
     return new File(prefsFile.getPath() + ".bak");
 }
+```
 
-// 出现意外时开始重新加载
+出现意外时开始重新加载
+
+```java
 void startReloadIfChangedUnexpectedly() {
     synchronized (mLock) {
         if (!hasFileChangedUnexpectedly()) {
@@ -369,8 +374,11 @@ private boolean hasFileChangedUnexpectedly() {
         return !stat.st_mtim.equals(mStatTimestamp) || mStatSize != stat.st_size;
     }
 }
+```
 
-// 注册修改监听器
+注册和移除监听器
+
+```java
 @Override
 public void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener) {
     synchronized(mLock) {
@@ -379,7 +387,6 @@ public void registerOnSharedPreferenceChangeListener(OnSharedPreferenceChangeLis
     }
 }
 
-// 移除修改监听器
 @Override
 public void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeListener listener) {
     synchronized(mLock) {
@@ -387,8 +394,11 @@ public void unregisterOnSharedPreferenceChangeListener(OnSharedPreferenceChangeL
         mListeners.remove(listener);
     }
 }
+```
 
-// 阻塞等待文件内容加载完成
+阻塞等待文件内容加载完成
+
+```java
 private void awaitLoadedLocked() {
     if (!mLoaded) {
         // Raise an explicit StrictMode onReadFromDisk for this
@@ -405,8 +415,11 @@ private void awaitLoadedLocked() {
         }
     }
 }
+```
 
-// 获取所有键值对
+获取所有键值对
+
+```java
 @Override
 public Map<String, ?> getAll() {
     synchronized (mLock) {
@@ -414,7 +427,11 @@ public Map<String, ?> getAll() {
         return new HashMap<String, Object>(mMap);
     }
 }
+```
 
+值获取
+
+```java
 // 获取字符串
 @Override
 @Nullable
@@ -476,8 +493,11 @@ public boolean getBoolean(String key, boolean defValue) {
         return v != null ? v : defValue;
     }
 }
+```
 
-// 检查是否包含指定key
+检查是否包含指定key
+
+```java
 @Override
 public boolean contains(String key) {
     synchronized (mLock) {
@@ -485,21 +505,28 @@ public boolean contains(String key) {
         return mMap.containsKey(key);
     }
 }
+```
 
+阻塞等待加载完成，并返回编辑对象
+
+```java
 @Override
 public Editor edit() {
-    // 阻塞等待加载完成，并返回编辑对象
     synchronized (mLock) {
         awaitLoadedLocked();
     }
 
     return new EditorImpl();
 }
+```
 
-// 从内存写入磁盘任务的队列，顺序是FIFO，依次执行
-// 参数postWriteRunnable非空执行apply()，writeToDiskRunnable完成后执行postWriteRunnable
-// 参数postWriteRunnable为空执行commit()，并允许数据在主线程写入磁盘
-// commit()可减少内存申请和减少后台回写线程，并能通过StrictMode报告优化commit()为apply()
+从内存写入磁盘任务的队列，顺序是FIFO依次执行：
+
+- 参数postWriteRunnable非空执行apply()，writeToDiskRunnable完成后回调；
+- 参数postWriteRunnable为空执行commit()，并允许数据在主线程写入磁盘；
+- commit()可减少内存申请和后台回写线程，可通过StrictMode报告优化commit()为apply()；
+
+```java
 private void enqueueDiskWrite(final MemoryCommitResult mcr,
                               final Runnable postWriteRunnable) {
 
@@ -520,7 +547,7 @@ private void enqueueDiskWrite(final MemoryCommitResult mcr,
                     mDiskWritesInFlight--;
                 }
 
-                // 仅apply()时执行
+                // 仅apply()时执行，触发回调告知写入已完成
                 if (postWriteRunnable != null) {
                     postWriteRunnable.run();
                 }
@@ -528,10 +555,11 @@ private void enqueueDiskWrite(final MemoryCommitResult mcr,
         };
 
     // 更少内存申请的commit()方式，在当前线程写入
+    // 因为子线程也占用内存，同线程写入能节约一个线程所需内存开销
     if (isFromSyncCommit) {
         boolean wasEmpty = false;
         synchronized (mLock) {
-            // 1表示只有当前一个任务需要执行，其他任务为空
+            // 值为1表示只有当前任务在执行，没有其他任务
             wasEmpty = mDiskWritesInFlight == 1;
         }
         if (wasEmpty) {
@@ -545,8 +573,11 @@ private void enqueueDiskWrite(final MemoryCommitResult mcr,
     // 否则把任务放入工作队列按序执行
     QueuedWork.queue(writeToDiskRunnable, !isFromSyncCommit);
 }
+```
 
-// 创建文件的输出流，即保存内容的xml
+创建文件的输出流，即用于保存内容的流
+
+```java
 private static FileOutputStream createFileOutputStream(File file) {
     FileOutputStream str = null;
     try {
@@ -570,8 +601,11 @@ private static FileOutputStream createFileOutputStream(File file) {
     }
     return str;
 }
+```
 
-// 写入文件
+写入文件
+
+```java
 @GuardedBy("mWritingToDiskLock")
 private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
     long startTime = 0;
@@ -632,7 +666,7 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
     }
 
     // 尝试写入文件、删除备份和返回true时，尽可能做到原子性
-    // 如果出现任何异常则删除新文件，并在下一次从备份文件中恢复
+    // 如果出现任何异常则删除新文件，下一次从备份文件中恢复
     try {
         // 创建文件输出流失败
         FileOutputStream str = createFileOutputStream(mFile);
@@ -694,7 +728,7 @@ private void writeToFile(MemoryCommitResult mcr, boolean isFromSyncCommit) {
 
 #### 2.2.6 MemoryCommitResult
 
-是 __SharedPreferencesImpl__ 的内部类
+__MemoryCommitResult__ 是 __SharedPreferencesImpl__ 的内部类
 
 ```java
 // 从EditorImpl.commitToMemory()返回值
@@ -1010,3 +1044,9 @@ public final class EditorImpl implements Editor {
     }
 }
 ```
+
+## 三、总结
+
+由于 __SharedPreferences__ 写入是对文件的操作，即使修改其中一个值，整个记录文件都会重新写入。因此记录的内容越多，读写的时间也越长。虽然提供异步写入，但后台线程依然有可能因为其他IO操作的阻塞而执行较长时间，包括系统和其他正在运行应用所发起的IO操作。
+
+读取指定键值对时，其他键值对会全部加载到内存中，保存所用的 __HashMap__ 也意味着更高的内存开销。考虑到 __SharedPreferences__ 由全局锁控制线程安全，获取 __SharedPreferencesImpl__ 的操作都是串行的。__Application__ 启动时最好少用它来读写值，避免减低应用冷启动的速度。

@@ -31,7 +31,9 @@ public final class DiskLruCache implements Closeable
 
 客户端调用 __get()__ 读取条目的快照。读操作会在 __get__ 方法调用的时候观察值。更新或移除操作不会影响正在进行的读取操作。
 
-本类可容忍少量 I/O 错误。如果文件系统丢失文件，对应的条目会从缓存中删除。假如这个错误发生在缓存写入值的时候，编辑执行操作会悄无声息地失败。注意，调用者需要处理由 __IOException__ 引起的问题。
+本类可容忍少量 I/O 错误。如果文件系统丢失文件，对应的条目会从缓存中删除。假如这个错误发生在缓存写入值的时候，编辑执行操作会静默失败。注意，调用者需要自行处理因 __IOException__ 引起的问题。
+
+以下源码来自 __Glide 4.4.0__ ，不同来源可能会有细微差别，但是总体逻辑和设计思路是一样的，也都是参考 [Jake Wharton](https://github.com/JakeWharton/DiskLruCache) 写的版本。
 
 #### 1.2 日志格式
 
@@ -271,24 +273,31 @@ private void readJournal() throws IOException {
         || !Integer.toString(appVersion).equals(appVersionString)
         || !Integer.toString(valueCount).equals(valueCountString)
         || !"".equals(blank)) {
+      // 外部捕获异常，用新建日志文件替换问题日志
       throw new IOException("unexpected journal header: [" + magic + ", " + version + ", "
           + valueCountString + ", " + blank + "]");
     }
 
     // 日志文件头部内容校验已通过
     int lineCount = 0;
+    // 逐行读取日志，并按照固定格式解析行内容
     while (true) {
       try {
         readJournalLine(reader.readLine());
         // 计算读取的总行数，行数不包括日志头部内容
         lineCount++;
       } catch (EOFException endOfJournal) {
+        // 读取的内容异常，例如：设备突然断电导致日志没写全
         break;
       }
     }
+
+    // 冗余操作计数 = 日志行数 - 缓存实体数量
+    // 若冗余操作计数很大，表示日志可能含有很多冗余的信息，需要进行日志清理
     redundantOpCount = lineCount - lruEntries.size();
 
     // If we ended on a truncated line, rebuild the journal before appending to it.
+    // 上面按照行读取出现异常时，在这里触发日志重建操作
     if (reader.hasUnterminatedLine()) {
       rebuildJournal();
     } else {
@@ -403,7 +412,12 @@ private void processJournal() throws IOException {
 
 #### 5.5 rebuildJournal
 
-创建一个省略多余信息的日志文件，并用新文件替换已经存在的日志文件。
+以下几种情况会重建日志：
+
+1. 缓存是新建立的，没有日志，所以用重建操作完成新建日志文件；
+2. 日志头部内容验证不通过，丢弃该文件并新建日志；
+3. 启动缓存过程中读取已有日志内容出错，要用读取成功的内容重建文件替换已有日志；
+4. 日志记录内容过多会影响io，所以通过重建去除冗余记录；
 
 ```java
 private synchronized void rebuildJournal() throws IOException {
