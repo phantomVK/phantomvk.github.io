@@ -8,58 +8,19 @@ header-img: "img/bg/about.webp"
 
 <!-- Chinese Version -->
 <div class="zh post-container">
+    <p>博主科班出身开发者，现于深圳金融科技业，任职移动开发工程师。编程语言主要为Kotlin，并对Go、Python、Dart、JVM-Based等语言具有浓厚兴趣。热衷于探究JVM运行原理：如Garbage Collection、Performance tuning，同时关注Deep learning等领域。</p>
 
-    <p>博主现居深圳，从事金融科技业的Android开发工程师，常用Java和Kotlin作为编程语言，并对Go、Python、Dart、Scala等语言有浓厚兴趣。热衷于探究JVM运行原理：如Garbage Collection、Performance tuning，同时关注Deep learning等领域。</p>
+    <p>虽然曾通过多种平台撰写文章，但本着方便实用、维护成本低的原则，在Github Pages重新开始博客之旅。文章同时托管在 <a href="https://phantomvk.coding.me/">Coding Pages</a>、<a href="https://phantomvk.github.io/">Github Pages</a>，内容同步更新。</p>
 
-    <p>虽然曾用过多个博客写过文章，但本着方便实用、维护成本低的原则，在github.io上重新开始博客之旅。托管博客能避免花费过多时间在系统维护上，以便集中精力编写文章。本站同时托管在 <a href="https://phantomvk.coding.me/">coding.me</a> 和 <a href="https://phantomvk.github.io/">github.io</a>，内容同步更新。</p>
-
-    <p>常用网站传送门: <a href="https://github.com/phantomVK">github</a>、 <a href="http://www.jianshu.com/users/0540a8ba0654/latest_articles">jianshu</a>、<a href="https://www.zhihu.com/people/phantomvk">zhihu</a>、<a href="https://medium.com/@phantomvk">medium</a></p>
+    <p>常用网站: <a href="https://github.com/phantomVK">github</a>、 <a href="http://www.jianshu.com/users/0540a8ba0654/latest_articles">jianshu</a>、<a href="https://www.zhihu.com/people/phantomvk">zhihu</a>、<a href="https://medium.com/@phantomvk">medium</a>。</p>
     
 	<p>如果您有意联系或提供工作机会，欢迎邮件至: <b>phantomvk@163.com</b></p>
-    
 </div>
-
-
-{% if site.duoshuo_username %}
-<!-- 多说评论框 start -->
-<div class="comment">
-    <div class="ds-thread"
-    {% if site.duoshuo_username == "huxblog" %}
-        data-thread-id="1187623191091085319"
-    {% else %}
-        data-thread-key="{{site.duoshuo_username}}/about"
-    {% endif %}
-
-    data-title="{{page.title}}"
-    data-url="{{site.url}}/about/"></div>
-</div>
-<!-- 多说评论框 end -->
-
-<!-- 多说公共JS代码 start (一个网页只需插入一次) -->
-<script type="text/javascript">
-    // dynamic User hacking by Hux
-    var _user = '{{site.duoshuo_username}}';
-
-    // duoshuo comment query.
-    var duoshuoQuery = {short_name: _user };
-    (function() {
-        var ds = document.createElement('script');
-        ds.type = 'text/javascript';ds.async = true;
-        ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
-        ds.charset = 'UTF-8';
-        (document.getElementsByTagName('head')[0]
-         || document.getElementsByTagName('body')[0]).appendChild(ds);
-    })();
-</script>
-<!-- 多说公共JS代码 end -->
-{% endif %}
-
 
 {% if site.disqus_username %}
 <!-- disqus 评论框 start -->
 <div class="comment">
     <div id="disqus_thread" class="disqus-thread">
-
     </div>
 </div>
 <!-- disqus 评论框 end -->
