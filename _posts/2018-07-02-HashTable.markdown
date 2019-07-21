@@ -254,6 +254,8 @@ protected void rehash() {
 
 #### 4.4 添加
 
+添加新节点
+
 ```java
 private void addEntry(int hash, K key, V value, int index) {
     Entry<?,?> tab[] = table;
@@ -279,6 +281,8 @@ private void addEntry(int hash, K key, V value, int index) {
     modCount++;
 }
 ```
+
+存入新值，若节点存在则直接修改值，否则创建新的节点
 
 ```java
 public synchronized V put(K key, V value) {

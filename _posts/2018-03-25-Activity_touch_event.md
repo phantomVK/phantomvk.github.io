@@ -55,14 +55,14 @@ public void onUserInteraction() {
 
 #### 1.3 onUserLeaveHint()
 
-和`onUserInteraction()`有关的方法。作为activity生命周期的一部分，用户把activity推到后台的时候调用方法。例如用户点击Home键`onUserLeaveHint()`就会被调用。
+和`onUserInteraction()`有关的方法。作为activity生命周期的一部分，用户把activity退到后台的时候调用方法。例如用户点击Home键`onUserLeaveHint()`就会被调用。
 
 ```java
 protected void onUserLeaveHint() {
 }
 ```
 
-但显示来电导致activity被中断并推到后台时，`onUserLeaveHint()`不会调用。在`onPause()`生命周期调用前先触发此方法。
+但显示来电导致activity被中断并退到后台时，`onUserLeaveHint()`不会调用。在`onPause()`生命周期调用前先触发此方法。
 
 #### 1.4 performUserLeaving()
 
@@ -92,7 +92,7 @@ public abstract boolean superDispatchTouchEvent(MotionEvent event);
 #### 2.2 PhoneWindow.superDispatchTouchEvent()
 window的实现类是PhoneWindow，实际调用`PhoneWindow.superDispatchTouchEvent()`，进而调用`mDecor.superDispatchTouchEvent(event)`。
 
-DecorView是一个在PhoneWindow内的成员变量。有很多文章提到DecorView是PhoneWindow内部类。但从`Android27`看来，DecorView是独立的类而不是一个内部类。
+DecorView是PhoneWindow的成员变量。有很多文章提到DecorView是PhoneWindow内部类。但从`Android27`看来，DecorView是独立的类而不是内部类。
 
 ```java
 // 这是windows的的顶级视图，包含了window decor
@@ -176,7 +176,7 @@ public class DecorView extends FrameLayout implements RootViewSurfaceTaker, Wind
 
 #### 3.1 onTouchEvent()
 
-ViewGroup和View都没有消费事件，该事件最终回到activity，并交给activity.onTouchEvent()。
+ViewGroup和View都没有消费事件，该事件最终回到Activity，并交给Activity.onTouchEvent()。
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
@@ -192,7 +192,7 @@ public boolean onTouchEvent(MotionEvent event) {
 
 #### 3.2 Windos.shouldCloseOnTouch()
 
-事件点击在DecorView外且点击事件没有被其他组件消费时，支持关闭activity
+事件点击在DecorView外且点击事件没有被其他组件消费时，支持关闭Activity
 
 ```java
 public boolean shouldCloseOnTouch(Context context, MotionEvent event) {
@@ -231,7 +231,7 @@ public void setCloseOnTouchOutsideIfNotSet(boolean close) {
 }
 ```
 
-检查点击事件是否落在decorView外
+检查点击事件是否落在DecorView外
 
 ```java
 private boolean isOutOfBounds(Context context, MotionEvent event) {
@@ -255,7 +255,7 @@ public abstract View peekDecorView();
 
 #### 3.4 PhoneWindow.peekDecorView()
 
-是返回持有的DecorView
+返回持有的DecorView
 
 ```java
 private DecorView mDecor;
@@ -268,6 +268,6 @@ public final View peekDecorView() {
 
 ## 四、总结
 
-Activity仅有 __dispatchTouchEvent()__ 和 __onTouchEvent()__ 两个主要方法，和View的方法一样没有 __onInterceptTouchEvent()__。
+Activity仅有 __dispatchTouchEvent()__ 和 __onTouchEvent()__ 两个主要方法，和View一样没有 __onInterceptTouchEvent()__。
 
-因为Activity本身默认不处理任何点击事件，只在ViewGroup和View都不处理事件时才尝试消费事件。最终也可能返回false，表示activity也不消费事件。
+因为Activity本身默认不处理任何点击事件，只在ViewGroup和View都不处理事件时才尝试消费事件。最终也可能返回false，表示Activity也不消费事件。
