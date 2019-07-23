@@ -4,22 +4,32 @@ title:      "Application创建过程"
 date:       2019-07-23
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    false
+catalog:    true
 tags:
     - Android
 ---
 
-__Application__ 在Android进程占据重要地位，每个进程只有一个实例，且继承自 __Context__ 父类可直接当 __Context__ 使用。
+## 一、简介
+
+#### 1.1 简介
+
+__Application__ 在Android应用进程占据重要地位，每个进程只有一个实例，继承自 __Context__ 父类可直接当 __Context__ 使用，肩负起众多功能。
 
 ![application_uml](/img/android/Application/application_uml.png)
 
-应用第三方依赖库的初始化、应用全局配置、缓存建立操作都在 __onCreate()__ 过程执行。当依赖库日渐增多，而 __Application__ 初始化又在主线程进行，整个初始化任务越长，导致应用冷启动时间越长。可把不依赖主线程的依赖库，放在子线程进行初始化。
+#### 1.2 启动优化
 
-为了令整个初始化流程更早结束，还要注意子线程数量、子线程最长执行时长，和子线程抢夺主线程时间片等问题。线程创建操作也是耗时操作，且用完的子线程要考虑是否有必要复用。建议直接创建一到两个不复用的子线程用于初始化操作，或在 __AsyncTask__ 内并行执行。
+应用第三方依赖库的 __初始化__、__定义全局配置__、__缓存建立__ 操作都在 __onCreate()__ 执行。当依赖库日渐增多而 __Application__ 初始化又在主线程进行，初始化任务越多，应用冷启动时间越长。因此，可把不依赖主线程的依赖库，放在子线程进行初始化。
+
+为了令整个初始化流程更早结束，还要注意子线程数量、子线程最长执行时长，和子线程抢夺主线程时间片等问题。线程创建操作也是耗时操作，且用完的子线程要考虑是否有必要复用。
+
+个人建议直接创建最多两个不复用的子线程用于初始化操作，或在 __AsyncTask__ 内并行执行。
 
 ```java
 AsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, Param)
 ```
+
+#### 1.3 类声明
 
 没有自定义 __Application__ 的 __AndroidManifest__ 如下：
 
@@ -61,7 +71,9 @@ class Application : Application() {
 }
 ```
 
-然后在 __AndroidManifest__ 内声明自定义的 __Application__。由下面 __package__ 和 __name__ 组合可知自定义 __Application__ 全路径为 __com.phantomvk.messagekit.Application__，后面会用到这个全路径名。如果没有自定义 __Application__，则全路径名默认为 __android.app.Application__，即使已经编写自定义类也不会调用。
+然后在 __AndroidManifest__ 内声明自定义的 __Application__。由下面 __package__ 和 __name__ 组合可知自定义 __Application__ 全路径为 __com.phantomvk.messagekit.Application__，后面会用到这个全路径名。
+
+没有自定义 __Application__ 则全路径名默认为 __android.app.Application__，即使编写自定义类也不会被调用。
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -77,7 +89,73 @@ class Application : Application() {
 </manifest>
 ```
 
-主线程收到 __H.BIND_APPLICATION__ 消息，调用 __handleBindApplication(AppBindData data)__。省略其他不相关的操作，直接来到 __Application__ 的创建流程。
+## 二、启动流程
+
+#### 2.1 IPC注册
+
+App启动时有注册 __ApplicationThread__ 实例到AMS的步骤，注册成功后AMS通过IPC调用 __ApplicationThread.bindApplication()__ 发出 __H.BIND_APPLICATION__ 消息，消息体内附 __AppBindData__ 作为后续初始化所需数据。
+
+```java
+private class ApplicationThread extends IApplicationThread.Stub {
+    public final void bindApplication(String processName, ApplicationInfo appInfo,
+            List<ProviderInfo> providers, ComponentName instrumentationName,
+            ProfilerInfo profilerInfo, Bundle instrumentationArgs,
+            IInstrumentationWatcher instrumentationWatcher,
+            IUiAutomationConnection instrumentationUiConnection, int debugMode,
+            boolean enableBinderTracking, boolean trackAllocation,
+            boolean isRestrictedBackupMode, boolean persistent, Configuration config,
+            CompatibilityInfo compatInfo, Map services, Bundle coreSettings,
+            String buildSerial, boolean autofillCompatibilityEnabled) {
+        .....
+
+        AppBindData data = new AppBindData();
+        data.processName = processName;
+        data.appInfo = appInfo;
+        data.providers = providers;
+        data.instrumentationName = instrumentationName;
+        data.instrumentationArgs = instrumentationArgs;
+        data.instrumentationWatcher = instrumentationWatcher;
+        data.instrumentationUiAutomationConnection = instrumentationUiConnection;
+        data.debugMode = debugMode;
+        data.enableBinderTracking = enableBinderTracking;
+        data.trackAllocation = trackAllocation;
+        data.restrictedBackupMode = isRestrictedBackupMode;
+        data.persistent = persistent;
+        data.config = config;
+        data.compatInfo = compatInfo;
+        data.initProfilerInfo = profilerInfo;
+        data.buildSerial = buildSerial;
+        data.autofillCompatibilityEnabled = autofillCompatibilityEnabled;
+        // 发出H.BIND_APPLICATION消息
+        sendMessage(H.BIND_APPLICATION, data);
+    }
+}
+```
+
+#### 2.2 执行消息
+
+主线程收到 __H.BIND_APPLICATION__ 消息，由 __Handler__ 实现类 __H__ 处理：
+
+```java
+class H extends Handler {
+    public static final int BIND_APPLICATION        = 110;
+
+    public void handleMessage(Message msg) {
+        switch (msg.what) {
+            case BIND_APPLICATION:
+                AppBindData data = (AppBindData)msg.obj;
+                // 调用handleBindApplication()
+                handleBindApplication(data);
+                break;
+
+            .....
+        }
+  }
+```
+
+#### 2.3 初始化
+
+开始调用 __handleBindApplication(AppBindData data)__：
 
 ```java
 private void handleBindApplication(AppBindData data) {
@@ -93,6 +171,7 @@ private void handleBindApplication(AppBindData data) {
         // Propagate autofill compat state
         app.setAutofillCompatibilityEnabled(data.autofillCompatibilityEnabled);
 
+        // 把Application引用保存在ActivityThread.mInitialApplication
         mInitialApplication = app;
 
         // don't bring up providers in restricted mode; they may depend on the
@@ -206,16 +285,19 @@ public Application makeApplication(boolean forceDefaultAppClass,
 }
 ```
 
+#### 2.4 实例创建
+
 展开上述源码中的 __Application__ 反射创建流程。
 
 ```java
 // android.app.Instrumentation
+
 public Application newApplication(ClassLoader cl, String className, Context context)
         throws InstantiationException, IllegalAccessException, 
         ClassNotFoundException {
     Application app = getFactory(context.getPackageName())
             .instantiateApplication(cl, className);
-    // context设置到Applicaton实例父类，即Context的数据成员: Context mBase;
+    // context设置到Applicaton实例父类，即Context的数据成员mBase;
     app.attach(context);
     return app;
 }
@@ -237,9 +319,9 @@ private AppComponentFactory getFactory(String pkg) {
 }
 ```
 
-上文把名为 __context__ 的 __ContextImpl__ 实例设置给 __Applicaton__ 的父类成员 __mBase__。每次把 __Application__ 当 __Context__ 使用时，操作通过 __ContextWrapper__ 委托给 __mBase__ 实例，即上文的 __ContextImpl__ 实例。
+上文把名为 __context__ 的 __ContextImpl__ 实例设置给 __Application__ 的父类成员 __mBase__。每次把 __Application__ 当 __Context__ 使用时，操作通过 __ContextWrapper__ 委托给 __mBase__ 实例，即上文的 __ContextImpl__ 实例。
 
-而实例化 __Application__ 和一般Java反射创建实例没有差别，直接通过类名 __newInstance()__ 得到实例。
+而实例化 __Application__ 和一般Java反射创建实例没有差别，直接通过类名 __newInstance()__ 得到。
 
 ```java
 public @NonNull Application instantiateApplication(@NonNull ClassLoader cl,
@@ -250,4 +332,61 @@ public @NonNull Application instantiateApplication(@NonNull ClassLoader cl,
 }
 ```
 
-__Application__ 基本创建流程全部完成，如果对其他细节感兴趣，可以自行查看 __LoadedApk__、__ContextImpl__、__Instrumentation__ 等类的源码。
+### 三、使用实例
+
+最后看看如何从 __Application__ 获取 __applicationContext__，前者继承自 __ContextWrapper__，功能也在父类实现。
+
+```java
+public class Application extends ContextWrapper implements ComponentCallbacks2
+```
+
+可知 __application.getApplicationContext__ 取自 __ContextWrapper.mBase__。
+
+```java
+public class ContextWrapper extends Context {
+    Context mBase;
+  
+    @Override
+    public Context getApplicationContext() {
+        return mBase.getApplicationContext();
+    }
+}
+```
+
+__mBase__ 为实现抽象类 __Context__ 的 __ContextImpl__ 实例。
+
+```java
+class ContextImpl extends Context {
+    final @NonNull LoadedApk mPackageInfo;
+  
+    @Override
+    public Context getApplicationContext() {
+        return (mPackageInfo != null) ?
+                mPackageInfo.getApplication() : mMainThread.getApplication();
+    }
+}
+```
+
+从 __mPackageInfo.getApplication()__ 进入 __LoadedApk__ 类。这个 __mApplication__ 就是初始化时构建的 __Application__ 实例。
+
+```java
+public final class LoadedApk {
+    private Application mApplication;
+
+    Application getApplication() {
+        return mApplication;
+    }  
+}
+```
+
+## 四、总结
+
+简单流程总结：
+
+- __Application__ 由 __LoadedApk__ 构建，保存到 __mApplication__，引用返回给 __ActivityThread__；
+- __ActivityThread__ 把 __LoadedApk__ 返回的对象保存到 __mInitialApplication__；
+- 因此 __LoadedApk.mApplication__ 和 __ActivityThread.mInitialApplication__ 指向相同对象；
+- 正常情况这两个对象也不可能为空。
+
+__Application__ 基本创建流程如上，如果对其他细节感兴趣，可以自行查看 __LoadedApk__、__ContextImpl__、__Instrumentation__ 等类源码。
+

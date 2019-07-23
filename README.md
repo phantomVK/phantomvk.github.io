@@ -161,9 +161,9 @@ compress_html:
 ```
 ### 八、已处理
 
-- __2019-07-02: SideBar author name没有抽离并放入配置表；__
-- __2019-07-23: Google Site Verification没有抽离并放入配置表；__
-- __2019-07-23: HTML Header author没有抽离并放入配置表；__
+- __2019-07-02 Fix: SideBar author name没有抽离并放入配置表；__
+- __2019-07-23 Fix: Google Site Verification没有抽离并放入配置表；__
+- __2019-07-23 Fix: HTML Header author没有抽离并放入配置表；__
 
 
 ### 九、待处理
