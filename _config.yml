@@ -63,6 +63,11 @@ ga_track_id: 'UA-117584603-1'            # Format: UA-xxxxxx-xx
 
 
 
+# Google site verification
+google-site-verification: 'IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg'
+
+
+
 # Sidebar settings
 sidebar: true                        # whether or not using Sidebar.
 sidebar-author-name: phantomVK       # author name above sidebar's avatar.
