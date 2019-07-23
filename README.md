@@ -150,7 +150,7 @@ layout: compress
 ---
 ```
 
- 2. 注`_config.yml`中以下代码：
+ 2. 注释掉`_config.yml`中以下代码：
 ```
 # compress
 compress_html:
@@ -161,8 +161,9 @@ compress_html:
 ```
 ### 八、已处理
 
-- 2019-07-02: Side bar author name没有抽离并放入配置文件；
-- 2019-07-23: Google site verification没有抽离并放入配置文件；
+- __2019-07-02: SideBar author name没有抽离并放入配置表；__
+- __2019-07-23: Google Site Verification没有抽离并放入配置表；__
+- __2019-07-23: HTML Header author没有抽离并放入配置表；__
 
 
 ### 九、待处理

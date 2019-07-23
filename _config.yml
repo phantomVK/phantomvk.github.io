@@ -5,21 +5,18 @@ header-img: img/bg/home.webp
 email: phantomtvk@gmail.com
 description: "Android开发者, Android Application & Framework, 爬虫, 机器学习, 数据挖掘, 应用架构, 常用Java、Kotlin、Go、Python等语言"
 keyword: "phantomVK, Android技术博客, Android源码, 机器学习, 数据挖掘, 应用架构, Java"
+header-author: "phantomVK"
 # url: ""              # your host, for absolute URL
 # baseurl: ""          # for example, '/blog' if your blog hosted on 'host/blog'
-
-
 
 # SNS settings
 RSS: false
 github_username:    phantomvk
 zhihu_username:     phantomvk
-# weibo_username:     phantomvk
+# weibo_username:
 #twitter_username:   
 #facebook_username:  
 linkedin_username:  文康-谭-652a4a12a
-
-
 
 # Build settings
 # from 2016, 'pygments' is unsupported on GitHub Pages. Use 'rouge' for highlighting instead.
@@ -29,13 +26,9 @@ paginate: 15
 exclude: ["less","node_modules","Gruntfile.js","package.json","README.md","README.zh.md"]
 anchorjs: true                          # if you want to customize anchor. check out line:181 of `post.html`
 
-
-
 # Gems
 # from PR#40, to support local preview for Jekyll 3.0
 plugins: [jekyll-paginate]
-
-
 
 # Markdown settings
 # replace redcarpet to kramdown,
@@ -45,28 +38,18 @@ markdown: kramdown
 kramdown:
   input: GFM                            # use Github Flavored Markdown !important
 
-
-
 # Disqus settings
 disqus_username: phantomvk
-
-
 
 # Analytics settings
 # Baidu Analytics 
 # ba_track_id: [your track id]
 
-
-
 # Google Analytics
 ga_track_id: 'UA-117584603-1'            # Format: UA-xxxxxx-xx
 
-
-
 # Google site verification
 google-site-verification: 'IQE3DCunv_AJ4WcB3TEdMLLJ73BqtvTmSrGN4cGVcYg'
-
-
 
 # Sidebar settings
 sidebar: true                        # whether or not using Sidebar.
@@ -74,32 +57,22 @@ sidebar-author-name: phantomVK       # author name above sidebar's avatar.
 sidebar-avatar: /img/avatar.jpg      # use absolute URL, seeing it's used in both `/` and `/about/`
 sidebar-about-description: "Time is elapsing."
 
-
-
 # Pay QRcode
 sidebar-wechat-pay: /img/wechat.jpg
 sidebar-alipay-pay: /img/alipay.jpg
-
-
 
 # Pay Tags
 pay-tags: false
 pay-tags-wechat: false
 pay-tags-alipay: false
 
-
-
 # Featured Tags
 featured-tags: true                     # whether or not using Feature-Tags
 featured-condition-size: 1              # A tag will be featured if the size of it is more than this condition value
 
-
-
 # Progressive Web Apps
 chrome-tab-theme-color: "#000000"
 service-worker: true
-
-
 
 # Friends
 friends: [
@@ -111,8 +84,6 @@ friends: [
         href: "https://blog.sodroid.com/"
     }
 ]
-
-
 
 # compress
 compress_html:
