@@ -1,35 +1,37 @@
 ---
 layout:     post
 title:      "Application创建过程"
-date:       2019-07-22
+date:       2019-07-23
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    true
+catalog:    false
 tags:
     - Android
 ---
 
-__Application__ 在Android进程占据重要地位，每个进程只有一个实例，且继承自 __Context__ 可直接当 __Context__ 使用。多数第三方依赖库的初始化、应用全局配置、建立缓存都在其初始化过程中执行。
+__Application__ 在Android进程占据重要地位，每个进程只有一个实例，且继承自 __Context__ 父类可直接当 __Context__ 使用。
 
-当应用依赖库日渐增多，而 __Application__ 初始化就在主线程里进行，整个初始化过程越长，导致应用冷启动时间也会越长。可以把不依赖主线程的依赖库，放在子线程进行初始化。为了令整个初始化流程总体更快结束，还要注意控制创建子线程数量、每个子线程执行时长，和子线程不能和主线程抢夺时间片等问题。
+![application_uml](/img/android/Application/application_uml.png)
 
-因为创建子线程本身也是耗时操作，并且要考虑用完的子线程是否有必要复用。建议直接创建一个不复用的子线程，或把创建一个异步任务在 __AsyncTask__ 里并行执行。
+应用第三方依赖库的初始化、应用全局配置、缓存建立操作都在 __onCreate()__ 过程执行。当依赖库日渐增多，而 __Application__ 初始化又在主线程进行，整个初始化任务越长，导致应用冷启动时间越长。可把不依赖主线程的依赖库，放在子线程进行初始化。
+
+为了令整个初始化流程更早结束，还要注意子线程数量、子线程最长执行时长，和子线程抢夺主线程时间片等问题。线程创建操作也是耗时操作，且用完的子线程要考虑是否有必要复用。建议直接创建一到两个不复用的子线程用于初始化操作，或在 __AsyncTask__ 内并行执行。
+
+```java
+AsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, Param)
+```
 
 没有自定义 __Application__ 的 __AndroidManifest__ 如下：
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     package="com.phantomvk.messagekit">
 
     <application
-        android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/AppTheme"
-        tools:ignore="GoogleAppIndexingWarning">
+        android:theme="@style/AppTheme">
 
         <activity
             android:name=".view.MainActivity"
@@ -43,7 +45,7 @@ __Application__ 在Android进程占据重要地位，每个进程只有一个实
 </manifest>
 ```
 
-自定义 __Application__ 内按需行第三方依赖库的初始化操作。
+自定义 __Application__ 按需执行第三方依赖库初始化操作。
 
 
 ```java
@@ -52,21 +54,17 @@ package com.phantomvk.messagekit
 import android.app.Application
 
 class Application : Application() {
-
     override fun onCreate() {
         super.onCreate()
-        // Init.
+        // Init here.
     }
 }
 ```
 
-然后在 __AndroidManifest__ 内声明自定义的 __Application__。由下面 __package__ 和 __name__ 组合可知自定义 __Application__ 全路径为 __com.phantomvk.messagekit.Application__。后面会用到这个全路径名。
-
-如果没有自定义 __Application__，则全路径名默认为 __android.app.Application__，即使已经编写自定义类也不会调用。
+然后在 __AndroidManifest__ 内声明自定义的 __Application__。由下面 __package__ 和 __name__ 组合可知自定义 __Application__ 全路径为 __com.phantomvk.messagekit.Application__，后面会用到这个全路径名。如果没有自定义 __Application__，则全路径名默认为 __android.app.Application__，即使已经编写自定义类也不会调用。
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
     package="com.phantomvk.messagekit">
 
     <application
@@ -74,9 +72,7 @@ class Application : Application() {
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/AppTheme"
-        tools:ignore="GoogleAppIndexingWarning">
+        android:theme="@style/AppTheme">
     </application>
 </manifest>
 ```
@@ -91,7 +87,7 @@ private void handleBindApplication(AppBindData data) {
     try {
         // If the app is being launched for full backup or restore, bring it up in
         // a restricted environment with the base application class.
-        // LoadedApk通过反射创建Application实例
+        // data.info类型为LoadedApk，LoadedApk通过反射创建Application实例
         app = data.info.makeApplication(data.restrictedBackupMode, null);
 
         // Propagate autofill compat state
@@ -114,14 +110,13 @@ private void handleBindApplication(AppBindData data) {
         // test thread at this point, and we don't want that racing.
         try {
             mInstrumentation.onCreate(data.instrumentationArgs);
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(
                 "Exception thrown in onCreate() of "
                 + data.instrumentationName + ": " + e.toString(), e);
         }
         try {
-            // 创建完成的Application，触发onCreate()的调用开始我们的自定义初始化
+            // 创建完成的Application实例，触发onCreate()调用开始内部初始化
             mInstrumentation.callApplicationOnCreate(app);
         } catch (Exception e) {
             if (!mInstrumentation.onException(app, e)) {
@@ -137,13 +132,13 @@ private void handleBindApplication(AppBindData data) {
 }
 ```
 
-上述源码中 __data.info__ 的类为 __LoadedApk__ ，直接看 __LoadedApk.makeApplication()__。方法内检查 __Application__ 已经创建就不会再次初始化。
+上述源码中 __data.info__ 的类为 __LoadedApk__ ，直接看 __LoadedApk.makeApplication()__。方法内会检查 __Application__ 是否重复创建。
 
 
 ```java
 public Application makeApplication(boolean forceDefaultAppClass,
         Instrumentation instrumentation) {
-    // 已经初始化则直接退出
+    // 如果已经初始化则LoadedApk.mApplication非空
     if (mApplication != null) {
         return mApplication;
     }
@@ -164,11 +159,12 @@ public Application makeApplication(boolean forceDefaultAppClass,
         if (!mPackageName.equals("android")) {
             initializeJavaContextClassLoader();
         }
-        // 先用ActivityThread引用创建ContextImpl的实例
+        // 先用ActivityThread的引用创建ContextImpl实例
         ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
-        // 然后通过上述类名反射获得Application实例，appContext会保存到实例中
+        // 然后通过Application类名反射获得实例，并把appContext保存到实例中
         app = mActivityThread.mInstrumentation.newApplication(
                 cl, appClass, appContext);
+        // ContextImpl和Application互相保存Context
         appContext.setOuterContext(app);
     } catch (Exception e) {
         if (!mActivityThread.mInstrumentation.onException(app, e)) {
@@ -179,6 +175,7 @@ public Application makeApplication(boolean forceDefaultAppClass,
     }
     // 把Application记录到ActivityThread中
     mActivityThread.mAllApplications.add(app);
+    // 赋值给LoadedApk.mApplication
     mApplication = app;
 
     if (instrumentation != null) {
@@ -212,6 +209,7 @@ public Application makeApplication(boolean forceDefaultAppClass,
 展开上述源码中的 __Application__ 反射创建流程。
 
 ```java
+// android.app.Instrumentation
 public Application newApplication(ClassLoader cl, String className, Context context)
         throws InstantiationException, IllegalAccessException, 
         ClassNotFoundException {
@@ -221,17 +219,35 @@ public Application newApplication(ClassLoader cl, String className, Context cont
     app.attach(context);
     return app;
 }
+
+private AppComponentFactory getFactory(String pkg) {
+    if (pkg == null) {
+        Log.e(TAG, "No pkg specified, disabling AppComponentFactory");
+        return AppComponentFactory.DEFAULT;
+    }
+    if (mThread == null) {
+        Log.e(TAG, "Uninitialized ActivityThread, likely app-created Instrumentation,"
+                + " disabling AppComponentFactory", new Throwable());
+        return AppComponentFactory.DEFAULT;
+    }
+    LoadedApk apk = mThread.peekPackageInfo(pkg, true);
+    // This is in the case of starting up "android".
+    if (apk == null) apk = mThread.getSystemContext().mPackageInfo;
+    return apk.getAppFactory();
+}
 ```
 
-上文把名为 __context__ 的 __ContextImpl__ 实例设置给 __Applicaton__ 的父类成员 __mBase__。以后每当把 __Application__ 当 __Context__ 使用是，其实所有操作都委托给  __mBase__ 这个实例。
+上文把名为 __context__ 的 __ContextImpl__ 实例设置给 __Applicaton__ 的父类成员 __mBase__。每次把 __Application__ 当 __Context__ 使用时，操作通过 __ContextWrapper__ 委托给 __mBase__ 实例，即上文的 __ContextImpl__ 实例。
 
-而实例或 __Application__ 则和普通的 Java 反射创建实例没有差别，即直接通过类名 __newInstance()__ 得到实例。
+而实例化 __Application__ 和一般Java反射创建实例没有差别，直接通过类名 __newInstance()__ 得到实例。
 
 ```java
 public @NonNull Application instantiateApplication(@NonNull ClassLoader cl,
         @NonNull String className)
         throws InstantiationException, IllegalAccessException, ClassNotFoundException {
+    // 从ClassLoader用默认构造方法反射建立实例
     return (Application) cl.loadClass(className).newInstance();
 }
 ```
 
+__Application__ 基本创建流程全部完成，如果对其他细节感兴趣，可以自行查看 __LoadedApk__、__ContextImpl__、__Instrumentation__ 等类的源码。

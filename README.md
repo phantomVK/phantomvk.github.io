@@ -161,7 +161,8 @@ compress_html:
 ```
 ### 八、已处理
 
-- 2019-07-02: 侧边栏作者昵称没有抽象到配置文件
+- 2019-07-02: Side bar author name没有抽离并放入配置文件；
+- 2019-07-23: Google site verification没有抽离并放入配置文件；
 
 
 ### 九、待处理
