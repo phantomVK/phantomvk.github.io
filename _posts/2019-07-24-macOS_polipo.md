@@ -9,10 +9,10 @@ tags:
     - network
 ---
 
-__macOS__ 先通过 __Homebrew__ 安装 polipo
+__macOS__ 先通过 __Homebrew__ 安装 __Polipo__
 
 ```bash
-brew services start polipo
+brew install polipo
 ```
 
 在用户根目录创建或修改配置文件 __~/.polipo__。有两个参数需要修改：
@@ -63,14 +63,14 @@ export https_proxy="http://127.0.0.1:8123"
 如果只针对某个命令走 __polipo__，执行命令时指定proxy：
 
 ```bash
-http_proxy="http://127.0.0.1:8119" curl ip.gs
-https_proxy="http://127.0.0.1:8119" curl ip.gs
+http_proxy="http://127.0.0.1:8123" curl ip.gs
+https_proxy="http://127.0.0.1:8123" curl ip.gs
 ```
 
 用 __curl__ 检查ip
 
 ```bash
-> http_proxy="http://127.0.0.1:8119" curl ip.gs
+> http_proxy="http://127.0.0.1:8123" curl ip.gs
 
 Current IP / 当前 IP: 194.156.***.***
 ISP / 运营商:  thinkhuge.net
@@ -88,7 +88,7 @@ Please join Telegram group https://t.me/sbfans if you have any issues. / 如有�
 __https__ 导流可以直接使用 __http_proxy__
 
 ```bash
-> https_proxy="http://127.0.0.1:8119" curl https://google.com
+> https_proxy="http://127.0.0.1:8123" curl https://google.com
 
 <HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">
 <TITLE>301 Moved</TITLE></HEAD><BODY>
