@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - JDK
+    - Java
 ---
 
 ## 简述

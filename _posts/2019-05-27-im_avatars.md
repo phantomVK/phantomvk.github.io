@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - 即时通讯
+    - Business
 ---
 
 ## 一、前言

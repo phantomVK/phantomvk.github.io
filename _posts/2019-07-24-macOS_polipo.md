@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - network
+    - Network
 ---
 
 __macOS__ 先通过 __Homebrew__ 安装 __Polipo__

@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "Ubuntu18.04安装nVidia显卡驱动"
+title:      "Ubuntu18.04安装NVIDIA显卡驱动"
 date:       2019-07-29
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - hardward
+    - Linux
 ---
 
 #### 开始安装
@@ -21,7 +21,6 @@ sudo add-apt-repository ppa:graphics-drivers/ppa
 
 ```bash
 sudo apt update
-sudo apt-get update
 ```
 
 检查可用驱动
@@ -46,19 +45,13 @@ driver   : nvidia-driver-418 - third-party free
 driver   : xserver-xorg-video-nouveau - distro free builtin
 ```
 
-指定驱动安装版本即可安装，建议直接安装最新驱动
+直接安装最新驱动，安装完成后重启电脑
 
 ```bash
 sudo apt install nvidia-driver-430
 ```
 
-安装完成必须重启
-
-```bash
-sudo reboot
-```
-
-重启后用命令 __nvidia-smi__ 检查显卡是否被正常识别：显卡P106-100，显存6G，驱动430.26
+重启后用命令 __nvidia-smi__ 检查显卡是否被正常识别：显卡P106-100，显存6G，驱动430.26，CUDA10.2
 
 ```bash
 +-----------------------------------------------------------------------------+
@@ -93,10 +86,9 @@ sudo apt-add-repository -r ppa:graphics-drivers/ppa
 
 ```bash
 sudo apt update
-sudo apt-get update
 ```
 
-移除 __nVidia__ 显卡驱动文件
+移除 __NVIDIA__ 显卡驱动文件
 
 ```bash
 sudo apt remove nvidia*
