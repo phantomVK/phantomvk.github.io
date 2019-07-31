@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - JDK
+    - Programming Language
 ---
 
 ## 安装mercurial
@@ -194,4 +194,3 @@ $ bash get_source.sh
 ```
 
 如果下载JDK8u而不是JDK9，自行替换上述终端命令即可。
-

@@ -1,12 +1,12 @@
 ---
 layout:     post
 title:      "安装Jekyll本地环境"
-date:       2019-07-06
+date:       2019-05-06
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
 tags:
-    - Jekyll
+    - Website
 ---
 
 __Jekyll__ 依赖 __Ruby__ 语言，需要先安装

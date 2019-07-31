@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - Glide
+    - Android
 ---
 
 源码版本 __Glide 4.8.0__

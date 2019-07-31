@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Python
+    - Programming Language
 ---
 
 Python原生提供多种数据类型的支持，包括列表、元组、字典、集合等。不过对于数据统计、数据挖掘、机器学习来说，这些支持不够用，而NumPy则是数学运算库的不二之选。

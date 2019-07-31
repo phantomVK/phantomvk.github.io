@@ -1,21 +1,21 @@
 ---
 layout:     post
-title:      "Homwbrew安装Java8"
-date:       2019-07-27
+title:      "macOS安装Java8"
+date:       2019-07-14
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - Java
+    - Programming Language
 ---
 
-部分开发库例如 __Gradle__ 和最新版本 __Java11__ 存在兼容性问题，需要安装旧版本。但安装旧版本不能通过以下命令获取：
+开发库如 __Gradle__ 和 __Java11__ 之间存在兼容问题需用旧版本 __Java__，但安装旧版本无法用以下命令获取
 
-```basg
+```bash
 brew install java8
 ```
 
-报错：
+__Homebrew__ 会找不到该库而报错
 
 ```bash
 Error: No available formula with the name "java8"
@@ -28,13 +28,13 @@ Error: No similarly named formulae found.
 Error: No formulae found in taps.
 ```
 
-先获取 __cask-versions__
+得先获取 __cask-versions__
 
 ```bash
 brew tap homebrew/cask-versions
 ```
 
-从 __cask-versions__ 安装 __JDK8__ 即可，安装完成本地调整环境变量即可
+从 __cask-versions__ 安装 __JDK8__
 
 ```bash
 brew cask install homebrew/cask-versions/adoptopenjdk8

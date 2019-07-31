@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Ubuntu18.04安装NVIDIA显卡驱动"
-date:       2019-07-29
+date:       2019-06-29
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false

@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "Kotlin - let, apply, with, run的差别和用法"
+title:      "Kotlin中let, apply, with, run的差别和用法"
 date:       2017-12-24
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Kotlin
+    - Programming Language
 ---
 
 ## 前言

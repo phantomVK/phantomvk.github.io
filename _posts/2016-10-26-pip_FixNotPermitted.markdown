@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "解决 mac OSX pip OSError: [Errno 1] Operation not permitted"
+title:      "解决mac OSX pip OSError: [Errno 1] Operation not permitted"
 date:       2016-10-26
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
 tags:
-    - Python
+    - Programming Language
 ---
 
 

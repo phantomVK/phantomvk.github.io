@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - Java
+    - Programming Language
 ---
 
 如果运行结果没有同时出现 __o1没出现死锁__ 和 __o2没出现死锁__，表示两个线程已死锁

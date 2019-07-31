@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "macOS使用polipo"
-date:       2019-07-24
+date:       2019-05-24
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
