@@ -3,7 +3,7 @@ layout:     post
 title:      "Ubuntu18.04,CUDA10.0,TensorFlow-GPU安装"
 date:       2019-07-30
 author:     "phantomVK"
-header-img: "img/bg/post_bg.jpg"
+header-img: "img/bg/tokyo_night_harbor.jpg"
 catalog:    false
 tags:
     - Machine Learning
