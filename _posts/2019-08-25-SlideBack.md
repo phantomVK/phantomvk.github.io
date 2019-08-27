@@ -98,7 +98,7 @@ I/DemoActivity@2a17ef06: onStart
 I/DemoActivity@2a17ef06: onResume
 ```
 
-所有已启动界面！所有已启动界面！在打开新界面后都不会走到 __onStop__，也就是说所有应该在 __onStop__ 停止的操作、释放的资源，都没有机会触发。导致的结果是：当打开简单页面数量超过7个，就会出现新页面进程卡顿。
+所有已启动界面！所有已启动界面！在打开新界面后都不会走到 __onStop__，也就是说所有应该在 __onStop__ 停止的操作、释放的资源，都没有机会触发。导致的结果是：当打开简单页面数量超过7个，就会出现新页面进场卡顿。
 
 后来独立调研后，发现我的解决方案没法基于 __SwipeBackLayout__ 进行修改。所以实现新开源库 [phantomVK/SlideBack](https://github.com/phantomVK/SlideBack) 达到期望技术目标。新库对 __反射操作__、__页面过度绘制__、__内存占用__，和 __生命周期异常__ 进行修复。
 
@@ -185,14 +185,36 @@ public class TranslucentHelper {
 
 #### 生命周期
 
-[phantomVK/SlideBack](https://github.com/phantomVK/SlideBack) 比SwipeBackLayout最大优化主要是生命周期的处理。具体的细节建议自行看源码，全部操作基于唯一方针：__当前页面可见即可用，新页面启动即撤销__。
+[phantomVK/SlideBack](https://github.com/phantomVK/SlideBack) 比SwipeBackLayout最大优化主要是生命周期的处理，即打开新 __Activity__ 时把当前页面的透明背景取消掉。
+
+而最合适的时间点，莫过于在 __startActivityForResult()__：
+
+```java
+@Override
+public void startActivityForResult(Intent intent, int requestCode, @Nullable Bundle options) {
+    mManager.startActivityForResult(intent, requestCode, options);
+    super.startActivityForResult(intent, requestCode, options);
+}
+```
+
+页面对用户可操作时设置透明：
+
+```java
+@Override
+protected void onResume() {
+    super.onResume();
+    mManager.onResume();
+}
+```
+
+个人认为在用户拖动边缘时才设置透明方案不妥当，因为反射对主线程的阻塞，会给用户拖动操作带来迟滞的感觉。
 
 #### 其他优化
 
-其他修复和改进：
-
 - 源码库已迁移并适配 __AndroidX__；
-- 继承的父类为 __AppCompatActivity__；
+- 继承父类为 __AppCompatActivity__；
 - 内部已捕获异常 __ArrayIndexOutOfBoundsException__；
 - 使用基于 __Android28__ 定制 __ViewDragHelper__ 工具类；
 - 更细致功能启用、停用开关控制，避免冗余内存开销；
+- 重写 __findViewById__ 方法支持泛型；
+- 更多优化….
