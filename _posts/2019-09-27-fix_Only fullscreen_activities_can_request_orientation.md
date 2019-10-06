@@ -9,12 +9,16 @@ tags:
     - Android
 ---
 
+根据运行系统版本号重写 __Activity.setRequestedOrientation(Int)__。当版本号为 __Android O__ 时不调用父类方法，避免父类检测条件并抛出异常。
+
 ```kotlin
 override fun setRequestedOrientation(requestedOrientation: Int) {
     if (Build.VERSION.SDK_INT == Build.VERSION_CODES.O && isTranslucentOrFloating()) return
     super.setRequestedOrientation(requestedOrientation)
 }
 ```
+
+根据文章 [Only fullscreen opaque activities can request orientation](/2019/06/26/fullscreen_orientation/) 编写过滤条件。
 
 ```kotlin
 private fun isTranslucentOrFloating(): Boolean {
