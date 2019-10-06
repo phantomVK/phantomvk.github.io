@@ -33,6 +33,3 @@ private fun isTranslucentOrFloating(): Boolean {
     return result
 }
 ```
-
-
-
