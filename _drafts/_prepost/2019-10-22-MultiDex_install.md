@@ -1,14 +1,40 @@
 ---
 layout:     post
-title:      ""
-subtitle:   ""
-date:       2019-01-01
+title:      "MultiDex源码解析"
+date:       2019-10-22
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - tags
+    - Android
 ---
+
+## 一、初见MultiDex
+
+经过长期需求开发、引入多个第三方依赖库后，构建的APK包含大量方法。即使经过代码混淆里的优化过程，依然会在不就的将来遇到 __Android64K方法数__ 问题。官方对此是这样解释的：
+
+> Android 应用 (APK) 文件包含 [Dalvik](https://source.android.com/devices/tech/dalvik/) Executable (DEX) 文件形式的可执行字节码文件，这些文件包含用来运行您的应用的已编译代码。Dalvik Executable 规范将可在单个 DEX 文件内引用的方法总数限制为 65,536，其中包括 Android 框架方法、库方法以及您自己的代码中的方法。在计算机科学领域内，术语[*千（简称 K）*](https://en.wikipedia.org/wiki/Kilo-)表示 1024（或 2^10）。由于 65,536 等于 64 X 1024，因此这一限制称为“64K 引用限制”。
+
+既然一个Dex文件不能容纳所有方法引用，应运而生解决方案：把多余的方法引用放到第二个、第三个等后续Dex文件中。方法引用越多，最终分包数量越多。
+
+以下配置让代码打包时自动classes分包：
+
+```
+android {
+    compileSdkVersion 29
+    buildToolsVersion "28.0.3"
+    defaultConfig {
+        .....
+        multiDexEnabled true // 开启分包
+    }
+}
+```
+
+而 __MultiDex__ 则是应用启动时读取被分割的包，令后续类加载时能从非主包找到了目标类。当然还可能会遇到：启动类没有分到主包引起 __ClassNotFoundException__、读取Dex时间过长导致 __ANR__ 提示等等问题。这些问题网上很多文章提及，自行查找就有解决方案。
+
+更详细的说明可以参考官方文档：[为方法数超过 64K 的应用启用多 dex 文件](https://developer.android.com/studio/build/multidex?hl=zh-cn)
+
+## 二、用法
 
 ```java
 public class MultiDexApplication extends Application {
@@ -30,7 +56,7 @@ public class MultiDexApplication extends Application {
 private static final boolean IS_VM_MULTIDEX_CAPABLE = isVMMultidexCapable(System.getProperty("java.vm.version"));
 ```
 
-
+通过 __ApplicationContext__ 调用以下方法
 
 ```java
 public static void install(Context context) {
@@ -61,12 +87,19 @@ public static void install(Context context) {
 
 
 ```java
-private static void doInstallation(Context mainContext, File sourceApk, File dataDir, String secondaryFolderName, String prefsKeyPrefix, boolean reinstallOnPatchRecoverableException) throws IOException, IllegalArgumentException, IllegalAccessException, NoSuchFieldException, InvocationTargetException, NoSuchMethodException, SecurityException, ClassNotFoundException, InstantiationException {
+private static void doInstallation(Context mainContext, File sourceApk, File dataDir,
+                                   String secondaryFolderName, String prefsKeyPrefix, boolean reinstallOnPatchRecoverableException)
+  throws IOException, IllegalArgumentException, IllegalAccessException,
+         NoSuchFieldException, InvocationTargetException, NoSuchMethodException,
+         SecurityException, ClassNotFoundException, InstantiationException {
     synchronized(installedApk) {
         if (!installedApk.contains(sourceApk)) {
             installedApk.add(sourceApk);
             if (VERSION.SDK_INT > 20) {
-                Log.w("MultiDex", "MultiDex is not guaranteed to work in SDK version " + VERSION.SDK_INT + ": SDK version higher than " + 20 + " should be backed by " + "runtime with built-in multidex capabilty but it's not the " + "case here: java.vm.version=\"" + System.getProperty("java.vm.version") + "\"");
+                Log.w("MultiDex", "MultiDex is not guaranteed to work in SDK version " + VERSION.SDK_INT
+                      + ": SDK version higher than " + 20 + " should be backed by "
+                      + "runtime with built-in multidex capabilty but it's not the "
+                      + "case here: java.vm.version=\"" + System.getProperty("java.vm.version") + "\"");
             }
 
             ClassLoader loader;
@@ -172,10 +205,11 @@ private List<MultiDexExtractor.ExtractedDex> performExtractions() throws IOExcep
     try {
         int secondaryNumber = 2;
 
+        // 从apk内逐个获取dex文件，把dex文件写为zip文件
         for(ZipEntry dexFile = apk.getEntry("classes" + secondaryNumber + ".dex"); dexFile != null; dexFile = apk.getEntry("classes" + secondaryNumber + ".dex")) {
-            // com.phantomvk.playground-1.apk.classes2.zip
+            // fileName = com.phantomvk.playground-1.apk.classes2.zip
             String fileName = extractedFilePrefix + secondaryNumber + ".zip";
-            // /data/data/com.phantomvk.playground/code_cache/secondary-dexes/com.phantomvk.playground-1.apk.classes2.zip
+            // extractedFile = /data/data/com.phantomvk.playground/code_cache/secondary-dexes/com.phantomvk.playground-1.apk.classes2.zip
             MultiDexExtractor.ExtractedDex extractedFile = new MultiDexExtractor.ExtractedDex(this.dexDir, fileName);
             files.add(extractedFile);
             Log.i("MultiDex", "Extraction is needed for file " + extractedFile);
@@ -195,7 +229,9 @@ private List<MultiDexExtractor.ExtractedDex> performExtractions() throws IOExcep
                     Log.w("MultiDex", "Failed to read crc from " + extractedFile.getAbsolutePath(), var18);
                 }
 
-                Log.i("MultiDex", "Extraction " + (isExtractionSuccessful ? "succeeded" : "failed") + " '" + extractedFile.getAbsolutePath() + "': length " + extractedFile.length() + " - crc: " + extractedFile.crc);
+                Log.i("MultiDex", "Extraction " + (isExtractionSuccessful ? "succeeded" : "failed")
+                      + " '" + extractedFile.getAbsolutePath() + "': length " + extractedFile.length()
+                      + " - crc: " + extractedFile.crc);
                 if (!isExtractionSuccessful) {
                     extractedFile.delete();
                     if (extractedFile.exists()) {
@@ -229,11 +265,12 @@ private List<MultiDexExtractor.ExtractedDex> performExtractions() throws IOExcep
 private static void extract(ZipFile apk, ZipEntry dexFile, File extractTo, String extractedFilePrefix) throws IOException, FileNotFoundException {
     InputStream in = apk.getInputStream(dexFile);
     ZipOutputStream out = null;
-    // /data/data/com.phantomvk.playground/code_cache/secondary-dexes/tmp-com.phantomvk.playground-1.apk.classes-2082951698.zip
+    // tmp = /data/data/com.phantomvk.playground/code_cache/secondary-dexes/tmp-com.phantomvk.playground-1.apk.classes-2082951698.zip
     File tmp = File.createTempFile("tmp-" + extractedFilePrefix, ".zip", extractTo.getParentFile());
     Log.i("MultiDex", "Extracting " + tmp.getPath());
 
     try {
+        // 用temp文件创建ZipOutputStream
         out = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(tmp)));
 
         try {
@@ -269,7 +306,10 @@ private static void extract(ZipFile apk, ZipEntry dexFile, File extractTo, Strin
 安装 __SecondaryDexes__，根据不同版本进入不同分支
 
 ```java
-private static void installSecondaryDexes(ClassLoader loader, File dexDir, List<? extends File> files) throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, InvocationTargetException, NoSuchMethodException, IOException, SecurityException, ClassNotFoundException, InstantiationException {
+private static void installSecondaryDexes(ClassLoader loader, File dexDir, List<? extends File> files)
+  throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException,
+InvocationTargetException, NoSuchMethodException, IOException,
+SecurityException, ClassNotFoundException, InstantiationException {
     if (!files.isEmpty()) {
         if (VERSION.SDK_INT >= 19) {
             MultiDex.V19.install(loader, files, dexDir);
@@ -289,7 +329,10 @@ private static final class V19 {
     private V19() {
     }
 
-    static void install(ClassLoader loader, List<? extends File> additionalClassPathEntries, File optimizedDirectory) throws IllegalArgumentException, IllegalAccessException, NoSuchFieldException, InvocationTargetException, NoSuchMethodException, IOException {
+    static void install(ClassLoader loader, List<? extends File> additionalClassPathEntries, File optimizedDirectory)
+      throws IllegalArgumentException, IllegalAccessException,
+  NoSuchFieldException, InvocationTargetException,
+  NoSuchMethodException, IOException {
         // private final dalvik.system.DexPathList dalvik.system.BaseDexClassLoader.pathList
         Field pathListField = MultiDex.findField(loader, "pathList");
         // DexPathList[[zip file "/data/app/com.phantomvk.playground-1.apk"],nativeLibraryDirectories=[/data/app-lib/com.phantomvk.playground-1, /system/lib]]
@@ -322,7 +365,8 @@ private static final class V19 {
         }
     }
 
-    private static Object[] makeDexElements(Object dexPathList, ArrayList<File> files, File optimizedDirectory, ArrayList<IOException> suppressedExceptions) throws IllegalAccessException, InvocationTargetException, NoSuchMethodException {
+    private static Object[] makeDexElements(Object dexPathList, ArrayList<File> files, File optimizedDirectory, ArrayList<IOException> suppressedExceptions)
+      throws IllegalAccessException, InvocationTargetException, NoSuchMethodException {
         // 反射获得makeDexElements()
         Method makeDexElements = MultiDex.findMethod(dexPathList, "makeDexElements", ArrayList.class, File.class, ArrayList.class);
         // 调用方法
