@@ -103,7 +103,7 @@ public static void install(Context context) {
 }
 ```
 
-#### 3.3 MultiDex.doInstallation()
+#### 3.3 doInstallation()
 
 调用 __doInstallation()__ 开始装载操作：
 
@@ -200,7 +200,7 @@ List<? extends File> load(Context context, String prefsKeyPrefix,
         throw new IllegalStateException("MultiDexExtractor was closed");
     } else {
         List files;
-        // 如果不是 '强制提取'和'文件已被修改'
+        // 如果不是'强制提取'和'文件已被修改'就尝试复用文件
         if (!forceReload && !isModified(context, this.sourceApk, this.sourceCrc, prefsKeyPrefix)) {
             try {
                 // 直接复用已缓存的Dexes文件
@@ -213,7 +213,7 @@ List<? extends File> load(Context context, String prefsKeyPrefix,
                                  this.sourceCrc, files);
             }
         } else {
-            // 重新提取文件
+            // 更新App后sourceCrc改变会触发dex重新提取
             files = this.performExtractions();
             // 最后执行的数据会保存到SharedPreferences
             putStoredApkInfo(context, prefsKeyPrefix, getTimeStamp(this.sourceApk),
@@ -225,7 +225,7 @@ List<? extends File> load(Context context, String prefsKeyPrefix,
 }
 ```
 
-#### 3.4 performExtractions()
+#### 3.4 MultiDexExtractor.performExtractions()
 
 实际执行的提取操作方法：
 
@@ -311,7 +311,7 @@ private List<MultiDexExtractor.ExtractedDex> performExtractions() throws IOExcep
 
 ![filesAfter](/img/android/multidex/filesAfter.png)
 
-#### 3.5 extract()
+#### 3.5 MultiDexExtractor.extract()
 
 这里介绍如何从 __dex__ 转换为列表 __files__ 里保存的 __zip__：
 
@@ -446,11 +446,11 @@ static void install(ClassLoader loader, List<? extends File> additionalClassPath
 
 #### 4.2 makeDexElements()
 
-__dexPathList__ 和 __optimizedDirectory__ 作为参数调用 __makeDexElements()__。看一下各自的内存结构：
+__dexPathList__ 和 __optimizedDirectory__ 作为参数调用 __makeDexElements()__。
 
-##### 4.2.1 参数dexPathList
+##### 4.2.1 dexPathList
 
-__DexPathList__ 位于[__BaseDexClassLoader__](http://androidxref.com/4.4.4_r1/xref/libcore/dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java#30)
+__DexPathList__ 声明于[__BaseDexClassLoader__](http://androidxref.com/4.4.4_r1/xref/libcore/dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java#30)
 
 ```java
 public class BaseDexClassLoader extends ClassLoader {
@@ -463,7 +463,7 @@ __dexPathList__ 变量运行时内存结构：
 
 ![loader](/img/android/multidex/loader.png)
 
-##### 4.2.2 参数optimizedDirectory
+##### 4.2.2 optimizedDirectory
 
 __optimizedDirectory__ 变量运行时内存结构：
 
@@ -474,7 +474,6 @@ __optimizedDirectory__ 变量运行时内存结构：
 这个是 __V19.makeDexElements()__，反射调用 __DexPathList.makeDexElements()__
 
 ```java
-//  A wrapper around {@code private static final dalvik.system.DexPathList#makeDexElements}.
 private static Object[] makeDexElements(Object dexPathList,
                                         ArrayList<File> files,
                                         File optimizedDirectory,
@@ -485,7 +484,7 @@ private static Object[] makeDexElements(Object dexPathList,
     Method makeDexElements = MultiDex.findMethod(dexPathList, "makeDexElements",
                                                  ArrayList.class, File.class, ArrayList.class);
 
-    // 调用DexPathList.makeDexElements()把zip文件转换为Element[]
+    // 调用DexPathList.makeDexElements()把zip列表转换为Element[]
     return (Object[])((Object[])makeDexElements.invoke(dexPathList, files,
                                                        optimizedDirectory,
                                                        suppressedExceptions));
@@ -604,15 +603,15 @@ private static void expandFieldArray(Object instance, String fieldName,
 }
 ```
 
-调用 __expandFieldArray()__ 之前 __dexElements__ 只有主dex：
+调用 __expandFieldArray()__ 前 __dexElements__ 只有主dex：
 
 ![beforeExpandFieldArray](/img/android/multidex/beforeExpandFieldArray.png)
 
-调用 __expandFieldArray()__ 之后新增4个子dex：
+调用 __expandFieldArray()__ 后新增4个子dex：
 
 ![beforeExpandFieldArray](/img/android/multidex/afterExpandFieldArray.png)
 
-所有提取工作完成后内存布局如下：
+提取工作完成后内存布局：
 
 ![classload_done](/img/android/multidex/classload_done.png)
 
@@ -634,6 +633,7 @@ private static void putStoredApkInfo(Context context, String keyPrefix, long tim
 
     int extractedDexId = 2;
     for (ExtractedDex dex : extractedDexes) {
+        // 记录每个子dex的CRC和最后修改时间
         edit.putLong(keyPrefix + KEY_DEX_CRC + extractedDexId, dex.crc);
         edit.putLong(keyPrefix + KEY_DEX_TIME + extractedDexId, dex.lastModified());
         extractedDexId++;
@@ -652,3 +652,5 @@ private static void putStoredApkInfo(Context context, String keyPrefix, long tim
 - 只使用一次的方法手动合并到调用点，相当于内联；
 - 尽可能把代码存放在主dex，令提取工作在安装过程完成；
 - 不常用功能使用动态加载，令安装时间和提取时间都减少；
+
+虽然 __Android5.0__ 及后期系统使用 __ART__ 虚拟机，在安装过程会全部或部分优化dex，再也不会在应用启动时影响体验。但是减少代码量，即使只能降低安装时长也总归是好事。
