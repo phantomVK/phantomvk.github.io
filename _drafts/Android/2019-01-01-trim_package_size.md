@@ -25,7 +25,7 @@ tags:
 
 可能存在存现问题：
 
-- 相同图片资源同时防在 __xhdpi__ 和 __xxhdpi__；
+- 相同图片资源同时放在 __xhdpi__ 和 __xxhdpi__；
 - 存放的 __jpg__ 和 __png__ 图片没有压缩；无透明通道 __png__ 没有保存为 __jpg__；存放图片尺寸过大；
 - 可以考虑把所有 __jpg__ 和 __png__ 图片资源转换成 __webp__ 或矢量资源；
 - 内容相同的字符串使用了不用的资源名称，造成重复声明；
@@ -40,6 +40,8 @@ tags:
 - 使用 __android.enableR8.fullMode=true__
 - 使用腾讯的 __AndResGuard__ 压缩安装包的资源id
 
+[智图](https://zhitu.isux.us/)
+
 #### PNG
 
 #### JPEG和JPG
@@ -47,4 +49,18 @@ tags:
 #### WebP
 
 
+
+#### 其他方案
+
+- 使用原生代码代替xml文件的声明，如：drawable、anim、string、color、layout；
+- 代码实现布局：__手写组件__、__Anko__、__Android JetPack__等等
+- 压缩 raw、assets 的资源文件；
+- 减少类声明、内部类、抽象接口；
+- 冷功能插件化；
+- 原生界面和 __WebView__ 功能混合开发(功能转移到线上)
+
+链接：
+
+- [配置编译版本](https://developer.android.com/studio/build/index.html?hl=zh-cn#build-process)
+- [压缩、混淆和优化您的应用](https://developer.android.com/studio/build/shrink-code?hl=zh-CN)
 
