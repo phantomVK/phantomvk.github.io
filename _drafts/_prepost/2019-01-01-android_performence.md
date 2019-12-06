@@ -1,23 +1,33 @@
 ---
 layout:     post
-title:      ""
-subtitle:   ""
-date:       2019-01-01
+title:      "削减启动过程内存开销"
+date:       2019-03-08
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - tags
+    - Android
 ---
 
-Proguard
+下图是 __Android Studio__ 3.5.1的 Android Profiler测量工具：
 
-- [zipalign](https://developer.android.com/studio/command-line/zipalign.html?hl=zh-cn)
+![android_profiler](../../img/android/performance/android_profiler.png)
 
+主要有以下重要参数：
 
+- Total：所有内存的总价，包括虚拟机堆内存、堆外内存、显示缓存、栈内存等等；
+- Java：DVM/ART虚拟机运行时占用堆内存；
+- Native：Native层的.so的malloc或new创建的内存；
+- Graphics：OpenGL和SurfaceFlinger内存；
+- Stack：线程栈内存；
+- Code：内存保存Dex和so的大小；
+- Other：不知道怎么算的内存占用；
+
+不同系统版本获取还有其他额外的数据可以参考，但上面是基本几乎所有版本都能提供的。
+
+一般来说，上面从上到下的顺序就是开发处理的难度技术，从Java开始难度逐渐提升。不同的用户场景各部分内存占用比例也不一样，要对比优化前后的效果要在同一场景下进行。
 
 #### ARouter
-![arouter_postcard](../../img/android/performance/arouter_postcard.png)
 
 ```java
 class RoomSummaryComparator : Comparator<RoomSummary> {
@@ -60,7 +70,7 @@ class RoomSummaryComparator : Comparator<RoomSummary> {
 }
 ```
 
-根据 __ARouter__ 的实现，每次经过 __ARouter__ 的实现获取服务的对象引用，
+根据 __ARouter__ 的实现，每次经过 __ARouter__ 的实现获取服务的对象引用
 
 ```kotlin
 class RoomSummaryComparator : Comparator<RoomSummary> {
@@ -68,12 +78,16 @@ class RoomSummaryComparator : Comparator<RoomSummary> {
     private val messageCache = ServiceFactory.getInstance()
             .sessionManager
             .defaultLatestChatMessageCache
-      
+
     override fun compare(lSummary: RoomSummary?, rSummary: RoomSummary?): Int {
         ....
     }
 }
 ```
+
+房间列表排序过程，累计对 __ARouter__ 调用高达3.6万次，每次调用都会创建新的 __PostCard__ 实例，累计浅内存使用2MB。
+
+![arouter_postcard](../../img/android/performance/arouter_postcard_larger.png)
 
 #### 堆栈跟踪开销
 
@@ -390,7 +404,7 @@ class RoomTopic(private val topicString: String?) {
 
 #### 重复创建实例 
 
-按照测试时账号有307个Room实例计算，每个gson实例的引用占用4B(4B是32位，64为是8B)，实例本身占用654B，一次优化剩下197K的内存。
+__Room__ 对象包含一个 __Gson__ 实例，用于处理 __Json__ 序列化操作：
 
 ```java
 public class Room {
@@ -398,11 +412,23 @@ public class Room {
 }
 ```
 
+但根据 [API文档](https://javadoc.io/doc/com.google.code.gson/gson/2.8.0/com/google/gson/Gson.html) 可知 __Gson__ 本身是线程安全，完全没必要每个 __Room__ 对象持有各自 __Gson__ 实例
+
+> Gson instances are Thread-safe so you can reuse them freely across multiple threads.
+
+所以让所有 __Room__ 共享同一个常量实例：
+
 ```java
 public class Room {
     private static final Gson gson = new GsonBuilder().create();
 }
 ```
+
+按照测试账号有307个 __Room__ 实例，每个 __Gson__ 实例的引用占用4B(32位是4B，64位是8B)，实例本身至少654B，此优化节省内存197KB。
+
+![gson_instance_retained_size](../../img/android/performance/gson_instance_retained_size.png)
+
+
 
 #### try resource
 
@@ -447,5 +473,137 @@ com.finogeeks.finochatapp D/StrictMode: StrictMode policy violation; ~duration=1
         at com.finogeeks.finochat.widget.ImageViewer.load(ImageViewer.kt:71)
         at com.finogeeks.finochatmessage.chat.adapter.ImageVideoViewerAdapter.loadImage(ImageVideoViewerAdapter.kt:162)
         at com.finogeeks.finochatmessage.chat.adapter.ImageVideoViewerAdapter.instantiateItem(ImageVideoViewerAdapter.kt:138)
+```
+
+![dump_size_compare](../../img/android/performance/dump_size_compare.png)
+
+#### 监听器泄漏
+
+![leak_MediaContentObserver](../../img/android/performance/leak_MediaContentObserver.png)
+
+```java
+public class ScreenShotListenManager {
+
+    private MediaContentObserver mInternalObserver;
+    private MediaContentObserver mExternalObserver;
+    private final Handler mUiHandler = new Handler(Looper.getMainLooper());
+
+    public void startListen() {
+        assertInMainThread();
+
+        // 记录开始监听的时间戳
+        mStartListenTime = System.currentTimeMillis();
+
+        // 创建内容观察者
+        mInternalObserver = new MediaContentObserver(MediaStore.Images.Media.INTERNAL_CONTENT_URI, mUiHandler);
+        mExternalObserver = new MediaContentObserver(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, mUiHandler);
+
+        // 注册内容观察者
+        mContext.getApplicationContext()
+                .getContentResolver()
+                .registerContentObserver(
+                        MediaStore.Images.Media.INTERNAL_CONTENT_URI,
+                        false,
+                        mInternalObserver);
+
+        mContext.getApplicationContext()
+                .getContentResolver()
+                .registerContentObserver(
+                        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+                        false,
+                        mExternalObserver);
+    }
+    /**
+     * 停止监听，注销内容观察者
+     */
+    public void stopListen() {
+        assertInMainThread();
+
+        if (mInternalObserver != null) {
+            try {
+                mContext.getApplicationContext()
+                        .getContentResolver()
+                        .unregisterContentObserver(mInternalObserver);
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                mInternalObserver = null;
+            }
+        }
+
+        if (mExternalObserver != null) {
+            try {
+                mContext.getApplicationContext()
+                        .getContentResolver()
+                        .unregisterContentObserver(mExternalObserver);
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                mExternalObserver = null;
+            }
+        }
+
+        // 清空数据
+        mStartListenTime = 0;
+
+        // 必须设置mListener为空，因为mListener会隐式持有Activity
+        mListener = null;
+    }
+}
+```
+
+```java
+private class MediaContentObserver extends ContentObserver {
+
+    private Uri mContentUri;
+
+    MediaContentObserver(Uri contentUri, Handler handler) {
+        super(handler);
+        mContentUri = contentUri;
+    }
+
+    @Override
+    public void onChange(boolean selfChange) {
+        super.onChange(selfChange);
+        handleMediaContentChange(mContentUri);
+    }
+}
+```
+
+```java
+@Override
+protected void onResume() {
+    super.onResume();
+    if (mManager != null) {
+        mManager.startListen();
+    }
+}
+
+@Override
+protected void onDestroy() {   
+    super.onDestroy();
+    if (mManager != null) {
+        mManager.stopListen();
+        mManager = null;
+    }
+}
+```
+
+```java
+@Override
+protected void onResume() {
+    super.onResume();
+    if (mManager != null) {
+        mManager.startListen();
+    }
+}
+
+@Override
+protected void onPause() {
+    super.onPause();
+    if (mManager != null) {
+        mManager.stopListen();
+    }
+}
 ```
 
