@@ -57,7 +57,7 @@ tags:
 
 老牌内存分析工具，用于检查dump之后的内存引用及泄漏问题。不过这个工具对 __Android__ 内存泄漏自动推断不准确，建议人工分析。
 
-__Android Profiler__ 导出的内存文档，必须先用 __platform-tools__ 的 __hprof-conv__ 转换后才能导入 __MAT__ 工具，__-z__ 参数转换得到结果只包含应用自身分配部分：
+__Android Profiler__ 导出内存快照，必须先用 __platform-tools__ 的 __hprof-conv__ 转换后才能导入 __MAT__，而 __-z__ 参数转换得到结果只包含应用自身内存，更易于查看
 
 ```bash
 $ cd /Users/k/Library/Android/sdk/platform-tools # MacOS
@@ -171,7 +171,9 @@ if (jsObj.has("flag")) {
 
 #### 3.3 重用对象
 
-很多文章都提到绘制过程如 __onDraw()__ 不应该进行对象创建操作，但自己能准守的情况下并不能阻止同事这样做。下面是同事的 __onDraw()__ 和 __onResize()__ 图省事频繁创建 __RectF__。按照每个方法执行一次的情况算，共计创建9个 __RectF__ 对象。
+很多文章都提到绘制过程如 __onDraw()__ 不应该进行对象创建操作，但自己能准守并不代表能阻止同事这样做。
+
+下面是同事的 __onDraw()__ 和 __onResize()__ 图省事频繁创建 __RectF__。按照每个方法执行一次的情况算，共计创建9个 __RectF__ 对象。
 
 ```kotlin
 class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {
