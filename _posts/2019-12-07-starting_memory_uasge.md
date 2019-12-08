@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "削减应用启动内存"
+title:      "优化应用启动内存"
 date:       2019-12-07
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -17,9 +17,9 @@ tags:
 
 ### 一、目标
 
-每次性能优化都要确定阶段性目标，明确目标是”启动速度优化“，还是”修复内存占用高“。不确定目标就开始处理，容易陷入迷惘的状态。
+每次性能优化都要确定阶段性目标，明确目标是”启动速度优化“，还是”修复内存占用高“。不确定目标就开始处理，容易陷入迷惘。
 
-基于产品功能所需，本产品需集成到宿主的应用作为运行部分。所以产品启动过程高内存占用，加上宿主已经申请的空间，容易造成 __OutOfMemoryError__ 而引起应用崩溃。
+基于功能所限，本产品需集成到宿主应用作为运行部分。所以产品启动过程高内存占用，加上宿主已经申请空间，容易造成 __OutOfMemoryError__ 而导致崩溃。
 
 所以本次首要目标是削减启动申请内存的数量，其次查找启动后的内存泄漏，而其他优化会在后续开展。
 
@@ -80,17 +80,17 @@ $ hprof-conv -z dump_from.hprof dump_to.hprof
 
 ![leak_MediaContentObserver](/img/android/performance/leak_MediaContentObserver.png)
 
-__MAT__ 中其他可见结果，一般是类加载器持有的静态变量、常量。下图是枚举类型 __FuncType__ 被类加载器持有的示意图，内部28个数值共使用448B内存：
+__MAT__ 中其他可见结果，一般是类加载器持有的静态变量、常量。下图是枚举类型 __FuncType__ 被类加载器持有的示意图，内部28个数值共使用448B内存
 
 ![no_memory_leak](/img/android/performance/no_memory_leak.png)
 
-__Android__ 枚举类型在混淆的优化阶段内联到调用点，不再出现上述448B内存占用。但别忘记现在处于没有开启混淆的 __debug__ 模式，所以能看见枚举类在内存的形态。
+__Android__ 枚举类型在混淆的优化阶段内联到调用点，不再出现上述448B内存占用。但别忘记现在处于没有开启混淆的 __debug__ 模式，所以能看见枚举类在内存的形态
 
 ### 三、详情
 
 #### 3.1 使用ARouter
 
-__ARouter__ 在本工程中负责页面路由跳转和服务提供，实现组件化的大部分工作，正常来说一般不会有性能问题。
+__ARouter__ 在本工程中负责页面路由跳转和服务提供，实现组件化的大部分工作，正常来说不会有性能问题
 
 ```java
 class RoomSummaryComparator : Comparator<RoomSummary> {
@@ -123,11 +123,11 @@ class RoomSummaryComparator : Comparator<RoomSummary> {
 }
 ```
 
-但这里调用嵌套在 __Comparator__ 中，因此房间列表排序累计对 __ARouter__ 调用多达3.6万次，每次调用都创建 __PostCard__ 实例，累计浅内存使用2MB。
+但这里调用嵌套在 __Comparator__ 中，因此房间列表排序累计对 __ARouter__ 调用多达3.6万次，每次调用都创建 __PostCard__ 实例，累计浅内存使用2MB
 
 ![arouter_postcard](/img/android/performance/arouter_postcard_larger.png)
 
-处理方法是整合调用点，避免重复调用 __ARouter__。优化后相同场景只有大约1000次调用。
+处理方法是整合调用点，避免重复调用 __ARouter__。优化后相同场景只有1000次调用
 
 ```kotlin
 class RoomSummaryComparator : Comparator<RoomSummary> {
@@ -144,7 +144,7 @@ class RoomSummaryComparator : Comparator<RoomSummary> {
 
 #### 3.2 堆栈跟踪开销
 
-下面代码目的是检查 __JsonObject__ 是否存在名为 __flag__ 的整形值，没有的时候通过捕获异常返回null
+下面代码目的是检查 __JsonObject__ 是否存在名为 __flag__ 的整形值，没有的话通过捕获异常返回null
 
 ```kotlin
 val flag = try {
@@ -154,9 +154,9 @@ val flag = try {
 }
 ```
 
-但是 __JsonObject__ 存在该值是少数情况。而异常使用 __StackTraceElement__ 记录堆栈信息，因此上述代码多次生成该实例：每个大小32B，抛出1041次，__ShallowSize__ 总计：33,312B。
+但是 __JsonObject__ 存在该值是少数情况。而异常使用 __StackTraceElement__ 记录堆栈信息，因此上述代码多次生成该实例：每个大小32B，抛出1041次，__ShallowSize__ 总计：33,312B
 
-考虑到 __StackTraceElement__ 里面用于保存堆栈信息的的字符串变量，实际占用将大于 33,312B。
+考虑到 __StackTraceElement__ 里面用于保存堆栈信息的的字符串变量，实际占用将大于 33,312B
 
 ```kotlin
 val jsObj = event.getContent().asJsonObject
@@ -167,13 +167,13 @@ if (jsObj.has("flag")) {
 }
 ```
 
-处理方法比较简单，从 __JsonObject__ 获取整形值之前先检查该值是否合法。
+处理方法比较简单，从 __JsonObject__ 获取整形值之前先检查该值是否合法
 
 #### 3.3 重用对象
 
 很多文章都提到绘制过程如 __onDraw()__ 不应该进行对象创建操作，但自己能准守并不代表能阻止同事这样做。
 
-下面是同事的 __onDraw()__ 和 __onResize()__ 图省事频繁创建 __RectF__。按照每个方法执行一次的情况算，共计创建9个 __RectF__ 对象。
+下面是同事的 __onDraw()__ 和 __onResize()__ 图省事频繁创建 __RectF__。按照每个方法执行一次的情况算，共计创建9个 __RectF__ 对象
 
 ```kotlin
 class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {
@@ -235,7 +235,7 @@ class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {
 }
 ```
 
-修改为复用 __RectF__ 的变量，在使用时先调用 __RectF.set(left, top, right, button)__ 更新值再把 __RectF__ 提供给绘制方法。若确保 __BubbleShape__ 只在主线程执行，则能把 __RectF__ 设置为常量。无论多少个 __BubbleShape__ 实例都只会复用单个 __RectF__ 常量。
+修改为复用 __RectF__ 的变量，使用时先调用 __RectF.set(left, top, right, button)__ 更新值再把 __RectF__ 提供给绘制方法。若确保 __BubbleShape__ 只在主线程执行，则能把 __RectF__ 设置为常量。无论多少个 __BubbleShape__ 实例都只会复用单个 __RectF__ 常量
 
 ```kotlin
 class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {
@@ -341,9 +341,9 @@ class MessagesListAdapter(mContext: Context,
 }
 ```
 
-为此还特意咨询相关同事，他还不以为意地说：“不会占用多少内存吧，只是会频繁分配内存”。
+为此还特意咨询相关同事，他还不以为意地说：“不会占用多少内存吧，只是会频繁分配内存”
 
-最后修改为 __headerMessageRows__、__messageRows__、__footerMessageRows__ 没改变时，复用上次生成的 __ArrayList__ 结果。
+最后修改为 __headerMessageRows__、__messageRows__、__footerMessageRows__ 没改变时，复用上次生成的 __ArrayList__ 结果
 
 #### 3.5 多次Json解析
 
@@ -413,7 +413,7 @@ public class Room {
 }
 ```
 
-按照测试账号有307个 __Room__ 实例，每个 __Gson__ 引用占用4B(32位4B，64位8B)，实例体积654B，此优化总计节省内存197KB。
+按照测试账号有307个 __Room__ 实例，每个 __Gson__ 引用占用4B(32位4B，64位8B)，实例体积654B，此优化总计节省内存197KB
 
 ![gson_instance_retained_size](/img/android/performance/gson_instance_retained_size.png)
 
@@ -443,7 +443,7 @@ try {
 
 #### 3.8 监听器泄漏
 
-最后在 __MAT__ 检查发现小的内存泄漏，会导致 __ScreenShotListenManager__ 被系统引用。不过幸好 __ScreenShotListenManager__ 不引用 __Activity__，所以该泄漏没有造成严重后果。
+最后在 __MAT__ 检查发现小的内存泄漏，会导致 __ScreenShotListenManager__ 被系统引用。不过幸好 __ScreenShotListenManager__ 不引用 __Activity__，所以该泄漏没有造成严重后果
 
 ![leak_MediaContentObserver](/img/android/performance/leak_MediaContentObserver.png)
 
@@ -505,9 +505,9 @@ public class ScreenShotListenManager {
 }
 ```
 
-发现在 __Activity__ 的生命周期中注册和注销没有匹配：__onResume()__ 多次注册但在 __onDestroy()__ 仅注销最后一次注册的监听器，导致之前的监听器被系统持有而造成泄漏。
+发现在 __Activity__ 的生命周期中注册和注销没有匹配：__onResume()__ 多次注册但在 __onDestroy()__ 仅注销最后一次注册的监听器，导致之前的监听器被系统持有而造成泄漏
 
-把原来在 __onDestroy__ 的注销操作，移动到 __onResume__ 匹配的 __onPause__ 上即可修复。
+把原来在 __onDestroy__ 的注销操作，移动到 __onResume__ 匹配的 __onPause__ 上即可修复
 
 ```java
 @Override
@@ -530,17 +530,17 @@ protected void onDestroy() {
 
 ### 四、效果
 
-没有优化前应用启动过程，在29秒已经显著突破32MB的内存分配，并在40秒到50秒期间出现接近64MB的内存尖峰和多次垃圾回收。
+没有优化前应用启动过程，在29秒已经显著突破32MB内存分配，并在40秒到50秒期间出现接近64MB的内存尖峰和多次垃圾回收
 
 ![dump_size_compare](/img/android/performance/dump_size_compare.png)
 
-对比优化后，在33秒仅轻微越过32MB堆内存，而且随后内存申请曲线相对柔和，甚至节省了一次垃圾回收操作，能证明处理方案可减少启动过程对象产生数量，并缩减最大内存的占用量。
+对比优化后，在33秒仅轻微越过32MB堆内存，而且随后内存申请曲线相对柔和，甚至节省了一次垃圾回收操作，能证明处理方案可减少启动过程对象产生数量，并缩减最大内存的占用量
 
-时间到1分钟整时启动已完成并停在主界面。最后把应用退到后台，可见两者的堆内存都减少到21MB，应用在后台占用内存不算多。
+时间到1分钟整时启动已完成并停在主界面。最后把应用退到后台，可见两者的堆内存都减少到21MB，应用在后台占用内存不算多
 
 ### 五、总结
 
-若考虑模拟用户动态使用场景、隐含未知的内存泄漏、图中尚存在的尖峰，后续还有进一步优化空间。
+若考虑用户动态使用场景、隐含未知的内存泄漏、图中尚存在的尖峰，后续还有进一步优化空间
 
 经验总结：
 
