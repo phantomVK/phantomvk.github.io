@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "优雅地缩减APK包体积"
+title:      "优雅地缩减APK体积"
 date:       2019-01-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -58,6 +58,8 @@ tags:
 - 减少类声明、内部类、抽象接口；
 - 冷功能插件化；
 - 原生界面和 __WebView__ 功能混合开发(功能转移到线上)
+
+![package_size](/img/android/performance/package_size.png)
 
 链接：
 

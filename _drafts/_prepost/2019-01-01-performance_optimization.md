@@ -77,16 +77,23 @@ public class MXExecutorService {
 
 #### 同步消除
 
-```java
-boolean isInited = false;
+__isInited__ 标志注明模块是否加载完毕，但是新值修改并不依赖旧值
 
+```java
+private boolean isInited = false;
+
+// 调用时修改
 Synchronized(this){
     isInited = true
 }
 ```
 
+把 __isInited__ 增加 __volatile__ 修饰，这样修改后的值在所有线程即时可见，不需要依赖同步
+
 ```java
-volatile boolean isInited = false;
+private volatile boolean isInited = false;
+
+// 调用时修改
 isInited = true
 ```
 
