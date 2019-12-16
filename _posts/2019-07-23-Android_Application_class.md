@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "Application创建过程"
+title:      "Android源码系列(25) -- Application创建"
 date:       2019-07-23
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
 ## 一、简介

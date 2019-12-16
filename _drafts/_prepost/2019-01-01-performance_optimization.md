@@ -1,13 +1,12 @@
 ---
 layout:     post
 title:      ""
-subtitle:   ""
 date:       2019-01-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - tags
+    - Android
 ---
 
 - __静态实例__：短生命周期对象赋值到静态变量；

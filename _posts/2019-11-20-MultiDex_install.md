@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "MultiDex源码解析"
+title:      "Android源码系列(26) -- MultiDex"
 date:       2019-11-20
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
 ## 一、初次认识

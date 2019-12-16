@@ -1,19 +1,27 @@
 ---
 layout:     post
 title:      "Android注解处理器入门"
-date:       2019-12-10
+date:       2019-12-16
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    false
+catalog:    true
 tags:
     - Android
 ---
 
-![create_project](../../img/android/annotation_processor/create_project.png)
+#### 基础工程
 
-新建名为 __annotation__ 的模块，里面存放所有注解类，这里名为 __XAnnotation!__
+先创建名为 __AnnotationDemo__ 工程，如果已有工程可直接跳过：
 
-![annotaion_module](../../img/android/annotation_processor/annotaion_module.png)
+![create_project](/img/android/annotation_processor/create_project.png)
+
+#### 注解类模块
+
+工程内新建名为 __annotation__ 的模块。
+
+![annotaion_module](/img/android/annotation_processor/annotaion_module.png)
+
+此模块存放所有注解类，示例注解类名名为 __XAnnotation__。
 
 ```java
 import java.lang.annotation.ElementType;
@@ -27,15 +35,19 @@ public @interface XAnnotation {
 }
 ```
 
-然后新建另外一个模块 __annotation_processor__ 用于存放注解处理器。存放注解处理器的模块必须和注解类模块分离，不然上层模块依赖后会出现问题。
+因为此注解可用于修饰类，所以目标类型为：__ElementType.TYPE__，并且注解信息在运行时保留。
 
-![processor_module](../../img/android/annotation_processor/processor_module.png)
+#### 注解处理器模块
 
-创建之后模块布局就是这个结果
+另外新建模块 __annotation_processor__ 用于存放注解处理器。存放注解处理器的模块必须和注解类模块分离，不然上层模块依赖后会出现问题。
 
-![modules_created](../../img/android/annotation_processor/modules_created.png)
+![processor_module](/img/android/annotation_processor/processor_module.png)
 
-同时模块里添加 __javapoet__ 或 __kotlinpoet__ 依赖，推荐使用 __javapoet__。还要导入上述创建的 __annotation__，这样注解处理器就能识别我们创建的注解类。
+创建之后模块布局就是这样：
+
+![modules_created](/img/android/annotation_processor/modules_created.png)
+
+然后，在模块里添加 __javapoet__ 或 __kotlinpoet__ 依赖，推荐使用 __javapoet__。还要导入上述创建的 __annotation__ 模块，这样注解处理器就能识别我们声明的所有注解类。
 
 
 ```groovy
@@ -53,7 +65,7 @@ targetCompatibility = "8"
 
  __javapoet__ 或 __kotlinpoet__ 的功能是通过代码编写，在编译前用预设代码拼接出新的类。根据名字就知道他们分别能生成java代码和kotlin代码。
 
-创建注解处理器
+创建注解处理器：
 
 ```java
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
@@ -86,12 +98,13 @@ public class XProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnvironment) {
+        // 返回false编译不会通过，必须把输入的代码输出到目标目录
         return false;
     }
 }
 ```
 
-继续完善 __process()__ 的逻辑。
+继续完善 __process()__ 的逻辑：
 
 ```java
 @Override
@@ -127,17 +140,23 @@ public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnv
 }
 ```
 
-注册注解处理器
+注册上述注解处理器：
 
-![register_annotation_processor](../../img/android/annotation_processor/register_annotation_processor.png)
+![register_annotation_processor](/img/android/annotation_processor/register_annotation_processor.png)
+
+注册声明文件必须按照上述目录存放，而且文件名为这个：
 
 ```
 javax.annotation.processing.Processor
 ```
 
-![register_annotation_processor_ide](../../img/android/annotation_processor/register_annotation_processor_ide.png)
+文件内容的注解处理器的全路径名：
+
+![register_annotation_processor_ide](/img/android/annotation_processor/register_annotation_processor_ide.png)
 
 #### App导入
+
+最后在App工程导入注解声明库和注解处理器库：
 
 ```groovy
 apply plugin: 'kotlin-kapt'
@@ -151,12 +170,13 @@ android {
 }
 
 dependencies {
+    // ....
     implementation project(":annotation")
     kapt project(":annotation_processor") // annotationProcessor for Java
 }
 ```
 
-导入之后就可以用生命的注解类修饰 __MainActivity__
+导入之后就可以用声明好的注解类修饰 __MainActivity__：
 
 ```kotlin
 @XAnnotation
@@ -169,16 +189,15 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-代码生成之后
+点击一下构建，就会按照注解类能获取的信息生成新的类 __XGeneratedClass__：
 
-![generated_class](../../img/android/annotation_processor/generated_class.png)
+![generated_class](/img/android/annotation_processor/generated_class.png)
 
-项目就能直接引用生成类
+同时项目也能引用生成类：
 
 ```kotlin
 @XAnnotation
 class MainActivity : AppCompatActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -186,3 +205,15 @@ class MainActivity : AppCompatActivity() {
     }
 }
 ```
+
+#### 编译执行
+
+运行之后控制台就能打印：
+
+```
+com.phantomvk.annotationdemo I/System.out: Hello JavaPoet.
+```
+
+上述文章完成声明和开发注解处理器最基本的方式，后续将在此基础上继续增强注解处理器的能力。
+
+完整工程源码：[phantomVK/AnnotationDemo](https://github.com/phantomVK/AnnotationDemo)
