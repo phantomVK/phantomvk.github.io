@@ -9,6 +9,13 @@ tags:
     - EventBus
 ---
 
+文章列表：
+- [EventBus源码剖析(1) -- 订阅注册与注销](/2018/11/15/EventBus_1_Register/)
+- [EventBus源码剖析(2) -- EventBusBuilder](/2018/12/01/EventBus_2_EventBusBuilder/)
+- [EventBus源码剖析(3) -- 线程模式](/2018/12/03/EventBus_3_ThreadMode/)
+- [EventBus源码剖析(4) -- 订阅记录](/2018/12/06/EventBus_4_Subscription/)
+- [EventBus源码剖析(5) -- Poster](/2018/12/10/EventBus_5_Poster/)
+
 ## 一、简介
 
 __EventBus__ 消息支持通过不同线程模式发送并调起目标方法，以满足 __Android__ 不同应用场景。通过订阅者的[订阅方法](/2018/11/14/EventBus_1_Register/#21-订阅者)可知，线程模式通过注解参数进行配置。

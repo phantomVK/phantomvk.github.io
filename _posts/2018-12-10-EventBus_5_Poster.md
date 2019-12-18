@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "EventBus源码剖析(5) -- Poster(完结)"
+title:      "EventBus源码剖析(5) -- Poster"
 date:       2018-12-10
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -8,6 +8,13 @@ catalog:    true
 tags:
     - EventBus
 ---
+
+文章列表：
+- [EventBus源码剖析(1) -- 订阅注册与注销](/2018/11/15/EventBus_1_Register/)
+- [EventBus源码剖析(2) -- EventBusBuilder](/2018/12/01/EventBus_2_EventBusBuilder/)
+- [EventBus源码剖析(3) -- 线程模式](/2018/12/03/EventBus_3_ThreadMode/)
+- [EventBus源码剖析(4) -- 订阅记录](/2018/12/06/EventBus_4_Subscription/)
+- [EventBus源码剖析(5) -- Poster](/2018/12/10/EventBus_5_Poster/)
 
 ## 一、Poster
 

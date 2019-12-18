@@ -9,6 +9,13 @@ tags:
     - EventBus
 ---
 
+文章列表：
+- [EventBus源码剖析(1) -- 订阅注册与注销](/2018/11/15/EventBus_1_Register/)
+- [EventBus源码剖析(2) -- EventBusBuilder](/2018/12/01/EventBus_2_EventBusBuilder/)
+- [EventBus源码剖析(3) -- 线程模式](/2018/12/03/EventBus_3_ThreadMode/)
+- [EventBus源码剖析(4) -- 订阅记录](/2018/12/06/EventBus_4_Subscription/)
+- [EventBus源码剖析(5) -- Poster](/2018/12/10/EventBus_5_Poster/)
+
 ## 一、Subscription
 
 订阅者进行注册时，__EventBus__ 会扫描整个订阅者类，获取接收事件的具体方法，并构造出 __Subscription__ 实例。每个订阅者可有多个方法接收订阅事件，每个方法生成各自的 __Subscription__ 作为事件接收凭证。
