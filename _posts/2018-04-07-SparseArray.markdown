@@ -194,10 +194,10 @@ public void put(int key, E value) {
     if (i >= 0) {
         mValues[i] = value;
     } else {
-        // 返回index是负数表明key不存在。对返i取反得到插入的位置i
+        // 返回index是负数表明key不存在。对i取反得到插入的位置i
         i = ~i;
 
-        // i没有越界，且i的value已被删除，则直接重用此空间
+        // i没有越界且i的value已被删除，则直接重用此空间
         if (i < mSize && mValues[i] == DELETED) {
             mKeys[i] = key;
             mValues[i] = value;

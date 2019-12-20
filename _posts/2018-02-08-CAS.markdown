@@ -36,21 +36,21 @@ compare_and_swap (*p, oldval, newval):
 
 ## 二、Unsafe
 
-JDK8该方法名为`compareAndSwapInt`，在Unsafe类中：
+JDK8该方法名在Unsafe类为`compareAndSwapInt`：
 
 ```java
 public final native boolean compareAndSwapInt(Object var1, long var2, int var4, int var5);
 ```
 
-JDK9命名为`compareAndSetInt`，也在Unsafe类中：
+JDK9命名在Unsafe类为`compareAndSetInt`：
 
 ```java
 public final native boolean compareAndSetInt(Object var1, long var2, int var4, int var5);
 ```
 
-本文用JDK9来介绍。进入正题，首先看该方法的原生实现，对应unsafe.cpp文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
+本文用JDK9介绍，首先看该方法的原生实现，对应unsafe.cpp文件的1198行，文件路径`jdk9/hotspot/src/share/vm/prims/`。
 
-下面unsafe.cpp尾段有个保存方法对应关系的静态数组：
+下面 __unsafe.cpp__ 尾段有个保存方法对应关系的静态数组：
 
 ```c
 static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
@@ -65,9 +65,9 @@ static JNINativeMethod jdk_internal_misc_Unsafe_methods[] = {
 }
 ```
 
-从查找对应关系知道`compareAndSetInt`是`Unsafe_CompareAndSetInt`，位于相同文件1031行：
+从查找对应关系知道`compareAndSetInt`是`Unsafe_CompareAndSetInt`，位于相同文件1031行。
 
-```c
+```cpp
 UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobject obj, jlong offset, jint e, jint x)) {
   oop p = JNIHandles::resolve(obj);
   jint* addr = (jint *)index_oop_from_field_offset_long(p, offset);
@@ -76,18 +76,28 @@ UNSAFE_ENTRY(jboolean, Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobj
 } UNSAFE_END
 ```
 
+对比Java的方法签名：
+
+> boolean compareAndSetInt(Object var1, long var2, int var4, int var5);
+
+C函数参数为：
+
+>  Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobject obj, jlong offset, jint e, jint x)
+
+忽略 __JNIEnv *env, jobject unsafe__，剩下参数 __Object, long, int, int__ 顺序可一一对应。
+
 逻辑执行流程：
 
  - `obj`是`AtomicInteger`对象，通过 JNIHandles::resolve() 获取`obj`在内存中OOP实例`p`;
  - 根据`value`的内存偏移值`offset`去内存中取指针`addr`;
- - 获得更新值`x`、指针`addr`、期待值`e`三个参数后，调用`Atomic::cmpxchg(x, addr, e)`;
- - 通过`Atomic::cmpxchg(x, addr, e)`实现CAS
+ - 获得更新值`x`、指针`addr`、期待值`e`参数后调用`Atomic::cmpxchg(x, addr, e)`;
+ - 通过`Atomic::cmpxchg(x, addr, e)`实现CAS;
 
 ## 三、CAS本体
 
 ### 3.1 Atomic::cmpxchg
 
-`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86`第100行，并调用asm汇编。
+`jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86`第100行调用asm汇编。
 
 __注意：形参order是JDK9中新加的，JDK8u没有该形参__
 

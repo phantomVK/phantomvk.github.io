@@ -234,7 +234,7 @@ void rInflate(XmlPullParser parser, View parent, Context context,
 
 ## 五、从tag构建视图
 
-根据标签名创建view
+根据标签名创建view。__AppCompatActivity__ 会给 __LayoutInflater__ 注入 __mFactory2__ 实例，然后构建工作会代理给 __AppCompatDelegateImpl__，实现填充 __TextView__ 为 __AppCompatTextView__。
 
 ```java
 View createViewFromTag(View parent, String name, Context context, AttributeSet attrs,
@@ -262,6 +262,7 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
     try {
         View view;
         if (mFactory2 != null) {
+            // mFactory2一般不为空，且转换TextView为AppCompatTextView
             view = mFactory2.onCreateView(parent, name, context, attrs);
         } else if (mFactory != null) {
             view = mFactory.onCreateView(name, context, attrs);
@@ -269,6 +270,7 @@ View createViewFromTag(View parent, String name, Context context, AttributeSet a
             view = null;
         }
 
+        // 如果上述工厂构建视图实例成功则完成构建
         if (view == null && mPrivateFactory != null) {
             view = mPrivateFactory.onCreateView(parent, name, context, attrs);
         }

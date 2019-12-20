@@ -53,18 +53,22 @@ private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifier
 
     // 获取JVM配置参数
     GraalHotSpotVMConfig c = compiler.getGraalRuntime().getVMConfig();
-    // 如果c.dontCompileHugeMethods为true，根据c.hugeMethodLimit判断该方法是否为巨型方法
+    // 如果c.dontCompileHugeMethods为true
+    // 根据c.hugeMethodLimit判断该方法是否为巨型方法
     if (c.dontCompileHugeMethods && javaMethod.getCodeSize() > c.hugeMethodLimit) {
         // 判断为巨型方法，打出日志并退出方法
         println(verbose || methodFilters != null,
-                        String.format("CompileTheWorld (%d) : Skipping huge method %s (use -XX:-DontCompileHugeMethods or -XX:HugeMethodLimit=%d to include it)",
+                        String.format("CompileTheWorld (%d) : Skipping huge method %s "
+                                      + "(use -XX:-DontCompileHugeMethods "
+                                      + "or -XX:HugeMethodLimit=%d to include it)",
                                         classFileCounter,
                                         javaMethod.format("%H.%n(%p):%r"),
                                         javaMethod.getCodeSize()));
         return false;
     }
 
-    // 通过-XX:CompileCommand=dontinline标志不编译方法，排除可能有问题的目标方法
+    // 通过-XX:CompileCommand=dontinline标志不编译方法
+    // 排除可能有问题的目标方法
     if (!javaMethod.canBeInlined()) {
         return false;
     }
@@ -83,13 +87,13 @@ private boolean canBeCompiled(HotSpotResolvedJavaMethod javaMethod, int modifier
 总的来说只要符合以下任一条件就 __不能__ 编译：
 
  1. 抽象方法或原生方法；
- 2. 巨型方法，且不允许优化；
+ 2. 禁止编译巨型方法且条件吻合；
  3. 有`dontinline`标志的方法；
  4. 注解为 __Snippet.class__；
 
 #### 编译方法
 
-经过`canBeCompiled() Line 627`判定的方法送到`compileMethod() Line 725`等待编译。
+经过`canBeCompiled() Line627`判定的方法，送到`compileMethod() Line725`等待编译。
 
 ```java
 // Are we compiling this class?

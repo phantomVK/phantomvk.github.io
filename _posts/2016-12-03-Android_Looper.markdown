@@ -56,7 +56,7 @@ private Looper(boolean quitAllowed) {
 }
 ```
 
-Android环境会通过这个方法自动创建主线程Looper，千万不要在主线程中再次调用这个方法。因为 __sMainLooper__ 是一个静态变量，所以在任意 __Looper__ 中都能通过 __sMainLooper__ 向主线程发送消息。
+运行时通过这个方法自动创建主线程Looper，千万不要在主线程中再次调用这个方法。__sMainLooper__ 是静态变量，所以任意 __Looper__ 都能通过 __sMainLooper__ 向主线程发送消息。
 
 ```java
 public static void prepareMainLooper() {
@@ -97,7 +97,7 @@ public static void loop() {
         // 如果队列没有消息，queue.next()内部会阻塞等待
         Message msg = queue.next();
 
-        // 队列返回null表明消息队列已经关闭，退出loop()的死循环
+        // 队列返回null表明消息队列已经关闭
         if (msg == null) {
             // 消息队列关闭，Looper退出
             return;

@@ -103,7 +103,9 @@ private static int nextHashCode() {
 
 ### 3.3 initialValue()
 
-给当前线程返回thread-local变量的初始值，initialValue()方法可见性是protected。当线程首次访问ThreadLoacal.get()方法时调用此方法。线程已经主动调用set()设置初始值，此方法不会调用。一般来说，这个方法在每个线程最多只会调用一次。不过，如果线程执行remove()方法后再调用get()，也会触发initialValue()。
+给当前线程返回thread-local变量的初始值，initialValue()方法可见性是protected。当线程首次访问ThreadLoacal.get()方法时调用此方法。线程已经主动调用set()设置初始值，此方法不会调用。
+
+一般来说，这个方法在每个线程最多只会调用一次。如果线程执行remove()方法后再调用get()，会再次触发initialValue()。
 
 ```java
 protected T initialValue() {

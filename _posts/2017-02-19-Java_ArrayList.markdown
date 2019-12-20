@@ -261,7 +261,7 @@ public Object clone() {
 
 ### 4.5 返回数组
 
-按照列表原顺序返回一个新数组，新数组和原ArrayList互相独立
+按照列表原顺序返回新数组
 
 ```java
 public Object[] toArray() {
@@ -269,18 +269,19 @@ public Object[] toArray() {
 }
 ```
 
-用自行传入的数组保存列表的元素，类型与传入相同，传入数组下一个多余空位置null。当传入的数组长度不足，可知返回的数组和传入数组不是同一个对象。
+用自行传入的数组保存列表的元素，类型与传入相同，传入数组下一个多余空位置null。当传入数组长度不足会原地创建新数组，因此实际返回的数组和传入数组不相同
 
 ```java
 @SuppressWarnings("unchecked")
 public <T> T[] toArray(T[] a) {
-    // 传入的数组a不足以保存elementData，则需要新创建Array
+    // 传入的数组a不足以保存elementData则新创建Array
     if (a.length < size)
         // Make a new array of a's runtime type, but my contents:
         return (T[]) Arrays.copyOf(elementData, size, a.getClass());
 
     // 传入的数组a足够存放elementData
     System.arraycopy(elementData, 0, a, 0, size);
+    // 数组下一个位置置为null
     if (a.length > size)
         a[size] = null;
     return a;
@@ -334,7 +335,7 @@ public boolean add(E e) {
 }
 ```
 
-在指定位置增加新元素，原位置以及其后元素组成的子序列向后移动
+在指定位置增加新元素，原位置以及其后元素子序列向后移动
 
 ```java
 public void add(int index, E element) {
@@ -349,7 +350,7 @@ public void add(int index, E element) {
 }
 ```
 
-把集合的保存的元素追加在ArrayList的尾部
+把集合保存的元素追加到ArrayList尾部
 
 ```java
 public boolean addAll(Collection<? extends E> c) {
@@ -366,21 +367,25 @@ public boolean addAll(Collection<? extends E> c) {
 }
 ```
 
-在指定位置插入若干个保存元素
+在指定位置插入若干元素
 
 ```java
 public boolean addAll(int index, Collection<? extends E> c) {
     rangeCheckForAdd(index);
 
+    // 集合转换为数组
     Object[] a = c.toArray();
     int numNew = a.length;
+    // 检查列表空间并决定扩容
     ensureCapacityInternal(size + numNew);
+    // 列表原位置某段元素整体向后挪动numMoved位
     int numMoved = size - index;
     if (numMoved > 0)
         System.arraycopy(elementData, index, elementData, index + numNew,
                          numMoved);
-
+    // 挪动后腾出的空间存入新元素
     System.arraycopy(a, 0, elementData, index, numNew);
+    // 更新元素数量
     size += numNew;
     return numNew != 0;
 }
@@ -388,20 +393,24 @@ public boolean addAll(int index, Collection<? extends E> c) {
 
 ### 4.8 移除、清空
 
-移除指定位置的元素，随后元素组成的子序列依次向前移动一个位置
+移除指定位置的元素，后续元素组成的子序列依次向前移动位置
 
 ```java
 public E remove(int index) {
+    // 检查索引是否越界
     rangeCheck(index);
 
     modCount++;
+    // 获取索引元素
     E oldValue = elementData(index);
 
+    // 移除队尾元素不需要调整数组
     int numMoved = size - index - 1;
     if (numMoved > 0)
         System.arraycopy(elementData, index+1, elementData, index,
                          numMoved);
-    elementData[--size] = null; // 释放索引以便GC
+    // 释放索引以便GC
+    elementData[--size] = null;
 
     return oldValue;
 }
@@ -412,12 +421,14 @@ public E remove(int index) {
 ```java
 public boolean remove(Object o) {
     if (o == null) {
+        // 查找null
         for (int index = 0; index < size; index++)
             if (elementData[index] == null) {
                 fastRemove(index);
                 return true;
             }
     } else {
+        // 移除非空值
         for (int index = 0; index < size; index++)
             if (o.equals(elementData[index])) {
                 fastRemove(index);
@@ -441,7 +452,7 @@ private void fastRemove(int index) {
 }
 ```
 
-移除列表中所有元素，size大小置0。 移出对象被GC，而ArrayList本身占用数组空间不会释放
+移除列表中所有元素且size置0。 移出对象被回收但ArrayList占用数组空间不会释放
 
 ```java
 public void clear() {
@@ -455,7 +466,7 @@ public void clear() {
 }
 ```
 
-移除指定范围包含的元素，并修改size
+移除指定范围包含的元素并修改size
 
 ```java
 protected void removeRange(int fromIndex, int toIndex) {

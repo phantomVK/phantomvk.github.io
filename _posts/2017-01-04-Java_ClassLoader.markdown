@@ -11,7 +11,7 @@ tags:
 
 # 类加载
 
-Java类通过编译生成对应.class文件，JVM根据运行需要，把所需类从.class动态加载到内存并创建实例，ClassLoader负责完成这个加载任务。有了ClassLoader，Java运行时系统不需要知道文件与文件系统的设置。
+Java类通过编译生成对应.class文件，JVM根据运行需要把类从文件加载到内存并创建实例，ClassLoader负责完成这个加载任务。有了ClassLoader，Java运行时系统不需要知道文件与文件系统的设置。
 
 正是因为Java类必须由某个类加载器装入到内存，我们也可以在运行时才指定类文件。
 
@@ -23,9 +23,7 @@ Java类通过编译生成对应.class文件，JVM根据运行需要，把所需�
 
 * 扩展（Extensions）类加载器。用来在`<JAVA_HOME>/jre/lib/ext`或`java.ext.dirs`指明的目录中加载 Java扩展库，Java 虚拟机的实现会提供一个扩展库目录。该类加载器在此目录里面查找并加载 Java 类。该类由`sun.misc.Launcher$ExtClassLoader`实现。
 
-* 应用（Application）类加载器。根据 Java应用程序的类路径`（java.class.path或CLASSPATH环境变量）`来加载 Java 类。一般来说，Java 应用的类都是由它来完成加载的，可以通过 `ClassLoader.getSystemClassLoader()`来获取。该类由`sun.misc.Launcher$AppClassLoader实现`。
-
-
+* 应用（Application）类加载器。根据 Java应用程序的类路径`（java.class.path或CLASSPATH环境变量）`来加载类。一般Java类都由它完成加载，可以通过 `ClassLoader.getSystemClassLoader()`来获取。该类由`sun.misc.Launcher$AppClassLoader`实现。
 
 ![img](/img/java/classloader.png)
 
@@ -55,13 +53,15 @@ file:/Library/Java/JavaVirtualMachines/jdk1.8.0_101.jdk/Contents/Home/jre/classe
 
 ClassLoader通过双亲委托的方式来搜索类，而双亲委托是一种委派思想。当ClassLoader加载类的时候，ClassLoader会委托其父加载器去完成：
 
-* Bootstrap ClassLoader尝试加载该类；
-* 加载失败把工作交给ExtClassLoader；
-* ExtClassLoader加载失败把工作交给AppClassLoader；
+- AppClassLoader想加载指定类；
 
-如果三个默认类加载器都加载失败，工作只能还给发起工作的ClassLoader，由这个加载器自行选择加载类文件系统或URL。如果所有加载器都无法加载这个类，JVM抛出ClassNotFoundException异常。
+* 首先让Bootstrap ClassLoader尝试加载该类；
+* 加载失败交给ExtClassLoader尝试；
+* ExtClassLoader失败还给AppClassLoader自行加载；
 
-如果按照这个加载步骤成功，类加载器会把这个类载入内存，初始化并返回实例。
+如果三个默认类加载器都加载失败，工作只能还给发起工作的ClassLoader，由这个加载器自行选择加载类文件系统或URL。
+
+所有加载器都无法加载这个类，抛出ClassNotFoundException异常。若按照这个步骤加载成功，类加载器把这个类载入内存，初始化并返回实例。
 
 
 # 双亲委托

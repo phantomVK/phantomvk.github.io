@@ -9,13 +9,13 @@ tags:
     - Java源码系列
 ---
 
-# 一、前言
+## 一、前言
 
 `StringBuilder`是可变字符串序列，API和[StringBuffer](/2017/03/06/StringBuffer/)兼容。`StringBuilder`不保证线程安全，而[StringBuffer](/2017/03/06/StringBuffer/)可以。
 
 由于单线程没有线程同步的要求，所以`StringBuilder`在单线程中比`StringBuffer`拥有更好的性能。同样道理，多线程中应该使用`StringBuffer`保证字符串修改的安全。
 
-# 二、类签名
+## 二、类签名
 
 `StringBuilder`继承`AbstractStringBuilder`，实现了`Serializable`和`CharSequence`接口。构造方法、字符串增删查改在`AbstractStringBuilder`父类中实现，`StringBuilder`只负责调用父类方法。
 
@@ -25,9 +25,11 @@ public final class StringBuilder
     implements java.io.Serializable, CharSequence
 ```
 
-`StringBuffer`同样继承自`AbstractStringBuilder`，调用方法时增加了`synchronized`同步锁。这是`StringBuilder`和`StringBuffer`在API互相兼容、线程安全存在差异的原因。由此可知，阅读[AbstractStringBuilder](/2017/03/25/AbstractStringBuilder/)才能了解可变字符串如何实现，仅看`StringBuffer`和`StringBuilder`没有太大帮助。
+`StringBuffer`同样继承自`AbstractStringBuilder`，调用方法时增加了`synchronized`同步锁。这是`StringBuilder`和`StringBuffer`在API互相兼容、线程安全存在差异的原因。
 
-# 三、构造方法
+由此阅读[AbstractStringBuilder](/2017/03/25/AbstractStringBuilder/)才能了解可变字符串如何实现，仅看`StringBuffer`和`StringBuilder`没有太大帮助。
+
+## 三、构造方法
 
 可通过字符串长度、默认构造方法，或字符串作为参数创建StringBuilder。默认构造方法的字符串长度是16，自定义字符串则会在指定长度上加16作为缓冲长度。
 
@@ -51,7 +53,7 @@ public StringBuilder(CharSequence seq) {
 }
 ```
 
-# 四、方法
+## 四、方法
 
 ### 4.1 添加
 
@@ -313,6 +315,7 @@ public StringBuilder reverse() {
     return this;
 }
 ```
+
 ### 4.7 toString
 
 返回字符串拷贝，而不是字符串数组本身

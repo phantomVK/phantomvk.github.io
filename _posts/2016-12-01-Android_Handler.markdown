@@ -11,10 +11,10 @@ tags:
 
 # 一、作用
 
-Handler有两个主要用法：
+__Handler__ 有两个主要用法：
 
  * 计划在将来某个时间点处理[Message](/2016/11/13/Android_Message/)和[Runnable](/2018/11/07/Runnable_Callable/)
- * 在不同线程里将一个动作加入Handler所对应的队列去执行
+ * 在不同线程里将任务加入 __Handler__ 所对应的队列去执行
 
 # 二、成员变量
 
@@ -161,7 +161,7 @@ public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
 }
 ```
 
-以上方法带 __Delayed__ 可设置延迟时间，带 __EmptyMessage__ 为创建空消息。共同点是都调用 __sendMessageDelayed()__，并返回这个调用的结果。
+以上方法带 __Delayed__ 可设置延迟时间，带 __EmptyMessage__ 为创建空消息。共同点是都调用 __sendMessageDelayed()__ 并返回这个调用的结果。
 
 __SystemClock.uptimeMillis()__ 从开机到现在的毫秒数，不包括手机睡眠时间。可能为了避免用户调整系统时间后影响消息分发时间。
 
@@ -200,7 +200,7 @@ public final boolean sendEmptyMessageAtTime(int what, long uptimeMillis) {
 }
 ```
 
-总而言之，上面所有post和send都终结在 __sendMessageAtTime()__，把消息确定一个具体执行时间点，然后送进消息队列中。
+总而言之，所有post和send都终结在 __sendMessageAtTime()__，消息确定具体执行时间点后送进消息队列中。
 
 ```java
 public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
@@ -215,7 +215,9 @@ public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
 }
 ```
 
-消息默认放在消息队列的队尾处，返回`true`代表成功进入队列，但不代表消息已被调度。一般消息队列都会等待所有消息完成才退出。如果手动关闭消息队列，滞留在消息队列的消息不会得到处理且消息被丢弃，这是进入消息队列却不一定能调度的主要原因。
+消息默认放在消息队列的队尾处，返回`true`代表成功进入队列，但不代表消息已被调度。
+
+一般消息队列会等待所有消息完成才退出。如果手动关闭消息队列，滞留在消息队列的消息不会得到处理且直接丢弃，这是进入消息队列却不一定能调度的主要原因。
 
 ```java
 private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
@@ -396,7 +398,7 @@ public final boolean runWithScissors(final Runnable r, long timeout) {
 }
 ```
 
-这个方法使用场景是Android初始化一个WindowManagerService，因为WindowManagerService不成功，其他组件就不允许继续，所以使用阻塞的方式直到完成。
+这个方法使用场景是初始化 __WindowManagerService__。因为 __WindowManagerService__ 不成功其他组件不允许执行，所以使用阻塞的方式等待
 
 ```java
 IMessenger mMessenger;  // IPC

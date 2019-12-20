@@ -93,7 +93,7 @@ public class MyButton extends Button {
 
 #### 1.3 初始化
 
-绑定按钮并给按钮设置一个监听器 __OnTouchListener__  ，下文会说明这个监听器的作用。
+绑定按钮并给按钮设置监听器 __OnTouchListener__，下文会说明其作用。
 
 ```java
 public class MainActivity extends AppCompatActivity {
@@ -137,8 +137,6 @@ public class MainActivity extends AppCompatActivity {
 
 #### 2.1 OnTouchListener 返回 false
 
-__View.OnTouchListener__ 返回 __false__ ，点击按钮马上放开。
-
 如果手指一直在屏幕上滑动，Log的 __ACTION_DOWN__ 和 __ACTION_UP__ 之间会报告 __ACTION_MOVE__ 的信息。我们并不关心 __ACTION_MOVE__ 的状态，所以忽略它的消息。
 
 可见，结果按照 __dispatchTouchEvent()__ -> __onTouch()__ -> __onTouchEvent()__ 的顺序出现
@@ -155,7 +153,7 @@ __View.OnTouchListener__ 返回 __false__ ，点击按钮马上放开。
 
 #### 2.2 OnTouchListener 返回 true
 
-__View.OnTouchListener__ 返回 __true__ ，点击按钮马上放开： __dispatchTouchEvent()__ ->  __onTouch()__
+点击按钮马上放开： __dispatchTouchEvent()__ ->  __onTouch()__
 
 ```
 10-13 23:55:32.523 18106-18106/? E/MyButton: dispatchTouchEvent ACTION_DOWN
@@ -165,7 +163,7 @@ __View.OnTouchListener__ 返回 __true__ ，点击按钮马上放开： __dispat
 10-13 23:55:32.554 18106-18106/? E/MainActivity: onTouch ACTION_UP
 ```
 
-对比2.1节的日志，__onTouchEvent()__ 没有触发，说明事件没有分发到 __onTouchEvent()__ 。
+对比2.1节的可见日志后者的事件没有分发到 __onTouchEvent()__ 。
 
 # 三、源码分析
 
@@ -199,13 +197,13 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         ListenerInfo li = mListenerInfo; // 这里获取mListenerInfo
         
         // 所有条件成立执行此语句块:
-        //    1. mListenerInfo不为空，且已设置OnTouchListener;
-        //    2. View模式是Enable，表明控件可用;
+        //    1. mListenerInfo不为空且已设置OnTouchListener;
+        //    2. View模式是Enable表明控件可用;
         //    3. mOnTouchListener.onTouch()尝试消费事件;
         if (li != null && li.mOnTouchListener != null
                 && (mViewFlags & ENABLED_MASK) == ENABLED
                 && li.mOnTouchListener.onTouch(this, event)) {
-            // li.mOnTouchListener.onTouch()消费该事件
+            // li.mOnTouchListener.onTouch()已消费该事件
             result = true;
         }
         
@@ -231,7 +229,7 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 }
 ```
 
-从上述源码可知，点击事件进入 __dispatchTouchEvent()__ ，在此方法内先给 __mOnTouchListener()__ 消费事件。如果 __mOnTouchListener()__ 不消费该事件，则继续下发给 __onTouchEvent(event)__ 。
+从上述源码可知，点击事件进入 __dispatchTouchEvent()__ ，在此方法内先给 __mOnTouchListener()__ 消费事件。如果 __mOnTouchListener()__ 不消费事件则下发给 __onTouchEvent(event)__ 。
 
 流程图解：
 
@@ -251,9 +249,9 @@ if (li != null && li.mOnTouchListener != null
 }  
 ```
 
-__li.mOnTouchListener__ 依赖 __mButton.setOnTouchListener__ ，不设置后者则前者为空。
+__li.mOnTouchListener__ 依赖 __mButton.setOnTouchListener__ ，后者不设置则前者为空。
 
-在 __MainActivity.onCreate()__ 中给 __mButton.setOnTouchListener()__ 创建一个 __OnTouchListener__ 实例的同时，这个实例会保存在 __getListenerInfo().mOnTouchListener__ 。
+在 __MainActivity.onCreate()__ 中给 __mButton.setOnTouchListener()__ 设置监听器同时，这个实例保存在 __getListenerInfo().mOnTouchListener__。
 
 ```java
 public void setOnTouchListener(OnTouchListener l) {

@@ -29,7 +29,7 @@ __HashSet__ 利用[HashMap](/2018/06/30/HashMap/)实现特性，通过HashMap存
 private transient HashMap<E,Object> map;
 ```
 
-常量对象，在 __HashMap__ 的value中起占位作用，表示对应key已存在
+常量对象在 __HashMap__ 的value中起占位作用，表示对应key已存在
 
 ```java
 private static final Object PRESENT = new Object();
@@ -49,7 +49,9 @@ public HashSet() {
 
 ```java
 public HashSet(Collection<? extends E> c) {
+    // 计算HashMap容量，HashMap构造方法会对该值对齐到2的幂
     map = new HashMap<>(Math.max((int) (c.size()/.75f) + 1, 16));
+    // 添加集合元素
     addAll(c);
 }
 ```

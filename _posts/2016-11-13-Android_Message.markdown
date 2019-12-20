@@ -15,12 +15,12 @@ tags:
 public final class Message implements Parcelable
 ```
 
-Android常用序列化有 Serializable 和[Parcelable](https://developer.android.com/reference/android/os/Parcelable.html)两种，该类实现了后者。前者用的时间比较长且范围更广，但是序列化过程中产生大量小对象。后者性能好，但需要手动实现序列化实现方法，只在Android中使用。
+Android常用序列化有Serializable和[Parcelable](https://developer.android.com/reference/android/os/Parcelable.html)两种。前者历史悠久且范围更广，但序列化过程产生大量小对象。后者性能好，但需要手动实现序列化实现方法且只用在Android。而本类实现后者。
 
 
 # 一、成员变量
 
-用一个标志来区分不同消息的身份，不同Handler使用相同值的消息不会弄混。因为日志输出时，该值以16进制的形式显示，所以设置该值时建议用16进制。
+此标志用于区分不同消息的身份，不同Handler使用相同值的消息不会弄混。因为日志输出时该值以16进制形式显示，所以设置时建议用16进制。
 
 ```java
 public int what; // 0x01
@@ -56,10 +56,10 @@ static final int FLAG_ASYNCHRONOUS = 1 << 1;
 
 static final int FLAGS_TO_CLEAR_ON_COPY_FROM = FLAG_IN_USE;
 
-// 消息标志，上面三个常量 FLAG_* 用在这里
+// 上面三个常量标志位用在这里
 int flags;
 
-// 消息时间戳，消息可以分发的时间点
+// 消息分发的目标时间戳
 long when;
 ```
 其他数据成员：
@@ -94,7 +94,9 @@ private static boolean gCheckRecycle = true;
 
 # 二、消息体获取
 
-从消息池中获得可复用消息对象。方法体有一个以`sPoolSync`作为锁标志的同步代码块，避免不同线程取同一个空消息体导致使用紊乱。没有可复用对象则直接创建新Message对象。当然也可以手动创建新消息对象，但是最好的方式还是从`obtain()`中获取缓存好的空消息体。
+从消息池中获得复用消息对象。方法体以`sPoolSync`作为同步代码块的锁标志，避免不同线程获得相同空消息体导致使用紊乱。没有可复用对象则直接创建新对象。
+
+当然也可以手动创建新消息对象，但是最好的方式还是从`obtain()`中获取缓存好的空消息体。
 
 ```java
 public static Message obtain() {
@@ -205,7 +207,7 @@ public static Message obtain(Handler h, int what, int arg1, int arg2, Object obj
 
 # 三、消息回收
 
-检查当前系统版本是否支持消息对象循环回收。当消息已经保存在缓存池中时，就会标记为`IN_USE`，不能再次回收。
+检查当前系统版本是否支持消息对象循环回收。当消息已经保存在缓存池中时会标记为`IN_USE`，不能再次回收。
 
 ```java
 public static void updateCheckRecycle(int targetSdkVersion) {

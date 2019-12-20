@@ -33,12 +33,12 @@ public class AtomicInteger extends Number implements java.io.Serializable
 
 ## 三、静态初始化
 
-在静态初始化块里面获取`value`的内存地址，这时的`value`内存地址已经开辟，但是没有被实例初始化。而静态初始化块是类初始化中最先调用的，静态初始化线程安全由JVM来保证。
+静态初始化块获取`value`的内存地址，而静态初始化块是类初始化中最先调用的，静态初始化线程安全由JVM来保证。
 
 ```java
 static {
     try {
-        // 先反射出value的变量，然后通过变量查找其对象在内存中的偏移值
+        // 反射出value的变量并查找变量在类内存结构的偏移值
         valueOffset = unsafe.objectFieldOffset
             (AtomicInteger.class.getDeclaredField("value"));
     } catch (Exception ex) { throw new Error(ex); }
@@ -47,7 +47,7 @@ static {
 
 ## 四、数据成员
 
-`volatile`保证value值的有序性和线程可见性，原子性由`synchronized`或`Lock`来保障。
+`volatile`保证value值的有序性和线程可见性，而原子性需`synchronized`或`Lock`来保障。
 
 ```java
 private volatile int value;
@@ -59,7 +59,7 @@ private static final long valueOffset;
 
 ## 五、构造方法
 
-用一个给定的整形值初始化实例
+用给定整形值初始化实例
 
 ```java
 public AtomicInteger(int initialValue) {
@@ -67,7 +67,7 @@ public AtomicInteger(int initialValue) {
 }
 ```
 
-初始化一个值为0的实例
+初始值为0的实例
 
 ```java
 public AtomicInteger() {
@@ -77,22 +77,22 @@ public AtomicInteger() {
 ## 六、成员方法
 
 ```java
-// 获取当前的整形值
+// 获取当前整形值
 public final int get() {
     return value;
 }
 
-// 设置新的整形值
+// 设置新整形值
 public final void set(int newValue) {
     value = newValue;
 }
 
-// 最终一定会把newValue设置成功
+// 最终会把newValue设置成功
 public final void lazySet(int newValue) {
     unsafe.putOrderedInt(this, valueOffset, newValue);
 }
 
-// 设置新的整形值，返回上一个保存的值
+// 设置新整形值，返回上次保存的值
 public final int getAndSet(int newValue) {
     return unsafe.getAndSetInt(this, valueOffset, newValue);
 }
