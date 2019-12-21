@@ -13,7 +13,7 @@ tags:
 
 笔者负责的工程长年进行功能迭代，没有处理性能问题，最近终于有空进行内存问题修复。本文记录此次内存问题定位过程及修复方法，并总结开发心得和经验。
 
-应用频繁申请小对象，会占用处理器时间片(虚拟机TLAB划分、小对象初始化)；巨型对象、长生命周期对象，则增加垃圾回收的难度，最终给调试处理器占用、主线程阻塞增加不可预知的状况。同时，大量内存申请会导致性能取样工具卡顿和崩溃。因此，内存应该是性能问题中最优先解决的。
+应用频繁申请小对象，会占用处理器时间片(虚拟机TLAB划分、小对象初始化)；巨型对象、长生命周期对象，则增加垃圾回收的难度，最终给调试处理器占用、主线程阻塞增加不可预知的状况。同时，大量内存申请会导致抽样工具卡顿和崩溃。因此，内存应该是性能问题中最优先解决的。
 
 ### 一、目标
 
@@ -21,7 +21,7 @@ tags:
 
 基于功能所限，本产品需集成到宿主应用作为运行部分。所以产品启动过程高内存占用，加上宿主已经申请空间，容易造成 __OutOfMemoryError__ 而导致崩溃。
 
-所以本次首要目标是削减启动申请内存的数量，其次查找启动后的内存泄漏，而其他优化会在后续开展。
+所以本次首要目标是削减启动申请内存的数量，查找启动后的内存泄漏，其他优化会在后续开展。
 
 ### 二、工具
 
@@ -90,7 +90,7 @@ __Android__ 枚举类型在混淆的优化阶段内联到调用点，不再出�
 
 #### 3.1 使用ARouter
 
-__ARouter__ 在本工程中负责页面路由跳转和服务提供，实现组件化的大部分工作，正常不会有性能问题。
+__ARouter__ 在本工程负责页面路由跳转和服务提供，完成组件化大部分工作，正常不会有性能问题。
 
 ```java
 class RoomSummaryComparator : Comparator<RoomSummary> {
@@ -171,9 +171,7 @@ if (jsObj.has("flag")) {
 
 #### 3.3 重用对象
 
-很多文章都提到绘制过程如 __onDraw()__ 不应该进行对象创建操作，但自己能准守并不代表能阻止同事这样做。
-
-下面是同事的 __onDraw()__ 和 __onResize()__ 图省事频繁创建 __RectF__。按照每个方法执行一次的情况算，共计创建9个 __RectF__ 对象。
+很多文章都提到绘制过程如 __onDraw()__ 不应该进行对象创建操作，但自己遵守并不能阻止同事这样做。同事的 __onDraw()__ 和 __onResize()__ 图省事频繁创建 __RectF__。按照每个方法执行一次的情况算，共计创建9个 __RectF__ 对象。
 
 ```kotlin
 class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {
@@ -306,6 +304,8 @@ class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {
 }
 ```
 
+此处优化的效果不好统计，不过可知有效减低垃圾回收对主线程绘制造成的影响。
+
 #### 3.4 重复创建
 
 在 __RecyclerView.Adapter__ 的 __onBindViewHolder()__ 从 __allRows()__ 获取列表，看具体实现发现 __allRows()__ 每次都生成新 __ArrayList__。
@@ -345,7 +345,7 @@ class MessagesListAdapter(mContext: Context,
 
 #### 3.5 多次Json解析
 
-重复在主线程解析 __Json__ 不仅占用处理器解析导致卡顿，还累积产生很多小对象，直接缓存结果即可。
+重复在主线程解析 __Json__ 不仅占用时间片导致卡顿，还产生很多小对象，所以直接缓存结果即可。
 
 ```java
 class RoomTopic(private val topicString: String?) {
@@ -445,6 +445,8 @@ try {
 
 ![leak_MediaContentObserver](/img/android/performance/leak_MediaContentObserver.png)
 
+发现在 __Activity__ 的生命周期中注册和注销没有匹配：__onResume()__ 多次注册但在 __onDestroy()__ 仅注销最后一次注册的监听器，导致之前的监听器被系统持有而造成泄漏。
+
 源码实现如下：
 
 ```java
@@ -503,9 +505,7 @@ public class ScreenShotListenManager {
 }
 ```
 
-发现在 __Activity__ 的生命周期中注册和注销没有匹配：__onResume()__ 多次注册但在 __onDestroy()__ 仅注销最后一次注册的监听器，导致之前的监听器被系统持有而造成泄漏。
-
-把原来在 __onDestroy__ 的注销操作，移动到 __onResume__ 匹配的 __onPause__ 上即可修复。
+把原来在 __onDestroy__ 的注销操作移动到 __onResume__ 配对的 __onPause__ 上即可修复。
 
 ```java
 @Override
@@ -534,7 +534,7 @@ protected void onDestroy() {
 
 对比优化后，整个启动只有两次轻微越过32MB堆内存，整体内存申请曲线相对柔和，启动完成时间从45秒提前到28秒。随后也不再触发垃圾回收操作，内存占用维持32MB。
 
-时间到1分钟整把应用退到后台并手动触发GC，两者堆内存减低到25MB以下，可见应用后台占用内存不多。
+时间到1分钟整，应用退到后台并手动触发GC，两者堆内存均减低到25MB，可见应用处于后台时占用内存不多。
 
 ### 五、总结
 
@@ -551,7 +551,7 @@ protected void onDestroy() {
 - 选用知名的图片加载框架不仅节约开发时间，还能避免图片加载引起的内存问题；
 
 - 非受检异常如 __NullPointerException__、__ClassCastException__ 都能预防，处理后可避免堆栈打印快照引起的停顿及 __StackTraceElement__ 开销；
-- 削减空闲线程也是优化内存占用大方法之一，需要时可以进行优化；
+- 削减空闲线程也是优化内存占用方法之一，需要时酌情操作；
 - 谨慎对待每个内存开销。在 __Comparator__ 或 __for-for__ 助力下，开销能以 __2n__ 甚至 __n*n__ 的方式增加；
 
 参考链接：

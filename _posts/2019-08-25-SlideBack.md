@@ -38,11 +38,9 @@ Android图片多使用 __RGB565__ 内存定义，按照流行屏幕尺寸 __1920
 
 如果只能在两个不完美的方案里挑一个，我选这个方案。
 
-流行开源库 [SwipeBackLayout](https://github.com/ikew0ng/SwipeBackLayout) 也选择这种方案。不过这个工程从 __2018.07.10__ 后再也没有维护，在此前提出的问题都没有修复，更不用说，对源码迁移到AndroidX这种要求。
+流行开源库 [SwipeBackLayout](https://github.com/ikew0ng/SwipeBackLayout) 也选择这种方案。不过这个工程从 __2018.07.10__ 后再也没有维护，在此前提出的问题都没有修复，更不用说，对源码迁移到 __AndroidX__ 这种要求。
 
-除对好些异常没有处理，本身透明逻辑定义的时间点也是有问题的。
-
-先看界面正常生命周期：
+除了对好些异常没有处理，本身透明逻辑定义的时间点也是有问题的。先看界面正常生命周期：
 
 ```
 I/MainActivity@bc1f0e: onCreate
@@ -100,9 +98,9 @@ I/DemoActivity@2a17ef06: onResume
 
 所有已启动界面！所有已启动界面！在打开新界面后都不会走到 __onStop__，也就是说所有应该在 __onStop__ 停止的操作、释放的资源，都没有机会触发。导致的结果是：当打开简单页面数量超过7个，就会出现新页面进场卡顿。
 
-后来独立调研后，发现我的解决方案没法基于 __SwipeBackLayout__ 进行修改。所以实现新开源库 [phantomVK/SlideBack](https://github.com/phantomVK/SlideBack) 达到期望技术目标。新库对 __反射操作__、__页面过度绘制__、__内存占用__，和 __生命周期异常__ 进行修复。
+独立调研后，发现我的解决方案没法基于 __SwipeBackLayout__ 进行修改。所以实现新开源库 [phantomVK/SlideBack](https://github.com/phantomVK/SlideBack) 达到期望技术目标。
 
-__SlideBack__ 优化方案：
+新库对 __反射操作__、__页面过度绘制__、__内存占用__，和 __生命周期异常__ 修复后的结果：
 
 ```
 I/MainActivity@3b063dbb: onCreate
@@ -135,7 +133,7 @@ I/MainActivity@238b744d: onResume
 
 #### 反射优化
 
-反射在Java操作中耗费性能，而且基于应用场景的原因不能在子线程内运行。对此进行以下改进，把类方法查找操作放在静态初始化块内完成，后续无需每次使用都查找一次：
+反射在Java操作中耗费性能，而且基于应用场景的原因不能在子线程内运行。对此有以下改进，把类方法查找操作放在静态初始化块内完成，后续无需每次使用都查找一次。
 
 ```java
 public class TranslucentHelper {
@@ -207,7 +205,7 @@ protected void onResume() {
 }
 ```
 
-个人认为在用户拖动边缘时才设置透明方案不妥当，因为反射对主线程的阻塞，会给用户拖动操作带来迟滞的感觉。
+个人认为在用户拖动边缘时才设置透明方案不妥当，因为反射对主线程的阻塞，会给用户拖动操作带来迟滞的感觉，最好是界面可见时就具备操作的能力。
 
 #### 其他优化
 
@@ -217,4 +215,3 @@ protected void onResume() {
 - 使用基于 __Android28__ 定制 __ViewDragHelper__ 工具类；
 - 更细致功能启用、停用开关控制，避免冗余内存开销；
 - 重写 __findViewById__ 方法支持泛型；
-- 更多优化….

@@ -38,7 +38,7 @@ __MultiDex__ 用于应用启动时加载被分割的子dex，让后续类加载�
 
 这些问题网上很多文章都有提及，自行查找就有解决方案。更详细的说明可以参考官方文档：[为方法数超过 64K 的应用启用多 dex 文件](https://developer.android.com/studio/build/multidex?hl=zh-cn)。
 
-为提高文章阅读性和基于不影响理解的前提，下文移除部分日志内容并微调代码格式，插图可以浏览器右键打开查看。
+为提高文章阅读性和不影响理解的前提，下文移除部分日志并微调代码格式，插图可以浏览器右键打开查看。
 
 ## 二、基本用法
 
@@ -463,13 +463,13 @@ __dexPathList__ 变量运行时内存结构：
 
 ![loader](/img/android/multidex/loader.png)
 
-##### 4.2.2 optimizedDirectory
+#### 4.2.2 optimizedDirectory
 
 __optimizedDirectory__ 变量运行时内存结构：
 
 ![optimizedDirectory](/img/android/multidex/optimizedDirectory.png)
 
-##### 4.2.3 调用makeDexElements
+#### 4.2.3 调用makeDexElements
 
 这个是 __V19.makeDexElements()__，反射调用 __DexPathList.makeDexElements()__
 
