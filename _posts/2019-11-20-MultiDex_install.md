@@ -123,7 +123,7 @@ private static void doInstallation(Context mainContext, File sourceApk, File dat
             // 类加载器
             ClassLoader loader;
             try {
-                // 获取类加载器，提取的Dex后续通过反射添加到类加载器里面
+                // 获取类加载器，提取的Dex后续通过反射添加到类加载器
                 loader = mainContext.getClassLoader();
             } catch (RuntimeException var25) {
                 // Failure while trying to obtain Context class loader.
@@ -448,7 +448,7 @@ static void install(ClassLoader loader, List<? extends File> additionalClassPath
 
 __dexPathList__ 和 __optimizedDirectory__ 作为参数调用 __makeDexElements()__。
 
-##### 4.2.1 dexPathList
+#### 4.2.1 dexPathList
 
 __DexPathList__ 声明于[__BaseDexClassLoader__](http://androidxref.com/4.4.4_r1/xref/libcore/dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java#30)
 

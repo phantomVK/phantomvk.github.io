@@ -13,13 +13,13 @@ tags:
 
 笔者负责的工程长年进行功能迭代，没有处理性能问题，最近终于有空进行内存问题修复。本文记录此次内存问题定位过程及修复方法，并总结开发心得和经验。
 
-应用频繁申请小对象，会占用处理器时间片(虚拟机TLAB划分、小对象初始化)；巨型对象、长生命周期对象，则增加垃圾回收的难度，最终给调试处理器占用、主线程阻塞增加不可预知的状况。同时，大量内存申请会导致抽样工具卡顿和崩溃。因此，内存应该是性能问题中最优先解决的。
+应用频繁申请小对象，占用处理器时间片(__虚拟机TLAB划分__、__对象初始化__)，导致抽样工具卡顿和崩溃。__巨型对象__、__长周期对象__ 增加垃圾回收的难度，给调试处理器占用率、主线程阻塞增加未知风险。
 
 ### 一、目标
 
 每次性能优化都要确定阶段性目标，明确目标是”启动速度优化“，还是”修复内存占用高“。不确定目标就开始处理，容易陷入迷惘。
 
-基于功能所限，本产品需集成到宿主应用作为运行部分。所以产品启动过程高内存占用，加上宿主已经申请空间，容易造成 __OutOfMemoryError__ 而导致崩溃。
+基于功能所限，本产品需集成到宿主应用作为运行部分。所以启动过程高内存占用，加上宿主已经申请空间，容易造成 __OutOfMemoryError__ 崩溃。
 
 所以本次首要目标是削减启动申请内存的数量，查找启动后的内存泄漏，其他优化会在后续开展。
 
@@ -49,15 +49,15 @@ tags:
 
 - **Allocated**：您的应用分配的 Java/Kotlin 对象数。此数字没有计入 C 或 C++ 中分配的对象
 
-较新的系统版本还有其他额外的数据可以参考，但上面参数多数版本都提供。一般来说从上到下的顺序就是优化难度，即从 __Java堆内存__ 开始难度逐渐提升，到 __Other__ 内存最难处理
+较新的系统版本还有其他额外的数据可以参考，但上面参数多数版本都提供。一般来说从上到下的顺序就是优化难度，即从 __Java堆内存__ 开始难度逐渐提升，到 __Other__ 内存最难处理。
 
-不同用户场景，各部分内存占用比例也不一样，要对比优化前后效果要在同一场景进行测量
+不同应用场景内存占用比例也不一样，要对比优化前后效果要在同一场景反复测量。
 
 #### 2.2 Eclipse MAT
 
-老牌内存分析工具，用于检查dump之后的内存引用及泄漏问题。不过这个工具对 __Android__ 内存泄漏自动推断不准确，建议人工分析。
+老牌内存分析工具，用于检查dump之后的内存引用及泄漏问题。不过这个工具对 __Android__ 内存泄漏自动推断不准确。
 
-__Android Profiler__ 导出内存快照，必须先用 __platform-tools__ 的 __hprof-conv__ 转换后才能导入 __MAT__，而 __-z__ 参数转换得到结果只包含应用自身内存，更易于查看。
+__Android Profiler__ 导出内存快照，先用 __platform-tools__ 的 __hprof-conv__ 转换后才能导入 __MAT__，而 __-z__ 参数转换结果只包含应用自身内存，易于查看。
 
 ```bash
 $ cd /Users/k/Library/Android/sdk/platform-tools # MacOS
@@ -80,7 +80,7 @@ $ hprof-conv -z dump_from.hprof dump_to.hprof
 
 ![leak_MediaContentObserver](/img/android/performance/leak_MediaContentObserver.png)
 
-__MAT__ 中其他可见结果，一般是类加载器持有的静态变量、常量。下图是枚举类型 __FuncType__ 被类加载器持有的示意图，内部28个数值共使用448B内存：
+除了显示内存泄漏的引用，__MAT__ 其他可见结果主要是类加载器持有的静态变量、常量。下图是枚举类型 __FuncType__ 被类加载器持有的示意图，内部28个数值共使用448B内存：
 
 ![no_memory_leak](/img/android/performance/no_memory_leak.png)
 
@@ -96,38 +96,29 @@ __ARouter__ 在本工程负责页面路由跳转和服务提供，完成组件�
 class RoomSummaryComparator : Comparator<RoomSummary> {
     override fun compare(lSummary: RoomSummary?, rSummary: RoomSummary?): Int {
         return when {
-            ....
             else -> {
-                ....
-                when {
-                    ....
-                    else -> {
-                        // 从ARouter获取新的对象SessionManager
-                        val lTs = ServiceFactory.getInstance().sessionManager
-                                .defaultLatestChatMessageCache
-                                .getLatestTextTs(applicationContext, lSummary.roomId)
-                                ?: lEvent.getOriginServerTs()
+                // 从ARouter获取对象SessionManager
+                val lTs = ServiceFactory.getInstance().sessionManager
+                        .defaultLatestChatMessageCache
+                        .getLatestTextTs(applicationContext, lSummary.roomId)
+                        ?: lEvent.getOriginServerTs()
 
-                        // 从ARouter获取新的对象SessionManager
-                        val rTs = ServiceFactory.getInstance().sessionManager
-                                .defaultLatestChatMessageCache
-                                .getLatestTextTs(applicationContext, rSummary.roomId)
-                                ?: rEvent.getOriginServerTs()
-                        ....
-                        }
-                    }
-                }
+                // 从ARouter获取对象SessionManager
+                val rTs = ServiceFactory.getInstance().sessionManager
+                        .defaultLatestChatMessageCache
+                        .getLatestTextTs(applicationContext, rSummary.roomId)
+                        ?: rEvent.getOriginServerTs()
             }
         }
     }
 }
 ```
 
-但实际这里调用嵌套在 __Comparator__ 中，因此房间列表排序累计对 __ARouter__ 调用多达3.6万次，每次调用都创建 __PostCard__ 实例，累计浅内存使用2MB。
+这里调用嵌套在 __Comparator__，房间列表排序累计调用 __ARouter__ 多达3.6万次，每次调用都创建 __PostCard__ 实例，累计浅内存使用2MB。
 
 ![arouter_postcard](/img/android/performance/arouter_postcard_larger.png)
 
-处理方法是整合调用点，避免重复调用 __ARouter__。优化后相同场景只有1000次调用
+需要整合调用点避免重复调用 __ARouter__，优化后相同场景只有1000次调用。
 
 ```kotlin
 class RoomSummaryComparator : Comparator<RoomSummary> {
@@ -154,9 +145,9 @@ val flag = try {
 }
 ```
 
-但是 __JsonObject__ 存在该值是少数情况。而异常使用 __StackTraceElement__ 记录堆栈信息，因此上述代码多次生成该实例：每个大小32B，抛出1041次，__ShallowSize__ 总计：33,312B。
+该整型值存在是少数情况，抛出异常会使用 __StackTraceElement__ 记录堆栈信息。
 
-考虑到 __StackTraceElement__ 里面用于保存堆栈信息的的字符串变量，实际占用将大于 33,312B
+因此上述代码多次生成该实例，每个大小32B共抛出1041次，__ShallowSize__ 总计33,312B。考虑到 __StackTraceElement__ 用于保存堆栈信息的字符串，实际占用将大于 33,312B。
 
 ```kotlin
 val jsObj = event.getContent().asJsonObject
@@ -167,7 +158,7 @@ if (jsObj.has("flag")) {
 }
 ```
 
-处理方法比较简单，从 __JsonObject__ 获取整形值之前先检查该值是否合法。
+处理方法比较简单：从 __JsonObject__ 获取整形值前检查该值是否存在。
 
 #### 3.3 重用对象
 
@@ -233,7 +224,9 @@ class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {
 }
 ```
 
-修改为复用 __RectF__ 的变量，使用时先调用 __RectF.set(left, top, right, button)__ 更新值再把 __RectF__ 提供给绘制方法。若确保 __BubbleShape__ 只在主线程执行，则能把 __RectF__ 设置为常量。无论多少个 __BubbleShape__ 实例都只会复用单个 __RectF__ 常量。
+修改为复用 __RectF__ 的变量，使用时先调用 __RectF.set(left, top, right, button)__ 更新值再把 __RectF__ 提供给绘制方法。
+
+若确保 __BubbleShape__ 只在主线程执行，则能把 __RectF__ 设置为常量。无论多少个 __BubbleShape__ 实例都只会复用单个 __RectF__ 常量。
 
 ```kotlin
 class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {
@@ -304,11 +297,11 @@ class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {
 }
 ```
 
-此处优化的效果不好统计，不过可知有效减低垃圾回收对主线程绘制造成的影响。
+此处优化的效果不好统计，不过可知有效降低垃圾回收对主线程绘制造成的影响。
 
 #### 3.4 重复创建
 
-在 __RecyclerView.Adapter__ 的 __onBindViewHolder()__ 从 __allRows()__ 获取列表，看具体实现发现 __allRows()__ 每次都生成新 __ArrayList__。
+在 __RecyclerView.Adapter__ 的 __onBindViewHolder()__ 从 __allRows()__ 获取列表，发现 __allRows()__ 每次都生成新 __ArrayList__。
 
 ```kotlin
 class MessagesListAdapter(mContext: Context,
@@ -417,7 +410,7 @@ public class Room {
 
 #### 3.7 关闭资源
 
-内存取样过程还发现 __InputStream__ 实例留存在内存没有正确关闭，从内存申请点发现以下代码：
+内存取样过程还发现 __InputStream__ 实例滞留在内存没有正确关闭，从内存申请点发现以下代码：
 
 ```kotlin
 try {
@@ -445,7 +438,7 @@ try {
 
 ![leak_MediaContentObserver](/img/android/performance/leak_MediaContentObserver.png)
 
-发现在 __Activity__ 的生命周期中注册和注销没有匹配：__onResume()__ 多次注册但在 __onDestroy()__ 仅注销最后一次注册的监听器，导致之前的监听器被系统持有而造成泄漏。
+发现在 __Activity__ 的生命周期中注册和注销没有匹配：__onResume()__ 多次注册但在 __onDestroy()__ 仅注销最后一次注册的监听器，导致此前的监听器被系统持有造成泄漏。
 
 源码实现如下：
 
@@ -540,19 +533,19 @@ protected void onDestroy() {
 
 此次优化证明处理方案，可减少启动过程对象产生数量，缩减最大内存占用量。然而读者可能会疑惑，一般的技术优化效果那么明显？答案是否定的。
 
-其实除了上述技术优化，笔者在跟踪源码过程中，还发现不少业务对应的代码执行低效甚至多余。这种查找不具有一般性，不能在此一点点列出，只能按照“能省就省”的对象申请想法，在技术优化的过程顺便完善。
+除了上述技术优化，在跟踪源码过程还发现不少业务代码执行低效、甚至是多余的。这种查找不具有一般性，不能在此一点点列出，只能按照“能省就省”的对象申请想法，在技术优化的过程顺便完善。
 
 若考虑用户动态使用场景、隐含未知的内存泄漏、图中尚存在的尖峰，后续还有进一步优化空间。
 
 经验总结：
 
 - 若频繁输出日志，使用mmap而不是基于Java的日志框架，避免String内存开销；
-- 线程安全工具类可处理为常量，为所有调用点提供服务，减少冗余实例；
-- 选用知名的图片加载框架不仅节约开发时间，还能避免图片加载引起的内存问题；
+- 线程安全工具类可处理为常量，为所有调用点提供服务减少冗余实例；
+- 选用知名图片加载框架不仅节约开发时间，还能避免图片加载引起的内存问题；
 
 - 非受检异常如 __NullPointerException__、__ClassCastException__ 都能预防，处理后可避免堆栈打印快照引起的停顿及 __StackTraceElement__ 开销；
 - 削减空闲线程也是优化内存占用方法之一，需要时酌情操作；
-- 谨慎对待每个内存开销。在 __Comparator__ 或 __for-for__ 助力下，开销能以 __2n__ 甚至 __n*n__ 的方式增加；
+- 谨慎对待每个内存开销。在 __Comparator__ 或 __for-for__ 助力下开销能以 __2n__ 甚至 __n*n__ 的方式增加；
 
 参考链接：
 

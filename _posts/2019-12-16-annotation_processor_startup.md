@@ -15,7 +15,7 @@ tags:
 
 ![create_project](/img/android/annotation_processor/create_project.png)
 
-#### 注解类模块
+#### 注解类组件
 
 工程内新建名为 __annotation__ 的模块。
 
@@ -37,7 +37,7 @@ public @interface XAnnotation {
 
 因为此注解可用于修饰类，所以目标类型为：__ElementType.TYPE__，并且注解信息在运行时保留。
 
-#### 注解处理器模块
+#### 注解处理器组件
 
 另外新建模块 __annotation_processor__ 用于存放注解处理器。存放注解处理器的模块必须和注解类模块分离，不然上层模块依赖后会出现问题。
 
@@ -115,21 +115,22 @@ public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnv
         PackageElement packageElement = mElementUtils.getPackageOf(element);
         String packageName = packageElement.getQualifiedName().toString();
 
-        MethodSpec methodSpec = MethodSpec.methodBuilder("showLog")
-                .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-                .returns(void.class)
-                .addStatement("$T.out.println($S)", System.class, "Hello JavaPoet.")
+        MethodSpec methodSpec = MethodSpec.methodBuilder("showLog") // 方法名
+                .addModifiers(Modifier.PUBLIC, Modifier.STATIC) // 声明为公开的静态方法
+                .returns(void.class) // 返回值为空
+                .addStatement("$T.out.println($S)", System.class, "Hello JavaPoet.") // 方法体
                 .build();
 
-        TypeSpec typeSpec = TypeSpec.classBuilder("XGeneratedClass")
-                .addModifiers(Modifier.PUBLIC)
-                .addMethod(methodSpec)
+        TypeSpec typeSpec = TypeSpec.classBuilder("XGeneratedClass") // 类名
+                .addModifiers(Modifier.PUBLIC) // 类可见性为public
+                .addMethod(methodSpec) // 把上述方法添加到类，可继续添加
                 .build();
 
-        JavaFile javaFile = JavaFile.builder(packageName, typeSpec)
-                .build();
+        // 用构建完成的类生成Java文件
+        JavaFile javaFile = JavaFile.builder(packageName, typeSpec).build();
 
         try {
+            // 结果写入磁盘
             javaFile.writeTo(mFiler);
         } catch (IOException e) {
             e.printStackTrace();
@@ -144,17 +145,19 @@ public boolean process(Set<? extends TypeElement> set, RoundEnvironment roundEnv
 
 ![register_annotation_processor](/img/android/annotation_processor/register_annotation_processor.png)
 
-注册声明文件必须按照上述目录存放，而且文件名为这个：
+注册声明文件必须按照上述目录存放而且有文件名：
 
 ```
 javax.annotation.processing.Processor
 ```
 
-文件内容的注解处理器的全路径名：
+文件内容为注解处理器的全路径名：
 
 ![register_annotation_processor_ide](/img/android/annotation_processor/register_annotation_processor_ide.png)
 
-#### App导入
+只有正确注册的注解处理器，编译器才能在编译过程处理注解并执行注解逻辑。
+
+#### 导入
 
 最后在App工程导入注解声明库和注解处理器库：
 
@@ -206,7 +209,7 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-#### 编译执行
+#### 执行结果
 
 运行之后控制台就能打印：
 
