@@ -52,7 +52,7 @@ public abstract class FragmentHostCallback<E> extends FragmentContainer {
 }
 ```
 
-__FragmentHostCallback__ 的实际实现类，是 __FragmentActivity__ 的内部类 __HostCallbacks__。实现抽象类的同时还复写了父类的实现逻辑，当 __Fragment__ 调用该方法时，实际调用 __FragmentActivity__ 实现的成员方法。
+__FragmentHostCallback__ 的实际实现类是 __FragmentActivity__ 的内部类 __HostCallbacks__。实现抽象类的同时还复写了父类的实现逻辑，当 __Fragment__ 调用该方法时，实际调用 __FragmentActivity__ 实现的成员方法。
 
 ```java
 public class FragmentActivity extends BaseFragmentActivityApi16 implements
@@ -76,7 +76,7 @@ public class FragmentActivity extends BaseFragmentActivityApi16 implements
 }
 ```
 
-那看看宿主 __FragmentActivity__ 的方法实现。方法内的实参 __requestCode__ 高16位保存 __(requestIndex+1)__ 的值，低16位保存来自 __Fragment__ 的 __requestCode__ 值。
+看宿主 __FragmentActivity__ 的方法实现：方法内实参 __requestCode__ 高16位保存 __(requestIndex+1)__ 的值，低16位保存来自 __Fragment__ 的 __requestCode__ 值。
 
 ```java
 public void startActivityFromFragment(Fragment fragment, Intent intent,
@@ -99,7 +99,9 @@ public void startActivityFromFragment(Fragment fragment, Intent intent,
 }
 ```
 
-当结果从其他 __Activity__ 回到 __Fragment__ 所在宿主 __Activity__ 时，宿主页面先检查 __requestIndex__ 的值，判断原始请求是否来自 __Fragment__。检查逻辑很简单，__requestIndex__ 高16位非零就表示该请求来自 __Fragment__，然后找源 __Fragment__。
+当结果从其他 __Activity__ 回到 __Fragment__ 所在宿主 __Activity__ 时，宿主页面先检查 __requestIndex__ 的值，判断原始请求是否来自 __Fragment__。
+
+检查逻辑很简单，__requestIndex__ 高16位非零就表示该请求来自 __Fragment__，然后找源 __Fragment__。
 
 ```java
 @Override
@@ -112,18 +114,19 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 
         // 用requestCode查找对应的请求Fragment
         String who = mPendingFragmentActivityResults.get(requestIndex);
+        // 移除该requestIndex的记录
         mPendingFragmentActivityResults.remove(requestIndex);
         if (who == null) {
             Log.w(TAG, "Activity result delivered for unknown Fragment.");
             return;
         }
-        // 从Activity的Fragment栈中查找返回数据的最终归宿，即Fragment实例
+        // 从Activity的Fragment栈查找接收数据的目标实例
         Fragment targetFragment = mFragments.findFragmentByWho(who);
-        // Fragment如果已经被销毁则可能为空
+        // Fragment如果已被销毁则为空
         if (targetFragment == null) {
             Log.w(TAG, "Activity result no fragment exists for who: " + who);
         } else {
-            // 进行与操作后，就是请求的原始requestCode，即低16位的数据
+            // 进行与操作后就是请求的原始requestCode，即低16位数据
             // 作为参数和返回结果让Fragment自行处理onActivityResult
             targetFragment.onActivityResult(requestCode & 0xffff, resultCode, data);
         }
@@ -136,11 +139,12 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         // Delegate has handled the activity result
         return;
     }
-
+  
+    // 请求交给Activity执行
     super.onActivityResult(requestCode, resultCode, data);
 }
 ```
 
-由于上述调用位于 __FragmentActivity__ 中，如果重写该方法时没调用 __super.onActivityResult(int requestCode, int resultCode, Intent data)__，页面返回的请求没有正确处理，对应 __Fragment__ 也不会接受到该结果通知。
+由于上述调用位于 __FragmentActivity__ 中，如果重写该方法时没调用 __super.onActivityResult(int requestCode, int resultCode, Intent data)__，页面返回结果不会得到正确处理，对应 __Fragment__ 也不会接受到该结果通知。
 
 可知，__Activity__ 自己调用 __onActivityResult__ 方法时传入的 __requestCode__ 不能大于 __0xFFFF__，否则会和来自 __Fragment__ 的请求 __requestCode__ 混淆。

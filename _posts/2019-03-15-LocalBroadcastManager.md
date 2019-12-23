@@ -11,7 +11,9 @@ tags:
 
 ## 一、类签名
 
-用于同进程本地对象注册或发送广播的帮助类。如果广播信息只需要在同进程内收发，则无需发送全局广播，仅发送本地广播即可。同一应用开启多进程，不能在不同进程间用本地广播进行通讯，因为不同进程持有不同 __LocalBroadcastManager__ 实例，每个实例间没有关联。
+用于同进程本地对象注册或发送广播的帮助类。如果广播信息只需要在同进程内收发，则无需发送全局广播，仅发送本地广播即可。
+
+同应用开启多进程不能用本地广播通讯，因为不同进程持有不同 __LocalBroadcastManager__ 实例，每个实例间没有关联。
 
 ```java
 public final class LocalBroadcastManager
@@ -25,7 +27,7 @@ public final class LocalBroadcastManager
 
 ## 二、记录
 
-注册广播接收者，注册时用户提供的信息会封装到此对象，发送广播时会筛选符合条件的 __ReceiverRecord__ 。
+注册广播接收者，注册时用户提供的信息封装到此对象，发送广播时筛选符合条件的 __ReceiverRecord__ 。
 
 ```java
 private static final class ReceiverRecord {
@@ -43,7 +45,7 @@ private static final class ReceiverRecord {
 }
 ```
 
-筛选后符合条件的 __ReceiverRecord__ 保存到 __BroadcastRecord.receivers__，然后通过观察者模式逐个通知列表中的 __ReceiverRecord__。
+筛选后符合条件的 __ReceiverRecord__ 保存到 __BroadcastRecord.receivers__ 并逐个通知。
 
 ```java
 private static final class BroadcastRecord {
@@ -112,7 +114,6 @@ private LocalBroadcastManager(Context context) {
 
     // 构造Handler，在主线程回调
     mHandler = new Handler(context.getMainLooper()) {
-
         @Override
         public void handleMessage(Message msg) {
             switch (msg.what) {
@@ -137,13 +138,14 @@ private LocalBroadcastManager(Context context) {
 ```java
 public void registerReceiver(@NonNull BroadcastReceiver receiver,
         @NonNull IntentFilter filter) {
+
     // 先获取同步锁
     synchronized (mReceivers) {
         // 用传入的变量构造ReceiverRecord
         ReceiverRecord entry = new ReceiverRecord(filter, receiver);
         // 从mReceivers查找该receiver是否已经存在记录
         ArrayList<ReceiverRecord> filters = mReceivers.get(receiver);
-        // 记录为空，则创建新的filters
+        // 记录为空创建新的filters
         if (filters == null) {
             filters = new ArrayList<>(1);
             mReceivers.put(receiver, filters);
@@ -156,7 +158,7 @@ public void registerReceiver(@NonNull BroadcastReceiver receiver,
             // 从filter逐个获取Action
             String action = filter.getAction(i);
             ArrayList<ReceiverRecord> entries = mActions.get(action);
-            // 这个Action没有记录过，则创建新记录
+            // 这个Action没有记录过则创建新记录
             if (entries == null) {
                 entries = new ArrayList<ReceiverRecord>(1);
                 mActions.put(action, entries);
@@ -223,7 +225,7 @@ public boolean sendBroadcast(@NonNull Intent intent) {
         final String scheme = intent.getScheme();
         final Set<String> categories = intent.getCategories();
 
-        // 根据发送的action，找出已经注册的接收者记录
+        // 根据发送的action找出已经注册的接收者记录
         ArrayList<ReceiverRecord> entries = mActions.get(intent.getAction());
         if (entries != null) {
             ArrayList<ReceiverRecord> receivers = null;
@@ -281,6 +283,7 @@ public void sendBroadcastSync(@NonNull Intent intent) {
 private void executePendingBroadcasts() {
     while (true) {
         final BroadcastRecord[] brs;
+
         // 上线程锁
         synchronized (mReceivers) {
             // 获取待处理广播的数量
@@ -295,6 +298,7 @@ private void executePendingBroadcasts() {
             // 清除待处理广播的列表
             mPendingBroadcasts.clear();
         }
+
         // 遍历刚创建数组的广播事件
         for (int i=0; i<brs.length; i++) {
             // 逐个取出广播

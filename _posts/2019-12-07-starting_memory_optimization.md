@@ -21,7 +21,7 @@ tags:
 
 基于功能所限，本产品需集成到宿主应用作为运行部分。所以启动过程高内存占用，加上宿主已经申请空间，容易造成 __OutOfMemoryError__ 崩溃。
 
-所以本次首要目标是削减启动申请内存的数量，查找启动后的内存泄漏，其他优化会在后续开展。
+所以本次首要目标是削减启动申请内存的数量，查找启动后的内存泄漏。
 
 ### 二、工具
 
@@ -55,12 +55,12 @@ tags:
 
 #### 2.2 Eclipse MAT
 
-老牌内存分析工具，用于检查dump之后的内存引用及泄漏问题。不过这个工具对 __Android__ 内存泄漏自动推断不准确。
+老牌内存分析工具用于检查内存泄漏问题，不过这个工具对 __Android__ 内存泄漏自动推断不准确。
 
 __Android Profiler__ 导出内存快照，先用 __platform-tools__ 的 __hprof-conv__ 转换后才能导入 __MAT__，而 __-z__ 参数转换结果只包含应用自身内存，易于查看。
 
 ```bash
-$ cd /Users/k/Library/Android/sdk/platform-tools # MacOS
+$ cd /Users/phantomvk/Library/Android/sdk/platform-tools # MacOS
 $ hprof-conv -z dump_from.hprof dump_to.hprof
 ```
 
@@ -76,7 +76,7 @@ $ hprof-conv -z dump_from.hprof dump_to.hprof
 
 ![ScreenShotListenManager](/img/android/performance/ScreenShotListenManager.png)
 
-右键点击 __List objects__ ，选择 __with incoming references__ 可看见对象被引用的位置：
+右键点击 __List objects__ 选择 __with incoming references__ 可看见对象被引用的位置：
 
 ![leak_MediaContentObserver](/img/android/performance/leak_MediaContentObserver.png)
 
@@ -135,7 +135,7 @@ class RoomSummaryComparator : Comparator<RoomSummary> {
 
 #### 3.2 堆栈跟踪开销
 
-下面代码目的是检查 __JsonObject__ 是否存在名为 __flag__ 的整形值，没有的话通过捕获异常返回null：
+下面代码从 __JsonObject__ 获取名为 __flag__ 的整形值，否则捕获异常并返回null。
 
 ```kotlin
 val flag = try {
@@ -145,9 +145,9 @@ val flag = try {
 }
 ```
 
-该整型值存在是少数情况，抛出异常会使用 __StackTraceElement__ 记录堆栈信息。
+该整型值存在是少数情况，频繁抛出异常并使用 __StackTraceElement__ 记录堆栈信息。
 
-因此上述代码多次生成该实例，每个大小32B共抛出1041次，__ShallowSize__ 总计33,312B。考虑到 __StackTraceElement__ 用于保存堆栈信息的字符串，实际占用将大于 33,312B。
+上述代码多次生成该实例，每个大小32B共抛出1041次，__ShallowSize__ 总计33,312B。考虑到 __StackTraceElement__ 包含保存堆栈信息的字符串，实际占用将大于 33,312B。
 
 ```kotlin
 val jsObj = event.getContent().asJsonObject
@@ -162,7 +162,7 @@ if (jsObj.has("flag")) {
 
 #### 3.3 重用对象
 
-很多文章都提到绘制过程如 __onDraw()__ 不应该进行对象创建操作，但自己遵守并不能阻止同事这样做。同事的 __onDraw()__ 和 __onResize()__ 图省事频繁创建 __RectF__。按照每个方法执行一次的情况算，共计创建9个 __RectF__ 对象。
+很多文章提到在 __onDraw()__ 不应该创建对象，但同事的 __onDraw()__ 和 __onResize()__ 图省事频繁创建 __RectF__。按照每个方法执行一次的情况算，共计创建9个 __RectF__ 对象。
 
 ```kotlin
 class BubbleShape @JvmOverloads constructor(context: Context) : Shape() {

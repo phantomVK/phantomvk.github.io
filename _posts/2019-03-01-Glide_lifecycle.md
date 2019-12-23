@@ -23,7 +23,9 @@ Glide.with(this)
 
 ## Glide
 
-上面的`Glide.with(this)`根据传入实参类型，例如：__FragmentActivity__、__Fragment__、__Context__ 等不同选择目标重载方法。这里通过 __FragmentActivity__ 进行解析，常用 __AppCompatActivity__ 的父类是 __FragmentActivity__，便于理解。
+上面的`Glide.with(this)`根据传入实参类型，例如：__FragmentActivity__、__Fragment__、__Context__ 等不同选择目标重载方法。
+
+这里通过 __FragmentActivity__ 进行解析，常用 __AppCompatActivity__ 的父类是 __FragmentActivity__，便于理解。
 
 ```java
 public static RequestManager with(@NonNull FragmentActivity activity) {
@@ -52,9 +54,9 @@ private static RequestManagerRetriever getRetriever(@Nullable Context context) {
 
 ```java
 public RequestManager get(@NonNull FragmentActivity activity) {
-  // 前后台判断
+  // 线程判断：Looper.myLooper() != Looper.getMainLooper()
   if (Util.isOnBackgroundThread()) {
-    // 页面在后台时获取ApplicationContext
+    // 页面在后台线程时获取ApplicationContext
     return get(activity.getApplicationContext());
   } else {
     assertNotDestroyed(activity);
@@ -65,7 +67,7 @@ public RequestManager get(@NonNull FragmentActivity activity) {
 }
 ```
 
-从上面可见条件判断根据应用是否在前台走分支，而本文仅关心应用在前台的逻辑。进入分支后可见从 __Activity__ 实例获取 __FragmentManager__。 
+从上面可见条件判断根据应用是否在主线程走分支，而本文仅关心应用在主线程的逻辑。进入分支后可见从 __Activity__ 实例获取 __FragmentManager__。 
 
 ```java
 private RequestManager supportFragmentGet(
@@ -73,7 +75,7 @@ private RequestManager supportFragmentGet(
     @NonNull FragmentManager fm,
     @Nullable Fragment parentHint,
     boolean isParentVisible) {
-  // 看下文
+
   SupportRequestManagerFragment current =
       getSupportRequestManagerFragment(fm, parentHint, isParentVisible);
   RequestManager requestManager = current.getRequestManager();
@@ -98,7 +100,10 @@ static final String FRAGMENT_TAG = "com.bumptech.glide.manager";
 
 ```java
 private SupportRequestManagerFragment getSupportRequestManagerFragment(
-    @NonNull final FragmentManager fm, @Nullable Fragment parentHint, boolean isParentVisible) {
+    @NonNull final FragmentManager fm,
+    @Nullable Fragment parentHint,
+    boolean isParentVisible) {
+
   // 首先用FRAGMENT_TAG字符串的方式从fm里面找Fragment
   SupportRequestManagerFragment current =
       (SupportRequestManagerFragment) fm.findFragmentByTag(FRAGMENT_TAG);

@@ -14,7 +14,9 @@ __SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供�
 
 虽然此工具类因使用方便深得开发者的青睐，但其多线程操作、多进程操作是否安全的问题，却鲜有人探究。对 __SharedPreferences__ 存取操作感兴趣的读者，这里先为您呈上文章 [Android源码系列(12) -- SharedPreferences](/2018/09/14/SharedPreferences/)。
 
-接下来，将透过应用进程启动的流程，一步步得出主题结论。因为涉及 __ActivityThread__、__ApplicationThread__、__ActivityManagerService__、Android IPC等知识，请自行查阅，本文不再赘述。本文源码来自 __Android 23__。
+接下来将透过应用进程启动流程，逐步得出主题结论。因为涉及 __ActivityThread__、__ApplicationThread__、__ActivityManagerService__、Android IPC等知识，请自行查阅，本文不再赘述。
+
+本文源码来自 __Android 23__。
 
 ## 二、ActivityThread
 
@@ -22,12 +24,9 @@ __SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供�
 
 ```java
 private final boolean attachApplicationLocked(IApplicationThread thread, int pid) {
-
     .....
-
     try {
         .....
-
         // 经过上述处理后，通过IPC调用ApplicationThread.bindApplication()
         thread.bindApplication(processName, appInfo, providers, app.instrumentationClass,
                 profilerInfo, app.instrumentationArguments, app.instrumentationWatcher,
@@ -176,6 +175,7 @@ private void handleBindApplication(AppBindData data) {
     if (data.instrumentationName != null) {
         InstrumentationInfo ii = null;
         try {
+            // 获取InstrumentationInfo
             ii = appContext.getPackageManager().
                 getInstrumentationInfo(data.instrumentationName, 0);
         } catch (PackageManager.NameNotFoundException e) {
@@ -219,8 +219,8 @@ private void handleBindApplication(AppBindData data) {
                 + data.instrumentationName + ": " + e.toString(), e);
         }
 
-        // 上面创建的ContextImpl实例，引用保存在Instrumentation实例里面
-        // 每个进程是一个ActivityThread，其中只有一个Instrumentation实例
+        // 上面创建的ContextImpl实例引用保存在Instrumentation
+        // 每个进程有一个ActivityThread，其中只有一个Instrumentation实例
         // 可知ContextImpl在一个进程里只有一个实例，所以进程能控制其线程安全
         mInstrumentation.init(this, instrContext, appContext,
                new ComponentName(ii.packageName, ii.name),data.instrumentationWatcher,
@@ -319,7 +319,7 @@ class ContextImpl extends Context {
                 }
             }
             
-            // 参数中还可以指定更具体的包名，并进行初始化等工作
+            // 根据Prefs名称获取包路径下对应文件
             sp = packagePrefs.get(name);
             if (sp == null) {
                 // 创建SharedPreferences的存储文件
@@ -331,6 +331,7 @@ class ContextImpl extends Context {
                 return sp;
             }
         }
+
         // 只在HONEYCOMB或以下的版本会对不可预料的数据进行重载
         if ((mode & Context.MODE_MULTI_PROCESS) != 0 ||
             getApplicationInfo().targetSdkVersion < android.os.Build.VERSION_CODES.HONEYCOMB) {
@@ -339,18 +340,14 @@ class ContextImpl extends Context {
         }
         return sp;
     }
-
-    .....
 }
 ```
 
 ## 五、总结
 
-上面的解析已经移除很多不相关的源码，流程已经足够简洁。
+上面的解析已经移除很多不相关的源码，总结流程如下：
 
-总结流程如下：
-
-- __ApplicationThread__ 是 __ActivityThread__ 的内部类，也是其成员变量之一；
+- __ApplicationThread__ 是 __ActivityThread__ 的内部类，也是成员变量之一；
 
 - __ActivityThread__ 创建后把自己的 __ApplicationThread__ 实例 __IPC__ 注册到 __ActivityManagerService__；
 - __ActivityManagerService__ 注册 __ApplicationThread__ 之后 __IPC__ 调用后者 __bindApplication()__ 方法，表示注册工作已完成。拜托 __ApplicationThread__ 告知 __ActivityThread__ 继续进行 __Application__ 初始化；
@@ -359,7 +356,9 @@ class ContextImpl extends Context {
 - 随后创建 __ContextImpl__ 实例，把该实例保存在 __mInstrumentation__；
 - 而 __ContextImpl__ 获取 __SharedPreferences__ 线程安全，且 __SharedPreferences__ 内部也操作线程安全；
 
-延伸问题，上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件，但实际 __Google__ 并不认可这种操作。因为多个进程同时写入文件的操作没法在系统层进行协调，不能保证其安全，所以可能会造成数据的丢失。
+延伸问题，根据上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件。
+
+但实际 __Google__ 并不认可这种操作，因为多个进程同时写入文件的操作没法在系统层进行协调，不能保证其安全，所以可能会造成数据的丢失。
 
 ## 六、参考链接
 

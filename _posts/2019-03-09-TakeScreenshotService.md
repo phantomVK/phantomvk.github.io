@@ -9,7 +9,9 @@ tags:
     - Android源码系列
 ---
 
-上一篇文章 [Android源码系列(21) -- GlobalScreenshot](/2019/01/07/GlobalScreenshot/) 介绍系统是如何获取接收截图操作的通知或截取屏幕。本文作为后续文章，继续补充截图通过什么方法写入到磁盘，并通知媒体存储更新记录。源码版本 __Android28__
+上一篇文章 [Android源码系列(21) -- GlobalScreenshot](/2019/01/07/GlobalScreenshot/) 介绍系统是如何获取接收截图操作的通知或截取屏幕。本文作为后续文章，继续补充截图通过什么方法写入到磁盘，并通知媒体存储更新记录。
+
+源码版本 __Android28__
 
 ## 一、SaveImageInBackgroundData
 

@@ -192,7 +192,7 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-点击一下构建，就会按照注解类能获取的信息生成新的类 __XGeneratedClass__：
+点击构建就会按照注解类能获取的信息生成新的类 __XGeneratedClass__：
 
 ![generated_class](/img/android/annotation_processor/generated_class.png)
 

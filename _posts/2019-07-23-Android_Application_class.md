@@ -13,7 +13,7 @@ tags:
 
 #### 1.1 简介
 
-__Application__ 在Android应用进程占据重要地位，每个进程只有一个实例，继承自 __Context__ 父类可直接当 __Context__ 使用，肩负起众多功能。
+__Application__ 在Android应用占据重要地位，继承自 __Context__ 父类可直接当 __Context__ 使用。每个进程只有一个实例，肩负起众多功能。
 
 ![application_uml](/img/android/Application/application_uml.png)
 
@@ -73,7 +73,7 @@ class Application : Application() {
 
 然后在 __AndroidManifest__ 内声明自定义的 __Application__。由下面 __package__ 和 __name__ 组合可知自定义 __Application__ 全路径为 __com.phantomvk.messagekit.Application__，后面会用到这个全路径名。
 
-没有自定义 __Application__ 则全路径名默认为 __android.app.Application__，即使编写自定义类也不会被调用。
+没有自定义 __Application__ 则全路径名默认为 __android.app.Application__。
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -93,7 +93,7 @@ class Application : Application() {
 
 #### 2.1 IPC注册
 
-App启动时有注册 __ApplicationThread__ 实例到AMS的步骤，注册成功后AMS通过IPC调用 __ApplicationThread.bindApplication()__ 发出 __H.BIND_APPLICATION__ 消息，消息体内附 __AppBindData__ 作为后续初始化所需数据。
+应用启动包含注册 __ApplicationThread__ 实例到AMS过程，注册成功后AMS通过IPC调用 __ApplicationThread.bindApplication()__ 发出 __H.BIND_APPLICATION__ 消息，消息体内包含 __AppBindData__ 实例作为后续初始化所需数据。
 
 ```java
 private class ApplicationThread extends IApplicationThread.Stub {
@@ -134,7 +134,7 @@ private class ApplicationThread extends IApplicationThread.Stub {
 
 #### 2.2 执行消息
 
-主线程收到 __H.BIND_APPLICATION__ 消息，由 __Handler__ 实现类 __H__ 处理：
+主线程收到 __H.BIND_APPLICATION__ 消息交给 __Handler__ 实现类 __H__ 处理：
 
 ```java
 class H extends Handler {
@@ -188,6 +188,7 @@ private void handleBindApplication(AppBindData data) {
         // Do this after providers, since instrumentation tests generally start their
         // test thread at this point, and we don't want that racing.
         try {
+            // 设置Handler(Looper.getMainLooper())
             mInstrumentation.onCreate(data.instrumentationArgs);
         } catch (Exception e) {
             throw new RuntimeException(
@@ -211,12 +212,13 @@ private void handleBindApplication(AppBindData data) {
 }
 ```
 
-上述源码中 __data.info__ 的类为 __LoadedApk__ ，直接看 __LoadedApk.makeApplication()__。方法内会检查 __Application__ 是否重复创建。
+上述源码中 __data.info__ 的类为 __LoadedApk__ ，直接看 __LoadedApk.makeApplication()__。
 
 
 ```java
 public Application makeApplication(boolean forceDefaultAppClass,
         Instrumentation instrumentation) {
+
     // 如果已经初始化则LoadedApk.mApplication非空
     if (mApplication != null) {
         return mApplication;
@@ -224,10 +226,11 @@ public Application makeApplication(boolean forceDefaultAppClass,
 
     Application app = null;
 
-    // 从ApplicationInfo，即AndroidManifest中获取定义的Application名称
+    // 从ApplicationInfo，即AndroidManifest获取Application名称
     // 从文初实例可知类型为: com.phantomvk.messagekit.Application
     String appClass = mApplicationInfo.className;
-    // 若没有声明自定义类，从这里可知默认类名为: android.app.Application
+
+    // 若没有声明自定义类默认类名为: android.app.Application
     if (forceDefaultAppClass || (appClass == null)) {
         appClass = "android.app.Application";
     }
@@ -238,12 +241,15 @@ public Application makeApplication(boolean forceDefaultAppClass,
         if (!mPackageName.equals("android")) {
             initializeJavaContextClassLoader();
         }
-        // 先用ActivityThread的引用创建ContextImpl实例
+
+        // 用ActivityThread创建ContextImpl实例
         ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
-        // 然后通过Application类名反射获得实例，并把appContext保存到实例中
+
+        // 通过Application类名反射获得实例，并把appContext保存到实例
         app = mActivityThread.mInstrumentation.newApplication(
                 cl, appClass, appContext);
-        // ContextImpl和Application互相保存Context
+
+        // ContextImpl和Application互相保存
         appContext.setOuterContext(app);
     } catch (Exception e) {
         if (!mActivityThread.mInstrumentation.onException(app, e)) {
@@ -252,6 +258,7 @@ public Application makeApplication(boolean forceDefaultAppClass,
                 + ": " + e.toString(), e);
         }
     }
+
     // 把Application记录到ActivityThread中
     mActivityThread.mAllApplications.add(app);
     // 赋值给LoadedApk.mApplication
@@ -259,6 +266,7 @@ public Application makeApplication(boolean forceDefaultAppClass,
 
     if (instrumentation != null) {
         try {
+            // 调用Application.onCreate()
             instrumentation.callApplicationOnCreate(app);
         } catch (Exception e) {
             if (!instrumentation.onException(app, e)) {
@@ -321,7 +329,7 @@ private AppComponentFactory getFactory(String pkg) {
 
 上文把名为 __context__ 的 __ContextImpl__ 实例设置给 __Application__ 的父类成员 __mBase__。每次把 __Application__ 当 __Context__ 使用时，操作通过 __ContextWrapper__ 委托给 __mBase__ 实例，即上文的 __ContextImpl__ 实例。
 
-而实例化 __Application__ 和一般Java反射创建实例没有差别，直接通过类名 __newInstance()__ 得到。
+而实例化 __Application__ 和一般反射创建实例没有差别，直接通过类名 __newInstance()__ 得到。
 
 ```java
 public @NonNull Application instantiateApplication(@NonNull ClassLoader cl,

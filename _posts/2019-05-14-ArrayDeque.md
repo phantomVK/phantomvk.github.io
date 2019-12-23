@@ -11,7 +11,9 @@ tags:
 
 ## 一、类签名
 
-__ArrayDeque__ 是实现 __Deque__ 接口且容量可变的双端队列数组。数组实现的双端队列没有容量限制，需要更多空间时再进行扩容。此类线程不安全，如果没有外部同步约束，就不支持多线程并发。值得注意的是，本双端队列不接受空对象，作为栈使用时比 __Stack__ 快，作为队列使用时比 __LinkedList__ 快。
+__ArrayDeque__ 是实现 __Deque__ 接口且容量可变的双端队列数组。数组实现的双端队列没有容量限制，需要更多空间时再进行扩容。
+
+此类线程不安全，如果没有外部同步约束，就不支持多线程并发。值得注意的是，本双端队列不接受空对象，作为栈使用时比 __Stack__ 快，作为队列使用时比 __LinkedList__ 快。
 
 大多数 __ArrayDeque__ 方法执行消耗常量时间，除了 __remove(Object)__、 __removeFirstOccurrence__，__removeLastOccurrence__、__contains__、__iterator__ 和批量操作是线性时间消耗的。
 
@@ -227,6 +229,7 @@ public void addLast(E e) {
 ```java
 public boolean addAll(Collection<? extends E> c) {
     final int s, needed;
+    // 需要扩容大小 = 已用空间 + 新元素数量 + 1 - 数组长度
     if ((needed = (s = size()) + c.size() + 1 - elements.length) > 0)
         grow(needed);
     copyElements(c);
@@ -353,7 +356,9 @@ public E peekLast() {
 
 #### 7.8 firstOccurrence
 
-移出第一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个。每次查找均从的头部开始，逐个遍历元素寻找匹配项。元素命中并移除成功返回 __true__，元素为null或不包含该元素返回 __false__。
+移出第一个命中的指定元素。如果队列存在多个相同元素，每次调用方法仅移除一个。
+
+每次查找从头部开始，逐个遍历元素寻找匹配项。元素命中并移除成功返回 __true__，元素为null或不包含该元素返回 __false__。
 
 ```java
 public boolean removeFirstOccurrence(Object o) {
