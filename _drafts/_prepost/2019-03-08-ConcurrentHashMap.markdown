@@ -11,7 +11,7 @@ tags:
 
 ## 一、类签名
 
-__ConcurrentHashMap__ 和 __HashTable__ 均是线程安全的类，但是实现的逻辑不完全一样。不过，这并不影响把曾经使用 __HashTable__ 的地方完全替换为 __ConcurrentHashMap__。不同版本的具体实现不一样，所以差别非常大。本文仅对 __JDK11__ 的源码进行分析。
+__ConcurrentHashMap__ 和 __HashTable__ 均是线程安全的类，但是实现的逻辑不完全一样。不过，这并不影响把曾经使用 __HashTable__ 的地方替换为 __ConcurrentHashMap__。不同版本的具体实现不一样，所以差别非常大。本文仅对 __JDK11__ 的源码进行分析。
 
 ```java
 public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
