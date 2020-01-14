@@ -400,7 +400,7 @@ public class Room {
 
 ```java
 public class Room {
-    private static final GSON_INSTANCE gson = new GsonBuilder().create();
+    private static final Gson GSON_INSTANCE = new GsonBuilder().create();
 }
 ```
 
