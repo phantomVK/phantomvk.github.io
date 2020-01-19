@@ -13,17 +13,15 @@ tags:
 
 #### 1.1 数据处理
 
-大家都知道，数据从网络和本地磁盘加载到内存，为避免主线程阻塞会在io线程上进行。
-
-但绑定视图数据时，重转换操作也会导致列表滚动卡顿。如果能够预计算，如字符串替换、拼接，数据填充到 __Adapter__ 前就合并到加载过程一并完成转换。
+大家都知道，数据从网络和本地磁盘加载到内存，为避免主线程阻塞会在io线程上进行。但绑定视图数据时，重量级转换操作也会导致列表滚动卡顿。如果能够预计算，如：字符串替换、拼接、类转换，数据填充到 __Adapter__ 前和加载过程一并在 computation 线程完成转换。
 
 #### 1.2 数据缓存
 
-__ViewHolder__ 公用数据放在 __Adapter__ 中，视图绑定时从 __Adapter__ 获取避免保存多份或实时计算结果。
+__ViewHolder__ 共享数据从 __Adapter__ 获取公共变量，避免保存多个副本或要求实时计算。
 
 #### 1.3 局部更新
 
-局部更新可减少刷新所需时间，推荐使用 __DiffUtil__ 计算数据集或手动调用 __notifyItemInserted()__ 方法。
+局部更新可减少刷新所需时间，推荐使用 __DiffUtil__ 计算数据集。
 
 ```kotlin
 fun addItem(reply: Reply) {
@@ -36,27 +34,25 @@ fun addItem(reply: Reply) {
 
 #### 2.1 填充次数
 
-__RecyclerView__ 三级缓存目的是复用已填充视图。当缓存数量不足填满屏幕而频繁创建，滑出屏幕后又超过缓存数量被销毁，占用处理器同时又产生临时对象。而这种情况多发生在高度很小的视图。
+__RecyclerView__ 三级缓存目的是复用已填充视图。当缓存数量不足填满屏幕而频繁创建，滑出屏幕后又超过缓存阈值被销毁，多发生在高度很小的视图。这既占用处理器时间片，同时又产生临时对象。
 
 ![recyclerview_notice](/img/android/performance/recyclerview_notice.jpg)
 
-根据经验来看默认缓存阈值偏小，不同类型需要缓存最大数量也不同。最好根据屏幕和视图尺寸动态计算分类缓存数量。
+根据经验来看，__RecyclerView__ 默认缓存阈值偏小，不同类型需要缓存最大数量也不同。最好的方式，是根据屏幕和视图尺寸动态计算分类缓存所需数量。
 
-#### 2.2 过渡绘制
+#### 2.2 绘制优化
 
-减少过度绘制同样适用于 __RecyclerView__ 视图布局，提高滑动帧率。
+减少过度绘制同样适用于 __RecyclerView__ 视图布局，提高滑动帧率。此外，部分 __item__ 可能通过自定义 __View__ 绘制视图，因此也需遵守其性能够优化规范。
 
 #### 2.3 布局填充时间
 
-__LayoutInflater__ 实例化xml视图时不仅需要遍历xml节点，而且视图要用反射实例化，导致复杂视图耗时较长，列表快速滚动容易卡顿。降低布局复杂度、增加布局缓存数量都能有效缓解问题。
+__LayoutInflater__ 实例化视图时不仅需要遍历xml节点，而且视图要用反射实例化，导致复杂视图耗时较长，列表快速滚动容易卡顿。降低布局复杂度、增加布局缓存数量都能有效缓解问题。
 
 虽然 __ConstraintLayout__ 具备去除布局层次的能力，不过很多开发者发现和  __RecyclerView__ 使用有严重问题。
 
 原生视图组装、__Anko__、__Litho__、__JetPack compose__ 原理都类似，没有xml遍历和类反射过程提高了性能。
 
-不过上述方案各自缺点也明显：原生视图编写代码量大，__Anko__ 配合style使用要自定义方法，__Litho__ 由于技术实现令视图灵活性较低，__JetPack compose__ 还处于实验性截断。并且开发预览支持度不同，__Anko__ 编辑时不能预览。
-
-按照现在的发展形势来看，个人推荐 __Anko__ 和 __JetPack compose__：
+不过上述方案各自缺点也明显：原生视图编写代码量大；__Anko__ 配合style使用要自定义方法；__Litho__ 由于技术实现令视图灵活性较低；__JetPack compose__ 还处于实验性阶段，功能不够完善。按照现在的发展形势来看，个人推荐 __Anko__ 和 __JetPack compose__。
 
 原生视图组装：
 
@@ -82,7 +78,7 @@ __Anko__ 代码示例 [phantomVK/MessageKit - MessageHolder](https://github.com/
 class TextMessageLayout : AnkoComponent<ViewGroup> {
     override fun createView(ui: AnkoContext<ViewGroup>) = with(ui) {
         frameLayout {
-            lparams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            lparams(WRAP_CONTENT, WRAP_CONTENT)
 
             textView {
                 id = R.id.text
@@ -129,7 +125,7 @@ fun NewsStory() {
 
 #### 2.4 对象生成
 
-当 __RecyclerView__ 视图分类较多时，缓存元素总数也会很多，加上复杂视图 __ViewHolder__ 很多数据成员占用很多内存。用测量工具对比列表展示前后内存占用，可以大概确定用量。结构样式相似的视图可用 __View.visibility__ 减少不同类别。
+当 __RecyclerView__ 视图分类较多时，缓存元素总数也会很多，加上复杂视图 __ViewHolder__ 很多数据成员占用很多内存。用测量工具对比列表展示前后内存占用，可以大概确定用量。结构样式相似的视图可用 __View.visibility__ 合并类别。
 
 ## 三、参数配置
 
@@ -145,7 +141,7 @@ recyclerView.setHasFixedSize(true)
 
 #### 3.2 mCachedViews
 
-__RecyclerView__ 离屏缓存 __mCachedViews__ 默认为2，即视图以移出屏幕后，放到共享缓存池前缓存2个元素，目的优化慢速向前、向后滑动抖动。
+__RecyclerView__ 离屏缓存 __mCachedViews__ 默认为2，即视图移出屏幕后，放到共享缓存池前缓存2个元素，目的优化慢速向前、向后滑动的抖动。
 
 ```kotlin
 recyclerView.setItemViewCacheSize(4)
