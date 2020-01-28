@@ -9,7 +9,9 @@ tags:
     - Android源码系列
 ---
 
-## 一、初次认识
+## 一、介绍
+
+#### 1.1 功能
 
 经过长期需求迭代、引入大量第三方代码库之后，构建的安装包包含海量方法。即便经过代码混淆，依然会在不久的将来遇到 __Android64K方法数__ 问题。
 
@@ -19,7 +21,9 @@ tags:
 
 既然单个Dex文件不能容纳应用所有方法引用，应运而生解决方案：把多余的方法引用放到第二个、第三个等后续Dex文件中。方法引用越多，最终分包数量越多。
 
-以下配置让代码打包时自动classes分包：
+#### 1.2 构建
+
+添加以下配置后，代码构建时自动分包：
 
 ```groovy
 android {
@@ -31,6 +35,8 @@ android {
 
 __MultiDex__ 用于应用启动时加载被分割的子dex，让后续类加载能从子dex找到目标类。
 
+#### 1.3 疑难
+
 当然还可能会遇到：
 
 - 启动类没有分到主包引起 __ClassNotFoundException__；
@@ -40,9 +46,11 @@ __MultiDex__ 用于应用启动时加载被分割的子dex，让后续类加载�
 
 为提高文章阅读性和不影响理解的前提，下文移除部分日志并微调代码格式，插图可以浏览器右键打开查看。
 
-## 二、基本用法
+## 二、集成
 
 最简单方式是继承 __MultiDexApplication__ 类。
+
+如果不方便继承父类，可以选择在自定义的 __Application.attachBaseContext(Context base)__ 里主动调用 __MultiDex.install(this);__
 
 ```java
 public class MultiDexApplication extends Application {
@@ -56,9 +64,7 @@ public class MultiDexApplication extends Application {
 }
 ```
 
-如果不方便继承父类，可以选择在自定义的 __Application.attachBaseContext(Context base)__ 里主动调用 __MultiDex.install(this);__
-
-## 三、dex提取
+## 三、提取
 
 #### 3.1 IS_VM_MULTIDEX_CAPABLE
 
@@ -75,7 +81,6 @@ private static final boolean IS_VM_MULTIDEX_CAPABLE =
 
 ```java
 public static void install(Context context) {
-
     if (IS_VM_MULTIDEX_CAPABLE) {
         // 如果VM本身已经支持分包就不需要调用MultiDex，因为安装过程已完成相同操作
         Log.i("MultiDex", "VM has multidex support, MultiDex support library is disabled.");
@@ -365,7 +370,7 @@ private static void extract(ZipFile apk, ZipEntry dexFile, File extractTo, Strin
 }
 ```
 
-## 四、dex装载
+## 四、装载
 
 上文只完成从安装包获得dexes，逐一提取 __zip__ 文件到磁盘的工作，提取完成的文件并还没有添加到 __ClassLoader__。
 
