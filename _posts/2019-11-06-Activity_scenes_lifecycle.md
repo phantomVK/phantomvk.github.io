@@ -4,7 +4,7 @@ title:      "基本生命周期"
 date:       2019-11-06
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    true
+catalog:    false
 tags:
     - Android
 ---
