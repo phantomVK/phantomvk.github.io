@@ -1,22 +1,28 @@
 ---
 layout:     post
-title:      "BitmapFactory"
-date:       2019-11-21
+title:      "Android源码系列(27) -- BitmapFactory"
+date:       2020-01-31
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - Android
+    - Android源码系列
 ---
 
-|   名称    |     特性     |    bit     | byte(8bit=1byte) |
-| :-------: | :----------: | :--------: | :--------------: |
-|  ALPHA_8  | 8位透明位图  |     8      |        1         |
-|  RGB_565  | 32位RGB位图  |  5+6+6=16  |        2         |
-| ARGB_4444 | 16位ARGB位图 | 4+4+4+4=16 |        2         |
-| ARGB_8888 | 32位ARGB位图 | 8+8+8+8=32 |        4         |
+### 图片体积
 
+不同 __Bitmap.Config__ 对应像素内存体积
 
+| Bitmap.Config |     特性     |    bit     | byte(8bit=1byte) |
+| :-----------: | :----------: | :--------: | :--------------: |
+|    ALPHA_8    | 8位透明位图  |     8      |        1         |
+|    RGB_565    | 32位RGB位图  |  5+6+6=16  |        2         |
+|   ARGB_4444   | 16位ARGB位图 | 4+4+4+4=16 |        2         |
+|   ARGB_8888   | 32位ARGB位图 | 8+8+8+8=32 |        4         |
+
+### 源码解析
+
+本地通过 __BitmapFactory__ 解析本地时，主要调用方法 __decodeResourceStream__
 
 
 ```java
@@ -119,6 +125,8 @@ public static Bitmap decodeStream(@Nullable InputStream is, @Nullable Rect outPa
 }
 ```
 
+调用方法 __decodeStreamInternal(InputStream, Rect, Options)__
+
 ```java
 // Private helper function for decoding an InputStream natively. Buffers the input enough to
 // do a rewind as needed, and supplies temporary storage if necessary. is MUST NOT be null.
@@ -134,7 +142,7 @@ private static Bitmap decodeStreamInternal(@NonNull InputStream is,
 }
 ```
 
-__BitmapFactory__ 声明：
+__BitmapFactory__ 在Java层的声明：
 
 ```java
 @UnsupportedAppUsage
@@ -507,11 +515,13 @@ Java Native方法 __nativeDecodeStream__ 注册在 [BitmapFactory.cpp(Android9.0
 509                ninePatchChunk, ninePatchInsets, -1);
 510    }
 511
-512    // 创建Java的bitmap
+512    // 创建Java的bitmap并返回结果
 513    return bitmap::createBitmap(env, defaultAllocator.getStorageObjAndReset(),
 514            bitmapCreateFlags, ninePatchChunk, ninePatchInsets, -1);
 515}
 ```
+
+### 总结
 
 缩放比例：__scaledsize = nTargetDensity / inDensity__
 

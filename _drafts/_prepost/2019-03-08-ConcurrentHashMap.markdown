@@ -1604,6 +1604,8 @@ private static final int ABASE;
 private static final int ASHIFT;
 ```
 
+静态初始化变量
+
 ```java
 static {
     // sizeCtl在实例中的偏移量
