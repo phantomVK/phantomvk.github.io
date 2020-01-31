@@ -278,11 +278,11 @@ public class Instrumentation {
 
 ## 四、ContextImpl
 
-而在 __ContextImpl__ 里面，持有一个静态哈希表，键为文件的包路径，值为该包路径对应的 __SharedPreferences__ 的实例。如果该包路径实例不存在就创建新实例，否则从哈希表中获取实例。
+持有一个静态哈希表，键为应用全路径名，值为全路径名对应的 __SharedPreferences__ 实例。该包路径实例不存在就初始化新实例，否则从哈希表中获取实例。
 
-由于 __getSharedPreferences__ 内部把 __ContextImpl.class__ 类实例作为锁对象，所以每次获取指定包路径对应实例都是线程安全的。
+由于 __getSharedPreferences__ 内部把 __ContextImpl.class__ 类实例作为锁对象，所以每次获取指定包路径对应实例都是线程安全。
 
-根据类签名可知 __ContextImpl__ 是 __Context__ 的具体实现类，为 __Activity__ 和其他应用组件提供基础上下文对象。
+根据类签名可知 __ContextImpl__ 是 __Context__ 的具体实现类，为 __Activity__ 和其他应用组件提供基础上下文。
 
 ```java
 class ContextImpl extends Context {
@@ -332,7 +332,6 @@ class ContextImpl extends Context {
             }
         }
 
-        // 只在HONEYCOMB或以下的版本会对不可预料的数据进行重载
         if ((mode & Context.MODE_MULTI_PROCESS) != 0 ||
             getApplicationInfo().targetSdkVersion < android.os.Build.VERSION_CODES.HONEYCOMB) {
             // 若文件被其他进程修改，就重新加载该文件，仅对HONEYCOMB以下版本应用有效
@@ -345,16 +344,15 @@ class ContextImpl extends Context {
 
 ## 五、总结
 
-上面的解析已经移除很多不相关的源码，总结流程如下：
+总结流程如下：
 
 - __ApplicationThread__ 是 __ActivityThread__ 的内部类，也是成员变量之一；
-
 - __ActivityThread__ 创建后把自己的 __ApplicationThread__ 实例 __IPC__ 注册到 __ActivityManagerService__；
-- __ActivityManagerService__ 注册 __ApplicationThread__ 之后 __IPC__ 调用后者 __bindApplication()__ 方法，表示注册工作已完成。拜托 __ApplicationThread__ 告知 __ActivityThread__ 继续进行 __Application__ 初始化；
+- __ActivityManagerService__ 登记 __ApplicationThread__ 后 __IPC__ 调用后者 __bindApplication()__ 表示注册工作已完成，用 __ApplicationThread__ 告知 __ActivityThread__ 继续进行 __Application__ 初始化；
 - __ApplicationThread.bindApplication()__ 通过发送标志为 __BIND_APPLICATION__ 的 __Message__ 告知 __ActivityThread__ 进行 __Applicatoin__ 初始化；
 - __ActivityThread__ 执行 __handleBindApplication()__，方法内部创建 __Instrumentation__ 后保存在成员变量 __mInstrumentation__；
-- 随后创建 __ContextImpl__ 实例，把该实例保存在 __mInstrumentation__；
-- 而 __ContextImpl__ 获取 __SharedPreferences__ 线程安全，且 __SharedPreferences__ 内部也操作线程安全；
+- 随后创建 __ContextImpl__ 实例，把该实例保存在 __mInstrumentation__ 实例中；
+- 而 __ContextImpl__ 获取 __SharedPreferences__ 线程安全且 __SharedPreferences__ 内部操作线程安全；
 
 延伸问题，根据上面分析已知 __SharedPreferences__ 线程安全。而 __SharedPreferences__ 表面支持进程安全，即多个进程可同时写入文件。
 
