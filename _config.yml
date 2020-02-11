@@ -3,8 +3,8 @@ title: phantomVK
 SEOTitle: phantomVK Blog
 header-img: img/bg/home.jpg
 email: phantomtvk@gmail.com
-description: "Android开发者, Android Application & Framework, 爬虫, 机器学习, 数据挖掘, 应用架构, 常用Java、Kotlin、Go、Python等语言"
-keyword: "phantomVK, Android技术博客, Android源码, 机器学习, 数据挖掘, 应用架构, Java"
+description: "Android开发者, Android Application & Framework, 常用Java、Kotlin、Go、Python等语言"
+keyword: "phantomVK, Android"
 header-author: "phantomVK"
 # url: ""              # your host, for absolute URL
 # baseurl: ""          # for example, '/blog' if your blog hosted on 'host/blog'
@@ -79,9 +79,6 @@ friends: [
     {
         title: "CosPotato's Blog",
         href: "https://blog.0x233.cn/"
-    },{
-        title: "HundredLee's Blog",
-        href: "https://blog.sodroid.com/"
     }
 ]
 
