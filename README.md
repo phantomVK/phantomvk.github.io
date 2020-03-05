@@ -159,6 +159,8 @@ compress_html:
   endings:        all
   startings:      [html, head, body]
 ```
+__注意：网页压缩和显示代码行号功能存在冲突__
+
 ### 八、已处理
 
 - __2019-07-02 Fix: SideBar author name没有抽离并放入配置表；__
