@@ -24,7 +24,7 @@ $ javac ByteCode.java
 再用 __javap__ 把 __ByteCode.class__ 的字节码内容输出为文本，以便查看
 
 ```bash
-$ javap -p -v ByteCode > ByteCode.txt
+$ javap -private -verbose ByteCode > ByteCode.txt
 ```
 
 #### 完整内容
