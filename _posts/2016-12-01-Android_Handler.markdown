@@ -301,8 +301,8 @@ public interface Callback {
 Handler handler = new Handler(new Handler.Callback() {
     @Override
     public boolean handleMessage(Message msg) {
+        Toast.makeText(Activity.this, "handleMessage override", Toast.LENGTH_SHORT).show();
         return false;
-        Toast.makeText(Activity.this,"handleMessage override",Toast.LENGTH_SHORT).show();
     }
 });
 ```

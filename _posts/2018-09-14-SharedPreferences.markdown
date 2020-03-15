@@ -273,6 +273,8 @@ private void startLoadFromDisk() {
 }
 ```
 
+从子线程调用方法 __loadFromDisk()__ 
+
 ```java
 private void loadFromDisk() {
     synchronized (mLock) {
@@ -281,7 +283,7 @@ private void loadFromDisk() {
             return;
         }
 
-        // 备份文件存在，把原文件删除，备份文件作为原文件
+        // 备份文件存在，删除原文件且把备份文件作为原文件
         if (mBackupFile.exists()) {
             mFile.delete();
             mBackupFile.renameTo(mFile);

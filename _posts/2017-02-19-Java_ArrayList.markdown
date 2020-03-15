@@ -187,7 +187,6 @@ private void grow(int minCapacity) {
     if (newCapacity - MAX_ARRAY_SIZE > 0)
         newCapacity = hugeCapacity(minCapacity);
 
-    // 选择minCapacity是因为其更接近Size
     elementData = Arrays.copyOf(elementData, newCapacity);
 }
 ```
@@ -199,7 +198,8 @@ private static int hugeCapacity(int minCapacity) {
     // 下溢检查
     if (minCapacity < 0)
         throw new OutOfMemoryError();
-
+    
+    // 限制数组的最大容量
     return (minCapacity > MAX_ARRAY_SIZE) ?
         Integer.MAX_VALUE :
         MAX_ARRAY_SIZE;

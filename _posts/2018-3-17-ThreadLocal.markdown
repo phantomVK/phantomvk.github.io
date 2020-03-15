@@ -11,12 +11,12 @@ tags:
 
 ## 一、ThreadLocal的作用
 
-`ThreadLocal`提供线程局部变量，以数据成员的形式存放在Thread中，线程与线程之间副本相互独立。这些副本存放在`Thread.ThreadLocalMap`，避免线程竞争同一个实例造成锁操作的时间损耗。
+__ThreadLocal__ 提供线程局部变量，以数据成员的形式存放在线程内，线程与线程之间副本相互独立。这些副本存放在 __Thread.ThreadLocalMap__，避免线程竞争同一实例造成等待锁的时间损耗。
 
 ![ThreadLoacalMap](/img/java/thredLocalRef.png)
 
 - __Entry[1]__ : Entry.key通过弱引用持有ThreadLocal实例；
-- __Entry[10]__ : GC没有强应用持有的ThreadLocal实例，Entry.key为null，Entry.value等待清理；
+- __Entry[10]__ : 没有强引用持有的ThreadLocal实例，Entry.key为null，Entry.value等待清理；
 - __其他__ ：Entry没有被使用，或曾经使用但已回收，Entry处于初始状态；
 
 ## 二、示例
@@ -72,20 +72,20 @@ Thread[Thread-4,5,main]'s result is 45
 
 ### 3.1 成员变量
 
-ThreadLocals依靠捆绑在每个线程的线性探针哈希表(ThreadLocalMap.Entry[])。ThreadLocal对象作为Hash的键，通过`threadLocalHashCode`来搜索，且该值只用在ThreadLocalMaps的定制哈希值。
+__ThreadLocal__ 依靠捆绑在每个线程的线性探针哈希表 __ThreadLocalMap.Entry[]__。__ThreadLocal__ 对象作为Hash的键，通过 __threadLocalHashCode__ 来搜索，且该值只用在 __ThreadLocalMaps__
 
 ```java
 private final int threadLocalHashCode = nextHashCode();
 ```
 
-不同线程访问同一个ThreadLocal，Hash值由静态的[AtomicInteger：Java源码系列(7)](/2018/01/17/AtomicInteger/)提供，ThreadLocal创建新实例就会累加相同魔数`HASH_INCREMENT`。
+不同线程访问同一个 __ThreadLocal__，Hash值由静态的[AtomicInteger：Java源码系列(7)](/2018/01/17/AtomicInteger/)提供，__ThreadLocal__ 创建新实例就会累加魔数 __HASH_INCREMENT__
 
 ```java
 // 预计算下一实例的Hash值，从初始值0开始自动累加
 private static AtomicInteger nextHashCode = new AtomicInteger();
 ```
 
-对长度为2的N次幂哈希表来说，和连续生成哈希码的差别是，此值把隐性序列thread-local的IDs，变为近似优化过的分散乘法哈希值
+对长度为2的N次幂哈希表来说，和连续生成哈希码的差别是，此值把隐性序列 __thread-local__ 的IDs，变为近似优化过的分散乘法哈希值
 
 ```java
 private static final int HASH_INCREMENT = 0x61c88647;
@@ -103,9 +103,9 @@ private static int nextHashCode() {
 
 ### 3.3 initialValue()
 
-给当前线程返回thread-local变量的初始值，initialValue()方法可见性是protected。当线程首次访问ThreadLoacal.get()方法时调用此方法。线程已经主动调用set()设置初始值，此方法不会调用。
+给当前线程返回 __thread-local__ 变量的初始值，__initialValue()__ 方法可见性是 __protected__。当线程首次访问 __ThreadLoacal.get()__ 方法时调用此方法。线程已经主动调用 __set()__ 设置初始值，此方法不会调用。
 
-一般来说，这个方法在每个线程最多只会调用一次。如果线程执行remove()方法后再调用get()，会再次触发initialValue()。
+一般来说，这个方法在每个线程最多只会调用一次。如果线程执行 __remove()__ 方法后再调用 __get()__，会再次触发 __initialValue()__。
 
 ```java
 protected T initialValue() {
@@ -113,12 +113,12 @@ protected T initialValue() {
 }
 ```
 
-如果不希望初始化值是null，可通过子类继承父类或匿名内部类重写initialValue()提供初始化值
+如果不希望初始化值是null，可通过子类继承父类或匿名内部类重写 __initialValue()__ 提供初始化值
 
 
 ### 3.4 get()
 
-此方法返回当前线程在`thread-local`中变量的副本。如果当前线程不存在对应的线程局部变量，会调用`setInitialValue()`，并由`setInitialValue()`中`initialValue()`给出初始化值。
+此方法返回当前线程在 __thread-local__ 中变量的副本。如果当前线程不存在对应的线程局部变量，会调用 __setInitialValue()__，并由 __setInitialValue()__ 中 __initialValue()__ 给出初始化值。
 
 ```java
 public T get() 
@@ -144,7 +144,7 @@ public T get()
 
 ### 3.5 setInitialValue()
 
-若Thread.ThreadLocalMap已经存在，调map.set()设置该ThreadLocal和对应value。
+若 __Thread.ThreadLocalMap__ 已经存在，调 __map.set()__ 设置该 __ThreadLocal__ 和对应 __value__。
 
 ```java
 private T setInitialValue() {
@@ -163,7 +163,7 @@ private T setInitialValue() {
 }
 ```
 
-从示例代码可知`setInitialValue()`中`initialValue()`返回值就是下面的0。
+从示例代码可知 __setInitialValue()__ 中 __initialValue()__ 返回值就是下面的0。
 
 ```java
 val threadLocal = object : ThreadLocal<Int>() {
@@ -173,7 +173,7 @@ val threadLocal = object : ThreadLocal<Int>() {
 
 ### 3.6 set( )
 
-把当前线程的thread-local设置为指定值，多数情况下子类没有必要重写这个方法
+把当前线程的 __thread-local__ 设置为指定值，多数情况下子类没有必要重写这个方法
 
 ```java
 public void set(T value) {
@@ -188,7 +188,7 @@ public void set(T value) {
 
 ### 3.7 remove( )
 
-用于从当前线程的ThreadLocalMap中移除此thread-local的值
+用于从当前线程的 __ThreadLocalMap__ 中移除此 __thread-local__
 
 ```java
  public void remove() {
@@ -200,7 +200,7 @@ public void set(T value) {
 
 ### 3.8 getMap( )
 
-返回线程的ThreadLocalMap，此方法在InheritableThreadLocal被重写了
+返回线程的 __ThreadLocalMap__，此方法在 __InheritableThreadLocal__ 被重写了
 
 ```java
 ThreadLocalMap getMap(Thread t) {
@@ -208,7 +208,7 @@ ThreadLocalMap getMap(Thread t) {
 }
 ```
 
-Thread.threadLocals从属于Thread，但是维护却由ThreadLocal类负责
+__Thread.threadLocals__ 从属于 __Thread__，但是维护却由 __ThreadLocal__ 类负责
 
 ```java
 ThreadLocal.ThreadLocalMap threadLocals = null;
@@ -216,7 +216,7 @@ ThreadLocal.ThreadLocalMap threadLocals = null;
 
 ### 3.8 createMap( )
 
-在当前线程中初始化ThreadLocalMap，并把firstValue作为第一个Entry放入。InheritableThreadLocal重写了这个方法。
+在当前线程初始化 __ThreadLocalMap__ ，并把 __firstValue__ 作为 __Entry__ 的值放入。__InheritableThreadLocal__ 重写了这个方法。
 
 ```java
 void createMap(Thread t, T firstValue) {
@@ -226,7 +226,7 @@ void createMap(Thread t, T firstValue) {
 
 ### 3.10 SuppliedThreadLocal
 
-从Supplier获取ThreadLocal初始值，重写的initialValue()从Supplier.get()中取得变量。
+从 __Supplier__ 获取 __ThreadLocal__ 初始值，重写的 __initialValue()__ 从 __Supplier.get()__ 中取得变量。
 
 ```java
 static final class SuppliedThreadLocal<T> extends ThreadLocal<T> {
@@ -247,7 +247,7 @@ static final class SuppliedThreadLocal<T> extends ThreadLocal<T> {
 
 ## 四、内部类ThreadLocalMap
 
-ThreadLocalMap是一个定制的哈希表，只给线程局部值使用。所有操作都不会导出ThreadLocal类以外。此类包私有。为了应对大量长生命周期的对象，哈希表使用了弱引用持有所有键。由于没有用引用队列(例如LruCache)，那些废弃的记录只保证在空间用尽时(触发扩容阀值时)才尝试移除并回收。
+__ThreadLocalMap__ 是一个定制的哈希表，只给线程局部值使用。所有操作都不会导出 __ThreadLocal__ 类以外。此类包私有。为应对大量长生命周期对象，哈希表使用弱引用持有所有键。由于没用缓存队列(例如LruCache)，那些废弃的记录只保证在空间用尽时(触发扩容阀值时)才尝试移除并回收。
 
 ```java
 static class ThreadLocalMap
@@ -255,7 +255,7 @@ static class ThreadLocalMap
 
 ### 4.1 Entry
 
-Entry继承WeakReference父类，当Entry的key没有被外界引用，key对应的ThreadLocal在下一次GC回收。虽然key已被回收，但是Entry本身和Entry的value依然由强引用持有。后面会说明这种情况下Entry如何被安全回收。
+__Entry__ 继承 __WeakReference__ 父类，当 __Entry__ 的key没有被外界引用，__key__ 对应的 __ThreadLocal__ 会被垃圾回收。虽然 __key__ 已被回收，但是 __Entry__ 本身和 __Entry__ 的 __value__ 依然由强引用持有。后面会说明这种情况下 __Entry__ 如何被安全回收。
 
 ```java
 static class Entry extends WeakReference<ThreadLocal<?>> {
@@ -338,7 +338,7 @@ ThreadLocalMap(ThreadLocal<?> firstKey, Object firstValue) {
 
 ### 4.6 getEntry(ThreadLocal)
 
-用关联的key获取对应entry。如果索引位置的entry合法就直接返回，否则需要getEntryAfterMiss方法查找。方法的设计主要为了最大限度达到直接命中的目的，且令方法更容易被内联。
+用关联的key获取对应entry。如果索引位置的entry合法就直接返回，否则需要 __getEntryAfterMiss__ 方法查找。方法的设计主要为了最大限度达到直接命中的目的，且令方法更容易被内联。
 
 ```java
 private Entry getEntry(ThreadLocal<?> key) {
@@ -348,18 +348,16 @@ private Entry getEntry(ThreadLocal<?> key) {
     if (e != null && e.get() == key) // 命中Entry
         return e;
     else
+        // e == null || e.get() != key
         return getEntryAfterMiss(key, i, e);
 }
 ```
 
 ### 4.7 getEntryAfterMiss(ThreadLocal<?>, int, Entry)
 
-从getEntry(ThreadLocal<?>)到getEntryAfterMiss有两种情况：
+从 __getEntry(ThreadLocal<?>)__ 到 __getEntryAfterMiss__ 有两种情况：__e == null__ 或 __e.get != key__
 
-- e == null
-- e.get != key
-
-getEntry方法没有找到直接下标的key，就调用此方法继续向后查找，一边清理一边查找，直到找到目标键或遇到`e == null`时退出。
+__getEntry__ 方法没有找到直接下标的key，就调用此方法继续向后查找，一边清理一边查找，直到找到目标键或遇到`e == null`时退出。
 
 ```java
 private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
@@ -367,6 +365,7 @@ private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
     int len = tab.length;
 
     // e.get() != key 
+    // Map负载因子为0.75，所以总会遇到null而退出
     while (e != null) {
         ThreadLocal<?> k = e.get();
 
@@ -389,6 +388,8 @@ private Entry getEntryAfterMiss(ThreadLocal<?> key, int i, Entry e) {
 
 ### 4.8 set()
 
+向 __ThreadLocalMap__ 设置值
+
 ```java
 private void set(ThreadLocal<?> key, Object value) {
 
@@ -405,15 +406,16 @@ private void set(ThreadLocal<?> key, Object value) {
     for (Entry e = tab[i];
          e != null;
          e = tab[i = nextIndex(i, len)]) {
+        // 从Entry获取Key
         ThreadLocal<?> k = e.get();
 
-        // key已经存在，修改Entry.value为新值
+        // key已经存在，替换Entry.value为新值value
         if (k == key) {
             e.value = value;
             return;
         }
 
-        // k为空
+        // key已经被解除引用，但Entry还存在
         if (k == null) {
             replaceStaleEntry(key, value, i);
             return;
@@ -423,7 +425,7 @@ private void set(ThreadLocal<?> key, Object value) {
     // 这个key不存在，创建新的entry放入
     tab[i] = new Entry(key, value);
 
-    // 创建新的entry需要更改数量
+    // 创建新的entry递增数量
     int sz = ++size;
 
     // 看看是否到了扩容阀值进行扩容
@@ -433,6 +435,8 @@ private void set(ThreadLocal<?> key, Object value) {
 ```
 
 ### 4.9 remove() 
+
+从 __ThreadLocalMap__ 移除值
 
 ```java
 // 通过Key查找对应Entry并移除
@@ -445,7 +449,7 @@ private void remove(ThreadLocal<?> key) {
 
     // 假设len为16，二进制表示为1000，len-1即15的二进制是0111
     // key.threadLocalHashCode与(len-1)进行位运算定位Entry[]的下标
-    // 通过%也能实现相同目的，但位运算执行性能更好
+    // 通过%也能实现相同目的，但位运算性能更好
     int i = key.threadLocalHashCode & (len-1);
 
     // 从下标开始查找直到遇到null，或匹配到Key的Entry执行移除操作
@@ -464,7 +468,12 @@ private void remove(ThreadLocal<?> key) {
 
 ### 4.10 replaceStaleEntry()
 
+设置值时遇到 __Entry__ 的 key 为空进入此方法。此时索引 __staleSlot__ 的 __Entry__ 已废弃，向后查找 __key__ 对应 __Entry__ 更新为最新值，并挪回到 __staleSlot__ 位置上
+
 ```java
+// key: 正要设置的ThreadLocal
+// value: 设置的新值
+// staleSlot: 需要处理ThreadLocalMap的索引值
 private void replaceStaleEntry(ThreadLocal<?> key, Object value,
                                int staleSlot) {
     Entry[] tab = table;
@@ -473,7 +482,7 @@ private void replaceStaleEntry(ThreadLocal<?> key, Object value,
 
     int slotToExpunge = staleSlot;
 
-    // 向前遍历，查找遇到的key为null的Entry，记录到slotToExpunge
+    // 从staleSlot向前遍历，查找遇到的key为null的Entry，记录到slotToExpunge
     for (int i = prevIndex(staleSlot, len);
          (e = tab[i]) != null;
          i = prevIndex(i, len))
@@ -482,9 +491,11 @@ private void replaceStaleEntry(ThreadLocal<?> key, Object value,
         if (e.get() == null)
             slotToExpunge = i;
 
+    // 从staleSlot向后遍历
     for (int i = nextIndex(staleSlot, len);
          (e = tab[i]) != null;
          i = nextIndex(i, len)) {
+        // 从Entry获取Key
         ThreadLocal<?> k = e.get();
 
         // 命中指定ThreadLoacal的Entry
@@ -493,11 +504,14 @@ private void replaceStaleEntry(ThreadLocal<?> key, Object value,
             e.value = value;
 
             // 交换位置i与位置staleSlot的Entry以维护hash顺序
+            // 换位后下次查找相同ThreadLocal实例能直接命中
             tab[i] = tab[staleSlot];
             tab[staleSlot] = e;
 
             // Start expunge at preceding stale entry if it exists
             if (slotToExpunge == staleSlot)
+                // staleSlot前方没有脏Entry，而staleSlot到i是有效的Entry
+                // 所以从i后面清理脏Entry
                 slotToExpunge = i;
 
             // 清除Entry.key为空的Entry
@@ -522,7 +536,33 @@ private void replaceStaleEntry(ThreadLocal<?> key, Object value,
 }
 ```
 
+进入方法时 __ThreadLocalMap__ 结构如下图
+
+![ThreadLocal_replaceStaleEntry_raw](/img/java/ThreadLocal_replaceStaleEntry_raw.png)
+
+向前查找脏 __Entry__
+
+![ThreadLocal_replaceStaleEntry_slotToExpunge](/img/java/ThreadLocal_replaceStaleEntry_slotToExpunge.png)
+
+向后查找目标 __Entry__
+
+![ThreadLocal_replaceStaleEntry_find](/img/java/ThreadLocal_replaceStaleEntry_find.png)
+
+找到目标 __Entry__，更新该 __Entry__ 的值
+
+![ThreadLocal_replaceStaleEntry_match](/img/java/ThreadLocal_replaceStaleEntry_match.png)
+
+目标 __Entry__ 替换到 __staleSlot__ 的位置
+
+![ThreadLocal_replaceStaleEntry_exchange](/img/java/ThreadLocal_replaceStaleEntry_exchange.png)
+
+最后从 __slotToExpunge__ 开始向后清除脏 __Entry__
+
+![ThreadLocal_replaceStaleEntry_to_expunge](/img/java/ThreadLocal_replaceStaleEntry_to_expunge.png)
+
 ### 4.11 expungeStaleEntry(int)
+
+发现需要清理的无效 __Entry__
 
 ```java
 private int expungeStaleEntry(int staleSlot) {
@@ -544,16 +584,18 @@ private int expungeStaleEntry(int staleSlot) {
          i = nextIndex(i, len)) {
         // 取Entry
         ThreadLocal<?> k = e.get();
-        // 如果key为null，则清空Entry的value并将Entry移出Entry[]
+
         if (k == null) {
+            // key为null，置空value并从Entry[]移除该Entry
             e.value = null;
             tab[i] = null;
             size--;
         } else {
             // key非空，重新hash该Entry的新下标
             int h = k.threadLocalHashCode & (len - 1);
-            // 出现Hash则继续通过开放地址法找后续空下标
             if (h != i) {
+                // 从该Entry目标索引h开始向后查找合适的位置存放
+                // 尽可能令Entry的索引靠近理想索引h
                 tab[i] = null;
 
                 // Unlike Knuth 6.4 Algorithm R, we must scan until
@@ -567,6 +609,34 @@ private int expungeStaleEntry(int staleSlot) {
     return i;
 }
 ```
+
+#### 4.11.1 清理
+
+从 __staleSlot__ 开始向后清理脏 __Entry__
+
+![ThreadLocal_ expungeStaleEntry_expunge](/img/java/ThreadLocal_expungeStaleEntry_expunge.png)
+
+#### 4.11.2 重哈希
+
+重哈希 __Entry__ 的位置，先看正在使用的情况。实例 __Entry__ 原本需要放在索引为10的位置，由于索引10到13都被其他 __Entry__ 先占用了，所以只能放在14的位置
+
+![ThreadLocal_expungeStaleEntry_using](/img/java/ThreadLocal_expungeStaleEntry_using.png)
+
+使用一段时间后，部分 __Entry__ 已失效
+
+![ThreadLocal_expungeStaleEntry_used](/img/java/ThreadLocal_expungeStaleEntry_used.png)
+
+清理过程中脏 __Entry__ 被清除，清理到索引14的有效 __Entry__ 需要重哈希
+
+![ThreadLocal_expungeStaleEntry_before_rehash](/img/java/ThreadLocal_expungeStaleEntry_before_rehash.png)
+
+索引14的有效 __Entry__ 重哈希之后，下图是 __Entry__ 放在理想的索引10
+
+![ThreadLocal_expungeStaleEntry_after_rehash](/img/java/ThreadLocal_expungeStaleEntry_after_rehash.png)
+
+假设索引10原有的 __Entry__ 有效不能被清除，那么索引14的 __Entry__ 将通过开放地址法放在位置12
+
+![ThreadLocal_expungeStaleEntry_after_rehash_sepcial](/img/java/ThreadLocal_expungeStaleEntry_after_rehash_sepcial.png)
 
 ### 4.12 cleanSomeSlots(int, int)
 
@@ -593,7 +663,7 @@ private boolean cleanSomeSlots(int i, int n) {
 
 ### 4.13 rehash()
 
-此方法会触发一次清理整个表废弃元素的操作expungeStaleEntries()。一般来说，经过全面清理后会腾出新空间，然后检查是否还需要扩容，即是否已达到扩容阀值的3 / 4。
+此方法会触发一次清理废弃元素的操作 __expungeStaleEntries()__。一般来说，经过全面清理后会腾出新空间，然后检查是否还需要扩容，即是否已达到扩容阀值的3 / 4。
 
 假设总容量是16：
 
@@ -676,5 +746,6 @@ private void expungeStaleEntries() {
 
 ## 五、参考链接
 
-- Hysteresis: [https://en.wikipedia.org/wiki/Hysteresis](https://en.wikipedia.org/wiki/Hysteresis)
+- [Hysteresis](https://en.wikipedia.org/wiki/Hysteresis)
+- [从源码深入详解ThreadLocal内存泄漏问题](https://juejin.im/post/5aeeb3e8518825672f19c52c#heading-8)
 

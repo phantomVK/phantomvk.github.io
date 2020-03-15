@@ -27,7 +27,7 @@ compare_and_swap (*p, oldval, newval):
           *p = newval;
           success;
       else
-         fail;
+          fail;
 ```
 
 首先比较内存位置 p (*p) 的内容与已知值 oldval（这应该是当前线程中 *p 的值）。只有当它们是相同值时，才会将 newval 写入 *p。若其他线程之前已经修改该内存位置，那么比较操作会失败。

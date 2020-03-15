@@ -12,15 +12,15 @@ tags:
 
 ## 一、类签名
 
-LruCache是Android提供的缓存工具类，根据最近最少使用算法缓存元素，避免缓存过多导致内存占用过大，或内存释放不及时引起内存溢出。
+LruCache是Android提供的缓存工具类，根据最近最少使用算法缓存元素，避免缓存导致内存占用过大，或对象释放不及时引起内存溢出。
 
 ```java
 public class LruCache<K, V>
 ```
 
-资源缓存除了最近最少使用外，还巧妙利用Java对象引用类型完成内存回收。被操作的元素会移到队列末位。一段时间后本来处于队列末位的元素，因为其他元素的操作逐渐前进到队头。如果队列空间足够，所有元素都不会移除。
+资源缓存除了最近最少使用外，还巧妙利用Java对象引用类型完成内存回收。被操作的元素会移到队列末位。一段时间后，原本处于队列末位的元素，因为其他元素的操作逐渐被挪动到队头。
 
-否则处于队头的元素优先移除，腾出空间容纳新元素。所以使用热度高的资源得到有效缓存，长时间没有使用的资源会被移出队列。
+如果队列空间足够，所有元素都不会移除。否则，处于队头的元素优先被移除，腾出空间容纳新元素。因此使用热度高的资源得到有效缓存，长时间没有使用的资源会被移出队列。
 
 为了使该类适合实际应用，开发中多继承`LruCache`，重写`create()`、`entryRemoved()`和`sizeOf()`等方法。
 
@@ -32,7 +32,9 @@ public class LruCache<K, V>
 private final LinkedHashMap<K, V> map;
 ```
 
-以下两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可能是键的个数(针对Key)，也可能是值总体积(针对Value)。例如通过LruCache缓存图片，既可以通过限制图片数量，也可以限制缓存图片容量总大小实现内存管理。
+以下两个数值分别用来记录`保存容量`及`最大容量`，且前者不大于后者。值得注意的是，这个容量可能是键的个数(针对Key)，也可能是值总体积(针对Value)。
+
+例如LruCache缓存图片，可以限制图片数量，或限制缓存图片容量实现内存管理。
 
 ```java
 // 已保存数据大小
@@ -74,7 +76,7 @@ public LruCache(int maxSize) {
 
 ### 4.1 设置大小
 
-可以修改列表最大保存数量。如果maxSize变小，会自动通过`trimToSize()`移除多余元素。
+可以修改列表最大保存数量。如果maxSize变小，则通过`trimToSize()`移除多余元素。
 
 ```java
 public void resize(int maxSize) {
@@ -92,7 +94,7 @@ public void resize(int maxSize) {
 
 ### 4.2 存取
 
-通过非空键取值，对应键命中把值返回，且把这个元素移动到队列首位。
+通过非空键取值，对应键命中把值返回，且把这个元素移动到队列末位。
 
 ![LruCache_get](/img/android/lrucache/LruCache_get.png)
 
@@ -117,7 +119,7 @@ public final V get(K key) {
 
     // 命中失败后尝试构建Value
     // 构建过程可能比较长，且当create()返回值时，原队列顺序可能已发生改变
-    // 若发现一个Hash值相同的item已经进入队列，该值会保留并抛弃create()的对象
+    // 若发现存在Key相同的item在队列中，该item会保留并抛弃create()的对象
     V createdValue = create(key);
     if (createdValue == null) {
         return null;
@@ -139,25 +141,28 @@ public final V get(K key) {
         }
     }
 
-    // 处理两个实例出现冲突后，把多余的实例进行垃圾回收，这里是createdValue
     if (mapValue != null) {
+        // 两个实例出现冲突后把多余实例回收，这里是createdValue
         entryRemoved(false, key, createdValue, mapValue);
         return mapValue;
     } else {
-        // 创建的新值插入成功，且没有旧的值被替换，trimToSize()检查是否需要调整空间
+        // 新值插入成功，且没有旧值被替换出来
+        // trimToSize()检查是否需要调整空间
         trimToSize(maxSize);
         return createdValue;
     }
 }
 ```
 
-添加键值逻辑比较简单：已存在的值会被新值取代且移到队列首位，旧值作为方法返回值。如果缓存没有满，则新值直接存入。
+添加键值逻辑比较简单：已存在值会被新值替换且移到队列末位，旧值作为方法返回值。如果缓存没有满，则新值直接存入。
 
 ![LruCache_put](/img/android/lrucache/LruCache_put.png)
 
-如果缓存已满，则旧值先移除再添加新值：
+如果缓存已满，则先移除最旧一项数据再添加新值：
 
 ![LruCache_put_previous](/img/android/lrucache/LruCache_put_previous.png)
+
+存入键值对：
 
 ```java
 public final V put(K key, V value) {

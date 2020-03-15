@@ -164,14 +164,15 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         mInputEventConsistencyVerifier.onTouchEvent(ev, 1);
     }
 
+    // 如果该事件以可访问性为焦点的视图为目标，则开始正常的事件分发
+    // 也许子视图会处理点击事件
     if (ev.isTargetAccessibilityFocus() && isAccessibilityFocusedViewOrHost()) {
         ev.setTargetAccessibilityFocus(false);
     }
 
     // 是否已经处理标志位
     boolean handled = false;
-    
-    // 检查是否被其他View覆盖
+
     if (onFilterTouchEventForSecurity(ev)) {
         final int action = ev.getAction();
         final int actionMasked = action & MotionEvent.ACTION_MASK;
@@ -179,19 +180,21 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         // 有MotionEvent.ACTION_DOWN事件
         if (actionMasked == MotionEvent.ACTION_DOWN) {
             // 开始新触摸动作时先丢弃之前所有状态
-            // 框架可能由于APP切换、ANR或其他状态改变，结束了先前抬起或取消事件
-            cancelAndClearTouchTargets(ev); // 取消并清除触摸的Targets
-            resetTouchState(); // 重置触摸状态
+            // 框架可能由于APP切换、ANR或其他状态改变，结束先前UP或CANCEL事件
+            // 重置子视图状态并清空TouchTarget
+            cancelAndClearTouchTargets(ev);
+            // disallowIntercept标志位在此被重置
+            resetTouchState();
         }
 
         // 是否已拦截标志位
         final boolean intercepted;
         
-        // 发生ACTION_DOWN事件或者ACTION_DOWN的后续事件，进入此方法
+        // 发生ACTION_DOWN事件或者ACTION_DOWN的后续事件
         if (actionMasked == MotionEvent.ACTION_DOWN
                 || mFirstTouchTarget != null) {
             final boolean disallowIntercept = (mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0;
-            // ViewGroup自身是否允许拦截事件
+            // 是否允许ViewGroup拦截事件
             if (!disallowIntercept) {
                 // ViewGroup自行拦截事件并发送到onInterceptTouchEvent(ev)
                 intercepted = onInterceptTouchEvent(ev);
@@ -205,11 +208,12 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
             intercepted = true;
         }
 
+        // ViewGroup自己拦截此次事件，或是继上个ACTION_DOWN给子视图的后续事件
         if (intercepted || mFirstTouchTarget != null) {
             ev.setTargetAccessibilityFocus(false);
         }
         
-        // 检查取消
+        // 检查是否为ACTION_CANCEL
         final boolean canceled = resetCancelNextUpFlag(this)
                 || actionMasked == MotionEvent.ACTION_CANCEL;
 
@@ -218,10 +222,10 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         TouchTarget newTouchTarget = null;
         boolean alreadyDispatchedToNewTouchTarget = false;
         
-        // 之前不允许拦截事件，或onInterceptTouchEvent(ev)返回false
+        // 这个不是取消事件，或onInterceptTouchEvent(ev)返回false，事件需分发给子视图
         if (!canceled && !intercepted) {
 
-            // 把事件分发给的子视图，寻找能获取焦点的视图
+            // 把事件分发给的子视图，寻找能获取无障碍焦点的视图
             View childWithAccessibilityFocus = ev.isTargetAccessibilityFocus()
                     ? findChildWithAccessibilityFocus() : null;
             
@@ -243,7 +247,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                     final float x = ev.getX(actionIndex);
                     final float y = ev.getY(actionIndex);
                     
-                    // 从视图最上层到底层，获取所有能接收该事件的子视图
+                    // 根据Z轴从上层到底层和视图绘制顺序排序，获取所有能接收该事件的子视图
                     final ArrayList<View> preorderedList = buildOrderedChildList();
                     final boolean customOrder = preorderedList == null
                             && isChildrenDrawingOrderEnabled();
@@ -254,23 +258,28 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                         // child的索引
                         final int childIndex = customOrder
                                 ? getChildDrawingOrder(childrenCount, i) : i;
-                        // 从children列表获取索引的child
+                        // 从childrens列表获取索引对应child
                         final View child = (preorderedList == null)
                                 ? children[childIndex] : preorderedList.get(childIndex);
 
-                        // 若当前视图无法获取用户焦点，跳过
+                        // 若要求视图要具有无障碍焦点，则需要检查该条件
                         if (childWithAccessibilityFocus != null) {
                             if (childWithAccessibilityFocus != child) {
+                                // 若当前视图无法获取无障碍焦点，跳过
                                 continue;
                             }
                             childWithAccessibilityFocus = null;
                             i = childrenCount - 1;
                         }
-                        
-                        // view不能接收坐标事件或者触摸坐标点不在view的范围内，跳过
+
+                        // canViewReceivePointerEvents: 视图可见且没有动画
+                        // isTransformedTouchPointInView: 计算x,y是否落在视图的方位内
+                        // 当View不能接收坐标事件或者触摸坐标点不在view的范围内，跳过
                         if (!canViewReceivePointerEvents(child)
                                 || !isTransformedTouchPointInView(x, y, child, null)) {
+                            // 视图不可见 || 有动画 || 坐标没落在该视图上
                             ev.setTargetAccessibilityFocus(false);
+                            // 继续找下一个符合条件的视图
                             continue;
                         }
 
@@ -330,13 +339,14 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         
         // 只有处理ACTION_DOWN事件才会进入addTouchTarget方法。
         if (mFirstTouchTarget == null) {
-        // 没有触摸target，交给当前ViewGroup来处理
-        handled = dispatchTransformedTouchEvent(ev, canceled, null,
-                TouchTarget.ALL_POINTER_IDS);
+            // 没有触摸target，交给当前ViewGroup来处理
+            handled = dispatchTransformedTouchEvent(ev, canceled, null,
+                    TouchTarget.ALL_POINTER_IDS);
         } else {
             // 有子View接收事件，则后续操作事件也分发给它
             TouchTarget predecessor = null;
             TouchTarget target = mFirstTouchTarget;
+            // 从TouchTarget逐个查找目标视图
             while (target != null) {
                 final TouchTarget next = target.next;
                 if (alreadyDispatchedToNewTouchTarget && target == newTouchTarget) {
@@ -344,6 +354,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                 } else {
                     final boolean cancelChild = resetCancelNextUpFlag(target.child)
                             || intercepted;
+                    // 符合条件的视图都分发事件
                     if (dispatchTransformedTouchEvent(ev, cancelChild,
                             target.child, target.pointerIdBits)) {
                         handled = true;
