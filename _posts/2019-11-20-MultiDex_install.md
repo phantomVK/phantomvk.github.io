@@ -35,6 +35,10 @@ android {
 
 __MultiDex__ 用于应用启动时加载被分割的子dex，让后续类加载能从子dex找到目标类。
 
+```groovy
+implementation "androidx.multidex:multidex:2.0.0"
+```
+
 #### 1.3 疑难
 
 当然还可能会遇到：

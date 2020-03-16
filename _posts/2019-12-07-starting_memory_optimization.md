@@ -147,6 +147,8 @@ val flag = try {
 
 上述代码多次生成该实例，每个大小32B共抛出1041次，__ShallowSize__ 总计33,312B。考虑到 __StackTraceElement__ 包含保存堆栈信息的字符串，实际占用将大于 33,312B。
 
+处理方法比较简单：从 __JsonObject__ 获取整形值前检查该值是否存在。
+
 ```kotlin
 val jsObj = event.getContent().asJsonObject
 if (jsObj.has("flag")) {
@@ -155,8 +157,6 @@ if (jsObj.has("flag")) {
     null
 }
 ```
-
-处理方法比较简单：从 __JsonObject__ 获取整形值前检查该值是否存在。
 
 #### 3.3 重用对象
 

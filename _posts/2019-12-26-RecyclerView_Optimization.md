@@ -149,9 +149,9 @@ recyclerView.setItemViewCacheSize(4)
 
 #### 3.3 setHasStableIds
 
-指定参数为true避免增删items时，引起无关的视图刷新。
+指定参数为true，避免增删items时引起无关的视图刷新。
 
-```korlin
+```kotlin
 adapter.setHasStableIds(true)
 ```
 
