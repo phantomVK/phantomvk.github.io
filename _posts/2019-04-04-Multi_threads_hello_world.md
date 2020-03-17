@@ -19,25 +19,20 @@ tags:
 
 ```java
 public class CyclicBarrierAnswer {
-    // 同时用于定义CyclicBarrier和线程池的值
-    private static final int THREADS_COUNT = 5;
-
+    private static final int THREAD_COUNT = 5; // CyclicBarrier计数和线程池数量
     public static void main(String[] args) {
-        // CyclicBarrier实例，已设置等待线程数
-        CyclicBarrier barrier = new CyclicBarrier(THREADS_COUNT, System.out::println);
-        ExecutorService service = Executors.newFixedThreadPool(THREADS_COUNT);
+        CyclicBarrier barrier = new CyclicBarrier(THREAD_COUNT, null);
+        ExecutorService service = Executors.newFixedThreadPool(THREAD_COUNT);
 
-        for (int i = 0; i < THREADS_COUNT; i++) {
-            // 线程池执行逻辑
+        for (int i = 0; i < THREAD_COUNT; i++) {
             service.execute(() -> {
                 try {
                     System.out.println(Thread.currentThread().getName() + ": Hello");
-                    // 线程打印上述内容后都在这里等待
+                    // 线程打印内容后都在这里等待
                     barrier.await();
-                    // 累计达目标线程数，放行所有线程
+                    // 累计达目标线程数放行所有线程
                     System.out.println(Thread.currentThread().getName() + ": world");
-                } catch (InterruptedException | BrokenBarrierException e) {
-                    e.printStackTrace();
+                } catch (InterruptedException | BrokenBarrierException ignored) {
                 }
             });
         }

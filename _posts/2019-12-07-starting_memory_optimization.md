@@ -47,7 +47,7 @@ tags:
 
 - **Allocated**：您的应用分配的 Java/Kotlin 对象数。此数字没有计入 C 或 C++ 中分配的对象
 
-较新的系统版本还有其他额外的数据可以参考，但上面参数多数版本都提供。一般来说从上到下的顺序就是优化难度，即从 __Java堆内存__ 开始难度逐渐提升，到 __Other__ 内存最难处理。
+较新的系统版本才能完全提供以上参数，旧版本则根据版本不同有差别。一般来说从上到下的顺序就是优化难度，即从 __Java堆内存__ 开始难度逐渐提升，到 __Other__ 内存最难处理。
 
 不同应用场景内存占用比例也不一样，优化效果要在同一场景反复测量后确定。
 
@@ -55,7 +55,7 @@ tags:
 
 老牌内存分析工具用于检查内存泄漏问题，不过这个工具对 __Android__ 内存泄漏自动推断不准确。
 
-__Android Profiler__ 导出内存快照，先用 __platform-tools__ 的 __hprof-conv__ 转换后才能导入 __MAT__，而 __-z__ 参数转换结果只包含应用自身内存，易于查看。
+从 __Android Profiler__ 导出内存快照后，用 __platform-tools__ 的 __hprof-conv__ 工具转换后的镜像才能导入 __MAT__。而 __-z__ 参数转换结果只包含应用自身内存，易于查看。
 
 ```bash
 $ cd /Users/phantomvk/Library/Android/sdk/platform-tools # MacOS
@@ -74,7 +74,7 @@ $ hprof-conv -z dump_from.hprof dump_to.hprof
 
 ![ScreenShotListenManager](/img/android/performance/ScreenShotListenManager.png)
 
-右键点击 __List objects__ 选择 __with incoming references__ 可看见对象被引用的位置：
+右键点击 __List objects__ 选择 __with incoming references__ 可看见泄漏对象被引用的路径：
 
 ![leak_MediaContentObserver](/img/android/performance/leak_MediaContentObserver.png)
 
@@ -436,7 +436,7 @@ try {
 
 ![leak_MediaContentObserver](/img/android/performance/leak_MediaContentObserver.png)
 
-发现在 __Activity__ 的生命周期中注册和注销没有匹配：__onResume()__ 多次注册但在 __onDestroy()__ 仅注销最后一次注册的监听器，导致此前的监听器被系统持有造成泄漏。
+泄漏原因：在 __onResume()__ 生命周期多次注册不同实例，但在 __onDestroy()__ 仅注销了最后一次注册的监听器，导致此前创建的监听器被系统持有造成泄漏。
 
 ![activity_lifecycle_listener_leaks](/img/android/performance/activity_lifecycle_listener_leaks.jpg)
 
@@ -449,7 +449,7 @@ public class ScreenShotListenManager {
     private MediaContentObserver mExternalObserver;
     private final Handler mUiHandler = new Handler(Looper.getMainLooper());
 
-    // 向系统注册监听器
+    // 向系统注册监听器，在onResume()调用
     public void startListen() {
         mInternalObserver = new MediaContentObserver(MediaStore.Images.Media.INTERNAL_CONTENT_URI, mUiHandler);
         mExternalObserver = new MediaContentObserver(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, mUiHandler);
@@ -469,7 +469,7 @@ public class ScreenShotListenManager {
                         mExternalObserver);
     }
   
-    // 从系统注销监听器
+    // 从系统注销监听器，在onDestroy()调用
     public void stopListen() {
         if (mInternalObserver != null) {
             try {
@@ -498,7 +498,7 @@ public class ScreenShotListenManager {
 }
 ```
 
-把原来在 __onDestroy__ 的注销操作移动到 __onResume__ 配对的 __onPause__ 上即可修复。
+把原来在 __onDestroy__ 的注销操作，移动到 __onResume__ 配对的 __onPause__ 上即可修复。
 
 ```java
 @Override
@@ -509,6 +509,7 @@ protected void onResume() {
     }
 }
 
+// 错误的案例：在错误的生命周期释放监听器
 @Override
 protected void onDestroy() {   
     super.onDestroy();
@@ -543,8 +544,8 @@ protected void onDestroy() {
 - 线程安全工具类可声明为常量对象，为所有调用点提供服务而减少冗余实例；
 - 选用知名图片加载框架不仅节约开发时间，还能避免图片加载引起的内存问题；
 - 非受检异常如 __NullPointerException__、__ClassCastException__ 都能预防，处理后可避免堆栈打印快照引起的停顿及 __StackTraceElement__ 开销；
-- 削减空闲线程也是优化内存占用方法之一，需要时酌情操作；
-- 谨慎对待每个内存开销。在 __Comparator__ 或 __for-for__ 助力下开销能以 __2n__ 甚至 __n*n__ 的方式增加；
+- 削减空闲线程也是优化内存占用方法之一，酌情操作；
+- 谨慎对待每个内存开销，在 __Comparator__ 或 双重 __for__ 循环助力下，开销能以 __n__ 甚至 __n*n__ 方式增加；
 
 ### 六、参考链接
 

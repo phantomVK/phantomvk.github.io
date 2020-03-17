@@ -14,43 +14,26 @@ tags:
 ```java
 public class DeadLockClass {
     public static void main(String[] args) {
-        Thread t1 = new Thread(new DeadLock(true));
-        Thread t2 = new Thread(new DeadLock(false));
-        t1.start();
-        t2.start();
+        new Thread(new DeadLock(true)).start();
+        new Thread(new DeadLock(false)).start();
     }
 
     private static class DeadLock implements Runnable {
         private boolean mFlag;
-        private static final Object OBJ_1 = new Object();
-        private static final Object OBJ_2 = new Object();
+        private static final Object LOCK_0 = new Object();
+        private static final Object LOCK_1 = new Object();
 
-        DeadLock(boolean flag) {
-            mFlag = flag;
-        }
+        public DeadLock(boolean flag) { mFlag = flag; }
 
         public void run() {
-            if (mFlag) {
-                synchronized (OBJ_1) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException ignore) {
-                    }
-
-                    synchronized (OBJ_2) {
-                        System.out.println("o1没出现死锁");
-                    }
+            synchronized (mFlag ? LOCK_0 : LOCK_1) {
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException ignore) {
                 }
-            } else {
-                synchronized (OBJ_2) {
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException ignore) {
-                    }
 
-                    synchronized (OBJ_1) {
-                        System.out.println("o2没出现死锁");
-                    }
+                synchronized (mFlag ? LOCK_1 : LOCK_0) {
+                    System.out.println("o1没出现死锁");
                 }
             }
         }

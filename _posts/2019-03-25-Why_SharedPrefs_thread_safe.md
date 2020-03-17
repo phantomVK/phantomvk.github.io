@@ -12,9 +12,9 @@ tags:
 
 __SharedPreferences__ 通过读写磁盘xml文件的方式，为客户端提供便捷的键值对持久化服务。同时支持同步和异步两种数据提交方式，减少对主线程运行的影响。
 
-虽然此工具类因使用方便深得开发者的青睐，但其多线程操作、多进程操作是否安全的问题，却鲜有人探究。对 __SharedPreferences__ 存取操作感兴趣的读者，这里先为您呈上文章 [Android源码系列(12) -- SharedPreferences](/2018/09/14/SharedPreferences/)。
+虽然此工具类因使用方便深得开发者的青睐，但其多线程操作、多进程操作是否安全的问题，却鲜有人探究。对 __SharedPreferences__ 存取操作感兴趣的读者，这里先为您呈上文章 [SharedPreferences](/2018/09/14/SharedPreferences/)。
 
-接下来将透过应用进程启动流程，逐步得出主题结论。因为涉及 __ActivityThread__、__ApplicationThread__、__ActivityManagerService__、Android IPC等知识，请自行查阅，本文不再赘述。
+接下来透过进程启动流程，得出主题结论。因为涉及 __ActivityThread__、__ApplicationThread__、__ActivityManagerService__、Android IPC等知识，请自行查阅，本文不再赘述。
 
 本文源码来自 __Android 23__。
 

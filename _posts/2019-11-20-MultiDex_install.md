@@ -126,6 +126,7 @@ private static void doInstallation(Context mainContext, File sourceApk, File dat
 
     // 加锁保证安装线程安全
     synchronized(installedApk) {
+        // 检查本应用apk文件是否已装载
         if (!installedApk.contains(sourceApk)) {
             installedApk.add(sourceApk);
 
@@ -135,14 +136,12 @@ private static void doInstallation(Context mainContext, File sourceApk, File dat
                 // 获取类加载器，提取的Dex后续通过反射添加到类加载器
                 loader = mainContext.getClassLoader();
             } catch (RuntimeException var25) {
-                // Failure while trying to obtain Context class loader.
-                // Must be running in test mode. Skip patching.
+                // 如果运行在测试模式，有可能出现获取ClassLoader失败
                 return;
             }
 
             if (loader == null) {
-                // Context class loader is null.
-                // Must be running in test mode. Skip patching.
+                // 如果运行在测试模式，有可能出现获取ClassLoader为空
             } else {
                 try {
                     clearOldDexDir(mainContext);
@@ -157,6 +156,8 @@ private static void doInstallation(Context mainContext, File sourceApk, File dat
                 File dexDir = getDexDir(mainContext, dataDir, secondaryFolderName);
 
                 // sourceApk: /data/app/com.phantomvk.playground-1.apk
+                // dexDir: /data/data/com.phantomvk.playground/code_cache/secondary-dexes
+                // 同时创建文件锁 MultiDex.lock
                 MultiDexExtractor extractor = new MultiDexExtractor(sourceApk, dexDir);
                 IOException closeException = null;
 
@@ -180,6 +181,7 @@ private static void doInstallation(Context mainContext, File sourceApk, File dat
                     }
                 } finally {
                     try {
+                        // 解除文件锁
                         extractor.close();
                     } catch (IOException var23) {
                         closeException = var23;
@@ -212,7 +214,7 @@ List<? extends File> load(Context context, String prefsKeyPrefix,
         // 如果不是'强制提取'和'文件已被修改'就尝试复用文件
         if (!forceReload && !isModified(context, this.sourceApk, this.sourceCrc, prefsKeyPrefix)) {
             try {
-                // 直接复用已缓存的Dexes文件
+                // 复用缓存在dexDir的Dexes文件
                 files = this.loadExistingExtractions(context, prefsKeyPrefix);
             } catch (IOException var6) {
                 // 复用缓存出现错误，重新提取文件
@@ -263,6 +265,7 @@ private List<MultiDexExtractor.ExtractedDex> performExtractions() throws IOExcep
             // fileName: com.phantomvk.playground-1.apk.classes2.zip
             String fileName = extractedFilePrefix + secondaryNumber + ".zip";
 
+            // MultiDexExtractor.ExtractedDex父类File，存放提取的dex文件
             // dexDir: /data/data/com.phantomvk.playground/code_cache/secondary-dexes/
             MultiDexExtractor.ExtractedDex extractedFile =
                 new MultiDexExtractor.ExtractedDex(this.dexDir, fileName);
@@ -276,10 +279,11 @@ private List<MultiDexExtractor.ExtractedDex> performExtractions() throws IOExcep
                 ++numAttempts;
 
                 // 提取dexFile(如classes2.dex)为extractedFile
+                // 意思就是读取dex并保存到zip里面
                 extract(apk, dexFile, extractedFile, extractedFilePrefix);
 
                 try {
-                    // 获取提取后文件的CRC
+                    // 记录提取后文件的CRC
                     extractedFile.crc = getZipCrc(extractedFile);
                     isExtractionSuccessful = true;
                 } catch (IOException var18) {
@@ -316,7 +320,17 @@ private List<MultiDexExtractor.ExtractedDex> performExtractions() throws IOExcep
 }
 ```
 
-提取完成后的 __files__ 结构如下，可见子dex总共有4个：
+流程概括：
+
+1. 用读取 __zip__ 的方式读取 __APK__；
+2. 提取除了 __classes.dex__ 外的其他 __classesN.dex__ 文件到 __MultiDexExtractor.ExtractedDex__；
+3. 每个 __classesN.dex__ 文件对应一个 __MultiDexExtractor.ExtractedDex__，后者类型为 __zip__；
+4. 记录提取后 __MultiDexExtractor.ExtractedDex__ 的 CRC；
+5. 返回 __MultiDexExtractor.ExtractedDex__ 文件列表；
+
+
+
+提取完成后的 __files__ 结构如下，可见子dex总共有4个，文件类型为 __zip__，保存在 __dexDir__ 文件夹下面：
 
 ![filesAfter](/img/android/multidex/filesAfter.png)
 
@@ -334,7 +348,7 @@ private static void extract(ZipFile apk, ZipEntry dexFile, File extractTo, Strin
     InputStream in = apk.getInputStream(dexFile);
     ZipOutputStream out = null;
 
-    // tmpFileName:   tmp-com.phantomvk.playground-1.apk.classes-2082951698.zip
+    // tmpFileName:   tmp-com.phantomvk.playground-1.apk.classes.zip
     // extractParent: /data/data/com.phantomvk.playground/code_cache/secondary-dexes/
     File tmp = File.createTempFile("tmp-" + extractedFilePrefix, ".zip", extractTo.getParentFile());
 
@@ -374,6 +388,13 @@ private static void extract(ZipFile apk, ZipEntry dexFile, File extractTo, Strin
 }
 ```
 
+流程概括：
+
+1. 先创建临时文件 __tmp-[包名]-1.apk.classes.zip__；
+2. 在上述临时 __zip__ 压缩包内创建文件 __classes.dex__；
+3. 从 __APK__ 复制 __dex__ 并写入到 __zip__ 的 __classes.dex__ 中；
+4. 最后把临时 __zip__ 文件重命名为 __extractTo__ 文件的文件名 __[包名]-1.apk.classesN.zip__；
+
 ## 四、装载
 
 上文只完成从安装包获得dexes，逐一提取 __zip__ 文件到磁盘的工作，提取完成的文件并还没有添加到 __ClassLoader__。
@@ -405,7 +426,11 @@ SecurityException, ClassNotFoundException, InstantiationException {
 
 用 __Android4.4__ 作为示例进入 __V19__：
 
+__APK__ 每个 __dex__ 已经逐个提取为 __MultiDexExtractor.ExtractedDex__ 文件，合并为文件列表后传递给变量 __additionalClassPathEntries__。
+
 ```java
+// additionalClassPathEntries: MultiDexExtractor.ExtractedDex 文件列表
+// optimizedDirectory: /data/data/[包名]/code_cache/secondary-dexes/，即dexDir
 static void install(ClassLoader loader, List<? extends File> additionalClassPathEntries, File optimizedDirectory)
   throws IllegalArgumentException, IllegalAccessException,
          NoSuchFieldException, InvocationTargetException,
@@ -453,13 +478,17 @@ static void install(ClassLoader loader, List<? extends File> additionalClassPath
 }
 ```
 
+流程概括：
+
+1. 反射 __ClassLoader__ 获取变量 __pathList__；
+2. __makeDexElements()__ 逐个优化包含 __dex__ 的 __zip__ 文件，再封装到 __Element__ 实例中；
+3. 从 __pathList__ 反射获取 __dexElements[]__，读取原有文件；
+4. 原有文件和步骤2封装的 __Element__ 文件合并为新 __Elements[]__；
+5. __MultiDex.expandFieldArray()__ 执行新 __Elements[]__ 替换 __dexElements[]__；
+
 #### 4.2 makeDexElements()
 
-__dexPathList__ 和 __optimizedDirectory__ 作为参数调用 __makeDexElements()__。
-
-#### 4.2.1 dexPathList
-
-__DexPathList__ 声明于[__BaseDexClassLoader__](http://androidxref.com/4.4.4_r1/xref/libcore/dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java#30)
+__dexPathList__ 和 __optimizedDirectory__ 作为参数调用 __makeDexElements()__。__DexPathList__ 声明在类 [__BaseDexClassLoader__](http://androidxref.com/4.4.4_r1/xref/libcore/dalvik/src/main/java/dalvik/system/BaseDexClassLoader.java#30)
 
 ```java
 public class BaseDexClassLoader extends ClassLoader {
@@ -472,15 +501,11 @@ __dexPathList__ 变量运行时内存结构：
 
 ![loader](/img/android/multidex/loader.png)
 
-#### 4.2.2 optimizedDirectory
-
 __optimizedDirectory__ 变量运行时内存结构：
 
 ![optimizedDirectory](/img/android/multidex/optimizedDirectory.png)
 
-#### 4.2.3 调用makeDexElements
-
-这个是 __V19.makeDexElements()__，反射调用 __DexPathList.makeDexElements()__
+下面实例的这个是 __V19.makeDexElements()__，反射调用 __DexPathList.makeDexElements()__
 
 ```java
 private static Object[] makeDexElements(Object dexPathList,
@@ -493,7 +518,7 @@ private static Object[] makeDexElements(Object dexPathList,
     Method makeDexElements = MultiDex.findMethod(dexPathList, "makeDexElements",
                                                  ArrayList.class, File.class, ArrayList.class);
 
-    // 调用DexPathList.makeDexElements()把zip列表转换为Element[]
+    // 调用上述反射获取的方法把zip列表转换为Element[]
     return (Object[])((Object[])makeDexElements.invoke(dexPathList, files,
                                                        optimizedDirectory,
                                                        suppressedExceptions));
@@ -508,7 +533,7 @@ private static Element[] makeDexElements(ArrayList<File> files, File optimizedDi
                                          ArrayList<IOException> suppressedExceptions) {
     ArrayList<Element> elements = new ArrayList<Element>();
 
-    // 遍历files里面的dex文件
+    // 遍历files
     for (File file : files) {
         File zip = null;
         DexFile dex = null;
@@ -523,7 +548,7 @@ private static Element[] makeDexElements(ArrayList<File> files, File optimizedDi
             }
         } else if (name.endsWith(APK_SUFFIX) || name.endsWith(JAR_SUFFIX)
                 || name.endsWith(ZIP_SUFFIX)) {
-            // 因为是zip后缀，所以进入这个分支
+            // 因为传入的文件都是zip后缀，所以进入这个分支
             zip = file;
 
             try {
@@ -555,7 +580,7 @@ private static Element[] makeDexElements(ArrayList<File> files, File optimizedDi
 }
 ```
 
-把zip所在文件夹传到方法。zip文件封装为 __DexFile__ 过程会调用 [原生代码](http://androidxref.com/4.4.4_r1/xref/libcore/dalvik/src/main/java/dalvik/system/DexFile.java#294) 进行优化。
+把 __zip__ 所在文件夹传到方法。__zip__ 文件封装为 __DexFile__ 过程会调用 [原生代码](http://androidxref.com/4.4.4_r1/xref/libcore/dalvik/src/main/java/dalvik/system/DexFile.java#294) 进行优化。
 
 ```java
 // Constructs a {@code DexFile} instance, as appropriate depending
@@ -567,14 +592,41 @@ private static DexFile loadDexFile(File file, File optimizedDirectory)
     if (optimizedDirectory == null) {
         return new DexFile(file);
     } else {
-        // 传入zip所在文件夹路径
+        // 传入zip所在文件夹路径，计算dex优化后的保存路径
         String optimizedPath = optimizedPathFor(file, optimizedDirectory);
 
-        // DexFile构建过程会优化源码
+        // DexFile构建过程会优化源码，优化后文件保存在optimizedPath
         return DexFile.loadDex(file.getPath(), optimizedPath, 0);
     }
 }
 ```
+
+为 __zip__ 文件里面的 __dex__ 提供优化后的保存路径
+
+```java
+// Converts a zip file path of an extracted secondary dex to an output file path for an
+// associated optimized dex file.
+private static String optimizedPathFor(File path) {
+    // Any reproducible name ending with ".dex" should do but lets keep the same name
+    // as DexPathList.optimizedPathFor
+
+    File optimizedDirectory = path.getParentFile();
+    String fileName = path.getName();
+    String optimizedFileName =
+            fileName.substring(0, fileName.length() - EXTRACTED_SUFFIX_LENGTH)
+            + MultiDexExtractor.DEX_SUFFIX;
+    File result = new File(optimizedDirectory, optimizedFileName);
+    return result.getPath();
+}
+```
+
+流程概括：
+
+1. 已知每个 __zip__ 包含一个 __dex__ 文件，为每个 __dex__ 计算优化后产物的路径；
+2. 而 __MultiDexExtractor.ExtractedDex__ 就是 __zip__；
+3. 然后用 __ExtractedDex__ 通过 __DexFile__ 类交给 JNI 去优化，优化产物会保存在上述路径；
+4. __DexFile__ 优化完成后封装为 __Element__ 对象，并收集到 __Element[]__；
+5. __Element[]__ 拓展上文说的 __dexElements[]__；
 
 #### 4.3 expandFieldArray()
 
@@ -582,9 +634,9 @@ private static DexFile loadDexFile(File file, File optimizedDirectory)
 
 具体步骤：
 
-- 通过反射 __dexElements__ 获取 __original[]__；
-- 合成新数组 __original[]__ + __extraElements[]__ = __combined[]__；
-- 用 __combined[]__ 覆盖 __dexElements[]__ 数据。
+- 通过反射 __dexElements[]__ 获取 __original[]__；
+- 合成 __original[]__ + __extraElements[]__ 获得 __combined[]__；
+- 用 __combined[]__ 反射替换 __dexElements[]__；
 
 ```java
 // Replace the value of a field containing a non null array, by a new array containing the
@@ -595,19 +647,19 @@ private static DexFile loadDexFile(File file, File optimizedDirectory)
 private static void expandFieldArray(Object instance, String fieldName,
         Object[] extraElements) throws NoSuchFieldException, IllegalArgumentException,
         IllegalAccessException {
-    // dexPathList获取makeDexElements数组相对地址
+    // dexPathList获取makeDexElements的Field
     Field jlrField = findField(instance, fieldName);
 
-    // 从实例根据地址获取成员
+    // 从实例获取Field的实际值original
     Object[] original = (Object[]) jlrField.get(instance);
 
-    // 此数组将混合original已有的元素和新加入的提取数据
+    // 混合original[]和新的extraElements[]为combined[]
     Object[] combined = (Object[]) Array.newInstance(
             original.getClass().getComponentType(), original.length + extraElements.length);
     System.arraycopy(original, 0, combined, 0, original.length);
     System.arraycopy(extraElements, 0, combined, original.length, extraElements.length);
 
-    // 用combined覆盖原original数组
+    // 用combined[]覆盖原original[]
     jlrField.set(instance, combined);
 }
 ```
@@ -620,13 +672,13 @@ private static void expandFieldArray(Object instance, String fieldName,
 
 ![beforeExpandFieldArray](/img/android/multidex/afterExpandFieldArray.png)
 
-提取工作完成后内存布局：
+提取工作完成后内存布局，__optimizedDirectory__ 增加的几个 __dex__ 文件是优化后的产物：
 
 ![classload_done](/img/android/multidex/classload_done.png)
 
 #### 4.4 putStoredApkInfo()
 
-提取成功的dexes信息保存到 __SharedPreferences__ 以便下次对比决定是否重用。
+提取成功的dexes信息保存到 __SharedPreferences__ 以便下次重用。
 
 ```java
 // 只能在获取文件锁LOCK_FILENAME之后才能调用
@@ -659,7 +711,7 @@ private static void putStoredApkInfo(Context context, String keyPrefix, long tim
 
 - 尽可能提高混淆强度，减少代码和方法使用量；
 - 只使用一次的方法手动合并到调用点，相当于内联；
-- 尽可能把代码存放在主dex，令提取工作在安装过程完成；
-- 不常用功能使用动态加载，令安装时间和提取时间都减少；
+- 尽可能把代码存放在主dex，让提取工作在安装过程完成；
+- 不常用功能使用动态加载，让安装时间和提取时间都减少；
 
 虽然 __Android5.0__ 及后期系统使用 __ART__ 虚拟机，在安装过程会全部或部分优化dex，再也不会在应用启动时影响体验。但是减少代码量，即使只能降低安装时长也总归是好事。

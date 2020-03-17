@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Fragment.startActivityForResult"
+title:      "Fragment打开页面"
 date:       2019-04-02
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"

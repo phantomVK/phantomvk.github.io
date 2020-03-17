@@ -42,15 +42,6 @@ AsyncTask.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, Param)
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/AppTheme">
-
-        <activity
-            android:name=".view.MainActivity"
-            android:theme="@style/AppTheme.Launcher">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
     </application>
 </manifest>
 ```
@@ -71,9 +62,9 @@ class Application : Application() {
 }
 ```
 
-然后在 __AndroidManifest__ 内声明自定义的 __Application__。由下面 __package__ 和 __name__ 组合可知自定义 __Application__ 全路径为 __com.phantomvk.messagekit.Application__，后面会用到这个全路径名。
+没有自定义 __Application__ 的全路径名默认为 __android.app.Application__。
 
-没有自定义 __Application__ 则全路径名默认为 __android.app.Application__。
+然后在 __AndroidManifest__ 内声明自定义的 __Application__。由下面 __package__ 和 __name__ 组合可知自定义 __Application__ 全路径为 __com.phantomvk.messagekit.Application__，后面会用到这个全路径名。
 
 ```xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
@@ -91,12 +82,21 @@ class Application : Application() {
 
 ## 二、启动流程
 
-#### 2.1 IPC注册
+#### 2.1 注册ApplicationThread
 
-应用启动包含注册 __ApplicationThread__ 实例到AMS过程，注册成功后AMS通过IPC调用 __ApplicationThread.bindApplication()__ 发出 __H.BIND_APPLICATION__ 消息，消息体内包含 __AppBindData__ 实例作为后续初始化所需数据。
+流程概括：
+
+1. __ApplicationThread__ 是 __ActivityThread__ 的内部类；
+2. 应用启动包含注册 __ApplicationThread__ 实例到AMS过程；
+3. 注册成功AMS调用 __ApplicationThread.bindApplication()__ 发出 __H.BIND_APPLICATION__ 消息；
+4. 消息体包含 __AppBindData__ 实例作为后续初始化所需数据；
+5. __H__ 类处理 __BIND_APPLICATION__ 消息，委托 __LoadApk__ 初始化 __Application__；
+6.  __LoadApk__ 又把初始化 __Application__ 的工作委托给 __Instrumentation__；
+7. 创建完成后把 __Context__ 保存到 __Application__，并调用 __Application.onCreate()__ ；
 
 ```java
-private class ApplicationThread extends IApplicationThread.Stub {
+private class ApplicationThread extends IApplicationThread.Stub { 
+    // 此方法由AMS调用
     public final void bindApplication(String processName, ApplicationInfo appInfo,
             List<ProviderInfo> providers, ComponentName instrumentationName,
             ProfilerInfo profilerInfo, Bundle instrumentationArgs,
@@ -138,7 +138,7 @@ private class ApplicationThread extends IApplicationThread.Stub {
 
 ```java
 class H extends Handler {
-    public static final int BIND_APPLICATION        = 110;
+    public static final int BIND_APPLICATION = 110;
 
     public void handleMessage(Message msg) {
         switch (msg.what) {
@@ -147,10 +147,9 @@ class H extends Handler {
                 // 调用handleBindApplication()
                 handleBindApplication(data);
                 break;
-
-            .....
         }
-  }
+    }
+}
 ```
 
 #### 2.3 初始化
@@ -163,8 +162,7 @@ private void handleBindApplication(AppBindData data) {
 
     Application app;
     try {
-        // If the app is being launched for full backup or restore, bring it up in
-        // a restricted environment with the base application class.
+        // 如果为了备份和恢复而启动应用，在该受限制的环境下强制用基础Application类
         // data.info类型为LoadedApk，LoadedApk通过反射创建Application实例
         app = data.info.makeApplication(data.restrictedBackupMode, null);
 
@@ -174,8 +172,7 @@ private void handleBindApplication(AppBindData data) {
         // 把Application引用保存在ActivityThread.mInitialApplication
         mInitialApplication = app;
 
-        // don't bring up providers in restricted mode; they may depend on the
-        // app's custom Application class
+        // 约束环境不启动providers，因为这些providers可能依赖自定义的Application类
         if (!data.restrictedBackupMode) {
             if (!ArrayUtils.isEmpty(data.providers)) {
                 installContentProviders(app, data.providers);
@@ -206,9 +203,7 @@ private void handleBindApplication(AppBindData data) {
             }
         }
     } finally {
-      .....
     }
-    .....
 }
 ```
 
@@ -242,7 +237,7 @@ public Application makeApplication(boolean forceDefaultAppClass,
             initializeJavaContextClassLoader();
         }
 
-        // 用ActivityThread创建ContextImpl实例
+        // 用ActivityThread、LoadedApk创建ContextImpl实例
         ContextImpl appContext = ContextImpl.createAppContext(mActivityThread, this);
 
         // 通过Application类名反射获得实例，并把appContext保存到实例
@@ -306,6 +301,7 @@ public Application newApplication(ClassLoader cl, String className, Context cont
     Application app = getFactory(context.getPackageName())
             .instantiateApplication(cl, className);
     // context设置到Applicaton实例父类，即Context的数据成员mBase;
+    // attach()调用attachBaseContext(context)，里面可初始化MultiDex组件
     app.attach(context);
     return app;
 }
@@ -342,7 +338,7 @@ public @NonNull Application instantiateApplication(@NonNull ClassLoader cl,
 
 ### 三、使用实例
 
-最后看看如何从 __Application__ 获取 __applicationContext__，前者继承自 __ContextWrapper__，功能也在父类实现。
+看看如何从 __Application__ 获取 __applicationContext__，前者继承自 __ContextWrapper__，功能在父类实现。
 
 ```java
 public class Application extends ContextWrapper implements ComponentCallbacks2
@@ -361,12 +357,12 @@ public class ContextWrapper extends Context {
 }
 ```
 
-__mBase__ 为实现抽象类 __Context__ 的 __ContextImpl__ 实例。
+__mBase__ 为实现抽象类 __Context__ 的 __ContextImpl__ 实例，实例包含 __ActivityThread__、__LoadedApk__。
 
 ```java
 class ContextImpl extends Context {
     final @NonNull LoadedApk mPackageInfo;
-  
+
     @Override
     public Context getApplicationContext() {
         return (mPackageInfo != null) ?
