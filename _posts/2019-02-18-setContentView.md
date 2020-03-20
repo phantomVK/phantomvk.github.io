@@ -57,7 +57,7 @@ public void setContentView(@LayoutRes int layoutResID) {
 }
 ```
 
-通过单例模式获取代理类 __AppCompatDelegate__ 实例。因为获取操作一定在主线程执行，所以不需要增加线程保护等操作。
+通过单例模式获取代理类 __AppCompatDelegate__ 实例。
 
 ```java
 @NonNull
@@ -71,7 +71,7 @@ public AppCompatDelegate getDelegate() {
 
 ## 三、AppCompatDelegate
 
-在代理实现类中没有看见 __AppCompatDelegateImplV9__ 的分支
+代理实现类没有看见 __AppCompatDelegateImplV9__ 的分支
 
 ```java
 private static AppCompatDelegate create(Context context, Window window,
@@ -121,7 +121,9 @@ public void setContentView(int resId) {
 private boolean mSubDecorInstalled;
 ```
 
-上述 __setContentView()__ 调用 __ensureSubDecor()__，里面最重要的调用方法是 __createSubDecor()__ 。如果多次调用 __setContentView(int resId)__ 方法，则后续 __mSubDecorInstalled__ 标志位为 __true__ 而不初始化 __SubDecor__。
+__setContentView()__ 调用 __ensureSubDecor()__ 流程中，最重要的方法是 __createSubDecor()__ 。
+
+如果多次调用 __setContentView(int resId)__ 方法，则后续 __mSubDecorInstalled__ 标志位为 __true__ 而不重复初始化 __SubDecor__。
 
 ```java
 private void ensureSubDecor() {
@@ -196,9 +198,8 @@ private ViewGroup createSubDecor() {
     // 由主题配置决定使用的布局，填充视图赋值给subDecor
     if (!mWindowNoTitle) {
         if (mIsFloating) {
-                // 类似这种根据样式选择布局，并初始化subDecor
-                subDecor = (ViewGroup) inflater.inflate(
-                        R.layout.abc_dialog_title_material, null);
+                // 根据样式选择布局并初始化subDecor
+                subDecor = (ViewGroup) inflater.inflate(R.layout.abc_dialog_title_material, null);
 
                 // 悬浮windows没有action bar，重置该标志位
                 mHasActionBar = mOverlayActionBar = false;
@@ -627,6 +628,7 @@ __setContentView(int resId)__ 工作流程：
 - 代理给 __PhoneWindow__ 的 __mDecor__ 创建 __DecorView__ 实例；
 - 并根据 __Activity__ 主题样式选择 __layoutResource__，填充后赋值给 __mContentRoot__；
 - 把 __mContentRoot__ 加到 __PhoneWindow__ 的 __mDecor__ 作为子视图；
+- 创建 __contentParent__ 加到 __mContentRoot__ 作为字数图；
 - 在 __mDecor__ 找一个 __id__ 为 __android.R.id.content__ 的视图赋值给  __contentParent__；
 - 最后，根据开发者定义的布局 __resId__，实例化后加到 __contentParent__ 内.
 

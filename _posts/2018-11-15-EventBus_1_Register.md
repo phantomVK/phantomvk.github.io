@@ -234,7 +234,7 @@ EventBus(EventBusBuilder builder) {
     // 构建AsyncPoster
     asyncPoster = new AsyncPoster(this);
 
-    // 获取数量
+    // 注解处理器所生成订阅者信息的数量
     indexCount = builder.subscriberInfoIndexes != null ? builder.subscriberInfoIndexes.size() : 0;
 
     // 初始化订阅者方法查找器初始化
@@ -267,17 +267,17 @@ private final ThreadLocal<PostingThreadState> currentPostingThreadState = new Th
 };
 ```
 
-__PostingThreadState__ 是变量的封装，用在 __ThreadLocal__ 中，以便快速设置、获取多个变量。
+__PostingThreadState__ 是变量的封装，放在 __ThreadLocal__ 中，以便快速设置、获取当前线程状态的多个变量。
 
 ```java
 final static class PostingThreadState {
-    // 事件队列
+    // 当前线程的事件队列
     final List<Object> eventQueue = new ArrayList<>();
 
     // 消息是否在投递中
     boolean isPosting;
 
-    // 是否在主线程
+    // 是否为主线程
     boolean isMainThread;
 
     // 订阅记录
@@ -304,7 +304,7 @@ public void register(Object subscriber) {
     // 获取订阅者Class
     Class<?> subscriberClass = subscriber.getClass();
 
-    // 从订阅者类获取接收事件的所有方法
+    // 根据订阅者类型获取接收事件的方法
     List<SubscriberMethod> subscriberMethods = subscriberMethodFinder.findSubscriberMethods(subscriberClass);
 
     synchronized (this) {
@@ -521,3 +521,5 @@ private void unsubscribeByEventType(Object subscriber, Class<?> eventType) {
 上述注销流程简化为如下流程图：
 
 ![register](/img/android/EventBus/EventBus_unregister.png)
+
+下一章将继续介绍 __EventBus__ 初始化过程中，__EventBusBuilder__ 的作用。

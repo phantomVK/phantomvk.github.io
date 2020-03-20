@@ -162,7 +162,7 @@ public EventBusBuilder strictMethodVerification(boolean strictMethodVerification
 }
 ```
 
-添加由 __EventBus__ 注解处理器建立的索引
+添加由 __EventBus__ 注解处理器建立的索引，需要手动注入
 
 ```java
 public EventBusBuilder addIndex(SubscriberInfoIndex index) {

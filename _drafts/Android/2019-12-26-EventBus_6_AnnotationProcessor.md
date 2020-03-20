@@ -12,16 +12,23 @@ tags:
 ```java
 @SupportedAnnotationTypes("org.greenrobot.eventbus.Subscribe")
 @SupportedOptions(value = {"eventBusIndex", "verbose"})
+@IncrementalAnnotationProcessor(AGGREGATING)
 ```
+
+类签名
 
 ```java
 public class EventBusAnnotationProcessor extends AbstractProcessor
 ```
 
+常量
+
 ```java
 public static final String OPTION_EVENT_BUS_INDEX = "eventBusIndex";
 public static final String OPTION_VERBOSE = "verbose";
 ```
+
+数据成员
 
 ```java
 /** Found subscriber methods for a class (without superclasses). */
@@ -32,6 +39,8 @@ private boolean writerRoundDone;
 private int round;
 private boolean verbose;
 ```
+
+
 
 ```java
 @Override
@@ -790,3 +799,4 @@ private void writeIndent(BufferedWriter writer, int indentLevel) throws IOExcept
 ```
 
 - [EventBus 3 beta announced at droidcon](http://androiddevblog.com/eventbus-3-droidcon/)
+- [EventBus 3 Subscriber index](https://greenrobot.org/eventbus/documentation/subscriber-index/)

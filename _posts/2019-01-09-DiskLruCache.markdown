@@ -13,7 +13,9 @@ tags:
 
 #### 1.1 特性
 
-这是基于文件系统的 __LRU(Least Recently Used)__ 缓存类，并支持控制空间使用量。每个缓存条目都有一个字符串键和固定数量的值。每个键必须满足正则表达式：__[a-z0-9_-]{1,120}__。值都是字节序列，可通过流或文件的方式访问，长度在0到 __Integer.MAX_VALUE__ 之间。
+这是基于文件系统的 __LRU(Least Recently Used)__ 缓存类，并支持控制空间使用量。
+
+每个缓存条目都有一个字符串键和固定数量的值。每个键必须满足正则表达式：__[a-z0-9_-]{1,120}__。值都是字节序列，可通过流或文件的方式访问，长度在0到 __Integer.MAX_VALUE__ 之间。
 
 ```java
 public final class DiskLruCache implements Closeable
@@ -296,11 +298,11 @@ private void readJournal() throws IOException {
     // 若冗余操作计数很大，表示日志可能含有很多冗余的信息，需要进行日志清理
     redundantOpCount = lineCount - lruEntries.size();
 
-    // If we ended on a truncated line, rebuild the journal before appending to it.
-    // 上面按照行读取出现异常时，在这里触发日志重建操作
     if (reader.hasUnterminatedLine()) {
+      // 上面按照行读取是出现截断，则触发日志重建
       rebuildJournal();
     } else {
+      // 日志验证没有问题，建立文件写入句柄
       journalWriter = new BufferedWriter(new OutputStreamWriter(
           new FileOutputStream(journalFile, true), Util.US_ASCII));
     }
@@ -312,9 +314,7 @@ private void readJournal() throws IOException {
 
 #### 5.3 readJournalLine
 
-日志文件头部内容校验通过后，日志文件的修改记录逐行读取并通过此方法进行处理。
-
-假设现在处理的行内容是 `REMOVE 335c4c6028171cfddfbaae1a9c313c52`
+日志文件头部内容校验通过后，逐行读取日志内容并由此方法处理。假设正在处理的行内容是 `REMOVE 335c4c6028171cfddfbaae1a9c313c52`
 
 ```java
 private void readJournalLine(String line) throws IOException {
@@ -332,11 +332,11 @@ private void readJournalLine(String line) throws IOException {
   if (secondSpace == -1) {
     // 从行内容裁出key: 335c4c6028171cfddfbaae1a9c313c52
     key = line.substring(keyBegin);
-    // REMOVE.length()为6，所有操作的字符串只有REMOVE的长度为6
+    // 所有操作的字符串只有REMOVE的长度为6
     if (firstSpace == REMOVE.length() && line.startsWith(REMOVE)) {
       // 匹配移除操作，则把该条目从LinkedHashMap中移除
       lruEntries.remove(key);
-      // REMOVE操作退出方法
+      // REMOVE操作结束，退出方法
       return;
     }
   } else {
@@ -382,7 +382,7 @@ private void readJournalLine(String line) throws IOException {
 
 #### 5.4 processJournal
 
-把计算初始大小和收集垃圾操作作为打开缓存的一部分。脏条目会假定为不一致要被删除。DIRTY操作的 __currentEditor__ 不为空，意味原内容已废弃，但新内容又没正确结束，所以新旧文件都要移除。
+把计算初始大小和收集垃圾操作作为打开缓存的一部分。脏条目会假定为不一致要被删除。__DIRTY__ 操作的 __currentEditor__ 不为空，表明旧内容已废弃、新内容也没正确完成，所以新旧文件都要移除。
 
 ```java
 private void processJournal() throws IOException {
@@ -392,12 +392,13 @@ private void processJournal() throws IOException {
   for (Iterator<Entry> i = lruEntries.values().iterator(); i.hasNext(); ) {
     Entry entry = i.next();
     if (entry.currentEditor == null) {
-      // 统计可以读取条目的总长度
+      // 累计已缓存有效数据的总大小
       for (int t = 0; t < valueCount; t++) {
         size += entry.lengths[t];
       }
     } else {
       // DIRTY操作的currentEditor不为空
+      // 这数据不能用，新旧文件都要移除
       entry.currentEditor = null;
       for (int t = 0; t < valueCount; t++) {
         deleteIfExists(entry.getCleanFile(t));
@@ -447,8 +448,10 @@ private synchronized void rebuildJournal() throws IOException {
     // 把lruEntries有效记录写入日志
     for (Entry entry : lruEntries.values()) {
       if (entry.currentEditor != null) {
+        // 文档现在还没关闭
         writer.write(DIRTY + ' ' + entry.key + '\n');
       } else {
+        // 文件已经正确关闭
         writer.write(CLEAN + ' ' + entry.key + entry.getLengths() + '\n');
       }
     }
@@ -456,7 +459,7 @@ private synchronized void rebuildJournal() throws IOException {
     writer.close();
   }
   
-  // 如果已有一份日志文件存在，就把文件备份起来
+  // 如果已有日志文件存在，就把文件备份起来
   if (journalFile.exists()) {
     renameTo(journalFile, journalFileBackup, true);
   }
@@ -521,7 +524,7 @@ public synchronized Value get(String key) throws IOException {
 
   // 如果文件是可以读取的
   for (File file : entry.cleanFiles) {
-      // 但检查时发现文件不存在，那文件肯定是刚刚被手动删除了
+      // 但检查时发现文件不存在，那肯定是刚刚被删除了
       if (!file.exists()) {
           return null;
       }

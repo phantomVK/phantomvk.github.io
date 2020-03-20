@@ -48,7 +48,7 @@ final class Subscription {
     public boolean equals(Object other) {
         if (other instanceof Subscription) {
             Subscription otherSubscription = (Subscription) other;
-            // 对比使用同一个实例且注册了同一个订阅方法
+            // 对比是否为重复实例
             return subscriber == otherSubscription.subscriber
                     && subscriberMethod.equals(otherSubscription.subscriberMethod);
         } else {
@@ -63,13 +63,13 @@ final class Subscription {
 }
 ```
 
-调用 __EventBus#unregister(Object)__ 注销订阅者后，`active`立即改为 __false__。该值被负责队列事件投递的 __EventBus#invokeSubscriber(PendingPost)__ 检查以避免 __race conditions__。
+调用 __EventBus#unregister(Object)__ 注销订阅者后，`active`改为 __false__，该值由负责队列事件投递的 __EventBus#invokeSubscriber(PendingPost)__ 检查以避免 __race conditions__。
 
 ## 二、SubscriberMethod
 
 具体到 __Subscription__ 内部实现，里面还包含了 __SubscriberMethod__。每个 __SubscriberMethod__ 表示一个订阅者类的订阅方法。
 
-前文已经提到，订阅者类通过 __EventBus__ 的注解修饰并因此能被 __EventBus__ 发现。__EventBus__ 通过注解处理器分析注解，和获取的订阅者方法信息构造成这个 __SubscriberMethod__ 类，成为订阅者信息的索引。
+前文已经提到，订阅者类通过 __EventBus__ 的注解修饰并因此能被 __EventBus__ 发现。__EventBus__ 通过注解处理器分析注解，和获取的订阅者方法信息构造为 __SubscriberMethod__ 实例，成为订阅者信息的索引。
 
 ```java
 public class SubscriberMethod {
@@ -136,7 +136,7 @@ public class SubscriberMethod {
 
 ## 三、Subscribe注解
 
-这个就是 __EventBus__ 注解。从注解类可以看到 __threadMode__、__sticky__、__priority__ 均能和 __SubscriberMethod__ 类的数据成员匹配上。
+这个就是 __EventBus__ 注解。从注解类看到 __threadMode__、__sticky__、__priority__ 都能和 __SubscriberMethod__ 类的数据成员匹配上。
 
 ```java
 @Documented
@@ -146,7 +146,7 @@ public @interface Subscribe {
     // 通过指定线程模式调起订阅者方法
     ThreadMode threadMode() default ThreadMode.POSTING;
 
-    // 若是粘性事件，把最近的粘性事件发送给订阅者
+    // 若是粘性事件，把粘性事件发送给订阅者
     boolean sticky() default false;
 
     // 方法接收事件的优先级，默认优先级是0
@@ -178,17 +178,19 @@ java.lang.RuntimeException: Unable to start activity ComponentInfo{com.phantomvk
 
 #### 4.1 类签名
 
-前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，降低这里 __SubscriberMethodFinder__ 类的理解难度。
+前文铺垫 __Subscription__、__SubscriberMethod__、__Subscribe__ 注解，是为了降低理解 __SubscriberMethodFinder__ 的难度。
 
 ```java
 class SubscriberMethodFinder 
 ```
 
-通过扫描订阅者方法的 __Subscribe__ 注解，为每个订阅方法生成 __SubscriberMethod__，构造出订阅记录 __Subscription__。
+通过扫描订阅者方法的 __Subscribe__ 注解，为对应订阅方法生成 __SubscriberMethod__ 实例，再构造出订阅记录 __Subscription__。
 
 #### 4.2 常量
 
-较新的类文件中编译器可能会添加额外方法， 这些方法被称为桥梁或合成方法。__EventBus__ 同时忽略这两种方法。这些修饰符都不是 __public__ 的，而是以Java类文件格式定义：http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6-200-A.1
+较新的类文件中编译器可能会添加额外方法， 这些方法被称为桥梁或合成方法。__EventBus__ 同时忽略这两种方法。
+
+这些修饰符都不和 __public__ 使用，而是以Java类文件格式定义，详情请看：[jvms-4.html#jvms-4.6-200-A.1](http://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.6-200-A.1)
 
 ```java
 private static final int BRIDGE = 0x40;
@@ -348,7 +350,7 @@ private List<SubscriberMethod> getMethodsAndRelease(FindState findState) {
 
 #### 4.9 prepareFindState
 
-重缓存池中获取 __FindState__ 实例，如果缓存池没有缓存的实例，则创建新实例
+从缓存池中获取 __FindState__ 实例，如果缓存池没有缓存的实例则创建新实例
 
 ```java
 private FindState prepareFindState() {
@@ -439,7 +441,7 @@ private void findUsingReflectionInSingleClass(FindState findState) {
                         "must have exactly 1 parameter but has " + parameterTypes.length);
             }
         } else if (strictMethodVerification && method.isAnnotationPresent(Subscribe.class)) {
-            // 方式包含Subscribe注解，但不方法不能同时满足以下条件：公开可见性、非静态、非抽象
+            // 方式包含Subscribe注解，但方法不能同时满足以下条件：公开可见性、非静态、非抽象
             String methodName = method.getDeclaringClass().getName() + "." + method.getName();
             throw new EventBusException(methodName +
                     " is a illegal @Subscribe method: must be public, non-static, and non-abstract");
@@ -537,7 +539,7 @@ void recycle() {
 
 ```java
 boolean checkAdd(Method method, Class<?> eventType) {
-    // 检查同一个订阅者类内是有多个方法订阅相同事件
+    // 检查订阅者类内是否有多个方法订阅相同事件
     Object existing = anyMethodByEventType.put(eventType, method);
     if (existing == null) {
         // 有多个方法订阅相同事件

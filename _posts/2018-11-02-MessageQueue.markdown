@@ -94,7 +94,7 @@ private native static long nativeInit();
 private native static void nativeDestroy(long ptr);
 
 // 从消息队列阻塞等待并获取一条消息
-private native void nativePollOnce(long ptr, int timeoutMillis); /*non-static for callbacks*/
+private native void nativePollOnce(long ptr, int timeoutMillis);
 
 // 唤醒消息队列
 private native static void nativeWake(long ptr);
@@ -479,7 +479,7 @@ Message next() {
 }
 ```
 
-如果next()已给Looper返回有效消息，Looper在消费Message后会重新调用next()，如下：
+如果 __next()__ 已给 __Looper__ 返回有效消息，__Looper__ 在消费 __Message__ 后会重新调用 __next()__，如下：
 
 ```java
 public static void loop() {
@@ -526,7 +526,7 @@ public static void loop() {
 
 #### 5.6 quit
 
-退出消息队列。如果消息队列设置为不允许退出，调用此方法会抛出IllegalStateException异常。典型实现是主线程不允许退出，因为退出会导致消息不能进入主线程的消息队列。
+退出消息队列。如果消息队列设置为不允许退出，调用此方法会抛出 __IllegalStateException__ 异常。典型实现是主线程不允许退出，因为退出会导致消息不能进入主线程的消息队列。
 
 若 __safe__ 值为true，消息队列会把所有到达执行时间点的消息全部处理完毕再退出，抛弃没有到达时间点的消息。否则所有消息直接抛弃，不管是否需要执行。
 
