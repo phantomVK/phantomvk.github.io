@@ -74,15 +74,17 @@ __两种类型__:
 
 ![img](/img/jvm_memory/heap.png)
 
-虚拟机新生代中 __Eden__ 和 __Survivor__ 内存比例一般是8: 1，即 __Eden: Survivor s0: Survivor s1= 8: 1: 1__ 。
+虚拟机新生代 __Eden__ 和 __Survivor__ 默认比例是8: 1，即 __Eden: Survivor s0: Survivor s1= 8: 1: 1__ 。
 
-堆区分代回收根据对象不同生命周期，来做出合理的内存分配和回收操作。大部分对象生命周期很短，熬不过第一次垃圾收集。
+堆区分代回收根据对象不同生命周期，来做出合理的内存分配和回收操作。大部分对象生命周期很短，熬不过第一次垃圾回收。
 
-从分配的角度来看，线程本地缓冲区(Thread local allocation buffer, TLAB)有利于更高效地划分线程私有缓冲区，避免每次线程需要内存时都去请求堆区开辟新空间。
+从分配的角度来看，线程本地缓冲区(Thread local allocation buffer, TLAB)有利于高效地划分线程私有缓冲区，避免每次线程需要内存时都请求堆区开辟新空间。
 
 #### 2.4.2 幸存者区域
 
-新创建对象先存放在Eden区，经过第一次垃圾回收且存活的对象会进入两个Survivor中的一个。此时这个Survivor区称为 __To Survivor__ ，另一个区称为 __From Survivor__ 。同时，把上次回收后存活对象从 __From Survivor__ 移到 __To Survivor__ 并清空。
+新创建对象先存放在Eden区，经过第一次垃圾回收且存活的对象会进入两个 __Survivor__ 中的一个。此时这个 __Survivor__ 区称为 __To Survivor__ ，另一个区称为 __From Survivor__ 。
+
+同时，把上次回收存活对象从 __From Survivor__ 移到 __To Survivor__，并清空 __From Survivor__。
 
 ![img](/img/jvm_memory/from_to_sur.png)
 
@@ -121,13 +123,13 @@ __From Survivor__ 和 __To Survivor__ 名字是相对的。对象移出的Surviv
 
 直接内存不属于虚拟机运行时数据区内存，该空间划分在虚拟机外，大小不受堆内存容量限制。
 
-同时，直接内存还受物理机剩余可用内存、处理器寻址空间的限制。如果虚拟机堆内存分配太大，会导致剩余直接内存空间不足而出现运行时异常。
+但是，直接内存受物理机剩余可用内存、处理器寻址空间的限制。如果虚拟机堆内存分配太大，会导致剩余直接内存空间不足而出现运行时异常。
 
 # 三、最新变化
 
 ### 3.1 元数据区
 
-由于PermGen内存管理的效果远没有达到预期，所以JCP已经着手去除PermGen的工作。自JDK7起，字符串常量已经从永久代移除。在JDK8中，PermGen被彻底移除，取而代之的是metaspace数据区。
+由于 __PermGen__ 内存管理的效果远没有达到预期，所以JCP已经着手去除 __PermGen__ 的工作。自JDK7起，字符串常量已经从永久代移除。在JDK8中，__PermGen__ 被彻底移除，取而代之的是 __metaspace__ 数据区。
 
 元数据区使用堆外内存，申请和释放由虚拟机负责管理：
 * 失效参数`-XX:PermSize`和`-XX:MaxPermSize`会被忽略并发出警告；

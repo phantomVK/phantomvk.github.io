@@ -214,7 +214,8 @@ public boolean dispatchTouchEvent(MotionEvent event) {
         }
     }
 
-    // li.mOnTouchListener.onTouch()和onTouchEvent(event)都没有消费事件
+    // li.mOnTouchListener.onTouch()和onTouchEvent(event)均没有消费事件时
+    // 本方法，即dispatchTouchEvent()返回false
     if (!result && mInputEventConsistencyVerifier != null) {
         mInputEventConsistencyVerifier.onUnhandledEvent(event, 0);
     }
@@ -229,9 +230,7 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 }
 ```
 
-从上述源码可知，点击事件进入 __dispatchTouchEvent()__ ，在此方法内先给 __mOnTouchListener()__ 消费事件。如果 __mOnTouchListener()__ 不消费事件则下发给 __onTouchEvent(event)__ 。
-
-流程图解：
+从上述源码可知，点击事件进入 __dispatchTouchEvent()__ ，在此方法内先让 __mOnTouchListener()__ 消费事件。如果 __mOnTouchListener()__ 不消费事件则发给 __onTouchEvent(event)__  消费。
 
 ![View_dispatchTouchEvent](/img/android/event/View_dispatchTouchEvent.png)
 
