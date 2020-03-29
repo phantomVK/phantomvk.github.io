@@ -250,7 +250,7 @@ if (li != null && li.mOnTouchListener != null
 
 __li.mOnTouchListener__ 依赖 __mButton.setOnTouchListener__ ，后者不设置则前者为空。
 
-在 __MainActivity.onCreate()__ 中给 __mButton.setOnTouchListener()__ 设置监听器同时，这个实例保存在 __getListenerInfo().mOnTouchListener__。
+在 __MainActivity.onCreate()__ 中给 __mButton.setOnTouchListener()__ 设置监听器的时候，其实这个实例保存在 __getListenerInfo().mOnTouchListener__。
 
 ```java
 public void setOnTouchListener(OnTouchListener l) {
@@ -272,7 +272,7 @@ ListenerInfo getListenerInfo() {
 
 #### 3.3 onTouchEvent
 
-上文提到 __View.OnTouchListener()__ 的返回值决定事件是否继续分发给 __onTouchEvent__ 。假如 __OnTouchListener()__ 返回 __false__ ，则 __onTouchEvent__ 接收事件。
+上文提到，__View.OnTouchListener()__ 返回值决定事件是否继续分发给 __onTouchEvent()__ 。假如 __OnTouchListener()__ 返回 __false__ ，则 __onTouchEvent__ 接收事件。
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
@@ -309,7 +309,7 @@ public boolean onTouchEvent(MotionEvent event) {
             (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE) ||
             (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE) {
         switch (action) { 
-            // 请看下一节               
+            // 请看第四节         
         } 
         return true;
     }
@@ -419,7 +419,6 @@ private void checkForLongClick(int delayOffset) {
             mPendingCheckForLongPress = new CheckForLongPress();
         }
 
-        // View重新attach到Window的次数
         mPendingCheckForLongPress.rememberWindowAttachCount();
         
         // 减去Prepress已经延迟的100ms
@@ -446,15 +445,14 @@ private final class CheckForLongPress implements Runnable {
             }
         }
     }
-    
-    // View重新attach到Window的次数
+
     public void rememberWindowAttachCount() {
         mOriginalWindowAttachCount = mWindowAttachCount;
     }
 }
 ```
 
-在run里面调用的`performLongClick()`，设置的长按监听在以下方法调用。方法返回handled值，直接控制`CheckForLongPress()`的**mHasPerformedLongPress**。
+在run里面调用的 __performLongClick()__，设置的长按监听在以下方法调用。方法返回 __handled__ 值，直接控制  __CheckForLongPress()__ 的**mHasPerformedLongPress**。
 
 
 ```java
@@ -484,7 +482,7 @@ public boolean performLongClick() {
 ```java
 drawableHotspotChanged(x, y); // 当前位置
 
-// 移动到按钮的范围外就会执行
+// 移动到按钮范围外就会执行
 if (!pointInView(x, y, mTouchSlop)) {
     removeTapCallback(); // 移除PREPRESSED状态和对应回调
     
@@ -559,13 +557,14 @@ if ((mPrivateFlags & PFLAG_PRESSED) != 0 || prepressed) {
         setPressed(true, x, y);
     }
     
-    // 没有长按且不忽略下一个抬起事件，就移除长按     
+    // 没有长按且不忽略下一个抬起事件，就移除长按回调    
     if (!mHasPerformedLongPress && !mIgnoreNextUpEvent) {
         removeLongPressCallback();
 
         // 只有在按下的状态才执行点击操作
         if (!focusTaken) {
-            // 用Runnable提交而不是直接执行是为了让其他可见View在点击操作开始之前更新
+            // 用Runnable提交而不是直接执行
+            // 是为了让其他可见View在点击操作开始之前更新
             if (mPerformClick == null) {
                 mPerformClick = new PerformClick();
             }
@@ -593,7 +592,7 @@ if ((mPrivateFlags & PFLAG_PRESSED) != 0 || prepressed) {
 mIgnoreNextUpEvent = false;
 ```
 
-`performClick()`在`ACTION_UP`的过程中被调用的，`onClick`事件是在这里执行。
+__performClick()__ 在 __ACTION_UP__ 的过程中被调用的，__onClick__ 事件是在这里执行。
 
 ```java
 public boolean performClick() {

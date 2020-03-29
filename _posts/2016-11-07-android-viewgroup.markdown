@@ -16,7 +16,9 @@ tags:
 
 # 一、 代码构建
 
-继承LinearLayout重写**dispatchTouchEvent()**、**onInterceptTouchEvent()**、**onTouchEvent()**方法。因为 __ViewGroup__ 可以有子视图，所以相比 __View__ 多了 __onInterceptTouchEvent()__，决定点击事件是否传递给子视图。
+继承 __LinearLayout__ 重写**dispatchTouchEvent()**、**onInterceptTouchEvent()**、**onTouchEvent()**方法。
+
+因为 __ViewGroup__ 可以有子视图，所以相比 __View__ 多了 __onInterceptTouchEvent()__，决定点击事件是否自己拦截消费而不传递给子视图。
 
 ```java
 public class MyLinearLayout extends LinearLayout {
@@ -95,7 +97,7 @@ public class MyLinearLayout extends LinearLayout {
 }
 ```
 
-然后直接修改上次的xml布局文件，把RelativeLayout改为自定义ViewGroup:
+然后直接修改上篇文章的布局文件，把 __RelativeLayout__ 改为自定义 __ViewGroup__:
 
 ```xml
 <com.phantomvk.demoproject.MyLinearLayout
@@ -116,19 +118,19 @@ public class MyLinearLayout extends LinearLayout {
 
 事件按照以下顺序传递：
 
-* MyLinearLayout: dispatchTouchEvent
-* MyLinearLayout: onInterceptTouchEvent
-* MyButton: dispatchTouchEvent
-* MyButton: onTouchEvent
+* **MyLinearLayout: dispatchTouchEvent()**
+* **MyLinearLayout: onInterceptTouchEvent()**
+* **MyButton: dispatchTouchEvent()**
+* **MyButton: onTouchEvent()**
 
 事件分发流程：
 
-- `ViewGroup.dispatchTouchEvent()`交给`ViewGroup.onInterceptTouchEvent()`；
+- __ViewGroup.dispatchTouchEvent()__ 交给 __ViewGroup.onInterceptTouchEvent()__；
 
 
-- 事件进入`ViewGroup.onInterceptTouchEvent()`，该方法返回`false`继续下发；
-- 分发给子View的`dispatchTouchEvent()`，传递到`onTouchEvent.OnTouchListener`消费；
-- 如果`OnTouchListener`不拦截事件，则交给`View.onTouchEvent()`消费.
+- 事件进入 __ViewGroup.onInterceptTouchEvent()__，该方法返回 __false__ 继续下发；
+- 分发给子视图 __dispatchTouchEvent()__，传递到 __onTouchEvent.OnTouchListener__ 消费；
+- 如果子视图 __OnTouchListener__ 不拦截事件，则交给 __View.onTouchEvent()__ 消费.
 
 ```
 demoproject E/MyLinearLayout: dispatchTouchEvent ACTION_DOWN
