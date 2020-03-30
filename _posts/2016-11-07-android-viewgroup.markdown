@@ -157,6 +157,8 @@ demoproject E/MyButton: onTouchEvent ACTION_UP
 
 #### 3.1 dispatchTouchEvent
 
+进入方法后先关注第18行，根据本布局在屏幕上是否被其他视图遮蔽，决定事件是否分发到本视图。
+
 ```java
 @Override
 public boolean dispatchTouchEvent(MotionEvent ev) {
@@ -166,8 +168,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         mInputEventConsistencyVerifier.onTouchEvent(ev, 1);
     }
 
-    // 如果该事件以可访问性为焦点的视图为目标，则开始正常的事件分发
-    // 也许子视图会处理点击事件
+    // 如果该事件以可访问性为焦点的视图为目标，则开始正常的事件分发，也许子视图会处理点击事件
     if (ev.isTargetAccessibilityFocus() && isAccessibilityFocusedViewOrHost()) {
         ev.setTargetAccessibilityFocus(false);
     }
@@ -175,6 +176,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
     // 是否已经处理标志位
     boolean handled = false;
 
+    // 方法看小节3.2
     if (onFilterTouchEventForSecurity(ev)) {
         final int action = ev.getAction();
         final int actionMasked = action & MotionEvent.ACTION_MASK;
@@ -183,26 +185,27 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
         if (actionMasked == MotionEvent.ACTION_DOWN) {
             // 开始新触摸动作时先丢弃之前所有状态
             // 框架可能由于APP切换、ANR或其他状态改变，结束先前UP或CANCEL事件
-            // 重置子视图状态并清空TouchTarget
+            // 重置子视图状态并清空TouchTarget，小节3.8
             cancelAndClearTouchTargets(ev);
-            // disallowIntercept标志位在此被重置
+            // disallowIntercept标志位在此被重置，小节3.9
             resetTouchState();
         }
 
-        // 是否已拦截标志位
+        // 是否已拦截的标志位
         final boolean intercepted;
         
         // 发生ACTION_DOWN事件或者ACTION_DOWN的后续事件
         if (actionMasked == MotionEvent.ACTION_DOWN
                 || mFirstTouchTarget != null) {
+            // 检查本ViewGroup是否允许拦截事件开关，本标志位由子视图设置
             final boolean disallowIntercept = (mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0;
             // 是否允许ViewGroup拦截事件
             if (!disallowIntercept) {
-                // ViewGroup自行拦截事件并发送到onInterceptTouchEvent(ev)
+                // 允许拦截，则检查onInterceptTouchEvent(ev)决定是否真的拦截
                 intercepted = onInterceptTouchEvent(ev);
                 ev.setAction(action); 
             } else {
-                // 不允许拦截
+                // 不允许自己拦截
                 intercepted = false;
             }
         } else {
@@ -243,7 +246,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                 removePointersFromTouchTargets(idBitsToAssign);
                 // 统计子视图数目
                 final int childrenCount = mChildrenCount;
-                // 新触摸Target为空且有子视图
+                // 新触摸Target为空且有子视图，则寻找子视图
                 if (newTouchTarget == null && childrenCount != 0) {
                     // 当前x、y坐标
                     final float x = ev.getX(actionIndex);
@@ -274,9 +277,9 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                             i = childrenCount - 1;
                         }
 
-                        // canViewReceivePointerEvents: 视图可见且没有动画
-                        // isTransformedTouchPointInView: 计算x,y是否落在视图的方位内
-                        // 当View不能接收坐标事件或者触摸坐标点不在view的范围内，跳过
+                        // canViewReceivePointerEvents条件: 视图可见且没有动画
+                        // isTransformedTouchPointInView条件: 计算x,y是否落在视图方位内
+                        // 当子视图不能接收坐标事件或者触摸坐标点不在范围内，跳过
                         if (!canViewReceivePointerEvents(child)
                                 || !isTransformedTouchPointInView(x, y, child, null)) {
                             // 视图不可见 || 有动画 || 坐标没落在该视图上
@@ -285,7 +288,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                             continue;
                         }
 
-                        // 找到子View，封装为TouchTarget
+                        // 该子视图封装为TouchTarget
                         newTouchTarget = getTouchTarget(child);
                         if (newTouchTarget != null) {
                             // Child is already receiving touch within its bounds.
@@ -296,7 +299,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
                         
                         resetCancelNextUpFlag(child);
                         
-                        // 如果触摸位置在child的区域内，则把事件分发给对应的子View或ViewGroup
+                        // 若触摸位置在子视图区域内，则把事件分发给对应子视图，小节3.5
                         if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign)) {
                             mLastTouchDownTime = ev.getDownTime();
                             // 获取TouchDown的下标
@@ -351,6 +354,7 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
             // 从TouchTarget逐个查找目标视图
             while (target != null) {
                 final TouchTarget next = target.next;
+                // 是否已经有子视图接收该事件
                 if (alreadyDispatchedToNewTouchTarget && target == newTouchTarget) {
                     handled = true;
                 } else {
@@ -396,15 +400,46 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 }
 ```
 
+上述方法工作是，从 __ViewGroup__ 先确定该事件是否只会自己拦截。如果事件可以分发给子视图，就找到可以接受事件的子视图，把事件分发出去。
+
+概括：
+
+1. 检查 __onFilterTouchEventForSecurity()__ 决定本视图是否拦截事件，下面以拦截为例；
+
+2. 如果是 __ACTION_DOWN__ 事件：
+  - 调用 __cancelAndClearTouchTargets(ev)__ 重置 __TouchTarget__ 列表；
+  - 调用 __resetTouchState()__ 重置 __disallowIntercept__ 标志位；
+
+3. 如果是 __ACTION_DOWN__ 事件 或 __mFirstTouchTarget__ 不为空
+
+   - 前者表示这是新事件，后者表示该事件可能需要分发给子视图；
+   - 检查 __!disallowIntercept__ 决定事件是否能够发给自己的 __onInterceptTouchEvent()__；
+   - 所以即使事件分发给自己，__onInterceptTouchEvent()__ 也可能返回 __false__ 而给子视图；
+
+4. 本次 __ACTION_DOWN__ 没被取消且自己不拦截，则找合适的子视图接收事件：
+
+   - 先对按照虚拟Z轴排序的子视图列表进行匹配，然后遍历；
+- 先满足基本条件：子视图可见且没有动画、坐标落在该子视图上、可以接受事件；
+   - 封装子视图为 __TouchTarget__；
+- 然后转换 __ViewGroup__ 点击坐标为子视图点击坐标，调用子视图 __dispatchTouchEvent()__；
+   - 子视图消费成功，保存到 __TouchTarget__ 列表；
+   
+5. 除 __ACTION_DOWN__ 外的事件：
+
+   - 自己消费，事件交给 __dispatchTransformedTouchEvent()__；
+
+   - 自己不消费，从 __TouchTarget__ 列表找到最近消费事件合适的子视图，接收剩余事件；
+
 #### 3.2 onFilterTouchEventForSecurity
 
-隐私策略过滤触摸事件返回状态值。true表示继续分发事件，false表示事件被过滤掉不再分发。
+根据布局在屏幕上是否被其他视图遮蔽，决定该事件是否分发到该视图上。
 
 ```java
 public boolean onFilterTouchEventForSecurity(MotionEvent event) {
     if ((mViewFlags & FILTER_TOUCHES_WHEN_OBSCURED) != 0
             && (event.getFlags() & MotionEvent.FLAG_WINDOW_IS_OBSCURED) != 0) {
         // Window is obscured, drop this touch.
+        // 该视图被遮蔽且设置了相应标志位，则放弃该触摸事件的处理
         return false;
     }
     return true;
@@ -539,7 +574,8 @@ private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
     }
 
     // Perform any necessary transformations and dispatch.
-    // 不存在子视图时，ViewGroup调用View.dispatchTouchEvent分发事件，再调用ViewGroup.onTouchEvent来处理事件
+    // 不存在子视图时，ViewGroup调用View.dispatchTouchEvent分发事件
+    // 再调用ViewGroup.onTouchEvent来处理事件
     if (child == null) {
         handled = super.dispatchTouchEvent(transformedEvent);
     } else {
@@ -563,7 +599,7 @@ private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
 
 #### 3.6 addTouchTarget
 
-调用该方法获取了TouchTarget。同时mFirstTouchTarget被赋予相同对象。
+调用该方法获取 __TouchTarget__。同时 __mFirstTouchTarget__ 被赋予该对象形成链表。
 ```java
 private TouchTarget addTouchTarget(View child, int pointerIdBits) {
     TouchTarget target = TouchTarget.obtain(child, pointerIdBits);
@@ -575,7 +611,7 @@ private TouchTarget addTouchTarget(View child, int pointerIdBits) {
 
 #### 3.7 onInterceptTouchEvent
 
-方法默认返回false，表示继续执行事件分发。如果该方法被重写并返回true，事件被拦截并不再分发。
+方法默认返回 __false__ 表示不拦截事件。如果该方法被重写并返回 __true__，事件被拦截给自己消费。
 
 ```java
 public boolean onInterceptTouchEvent(MotionEvent ev) {
@@ -641,7 +677,7 @@ private View findChildWithAccessibilityFocus() {
         return null;
     }
 
-    // 查找View的父类，看其直接或间接父类视为被文本ViewGroup
+    // 查找View的父类，看其直接或间接父类是否为本ViewGroup
     ViewParent parent = current.getParent();
     while (parent instanceof View) {
         if (parent == this) {

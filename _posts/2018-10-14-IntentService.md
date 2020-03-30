@@ -62,7 +62,8 @@ private final class ServiceHandler extends Handler {
     @Override
     public void handleMessage(Message msg) {
         onHandleIntent((Intent)msg.obj);
-        stopSelf(msg.arg1); // 方法内检查是否需要结束
+        // msg.arg1是新建任务时传入的startId，方法内检查是否需要结束Service
+        stopSelf(msg.arg1);
     }
 }
 ```
@@ -131,7 +132,7 @@ public void onStart(@Nullable Intent intent, int startId) {
 }
 ```
 
-当 __Service__ 销毁时调用 __Looper.quit()__ ，此方法内部调用 __MessageQueue.quit(false)__ 关闭消息队列。
+当 __Service__ 销毁时调用 __Looper.quit()__ ，方法内调用 __MessageQueue.quit(false)__ 关闭消息队列。
 
 ```java
 @Override
@@ -164,15 +165,15 @@ protected abstract void onHandleIntent(@Nullable Intent intent);
 
 执行流程(1/2)：
 
-- 假设 __IntentService__ 实现类为 __WorkerService__，通过 __Intent__ 首次发起任务；
--  __WorkerService__ 收起启动进入 __onCreate()__ 初始化；
+- 假设有 __IntentService__ 实现类 __WorkerService__，通过 __Intent__ 首次发起任务；
+-  __WorkerService__ 首次启动进入 __onCreate()__ 初始化；
 -  __onStartCommand()__ 接收 __Intent__ 同时，还能收到配对 __startId__；
 - __onStart()__ 方法内：__Intent__ 和 __startId__ 构造为 __Message__，放入消息队列等待处理；
 
 ```java
 @Override
 public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
-    // 构造消息
+    // 用传入参数构造Message，并加入到ServiceHandler的消息队列中
     onStart(intent, startId);
     return mRedelivery ? START_REDELIVER_INTENT : START_NOT_STICKY;
 }
@@ -181,8 +182,8 @@ public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
 执行流程(2/2)：
 
 - 当 __ServiceHandler__ 任务完成后，从 __Message__ 取出 __startId__ 去调用 __Service.stopSelf(int)__；
-- 系统知道之前传给 __WorkerService__ 的 __Intent__ 已经执行完毕；
-- 若还有 __startId__ 的 __Intent__ 没有调用 __stopSelf__，__WorkerService__ 持续运行直至所有任务完成
+- 系统知道这个传给 __WorkerService__ 的 __Intent__ 已经执行完毕；
+- 若还有其他 __startId__ 的 __Intent__ 没调用 __stopSelf__，__WorkerService__ 继续运行直至所有任务完成
 
 ```java
 private final class ServiceHandler extends Handler {

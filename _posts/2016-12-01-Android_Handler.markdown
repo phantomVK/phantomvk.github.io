@@ -78,16 +78,18 @@ public Handler(Callback callback, boolean async) {
     // 主动获取Handler所在线程的Looper
     mLooper = Looper.myLooper();
     if (mLooper == null) {
+        // 该线程没有调用Looper.prepare()
         throw new RuntimeException(
             "Can't create handler inside thread that has not called Looper.prepare()");
     }
+    // 从Looper获取MessageQueue
     mQueue = mLooper.mQueue;
     mCallback = callback;
     mAsynchronous = async;
 }
 ```
 
-带Looper形参的构造方法。通常和`Looper.getMainLooper()`合用。
+带**Looper**形参的构造方法。通常和 __Looper.getMainLooper()__ 合用。
 
 ``` java
 public Handler(Looper looper) {
@@ -108,7 +110,7 @@ public Handler(Looper looper, Callback callback, boolean async) {
 
 # 四、封装
 
-作用是把`r`封装到`msg.callback`，把`token`赋值给`m.obj`。
+作用是把 __r__ 封装到 __msg.callback__，把 __token__ 赋值给 __m.obj__。
 
 ```java
 private static Message getPostMessage(Runnable r) {
@@ -128,7 +130,7 @@ private static Message getPostMessage(Runnable r, Object token) {
 
 # 五、消息发送
 
-方法封装形参`Runnable`，方法名组成是 `post()`：
+方法封装形参 __Runnable__，方法名组成是 __post()__：
 
 ```java
 public final boolean post(Runnable r) {
@@ -146,7 +148,7 @@ public final boolean postDelayed(Runnable r, long delayMillis) {
 }
 ```
 
-方法形参是`msg`或`msg.what`，方法名组成是 __sendMessage()__：
+方法形参是 __msg__ 或 __msg.what__，方法名组成是 __sendMessage()__：
 
 ```java
 public final boolean sendMessage(Message msg) {
@@ -220,7 +222,9 @@ public boolean sendMessageAtTime(Message msg, long uptimeMillis) {
 一般消息队列会等待所有消息完成才退出。如果手动关闭消息队列，滞留在消息队列的消息不会得到处理且直接丢弃，这是进入消息队列却不一定能调度的主要原因。
 
 ```java
-private boolean enqueueMessage(MessageQueue queue, Message msg, long uptimeMillis) {
+private boolean enqueueMessage(MessageQueue queue,
+                               Message msg,
+                               long uptimeMillis) {
     msg.target = this; // `this` is a Handler.
     if (mAsynchronous) {
         msg.setAsynchronous(true);
@@ -279,7 +283,7 @@ public void dispatchMessage(Message msg) {
 
 ### 6.2 消息回调
 
-`dispatchMessage(msg)`首先尝试执行消息体的`msg.callback`。由于上面有`EmptyMessage`一类方法的存在，所以`msg.callback`可能为空并跳过。
+__dispatchMessage(msg)__ 首先尝试执行消息体的 __msg.callback__。由于上面有 __EmptyMessage__ 一类方法的存在，所以 __msg.callback__ 可能为空并跳过。
 
 ```java
 private static void handleCallback(Message message) {
@@ -287,7 +291,7 @@ private static void handleCallback(Message message) {
 }
 ```
 
-`msg.callback`不行就看看Handler自己有没有`mCallback`
+__msg.callback__ 没设置就看看Handler自己有没有 __mCallback__
 
 ```java
 public interface Callback {
@@ -295,13 +299,15 @@ public interface Callback {
 }
 ```
 
-例子: 创建 __Handler__ 时可以实现这个回调
+上述方法的例子: 创建 __Handler__ 时可以实现这个回调
 
 ```java
 Handler handler = new Handler(new Handler.Callback() {
     @Override
     public boolean handleMessage(Message msg) {
-        Toast.makeText(Activity.this, "handleMessage override", Toast.LENGTH_SHORT).show();
+        Toast.makeText(Activity.this,
+                       "handleMessage override",
+                       Toast.LENGTH_SHORT).show();
         return false;
     }
 });
@@ -314,15 +320,17 @@ Handler handler = new Handler(new Handler.Callback() {
 public void handleMessage(Message msg) {
     super.handleMessage(msg);
 
-    int what = msg.what;
+    final int what = msg.what;
     switch(what){
         case START_ACTIVITY:
-            Intent intent = new Intent(Activity.this, MainActivity.class);
-            Activity.this.startActivity(intent);
+            Intent i = new Intent(Activity.this, MainActivity.class);
+            Activity.this.startActivity(i);
             break;
 
         case TOAST_SHORT_SHOW:
-            Toast.makeText(Activity.this, "Toast", Toast.LENGTH_SHORT).show();
+            Toast.makeText(Activity.this,
+                           "Toast",
+                           Toast.LENGTH_SHORT).show();
             break;
     }
 }
@@ -330,7 +338,9 @@ public void handleMessage(Message msg) {
 
 # 七、移除消息
 
-根据消息身份`what`、消息`Runnable`或`msg.obj`移除队列中对应的消息。例如发送`msg`，用同一个`msg.what`作为参数。所有方法最终调用`MessageQueue.removeMessages`，具体在`MessageQueue`的源码阅读里面说。
+根据消息身份ID __what__、消息 __Runnable__ 或 __msg.obj__ 移除队列中对应的消息。例如发送 __msg__，用对应 __msg.what__ 作为参数移除消息。
+
+方法最终调用 __MessageQueue.removeMessages__，具体在 __MessageQueue__ 源码阅读里面说。
 
 ```java
 public final void removeCallbacks(Runnable r) {
@@ -375,7 +385,9 @@ public final boolean hasCallbacks(Runnable r) {
 
 # 九、阻塞非安全执行
 
-如果当前执行线程是Handler的线程，Runnable会被立刻执行。否则把它放在消息队列中一直等待执行完毕或者超时。超时后这个任务还是在队列中，在后面的某个时刻它仍然会执行，很有可能造成死锁，所以尽量不要用它。
+如果当前执行线程是 __Handler__ 的线程，__Runnable__ 会被立刻执行。否则把它放在消息队列中一直等待执行完毕或者超时。
+
+超时后这个任务还是在队列中，在后面的某个时刻它仍然会执行，很有可能造成死锁，所以尽量不要用它。
 
 ```java
 public final boolean runWithScissors(final Runnable r, long timeout) {
@@ -462,7 +474,7 @@ private static final class BlockingRunnable implements Runnable {
 
 # 十、获取消息名
 
-获取消息里Handler的类名，或消息msg.what的16进制值。如果我们开始就使用16进制设置，这里不用换算就能对应起来。
+获取消息里 __Handler__ 的类名，或消息 __msg.what__ 的16进制值。如果我们开始就使用16进制设置，这里不用换算就能对应起来。
 
 ```java
 public String getMessageName(Message message) {
@@ -499,7 +511,7 @@ public final Message obtainMessage(int what, int arg1, int arg2, Object obj) {
 
 # 十一、其他
 
-剩下这个方法关于跨进程通讯的Messager，在AIDL中使用。
+剩下这个方法关于跨进程通讯的 __Messager__，在 __AIDL__ 中使用。
 
 ```java
 private final class MessengerImpl extends IMessenger.Stub {

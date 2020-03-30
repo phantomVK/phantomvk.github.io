@@ -57,7 +57,7 @@ transient LinkedHashMap.Entry<K,V> tail;
 final boolean accessOrder;
 ```
 
-依次插入`Entry_0`到`Entry_5`，当`accessOrder`为true并访问`Entry_4`时，`Entry_4`会被移到链尾
+假设有以下元素，当`accessOrder`为true访问`Entry_4`时该节点被移到链尾
 
 ![HashMap_UML](/img/java/LinkedHashMap_accessOrder_true.png)
 
@@ -95,8 +95,9 @@ public LinkedHashMap(int initialCapacity,
 
 ## 五、成员方法
 
+把节点插入到链表尾部
+
 ```java
-// 把节点插入到链表尾部
 private void linkNodeLast(LinkedHashMap.Entry<K,V> p) {
     LinkedHashMap.Entry<K,V> last = tail;
     tail = p;
@@ -104,42 +105,37 @@ private void linkNodeLast(LinkedHashMap.Entry<K,V> p) {
     if (last == null)
         head = p;
     else {
-        // 处理双向链表节点
+        // p成为链表新的尾节点
         p.before = last;
+        // 把上次尾节点的after引用指向p
         last.after = p;
     }
 }
+```
 
-// apply src's links to dst
-private void transferLinks(LinkedHashMap.Entry<K,V> src,
-                           LinkedHashMap.Entry<K,V> dst) {
-    LinkedHashMap.Entry<K,V> b = dst.before = src.before;
-    LinkedHashMap.Entry<K,V> a = dst.after = src.after;
-    if (b == null)
-        head = dst;
-    else
-        b.after = dst;
-    if (a == null)
-        tail = dst;
-    else
-        a.before = dst;
-}
+重写HashMap钩子方法
 
-// 重写HashMap钩子方法
+```java
 void reinitialize() {
     super.reinitialize();
     head = tail = null;
 }
+```
 
-// 创建新链表节点
+创建新链表节点
+
+```java
 Node<K,V> newNode(int hash, K key, V value, Node<K,V> e) {
     LinkedHashMap.Entry<K,V> p =
         new LinkedHashMap.Entry<>(hash, key, value, e);
     linkNodeLast(p);
     return p;
 }
+```
 
-// 替换链表节点
+替换链表节点
+
+```java
 Node<K,V> replacementNode(Node<K,V> p, Node<K,V> next) {
     LinkedHashMap.Entry<K,V> q = (LinkedHashMap.Entry<K,V>)p;
     LinkedHashMap.Entry<K,V> t =
@@ -147,15 +143,21 @@ Node<K,V> replacementNode(Node<K,V> p, Node<K,V> next) {
     transferLinks(q, t);
     return t;
 }
+```
 
-// 创建新红黑树节点
+创建新红黑树节点
+
+```java
 TreeNode<K,V> newTreeNode(int hash, K key, V value, Node<K,V> next) {
     TreeNode<K,V> p = new TreeNode<>(hash, key, value, next);
     linkNodeLast(p);
     return p;
 }
+```
 
-// 替换红黑树节点
+替换红黑树节点
+
+```java
 TreeNode<K,V> replacementTreeNode(Node<K,V> p, Node<K,V> next) {
     LinkedHashMap.Entry<K,V> q = (LinkedHashMap.Entry<K,V>)p;
     TreeNode<K,V> t = new TreeNode<>(q.hash, q.key, q.value, next);
@@ -166,8 +168,9 @@ TreeNode<K,V> replacementTreeNode(Node<K,V> p, Node<K,V> next) {
 
 ## 六、顺序操作
 
+把节点从链表解除链接
+
 ```java
-// 把节点从链表解除链接
 void afterNodeRemoval(Node<K,V> e) {
     // p：即是节点e
     // b：e的前一个节点
@@ -194,8 +197,11 @@ void afterNodeRemoval(Node<K,V> e) {
         a.before = b;
     }
 }
+```
 
-// 父类HashMap调用putVal()中会调用此方法，移除最少使用的节点
+父类HashMap调用putVal()中会调用此方法，移除最少使用的节点
+
+```java
 void afterNodeInsertion(boolean evict) {
     // first是最少使用的节点
     LinkedHashMap.Entry<K,V> first;
@@ -206,8 +212,11 @@ void afterNodeInsertion(boolean evict) {
         removeNode(hash(key), key, null, false, true);
     }
 }
+```
 
-// 把节点移动到链表尾
+把节点移动到链表尾
+
+```java
 void afterNodeAccess(Node<K,V> e) {
     LinkedHashMap.Entry<K,V> last;
     // 仅当accessOrder为true且被访问元素不是尾节点
@@ -254,8 +263,9 @@ void afterNodeAccess(Node<K,V> e) {
 
 ## 七、获取
 
+检查LinkedHashMap是否包含指定value
+
 ```java
-// 检查LinkedHashMap是否包含指定value
 public boolean containsValue(Object value) {
     // 从链表头结点开始遍历，逐个查找Entry.value是否等于value
     for (LinkedHashMap.Entry<K,V> e = head; e != null; e = e.after) {
@@ -265,8 +275,11 @@ public boolean containsValue(Object value) {
     }
     return false; // 不包含对应value，返回false
 }
+```
 
-// 通过Key获取对应Entry的value
+通过Key获取对应Entry的value
+
+```java
 public V get(Object key) {
     Node<K,V> e;
     if ((e = getNode(hash(key), key)) == null) {
@@ -281,8 +294,11 @@ public V get(Object key) {
 
     return e.value; // 最后把获取的Entry.value返回
 }
+```
 
-// 通过Key获取对应Entry的value
+通过Key获取对应Entry的value
+
+```java
 public V getOrDefault(Object key, V defaultValue) {
    Node<K,V> e;
     if ((e = getNode(hash(key), key)) == null) {
@@ -301,8 +317,9 @@ public V getOrDefault(Object key, V defaultValue) {
 
 ## 八、移除
 
+清除所有引用
+
 ```java
-// 清除所有引用
 public void clear() {
     super.clear(); // 把HashMap所有Entry都清空
     head = tail = null;  // 置空head和tail引用

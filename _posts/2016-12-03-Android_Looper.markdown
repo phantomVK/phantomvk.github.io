@@ -38,7 +38,8 @@ public static void prepare() {
 private static void prepare(boolean quitAllowed) {
     // ThreadLacal.get()的Looper不为空，表明之前已经初始化过了
     if (sThreadLocal.get() != null) {
-        throw new RuntimeException("Only one Looper may be created per thread");
+        throw new RuntimeException(
+            "Only one Looper may be created per thread");
     }
 
     // 之前没有初始化则开始初始化
@@ -63,10 +64,11 @@ public static void prepareMainLooper() {
     // 主线程的消息队列禁止退出
     prepare(false);
     
-    // 且每个进程最多只有一个MainLooper
+    // 且每个进程只有一个MainLooper
     synchronized (Looper.class) {
         if (sMainLooper != null) {
-            throw new IllegalStateException("The main Looper has already been prepared.");
+            throw new IllegalStateException(
+                "The main Looper has already been prepared.");
         }
         sMainLooper = myLooper();
     }
@@ -75,7 +77,7 @@ public static void prepareMainLooper() {
 
 # 三、启动Looper
 
-启动 __Looper__ 的 __MessageQueue__。关于在 __queue.next()__ 上阻塞的详情请看 [MessageQueue源码 - 5.5 next](/2018/11/02/MessageQueue/#55-next)
+启动 __Looper__ 的 __MessageQueue__。关于在 __queue.next()__ 上阻塞请看 [MessageQueue源码 - 5.5 next](/2018/11/02/MessageQueue/#55-next)
 
 ```java
 public static void loop() {
@@ -88,7 +90,7 @@ public static void loop() {
 
     // 从Looper中获取其MessageQueue
     final MessageQueue queue = me.mQueue;
-    // 确保线程就是本地线程，并实时跟踪线程身份
+    // 作用是清空远程调用端的uid和pid，用当前本地进程的uid和pid替代
     Binder.clearCallingIdentity();
     final long ident = Binder.clearCallingIdentity();
     
@@ -186,3 +188,7 @@ public boolean isCurrentThread() {
     return Thread.currentThread() == mThread;
 }
 ```
+
+# 六、参考链接
+
+- [Binder IPC的权限控制](http://gityuan.com/2016/03/05/binder-clearCallingIdentity/)

@@ -157,7 +157,7 @@ public boolean isIdle() {
 }
 ```
 
-当方法 __IdleHandler.queueIdle()__ 被调用且返回 __false__ 时，__IdleHandler__ 会被自动移除，或通过方法 __removeIdleHandler__ 手动移除指定监听器。参数所指 __handler__ 不能为空，否则直接抛出 __NullPointerException__ 异常
+当方法 __IdleHandler.queueIdle()__ 被调用且返回 __false__ 时，__IdleHandler__ 会被自动移除
 
 ```java
 public void addIdleHandler(@NonNull IdleHandler handler) {
@@ -380,6 +380,7 @@ Message next() {
             // 消息体不为空，但是消息的Handler为空
             if (msg != null && msg.target == null) {
                 // 该消息是SyncBarrier，则查找下一条队列中的异步消息
+                // 找到的消息是异步消息，并执行
                 do {
                     prevMsg = msg;
                     msg = msg.next;
@@ -523,6 +524,8 @@ public static void loop() {
     }
 }
 ```
+
+ 虽然 __MessageQueue__ 的 __next()__ 方法内 __IdleHandlers__ 只触发一次，但是由于 __Looper__ 循环调用 __MessageQueue.next()__，所以 __IdleHandlers__ 在空闲时间能被持续通知。
 
 #### 5.6 quit
 

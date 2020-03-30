@@ -143,9 +143,9 @@ public final int addAndGet(int delta) {
 
 ## 七、参考链接
 
-[https://docs.oracle.com/javase/8/docs/api/java/util/function/IntUnaryOperator.html](https://docs.oracle.com/javase/8/docs/api/java/util/function/IntUnaryOperator.html)
+- [https://docs.oracle.com/javase/8/docs/api/java/util/function/IntUnaryOperator.html](https://docs.oracle.com/javase/8/docs/api/java/util/function/IntUnaryOperator.html)
 
-[https://docs.oracle.com/javase/8/docs/api/java/util/function/IntBinaryOperator.html](https://docs.oracle.com/javase/8/docs/api/java/util/function/IntBinaryOperator.html)
+- [https://docs.oracle.com/javase/8/docs/api/java/util/function/IntBinaryOperator.html](https://docs.oracle.com/javase/8/docs/api/java/util/function/IntBinaryOperator.html)
 
-[https://en.wikipedia.org/wiki/Compare-and-swap](https://en.wikipedia.org/wiki/Compare-and-swap)
+- [https://en.wikipedia.org/wiki/Compare-and-swap](https://en.wikipedia.org/wiki/Compare-and-swap)
 

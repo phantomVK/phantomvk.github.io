@@ -19,24 +19,25 @@ __AsyncTask__ 令主线程的正确使用变得简单。无需维护线程或 __
 public abstract class AsyncTask<Params, Progress, Result>
 ```
 
-__AsyncTask__ 设计为围绕着 __Thread__ 和 __Handler__，且无需构造普通线程框架的帮助类。适合执行(最多运算几秒的)短任务。如果任务导致线程长时间执行，强烈建议用由 __java.util.concurrent__ 包下 __Executor__、__ThreadPoolExecutor__ 和 __FutureTask__ 提供的APIs。
+__AsyncTask__ 设计为围绕着 __Thread__ 和 __Handler__，且无需构造普通线程框架的帮助类。适合执行(最多运算几秒的)短任务。具体用法可参考作者的实例工程：[GeneratorActivity.kt](https://github.com/phantomVK/QRCode/blob/1c490510255b7a80290067b8a1e7ee190611507a/app/src/main/java/com/phantomvk/qrcode/zxingdemo/GeneratorActivity.kt#L59)。
+
+如果任务导致线程长时间执行，强烈建议用由 __java.util.concurrent__ 包下 __Executor__、__ThreadPoolExecutor__ 和 __FutureTask__ 提供的APIs。
 
 #### 1.2 组成
 
-工作任务通过后台线程执行，结果最后发布到主线程。
+工作任务通过后台线程执行，结果最后发布到主线程。异步任务构成：
 
-异步任务构成：
-
- - 3个类型： __Params__、 __Progress__、 __Result__ 
+ - 3个泛型： __Params__、 __Progress__、 __Result__ 
  - 4个步骤： __onPreExecute__、 __doInBackground__、 __onProgressUpdate__、 __onPostExecute__
 
 
-AsyncTask由子类继承并重写方法 __doInBackground()__，通常也重写另一个方法 __onPostExecute()__。
+__AsyncTask__ 由子类继承并重写方法 __doInBackground()__，通常也重写方法 __onPostExecute()__。
 
 用法示例：任务执行参数为URL，进度值类型为Integer，执行结果类型为Long
 
 ```java
 private class DownloadFilesTask extends AsyncTask(URL, Integer, Long) {
+    @Override
     protected Long doInBackground(URL... urls) {
         int count = urls.length;
         long totalSize = 0;
@@ -44,18 +45,20 @@ private class DownloadFilesTask extends AsyncTask(URL, Integer, Long) {
             totalSize += Downloader.downloadFile(urls[i]);
             // 把下载进度传递到主线程更新UI
             publishProgress((int) ((i / (float) count) * 100));
-            // 通过isCancelled()判断已调用cancel()，尽快跳出本方法
+            // 通过isCancelled()判断任务是否被提前终止，尽快跳出本方法
             if (isCancelled()) break;
         }
         return totalSize;
     }
     
     // 本方法在主线程调用
+    @Override
     protected void onProgressUpdate(Integer... progress) {
         setProgressPercent(progress[0]);
     }
     
     // 本方法在主线程调用
+    @Override
     protected void onPostExecute(Long result) {
         showDialog("Downloaded " + result + " bytes");
     }
@@ -88,7 +91,10 @@ private class MyTask extends AsyncTask<Void, Void, Void> { ... }
 ![AsyncTask_Execution](/img/android/images/AsyncTask_Execution.png)
 
 1. __onPreExecute__ 在任务执行前于主线程调用，起配置任务的作用：如在界面上弹出进度条；
-2. 随后在后台线程调用 __doInBackground__。本步骤负责执行时间较长的计算任务，参数在此步骤传递到异步任务。计算结果也在这里返给上游。在子线程计算过程中，可通过 __publishProgress__ 传送进度到主线程；
+2. 随后在后台线程调用 __doInBackground__：
+   - 本步骤执行时间长的计算任务，参数在此步骤传递给异步任务；
+   - 计算完成后结果也在从这里返给上游；
+   - 子线程计算过程中，可通过 __publishProgress__ 提交进度值到主线程；
 3. 子线程执行 __publishProgress__ 触发主线程调用 __onProgressUpdate__，向界面传送进度；
 4. 后台线程执行完毕，计算结果作为参数在主线程传给方法 __onPostExecute__ ；
 
@@ -143,7 +149,11 @@ __AsyncTask__ 保证所有回调通过以下安全、不需显式同步的方式
 private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
 ```
 
-__核心线程数__ 最少2个线程、最多4个线程。遵循此前提下，__AsyncTask__ 倾向核心线程数比实际核心数少1个，避免完全占用处理器而影其他任务执行
+__核心线程数__ 最少2个线程、最多4个线程。遵循此前提下，__AsyncTask__ 倾向核心线程数比实际核心数少1个，避免完全占用处理器而影其他任务执行。计算 __CORE_POOL_SIZE__ 方法：
+
+- 1-3个物理核心：2个线程；
+- 4个物理核心：3个线程；
+- 5个及以上物理核心：4个线程；
 
 ```java
 private static final int CORE_POOL_SIZE = Math.max(2, Math.min(CPU_COUNT - 1, 4));
@@ -280,12 +290,12 @@ private static class SerialExecutor implements Executor {
     // 存放Runnable的任务队列，ArrayDeque本身非线程安全
     final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>();
 
-    // 正在执行的Runnable
+    // 当前正在执行的Runnable
     Runnable mActive;
 
-    // 进程内只有一个SerialExecutor实例
-    // 方法使用synchronized修饰，保证mTasks操作线程安全，用于放新任务到队列
+    // 方法使用synchronized修饰，保证mTasks操作线程安全插入新任务
     public synchronized void execute(final Runnable r) {
+        // Runnable封装到Runnable，实现上一个任务完成顺带启动下一个任务
         mTasks.offer(new Runnable() {
             public void run() {
                 try {
@@ -303,7 +313,8 @@ private static class SerialExecutor implements Executor {
         }
     }
 
-    // SerialExecutor进程内只有一个实例，方法使用synchronized修饰，保证mTasks操作线程安全
+    // SerialExecutor进程内只有一个实例
+    // 方法使用synchronized修饰，保证mTasks操作线程安全
     protected synchronized void scheduleNext() {
         // 从任务队列获取下一任务
         if ((mActive = mTasks.poll()) != null) {
@@ -314,7 +325,9 @@ private static class SerialExecutor implements Executor {
 }
 ```
 
-虽然任务在 __THREAD_POOL_EXECUTOR__ 执行，但是都由 __SERIAL_EXECUTOR__ 调度。从上一个完成任务调用 __scheduleNext()__ 唤醒下一个任务。除非主动把任务添加到并行线程池，否则每次只有一个任务在并行执行线程池内执行。
+虽然任务在 __THREAD_POOL_EXECUTOR__ 执行，但是都由 __SERIAL_EXECUTOR__ 调度。从上一个完成任务调用 __scheduleNext()__ 唤醒下一个任务。
+
+除非主动把任务添加到 __并行线程池__，否则每次只有一个任务在 __并行线程池__ 内执行。
 
 ## 五、状态枚举
 
@@ -323,9 +336,7 @@ private static class SerialExecutor implements Executor {
 ```java
 public enum Status {
     PENDING, // 任务尚未执行，正在排队等待
-
-    RUNNING, // 任务正在执行(运算)标志
-
+    RUNNING, // 任务正在执行标志
     FINISHED, // 任务执行完毕：先调用onPostExecute()，再把状态置为此值
 }
 ```

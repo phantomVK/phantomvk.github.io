@@ -173,7 +173,7 @@ private void compileMethod(HotSpotResolvedJavaMethod method, int counter) {
 
 ### 参考链接
 
-[Java中一个方法字节码的长度为什么会影响程序并发下的性能？ - RednaxelaFX的回答 - 知乎](https://www.zhihu.com/question/263322849/answer/268228465)
+- [Java中一个方法字节码的长度为什么会影响程序并发下的性能？ - RednaxelaFX的回答 - 知乎](https://www.zhihu.com/question/263322849/answer/268228465)
 
-[-XX:-DontCompileHugeMethods - BLOG OF JEROEN LEENARTS](https://leenarts.net/2010/05/26/dontcompilehugemethods/)
+- [-XX:-DontCompileHugeMethods - BLOG OF JEROEN LEENARTS](https://leenarts.net/2010/05/26/dontcompilehugemethods/)
 
