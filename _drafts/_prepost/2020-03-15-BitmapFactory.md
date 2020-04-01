@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android源码系列(27) -- BitmapFactory"
-date:       2020-03-31
+date:       2020-03-15
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -20,18 +20,20 @@ tags:
 |   ARGB_4444   | 16位ARGB位图 | 4+4+4+4=16 |        2         |
 |   ARGB_8888   | 32位ARGB位图 | 8+8+8+8=32 |        4         |
 
-除了像素体积，图片大小还和图片分辨率有关，而分辨率又和具体的数据来源有关：
+除了像素体积，图片大小还和图片分辨率有关，而分辨率又和具体的数据途径有关：
 
 - 从网络下载：网络提供图片原始大小；
-- 从 __raw、Asset__ 获取：原资源原始大小；
-- 从 __xhdpi__ 等获取：若能从屏幕对应缩放资源获取，则为获取图片大小。否则按比例缩放加载；
+- 从 __Asset__ 获取：原资源原始大小；
+- 从 __xhdpi__ 获取：若能从屏幕对应缩放资源获取，为获取图片大小，否则根据比例缩放加载；
 - 指定额外缩放参数而影响分辨率；
 
 因此，图片实际内存体积由像素体积和分辨率共同作用。
 
 ### 源码解析
 
-本地通过 __BitmapFactory__ 解析本地时，主要调用方法 __decodeResourceStream__
+#### decodeResourceStream
+
+本地通过 __BitmapFactory__ 解析本地资源时，主要调用方法 __decodeResourceStream__
 
 
 ```java
@@ -46,15 +48,19 @@ tags:
 public static Bitmap decodeResourceStream(@Nullable Resources res, @Nullable TypedValue value,
         @Nullable InputStream is, @Nullable Rect pad, @Nullable Options opts) {
     validate(opts);
+    // 没有传入options就创建默认options
     if (opts == null) {
         opts = new Options();
     }
 
     if (opts.inDensity == 0 && value != null) {
+        // value.density是资源所在文件夹对应的dpi
         final int density = value.density;
-        if (density == TypedValue.DENSITY_DEFAULT) {
+        if (density == TypedValue.DENSITY_DEFAULT) {     // DENSITY_DEFAULT = 0;
+            // 默认drawable文件夹对应的密度160
+            // DENSITY_MEDIUM = DENSITY_MEDIUM
             opts.inDensity = DisplayMetrics.DENSITY_DEFAULT;
-        } else if (density != TypedValue.DENSITY_NONE) {
+        } else if (density != TypedValue.DENSITY_NONE) { // DENSITY_NONE= 0xffff
             opts.inDensity = density;
         }
     }
@@ -67,6 +73,8 @@ public static Bitmap decodeResourceStream(@Nullable Resources res, @Nullable Typ
     return decodeStream(is, pad, opts);
 }
 ```
+
+#### decodeStream
 
 继续调用方法 __Bitmap decodeStream(InputStream, Rect, Options);__
 
@@ -111,8 +119,8 @@ public static Bitmap decodeStream(@Nullable InputStream is, @Nullable Rect outPa
 
     Trace.traceBegin(Trace.TRACE_TAG_GRAPHICS, "decodeBitmap");
     try {
-        // 一般不是Asset资源
         if (is instanceof AssetManager.AssetInputStream) {
+            // Asset资源有自己的native方法
             final long asset = ((AssetManager.AssetInputStream) is).getNativeAsset();
             bm = nativeDecodeAsset(asset, outPadding, opts, Options.nativeInBitmap(opts),
                 Options.nativeColorSpace(opts));
@@ -133,6 +141,35 @@ public static Bitmap decodeStream(@Nullable InputStream is, @Nullable Rect outPa
     return bm;
 }
 ```
+
+```java
+/**
+ * Set the newly decoded bitmap's density based on the Options.
+ */
+private static void setDensityFromOptions(Bitmap outputBitmap, Options opts) {
+    if (outputBitmap == null || opts == null) return;
+
+    final int density = opts.inDensity;
+    if (density != 0) {
+        outputBitmap.setDensity(density);
+        final int targetDensity = opts.inTargetDensity;
+        if (targetDensity == 0 || density == targetDensity || density == opts.inScreenDensity) {
+            return;
+        }
+
+        byte[] np = outputBitmap.getNinePatchChunk();
+        final boolean isNinePatch = np != null && NinePatch.isNinePatchChunk(np);
+        if (opts.inScaled || isNinePatch) {
+            outputBitmap.setDensity(targetDensity);
+        }
+    } else if (opts.inBitmap != null) {
+        // bitmap was reused, ensure density is reset
+        outputBitmap.setDensity(Bitmap.getDefaultDensity());
+    }
+}
+```
+
+
 
 调用方法 __decodeStreamInternal(InputStream, Rect, Options)__
 
@@ -159,7 +196,9 @@ private static native Bitmap nativeDecodeStream(InputStream is, byte[] storage,
         Rect padding, Options opts, long inBitmapHandle, long colorSpaceHandle);
 ```
 
-Java Native方法 __nativeDecodeStream__ 注册在 [BitmapFactory.cpp(Android9.0)](http://androidxref.com/9.0.0_r3/xref/frameworks/base/core/jni/android/graphics/BitmapFactory.cpp#611) 的611行：
+__Java Native__ 方法 __nativeDecodeStream__ 注册在 [BitmapFactory.cpp(Android9.0)](http://androidxref.com/9.0.0_r3/xref/frameworks/base/core/jni/android/graphics/BitmapFactory.cpp#611) 的611行。
+
+从源码可知 __BitmapFactory__ 支持多种解码方式：__FileDescriptor__、__InputStream__、__Asset__、__ByteArray__。
 
 ```cpp
 static const JNINativeMethod gMethods[] = {
@@ -190,75 +229,101 @@ static const JNINativeMethod gMethods[] = {
 };
 ```
 
-对应cpp的函数签名为 [__(void*)nativeDecodeStream__](http://androidxref.com/9.0.0_r3/xref/frameworks/base/core/jni/android/graphics/BitmapFactory.cpp#517)：
+这里看 __InputStream__ 方式，对应C++的函数签名 [__(void*)nativeDecodeStream__](http://androidxref.com/9.0.0_r3/xref/frameworks/base/core/jni/android/graphics/BitmapFactory.cpp#517)：
 
 ```cpp
 static jobject nativeDecodeStream(JNIEnv* env, jobject clazz, jobject is, jbyteArray storage,
         jobject padding, jobject options) {
 
+    // 声明Bitmap对象
     jobject bitmap = NULL;
+    // 创建JavaInputStream
     std::unique_ptr<SkStream> stream(CreateJavaInputStreamAdaptor(env, is, storage));
-
+    
+    // 可以获取流
     if (stream.get()) {
+        // 封装InputStream为BufferedStream
         std::unique_ptr<SkStreamRewindable> bufferedStream(
                 SkFrontBufferedStream::Make(std::move(stream), SkCodec::MinBufferedBytesNeeded()));
         SkASSERT(bufferedStream.get() != NULL);
+        // 用BufferedStream和参数解码图片
         bitmap = doDecode(env, std::move(bufferedStream), padding, options);
     }
+    // 返回图片，解码失败返回NULL
     return bitmap;
 }
 ```
 
-上面调用的 __[doDecode(env, std::move(bufferedStream), padding, options)]((http://androidxref.com/9.0.0_r3/xref/frameworks/base/core/jni/android/graphics/BitmapFactory.cpp#181))__ ：
+继续调用 __[doDecode(env, std::move(bufferedStream), padding, options)]((http://androidxref.com/9.0.0_r3/xref/frameworks/base/core/jni/android/graphics/BitmapFactory.cpp#181))__ ：
 
 ```cpp
+// env: jni指针
+// stream: 流对象BufferedStream
+// padding: 边距对象
+// options: 图片参数
 static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
                         jobject padding, jobject options) {
-    // Set default values for the options parameters.
+    // 默认缩放值
     int sampleSize = 1;
-    bool onlyDecodeSize = false;
+    bool onlyDecodeSize = false; // 是否只获取图片尺寸不读取图像
     SkColorType prefColorType = kN32_SkColorType;
     bool isHardware = false;
-    bool isMutable = false;
+    bool isMutable = false;  // bitmap是否可变(共享)
     float scale = 1.0f;
     bool requireUnpremultiplied = false;
+    // Java的Bitmap对象
     jobject javaBitmap = NULL;
     sk_sp<SkColorSpace> prefColorSpace = nullptr;
 
-    // Update with options supplied by the client.
+    // 从Java的options对象获取参数，赋值给C++的变量
     if (options != NULL) {
+        // 从Java获取sampleSize值到C++，值为2的幂，如：1、2、4....
         sampleSize = env->GetIntField(options, gOptions_sampleSizeFieldID);
-        // Correct a non-positive sampleSize.  sampleSize defaults to zero within the
-        // options object, which is strange.
+        // 校正非法的sampleSize值，必须为正数
         if (sampleSize <= 0) {
-            sampleSize = 1;
+            sampleSize = 1; // 1就是原始尺寸
         }
 
+        // 从Java获取justBounds值到C++
         if (env->GetBooleanField(options, gOptions_justBoundsFieldID)) {
             onlyDecodeSize = true;
         }
 
-        // initialize these, in case we fail later on
+        // 给options设置默认的outWidth
         env->SetIntField(options, gOptions_widthFieldID, -1);
+        // 给options设置默认的outHeight
         env->SetIntField(options, gOptions_heightFieldID, -1);
         env->SetObjectField(options, gOptions_mimeFieldID, 0);
         env->SetObjectField(options, gOptions_outConfigFieldID, 0);
         env->SetObjectField(options, gOptions_outColorSpaceFieldID, 0);
 
+        // 解析inPreferredConfi为jconfig
         jobject jconfig = env->GetObjectField(options, gOptions_configFieldID);
+        // 对应颜色类型：ALPHA_8、RGB_565、ARGB_4444、ARGB_8888
         prefColorType = GraphicsJNI::getNativeBitmapColorType(env, jconfig);
+
+        // 解析颜色空间
         jobject jcolorSpace = env->GetObjectField(options, gOptions_colorSpaceFieldID);
         prefColorSpace = GraphicsJNI::getNativeColorSpace(env, jcolorSpace);
+
+        // 硬件解码
         isHardware = GraphicsJNI::isHardwareConfig(env, jconfig);
+
+        // 图像是否可变
         isMutable = env->GetBooleanField(options, gOptions_mutableFieldID);
         requireUnpremultiplied = !env->GetBooleanField(options, gOptions_premultipliedFieldID);
         javaBitmap = env->GetObjectField(options, gOptions_bitmapFieldID);
 
+        // 获取缩放值
         if (env->GetBooleanField(options, gOptions_scaledFieldID)) {
+            // 像素密度
             const int density = env->GetIntField(options, gOptions_densityFieldID);
+            // 目标像素密度
             const int targetDensity = env->GetIntField(options, gOptions_targetDensityFieldID);
+            // 屏幕像素密度
             const int screenDensity = env->GetIntField(options, gOptions_screenDensityFieldID);
             if (density != 0 && targetDensity != 0 && density != screenDensity) {
+                // 计算缩放比例
                 scale = (float) targetDensity / density;
             }
         }
@@ -269,7 +334,7 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
         return nullObjectReturn("Cannot create mutable hardware bitmap");
     }
 
-    // Create the codec.
+    // 创建解码器
     NinePatchPeeker peeker;
     std::unique_ptr<SkAndroidCodec> codec;
     {
@@ -295,12 +360,13 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
     // but we continue to prevent ninepatches from decoding to 565, in order
     // to maintain the old behavior.
     if (peeker.mPatch && kRGB_565_SkColorType == prefColorType) {
-        prefColorType = kN32_SkColorType;
+        prefColorType = kN32_SkColorType; // kN32_SkColorType is ARGB_8888
     }
 
-    // Determine the output size.
+    // 计算指定sampleSize对应dimen值
     SkISize size = codec->getSampledDimensions(sampleSize);
 
+    // 结果原始图片的宽高值
     int scaledWidth = size.width();
     int scaledHeight = size.height();
     bool willScale = false;
@@ -312,20 +378,24 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
         scaledHeight = codec->getInfo().height() / sampleSize;
     }
 
-    // Set the decode colorType
+    // 设置颜色：ALPHA_8、RGB_565、ARGB_4444、ARGB_8888
     SkColorType decodeColorType = codec->computeOutputColorType(prefColorType);
     sk_sp<SkColorSpace> decodeColorSpace = codec->computeOutputColorSpace(
             decodeColorType, prefColorSpace);
 
-    // Set the options and return if the client only wants the size.
+    // 设置options，如果只想要图片尺寸大小，这个代码块里会完成返回
     if (options != NULL) {
+        // 解析mimeType
         jstring mimeType = encodedFormatToString(
                 env, (SkEncodedImageFormat)codec->getEncodedFormat());
         if (env->ExceptionCheck()) {
             return nullObjectReturn("OOM in encodedFormatToString()");
         }
+        // 用options保存图片outWidth
         env->SetIntField(options, gOptions_widthFieldID, scaledWidth);
+        // 用options保存图片的outHeight
         env->SetIntField(options, gOptions_heightFieldID, scaledHeight);
+        // 用options保存图片的mimeType
         env->SetObjectField(options, gOptions_mimeFieldID, mimeType);
 
         jint configID = GraphicsJNI::colorTypeToLegacyBitmapConfig(decodeColorType);
@@ -340,6 +410,7 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
                 GraphicsJNI::getColorSpace(env, decodeColorSpace, decodeColorType));
 
         if (onlyDecodeSize) {
+            // 因为只解析图片尺寸，所以Bitmap返回nullptr
             return nullptr;
         }
     }
@@ -347,6 +418,7 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
     // Scale is necessary due to density differences.
     if (scale != 1.0f) {
         willScale = true;
+        // 用scale计算尺寸
         scaledWidth = static_cast<int>(scaledWidth * scale + 0.5f);
         scaledHeight = static_cast<int>(scaledHeight * scale + 0.5f);
     }
@@ -416,7 +488,7 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
         return nullptr;
     }
 
-    // Use SkAndroidCodec to perform the decode.
+    // 使用SkAndroidCodec执行
     SkAndroidCodec::AndroidOptions codecOptions;
     codecOptions.fZeroInitialized = decodeAllocator == &defaultAllocator ?
             SkCodec::kYes_ZeroInitialized : SkCodec::kNo_ZeroInitialized;
@@ -518,7 +590,7 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
     }
 
     if (!isMutable && javaBitmap == NULL) {
-        // promise we will never change our pixels (great for sharing and pictures)
+        // 承诺图像像素不会改变，有利于共享图像
         outputBitmap.setImmutable();
     }
 
@@ -526,7 +598,7 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
     if (javaBitmap != nullptr) {
         bitmap::reinitBitmap(env, javaBitmap, outputBitmap.info(), isPremultiplied);
         outputBitmap.notifyPixelsChanged();
-        // If a java bitmap was passed in for reuse, pass it back
+        // 把传入复用的inBitmap作为结果返回
         return javaBitmap;
     }
 
@@ -534,6 +606,7 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
     if (isMutable) bitmapCreateFlags |= android::bitmap::kBitmapCreateFlag_Mutable;
     if (isPremultiplied) bitmapCreateFlags |= android::bitmap::kBitmapCreateFlag_Premultiplied;
 
+    // 硬件加载Bitmap
     if (isHardware) {
         sk_sp<Bitmap> hardwareBitmap = Bitmap::allocateHardwareBitmap(outputBitmap);
         if (!hardwareBitmap.get()) {
@@ -543,14 +616,91 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
                 ninePatchChunk, ninePatchInsets, -1);
     }
 
-    // now create the java bitmap
+    // 创建java的bitmap
     return bitmap::createBitmap(env, defaultAllocator.getStorageObjAndReset(),
             bitmapCreateFlags, ninePatchChunk, ninePatchInsets, -1);
 }
 ```
 
+__bitmap::createBitmap(….)__ 在 [Bitmap Line199](http://androidxref.com/9.0.0_r3/xref/frameworks/base/core/jni/android/graphics/Bitmap.cpp)
+
+```cpp
+jobject createBitmap(JNIEnv* env, Bitmap* bitmap,
+        int bitmapCreateFlags, jbyteArray ninePatchChunk, jobject ninePatchInsets,
+        int density) {
+    bool isMutable = bitmapCreateFlags & kBitmapCreateFlag_Mutable;
+    bool isPremultiplied = bitmapCreateFlags & kBitmapCreateFlag_Premultiplied;
+    // The caller needs to have already set the alpha type properly, so the
+    // native SkBitmap stays in sync with the Java Bitmap.
+    assert_premultiplied(bitmap->info(), isPremultiplied);
+    BitmapWrapper* bitmapWrapper = new BitmapWrapper(bitmap);
+    jobject obj = env->NewObject(gBitmap_class, gBitmap_constructorMethodID,
+            reinterpret_cast<jlong>(bitmapWrapper), bitmap->width(), bitmap->height(), density,
+            isMutable, isPremultiplied, ninePatchChunk, ninePatchInsets);
+
+    if (env->ExceptionCheck() != 0) {
+        ALOGE("*** Uncaught exception returned from Java call!\n");
+        env->ExceptionDescribe();
+    }
+    // 返回Java可用Bitmap
+    return obj;
+}
+```
+
+__Java__ 与 __C++__ 层参数名对照表
+
+```c++
+int register_android_graphics_BitmapFactory(JNIEnv* env) {
+    jclass options_class = FindClassOrDie(env, "android/graphics/BitmapFactory$Options");
+    gOptions_bitmapFieldID = GetFieldIDOrDie(env, options_class, "inBitmap",
+            "Landroid/graphics/Bitmap;");
+    gOptions_justBoundsFieldID = GetFieldIDOrDie(env, options_class, "inJustDecodeBounds", "Z");
+    gOptions_sampleSizeFieldID = GetFieldIDOrDie(env, options_class, "inSampleSize", "I");
+    gOptions_configFieldID = GetFieldIDOrDie(env, options_class, "inPreferredConfig",
+            "Landroid/graphics/Bitmap$Config;");
+    gOptions_colorSpaceFieldID = GetFieldIDOrDie(env, options_class, "inPreferredColorSpace",
+            "Landroid/graphics/ColorSpace;");
+    gOptions_premultipliedFieldID = GetFieldIDOrDie(env, options_class, "inPremultiplied", "Z");
+    gOptions_mutableFieldID = GetFieldIDOrDie(env, options_class, "inMutable", "Z");
+    gOptions_ditherFieldID = GetFieldIDOrDie(env, options_class, "inDither", "Z");
+    gOptions_preferQualityOverSpeedFieldID = GetFieldIDOrDie(env, options_class,
+            "inPreferQualityOverSpeed", "Z");
+    gOptions_scaledFieldID = GetFieldIDOrDie(env, options_class, "inScaled", "Z");
+    gOptions_densityFieldID = GetFieldIDOrDie(env, options_class, "inDensity", "I");
+    gOptions_screenDensityFieldID = GetFieldIDOrDie(env, options_class, "inScreenDensity", "I");
+    gOptions_targetDensityFieldID = GetFieldIDOrDie(env, options_class, "inTargetDensity", "I");
+    gOptions_widthFieldID = GetFieldIDOrDie(env, options_class, "outWidth", "I");
+    gOptions_heightFieldID = GetFieldIDOrDie(env, options_class, "outHeight", "I");
+    gOptions_mimeFieldID = GetFieldIDOrDie(env, options_class, "outMimeType", "Ljava/lang/String;");
+    gOptions_outConfigFieldID = GetFieldIDOrDie(env, options_class, "outConfig",
+             "Landroid/graphics/Bitmap$Config;");
+    gOptions_outColorSpaceFieldID = GetFieldIDOrDie(env, options_class, "outColorSpace",
+             "Landroid/graphics/ColorSpace;");
+    gOptions_mCancelID = GetFieldIDOrDie(env, options_class, "mCancel", "Z");
+
+    jclass bitmap_class = FindClassOrDie(env, "android/graphics/Bitmap");
+    gBitmap_ninePatchInsetsFieldID = GetFieldIDOrDie(env, bitmap_class, "mNinePatchInsets",
+            "Landroid/graphics/NinePatch$InsetStruct;");
+
+    gBitmapConfig_class = MakeGlobalRefOrDie(env, FindClassOrDie(env,
+            "android/graphics/Bitmap$Config"));
+    gBitmapConfig_nativeToConfigMethodID = GetStaticMethodIDOrDie(env, gBitmapConfig_class,
+            "nativeToConfig", "(I)Landroid/graphics/Bitmap$Config;");
+
+    return android::RegisterMethodsOrDie(env, "android/graphics/BitmapFactory",
+                                         gMethods, NELEM(gMethods));
+}
+```
+
 ### 总结
 
-缩放比例：__scaledsize = nTargetDensity / inDensity__
+从类似 __hdpi__ 文件夹读取图片：
 
-图片大小：__imageSize = (width * scaledsize) * (height * scaledsize) * pixelSize__
+- 缩放比例：__scaledsize = inTargetDensity / inDensity__
+
+- 图片大小：__imageSize = (width * scaledsize) * (height * scaledsize) * pixelSize__
+
+### 参考链接
+
+- [Android Bitmap 那些事](https://juejin.im/entry/57cd1c7cbf22ec006c2e2261)
+- [高效加载Bitmap(一) --BitmapFactory加载bitmap](https://livesun.github.io/2017/10/20/Bitmap(一)/)
