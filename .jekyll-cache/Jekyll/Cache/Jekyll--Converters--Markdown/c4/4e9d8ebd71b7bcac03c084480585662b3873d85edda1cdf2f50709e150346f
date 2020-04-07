@@ -1,0 +1,67 @@
+I"�<p>这段时间研究机器学习，然后发现Mac OS的Python库有点旧，就用pip更新一下：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nv">$ </span>pip <span class="nb">install</span> <span class="nt">--upgrade</span> numpy
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>结果抛出下面异常：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+</pre></td><td class="rouge-code"><pre>Exception:
+Traceback (most recent call last):
+  File "/Library/Python/2.7/site-packages/pip-7.1.0-py2.7.egg/pip/basecommand.py", line 223, in main
+    status = self.run(options, args)
+  File "/Library/Python/2.7/site-packages/pip-7.1.0-py2.7.egg/pip/commands/install.py", line 299, in run
+    root=options.root_path,
+  File "/Library/Python/2.7/site-packages/pip-7.1.0-py2.7.egg/pip/req/req_set.py", line 640, in install
+    requirement.uninstall(auto_confirm=True)
+  File "/Library/Python/2.7/site-packages/pip-7.1.0-py2.7.egg/pip/req/req_install.py", line 726, in uninstall
+    paths_to_remove.remove(auto_confirm)
+  File "/Library/Python/2.7/site-packages/pip-7.1.0-py2.7.egg/pip/req/req_uninstall.py", line 125, in remove
+    renames(path, new_path)
+  File "/Library/Python/2.7/site-packages/pip-7.1.0-py2.7.egg/pip/utils/__init__.py", line 314, in renames
+    shutil.move(old, new)
+  File "/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/shutil.py", line 302, in move
+    copy2(src, real_dst)
+  File "/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/shutil.py", line 131, in copy2
+    copystat(src, dst)
+  File "/System/Library/Frameworks/Python.framework/Versions/2.7/lib/python2.7/shutil.py", line 103, in copystat
+    os.chflags(dst, st.st_flags)
+OSError: [Errno 1] Operation not permitted: '/tmp/pip-1_nHcH-uninstall/System/Library/Frameworks/Python.framework/Versions/2.7/Extras/lib/python/numpy-1.8.0rc1-py2.7.egg-info'
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>Google后找到解决方案：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="nv">$ </span>pip <span class="nb">install</span> <span class="nt">--upgrade</span> pip
+
+<span class="nv">$ </span><span class="nb">sudo </span>pip <span class="nb">install </span>numpy <span class="nt">--upgrade</span> <span class="nt">--ignore-installed</span>
+<span class="nv">$ </span><span class="nb">sudo </span>pip <span class="nb">install </span>scipy <span class="nt">--upgrade</span> <span class="nt">--ignore-installed</span>
+<span class="nv">$ </span><span class="nb">sudo </span>pip <span class="nb">install </span>scikit-learn <span class="nt">--upgrade</span> <span class="nt">--ignore-installed</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

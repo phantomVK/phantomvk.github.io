@@ -1,0 +1,755 @@
+I"[�<p>上一篇文章 <a href="/2019/01/07/GlobalScreenshot/">Android源码系列(21) – GlobalScreenshot</a> 介绍系统是如何获取接收截图操作的通知或截取屏幕。本文作为后续文章，继续补充截图通过什么方法写入到磁盘，并通知媒体存储更新记录。</p>
+
+<p>源码版本 <strong>Android28</strong></p>
+
+<h2 id="一saveimageinbackgrounddata">一、SaveImageInBackgroundData</h2>
+
+<p>此类包含截图保存到存储所需要的数据，包括截图Bitmap、保存路径、预览图宽高等信息。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">SaveImageInBackgroundData</span> <span class="o">{</span>
+    <span class="nc">Context</span> <span class="n">context</span><span class="o">;</span>
+    <span class="c1">// 需要保存的截屏位图</span>
+    <span class="nc">Bitmap</span> <span class="n">image</span><span class="o">;</span>
+    <span class="c1">// 图片保存的路径</span>
+    <span class="nc">Uri</span> <span class="n">imageUri</span><span class="o">;</span>
+    <span class="c1">// 保存完成后调用finisher</span>
+    <span class="nc">Runnable</span> <span class="n">finisher</span><span class="o">;</span>
+    <span class="c1">// 图标尺寸</span>
+    <span class="kt">int</span> <span class="n">iconSize</span><span class="o">;</span>
+    <span class="c1">// 预览图宽度</span>
+    <span class="kt">int</span> <span class="n">previewWidth</span><span class="o">;</span>
+    <span class="c1">// 预览图高度</span>
+    <span class="kt">int</span> <span class="n">previewheight</span><span class="o">;</span>
+    <span class="c1">// 错误信息id</span>
+    <span class="kt">int</span> <span class="n">errorMsgResId</span><span class="o">;</span>
+
+    <span class="c1">// 清空对象数据</span>
+    <span class="kt">void</span> <span class="nf">clearImage</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">image</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="n">imageUri</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="n">iconSize</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 移除保存的Context</span>
+    <span class="kt">void</span> <span class="nf">clearContext</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">context</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="二saveimageinbackgroundtask">二、SaveImageInBackgroundTask</h2>
+
+<p>保存截图的 <a href="/2018/10/21/AsyncTask/">AsyncTask</a> 任务，在后台把截取的图片保存到媒体存储。调用 <strong>AsyncTask.execute()</strong> 的任务在后台以串行的方式处理。如果有自定义任务阻塞整个串行队列，则截图将无法写入存储。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">SaveImageInBackgroundTask</span> <span class="kd">extends</span> <span class="nc">AsyncTask</span><span class="o">&lt;</span><span class="nc">Void</span><span class="o">,</span> <span class="nc">Void</span><span class="o">,</span> <span class="nc">Void</span><span class="o">&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="21-静态变量">2.1 静态变量</h4>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">TAG</span> <span class="o">=</span> <span class="s">"SaveImageInBackgroundTask"</span><span class="o">;</span>
+
+<span class="c1">// 截图保存的文件夹名称</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">SCREENSHOTS_DIR_NAME</span> <span class="o">=</span> <span class="s">"Screenshots"</span><span class="o">;</span>
+
+<span class="c1">// 截图文件名模板</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">SCREENSHOT_FILE_NAME_TEMPLATE</span> <span class="o">=</span> <span class="s">"Screenshot_%s.png"</span><span class="o">;</span>
+
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">SCREENSHOT_SHARE_SUBJECT_TEMPLATE</span> <span class="o">=</span> <span class="s">"Screenshot (%s)"</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="22-数据成员">2.2 数据成员</h4>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">final</span> <span class="nc">SaveImageInBackgroundData</span> <span class="n">mParams</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">NotificationManager</span> <span class="n">mNotificationManager</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">Notification</span><span class="o">.</span><span class="na">Builder</span> <span class="n">mNotificationBuilder</span><span class="o">,</span> <span class="n">mPublicNotificationBuilder</span><span class="o">;</span>
+
+<span class="c1">// 保存截图的路径</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">File</span> <span class="n">mScreenshotDir</span><span class="o">;</span>
+
+<span class="c1">// 截图文件名</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">String</span> <span class="n">mImageFileName</span><span class="o">;</span>
+
+<span class="c1">// 截图文件路径</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">String</span> <span class="n">mImageFilePath</span><span class="o">;</span>
+
+<span class="c1">// 截图时间</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="kt">long</span> <span class="n">mImageTime</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">BigPictureStyle</span> <span class="n">mNotificationStyle</span><span class="o">;</span>
+
+<span class="c1">// 截图宽度</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">mImageWidth</span><span class="o">;</span>
+
+<span class="c1">// 截图高度</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">mImageHeight</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="23-构造方法">2.3 构造方法</h4>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+</pre></td><td class="rouge-code"><pre><span class="nc">SaveImageInBackgroundTask</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">,</span> <span class="nc">SaveImageInBackgroundData</span> <span class="n">data</span><span class="o">,</span>
+        <span class="nc">NotificationManager</span> <span class="n">nManager</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Resources</span> <span class="n">r</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">getResources</span><span class="o">();</span>
+
+    <span class="c1">// Prepare all the output metadata</span>
+    <span class="n">mParams</span> <span class="o">=</span> <span class="n">data</span><span class="o">;</span>
+    <span class="c1">// 获取系统时间戳</span>
+    <span class="n">mImageTime</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">();</span>
+    <span class="c1">// 构造截图的时间</span>
+    <span class="nc">String</span> <span class="n">imageDate</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">SimpleDateFormat</span><span class="o">(</span><span class="s">"yyyyMMdd-HHmmss"</span><span class="o">).</span><span class="na">format</span><span class="o">(</span><span class="k">new</span> <span class="nc">Date</span><span class="o">(</span><span class="n">mImageTime</span><span class="o">));</span>
+    <span class="c1">// 构造截图名称，形如：Screenshot_20181201-235132</span>
+    <span class="n">mImageFileName</span> <span class="o">=</span> <span class="nc">String</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="no">SCREENSHOT_FILE_NAME_TEMPLATE</span><span class="o">,</span> <span class="n">imageDate</span><span class="o">);</span>
+
+    <span class="c1">// 并获取外部存储保存图片文件夹的路径</span>
+    <span class="n">mScreenshotDir</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">File</span><span class="o">(</span><span class="nc">Environment</span><span class="o">.</span><span class="na">getExternalStoragePublicDirectory</span><span class="o">(</span>
+            <span class="nc">Environment</span><span class="o">.</span><span class="na">DIRECTORY_PICTURES</span><span class="o">),</span> <span class="no">SCREENSHOTS_DIR_NAME</span><span class="o">);</span>
+    <span class="c1">// 构造截图路径</span>
+    <span class="n">mImageFilePath</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">File</span><span class="o">(</span><span class="n">mScreenshotDir</span><span class="o">,</span> <span class="n">mImageFileName</span><span class="o">).</span><span class="na">getAbsolutePath</span><span class="o">();</span>
+
+    <span class="c1">// 构建大的通知图标</span>
+    <span class="n">mImageWidth</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="na">image</span><span class="o">.</span><span class="na">getWidth</span><span class="o">();</span>
+    <span class="n">mImageHeight</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="na">image</span><span class="o">.</span><span class="na">getHeight</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">iconSize</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="na">iconSize</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">previewWidth</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="na">previewWidth</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">previewHeight</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="na">previewheight</span><span class="o">;</span>
+
+    <span class="nc">Paint</span> <span class="n">paint</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Paint</span><span class="o">();</span>
+    <span class="nc">ColorMatrix</span> <span class="n">desat</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ColorMatrix</span><span class="o">();</span>
+    <span class="n">desat</span><span class="o">.</span><span class="na">setSaturation</span><span class="o">(</span><span class="mf">0.25f</span><span class="o">);</span>
+    <span class="n">paint</span><span class="o">.</span><span class="na">setColorFilter</span><span class="o">(</span><span class="k">new</span> <span class="nc">ColorMatrixColorFilter</span><span class="o">(</span><span class="n">desat</span><span class="o">));</span>
+    <span class="nc">Matrix</span> <span class="n">matrix</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Matrix</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">overlayColor</span> <span class="o">=</span> <span class="mh">0x40FFFFFF</span><span class="o">;</span>
+
+    <span class="n">matrix</span><span class="o">.</span><span class="na">setTranslate</span><span class="o">((</span><span class="n">previewWidth</span> <span class="o">-</span> <span class="n">mImageWidth</span><span class="o">)</span> <span class="o">/</span> <span class="mi">2</span><span class="o">,</span> <span class="o">(</span><span class="n">previewHeight</span> <span class="o">-</span> <span class="n">mImageHeight</span><span class="o">)</span> <span class="o">/</span> <span class="mi">2</span><span class="o">);</span>
+    <span class="nc">Bitmap</span> <span class="n">picture</span> <span class="o">=</span> <span class="n">generateAdjustedHwBitmap</span><span class="o">(</span><span class="n">data</span><span class="o">.</span><span class="na">image</span><span class="o">,</span> <span class="n">previewWidth</span><span class="o">,</span> <span class="n">previewHeight</span><span class="o">,</span> <span class="n">matrix</span><span class="o">,</span>
+            <span class="n">paint</span><span class="o">,</span> <span class="n">overlayColor</span><span class="o">);</span>
+
+    <span class="c1">// 没法使用小图标的预览，因为图标不是正方形的</span>
+    <span class="kt">float</span> <span class="n">scale</span> <span class="o">=</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="n">iconSize</span> <span class="o">/</span> <span class="nc">Math</span><span class="o">.</span><span class="na">min</span><span class="o">(</span><span class="n">mImageWidth</span><span class="o">,</span> <span class="n">mImageHeight</span><span class="o">);</span>
+    <span class="n">matrix</span><span class="o">.</span><span class="na">setScale</span><span class="o">(</span><span class="n">scale</span><span class="o">,</span> <span class="n">scale</span><span class="o">);</span>
+    <span class="n">matrix</span><span class="o">.</span><span class="na">postTranslate</span><span class="o">((</span><span class="n">iconSize</span> <span class="o">-</span> <span class="o">(</span><span class="n">scale</span> <span class="o">*</span> <span class="n">mImageWidth</span><span class="o">))</span> <span class="o">/</span> <span class="mi">2</span><span class="o">,</span>
+            <span class="o">(</span><span class="n">iconSize</span> <span class="o">-</span> <span class="o">(</span><span class="n">scale</span> <span class="o">*</span> <span class="n">mImageHeight</span><span class="o">))</span> <span class="o">/</span> <span class="mi">2</span><span class="o">);</span>
+    <span class="nc">Bitmap</span> <span class="n">icon</span> <span class="o">=</span> <span class="n">generateAdjustedHwBitmap</span><span class="o">(</span><span class="n">data</span><span class="o">.</span><span class="na">image</span><span class="o">,</span> <span class="n">iconSize</span><span class="o">,</span> <span class="n">iconSize</span><span class="o">,</span> <span class="n">matrix</span><span class="o">,</span> <span class="n">paint</span><span class="o">,</span>
+            <span class="n">overlayColor</span><span class="o">);</span>
+
+    <span class="n">mNotificationManager</span> <span class="o">=</span> <span class="n">nManager</span><span class="o">;</span>
+    <span class="kd">final</span> <span class="kt">long</span> <span class="n">now</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">();</span>
+
+    <span class="c1">// 构建通知</span>
+    <span class="n">mNotificationStyle</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Notification</span><span class="o">.</span><span class="na">BigPictureStyle</span><span class="o">()</span>
+            <span class="o">.</span><span class="na">bigPicture</span><span class="o">(</span><span class="n">picture</span><span class="o">.</span><span class="na">createAshmemBitmap</span><span class="o">());</span>
+
+    <span class="c1">// 展示公共通知</span>
+    <span class="n">mPublicNotificationBuilder</span> <span class="o">=</span>
+            <span class="k">new</span> <span class="nc">Notification</span><span class="o">.</span><span class="na">Builder</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="nc">NotificationChannels</span><span class="o">.</span><span class="na">SCREENSHOTS_HEADSUP</span><span class="o">)</span>
+                    <span class="o">.</span><span class="na">setContentTitle</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_saving_title</span><span class="o">))</span>
+                    <span class="o">.</span><span class="na">setSmallIcon</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">stat_notify_image</span><span class="o">)</span>
+                    <span class="o">.</span><span class="na">setCategory</span><span class="o">(</span><span class="nc">Notification</span><span class="o">.</span><span class="na">CATEGORY_PROGRESS</span><span class="o">)</span>
+                    <span class="o">.</span><span class="na">setWhen</span><span class="o">(</span><span class="n">now</span><span class="o">)</span>
+                    <span class="o">.</span><span class="na">setShowWhen</span><span class="o">(</span><span class="kc">true</span><span class="o">)</span>
+                    <span class="o">.</span><span class="na">setColor</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getColor</span><span class="o">(</span>
+                            <span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">color</span><span class="o">.</span><span class="na">system_notification_accent_color</span><span class="o">));</span>
+    <span class="nc">SystemUI</span><span class="o">.</span><span class="na">overrideNotificationAppName</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">mPublicNotificationBuilder</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+
+    <span class="n">mNotificationBuilder</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Notification</span><span class="o">.</span><span class="na">Builder</span><span class="o">(</span><span class="n">context</span><span class="o">,</span>
+            <span class="nc">NotificationChannels</span><span class="o">.</span><span class="na">SCREENSHOTS_HEADSUP</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setContentTitle</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_saving_title</span><span class="o">))</span>
+        <span class="o">.</span><span class="na">setSmallIcon</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">stat_notify_image</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setWhen</span><span class="o">(</span><span class="n">now</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setShowWhen</span><span class="o">(</span><span class="kc">true</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setColor</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getColor</span><span class="o">(</span><span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">color</span><span class="o">.</span><span class="na">system_notification_accent_color</span><span class="o">))</span>
+        <span class="o">.</span><span class="na">setStyle</span><span class="o">(</span><span class="n">mNotificationStyle</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setPublicVersion</span><span class="o">(</span><span class="n">mPublicNotificationBuilder</span><span class="o">.</span><span class="na">build</span><span class="o">());</span>
+    <span class="n">mNotificationBuilder</span><span class="o">.</span><span class="na">setFlag</span><span class="o">(</span><span class="nc">Notification</span><span class="o">.</span><span class="na">FLAG_NO_CLEAR</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+    <span class="nc">SystemUI</span><span class="o">.</span><span class="na">overrideNotificationAppName</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">mNotificationBuilder</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+
+    <span class="n">mNotificationManager</span><span class="o">.</span><span class="na">notify</span><span class="o">(</span><span class="nc">SystemMessage</span><span class="o">.</span><span class="na">NOTE_GLOBAL_SCREENSHOT</span><span class="o">,</span>
+            <span class="n">mNotificationBuilder</span><span class="o">.</span><span class="na">build</span><span class="o">());</span>
+
+    <span class="c1">// 以下代码用于更新图片已经写入磁盘的通知信息</span>
+
+    <span class="c1">// On the tablet, the large icon makes the notification appear as if it is clickable (and</span>
+    <span class="c1">// on small devices, the large icon is not shown) so defer showing the large icon until</span>
+    <span class="c1">// we compose the final post-save notification below.</span>
+    <span class="n">mNotificationBuilder</span><span class="o">.</span><span class="na">setLargeIcon</span><span class="o">(</span><span class="n">icon</span><span class="o">.</span><span class="na">createAshmemBitmap</span><span class="o">());</span>
+    <span class="c1">// But we still don't set it for the expanded view, allowing the smallIcon to show here.</span>
+    <span class="n">mNotificationStyle</span><span class="o">.</span><span class="na">bigLargeIcon</span><span class="o">((</span><span class="nc">Bitmap</span><span class="o">)</span> <span class="kc">null</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="24-generateadjustedhwbitmap">2.4 generateAdjustedHwBitmap</h4>
+
+<p>用指定分辨率生成调整后的Bitmap</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">Bitmap</span> <span class="nf">generateAdjustedHwBitmap</span><span class="o">(</span><span class="nc">Bitmap</span> <span class="n">bitmap</span><span class="o">,</span> <span class="kt">int</span> <span class="n">width</span><span class="o">,</span> <span class="kt">int</span> <span class="n">height</span><span class="o">,</span> <span class="nc">Matrix</span> <span class="n">matrix</span><span class="o">,</span>
+        <span class="nc">Paint</span> <span class="n">paint</span><span class="o">,</span> <span class="kt">int</span> <span class="n">color</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Picture</span> <span class="n">picture</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Picture</span><span class="o">();</span>
+    <span class="nc">Canvas</span> <span class="n">canvas</span> <span class="o">=</span> <span class="n">picture</span><span class="o">.</span><span class="na">beginRecording</span><span class="o">(</span><span class="n">width</span><span class="o">,</span> <span class="n">height</span><span class="o">);</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="na">drawColor</span><span class="o">(</span><span class="n">color</span><span class="o">);</span>
+    <span class="n">canvas</span><span class="o">.</span><span class="na">drawBitmap</span><span class="o">(</span><span class="n">bitmap</span><span class="o">,</span> <span class="n">matrix</span><span class="o">,</span> <span class="n">paint</span><span class="o">);</span>
+    <span class="n">picture</span><span class="o">.</span><span class="na">endRecording</span><span class="o">();</span>
+    <span class="k">return</span> <span class="nc">Bitmap</span><span class="o">.</span><span class="na">createBitmap</span><span class="o">(</span><span class="n">picture</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="25-后台保存">2.5 后台保存</h4>
+
+<p>当执行到 <strong>doInBackground</strong> 时，截屏已保存在内存中等待写入磁盘。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">protected</span> <span class="nc">Void</span> <span class="nf">doInBackground</span><span class="o">(</span><span class="nc">Void</span><span class="o">...</span> <span class="n">params</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">isCancelled</span><span class="o">())</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 默认情况下，AsyncTask将工作线程设置为具有后台线程优先级，因此将其恢复以便更快地保存截图</span>
+    <span class="nc">Process</span><span class="o">.</span><span class="na">setThreadPriority</span><span class="o">(</span><span class="nc">Process</span><span class="o">.</span><span class="na">THREAD_PRIORITY_FOREGROUND</span><span class="o">);</span>
+
+    <span class="nc">Context</span> <span class="n">context</span> <span class="o">=</span> <span class="n">mParams</span><span class="o">.</span><span class="na">context</span><span class="o">;</span>
+    <span class="c1">// 从Param取出截屏图片</span>
+    <span class="nc">Bitmap</span> <span class="n">image</span> <span class="o">=</span> <span class="n">mParams</span><span class="o">.</span><span class="na">image</span><span class="o">;</span>
+    <span class="nc">Resources</span> <span class="n">r</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">getResources</span><span class="o">();</span>
+
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="c1">// 创建截屏文件夹的目录</span>
+        <span class="n">mScreenshotDir</span><span class="o">.</span><span class="na">mkdirs</span><span class="o">();</span>
+
+        <span class="c1">// DATE_TAKEN的时间戳单位是毫秒，但DATE_MODIFIED和DATE_ADDED单位是秒，这里进行转换</span>
+        <span class="kt">long</span> <span class="n">dateSeconds</span> <span class="o">=</span> <span class="n">mImageTime</span> <span class="o">/</span> <span class="mi">1000</span><span class="o">;</span>
+
+        <span class="c1">// 截图位图写入文件流</span>
+        <span class="nc">OutputStream</span> <span class="n">out</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">FileOutputStream</span><span class="o">(</span><span class="n">mImageFilePath</span><span class="o">);</span>
+        <span class="c1">// 格式PNG，质量100表示最低压缩</span>
+        <span class="n">image</span><span class="o">.</span><span class="na">compress</span><span class="o">(</span><span class="nc">Bitmap</span><span class="o">.</span><span class="na">CompressFormat</span><span class="o">.</span><span class="na">PNG</span><span class="o">,</span> <span class="mi">100</span><span class="o">,</span> <span class="n">out</span><span class="o">);</span>
+        <span class="n">out</span><span class="o">.</span><span class="na">flush</span><span class="o">();</span>
+        <span class="n">out</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+
+        <span class="c1">// 配置ContentValues，准备通知设备更新媒体记录</span>
+        <span class="c1">// 下面将写入截图的信息：时间、标题、名称、类型和大小等信息</span>
+        <span class="nc">ContentValues</span> <span class="n">values</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ContentValues</span><span class="o">();</span>
+        <span class="nc">ContentResolver</span> <span class="n">resolver</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">getContentResolver</span><span class="o">();</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">DATA</span><span class="o">,</span> <span class="n">mImageFilePath</span><span class="o">);</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">TITLE</span><span class="o">,</span> <span class="n">mImageFileName</span><span class="o">);</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">DISPLAY_NAME</span><span class="o">,</span> <span class="n">mImageFileName</span><span class="o">);</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">DATE_TAKEN</span><span class="o">,</span> <span class="n">mImageTime</span><span class="o">);</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">DATE_ADDED</span><span class="o">,</span> <span class="n">dateSeconds</span><span class="o">);</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">DATE_MODIFIED</span><span class="o">,</span> <span class="n">dateSeconds</span><span class="o">);</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">MIME_TYPE</span><span class="o">,</span> <span class="s">"image/png"</span><span class="o">);</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">WIDTH</span><span class="o">,</span> <span class="n">mImageWidth</span><span class="o">);</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">HEIGHT</span><span class="o">,</span> <span class="n">mImageHeight</span><span class="o">);</span>
+        <span class="n">values</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">ImageColumns</span><span class="o">.</span><span class="na">SIZE</span><span class="o">,</span> <span class="k">new</span> <span class="nc">File</span><span class="o">(</span><span class="n">mImageFilePath</span><span class="o">).</span><span class="na">length</span><span class="o">());</span>
+        <span class="c1">// 把截屏记录插入到MediaStore</span>
+        <span class="nc">Uri</span> <span class="n">uri</span> <span class="o">=</span> <span class="n">resolver</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">Media</span><span class="o">.</span><span class="na">EXTERNAL_CONTENT_URI</span><span class="o">,</span> <span class="n">values</span><span class="o">);</span>
+
+        <span class="c1">// 创建分享的Intent</span>
+        <span class="nc">String</span> <span class="n">subjectDate</span> <span class="o">=</span> <span class="nc">DateFormat</span><span class="o">.</span><span class="na">getDateTimeInstance</span><span class="o">().</span><span class="na">format</span><span class="o">(</span><span class="k">new</span> <span class="nc">Date</span><span class="o">(</span><span class="n">mImageTime</span><span class="o">));</span>
+        <span class="nc">String</span> <span class="n">subject</span> <span class="o">=</span> <span class="nc">String</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="no">SCREENSHOT_SHARE_SUBJECT_TEMPLATE</span><span class="o">,</span> <span class="n">subjectDate</span><span class="o">);</span>
+        <span class="nc">Intent</span> <span class="n">sharingIntent</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Intent</span><span class="o">(</span><span class="nc">Intent</span><span class="o">.</span><span class="na">ACTION_SEND</span><span class="o">);</span>
+        <span class="n">sharingIntent</span><span class="o">.</span><span class="na">setType</span><span class="o">(</span><span class="s">"image/png"</span><span class="o">);</span>
+        <span class="n">sharingIntent</span><span class="o">.</span><span class="na">putExtra</span><span class="o">(</span><span class="nc">Intent</span><span class="o">.</span><span class="na">EXTRA_STREAM</span><span class="o">,</span> <span class="n">uri</span><span class="o">);</span>
+        <span class="n">sharingIntent</span><span class="o">.</span><span class="na">putExtra</span><span class="o">(</span><span class="nc">Intent</span><span class="o">.</span><span class="na">EXTRA_SUBJECT</span><span class="o">,</span> <span class="n">subject</span><span class="o">);</span>
+        <span class="n">sharingIntent</span><span class="o">.</span><span class="na">addFlags</span><span class="o">(</span><span class="nc">Intent</span><span class="o">.</span><span class="na">FLAG_GRANT_READ_URI_PERMISSION</span><span class="o">);</span>
+
+        <span class="c1">// Create a share action for the notification. Note, we proxy the call to</span>
+        <span class="c1">// ScreenshotActionReceiver because RemoteViews currently forces an activity options</span>
+        <span class="c1">// on the PendingIntent being launched, and since we don't want to trigger the share</span>
+        <span class="c1">// sheet in this case, we start the chooser activity directly in</span>
+        <span class="c1">// ScreenshotActionReceiver.</span>
+        <span class="c1">// 构造分享的PendingIntent</span>
+        <span class="nc">PendingIntent</span> <span class="n">shareAction</span> <span class="o">=</span> <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">getBroadcast</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span>
+                <span class="k">new</span> <span class="nf">Intent</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="nc">GlobalScreenshot</span><span class="o">.</span><span class="na">ScreenshotActionReceiver</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+                        <span class="o">.</span><span class="na">putExtra</span><span class="o">(</span><span class="no">SHARING_INTENT</span><span class="o">,</span> <span class="n">sharingIntent</span><span class="o">),</span>
+                <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">FLAG_CANCEL_CURRENT</span><span class="o">);</span>
+        <span class="nc">Notification</span><span class="o">.</span><span class="na">Action</span><span class="o">.</span><span class="na">Builder</span> <span class="n">shareActionBuilder</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Notification</span><span class="o">.</span><span class="na">Action</span><span class="o">.</span><span class="na">Builder</span><span class="o">(</span>
+                <span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">ic_screenshot_share</span><span class="o">,</span>
+                <span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">share</span><span class="o">),</span> <span class="n">shareAction</span><span class="o">);</span>
+        <span class="n">mNotificationBuilder</span><span class="o">.</span><span class="na">addAction</span><span class="o">(</span><span class="n">shareActionBuilder</span><span class="o">.</span><span class="na">build</span><span class="o">());</span>
+
+        <span class="c1">// 构造编辑截图的Intent</span>
+        <span class="nc">Intent</span> <span class="n">editIntent</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Intent</span><span class="o">(</span><span class="nc">Intent</span><span class="o">.</span><span class="na">ACTION_EDIT</span><span class="o">);</span>
+        <span class="n">editIntent</span><span class="o">.</span><span class="na">setType</span><span class="o">(</span><span class="s">"image/png"</span><span class="o">);</span>
+        <span class="n">editIntent</span><span class="o">.</span><span class="na">setData</span><span class="o">(</span><span class="n">uri</span><span class="o">);</span>
+        <span class="n">editIntent</span><span class="o">.</span><span class="na">addFlags</span><span class="o">(</span><span class="nc">Intent</span><span class="o">.</span><span class="na">FLAG_GRANT_READ_URI_PERMISSION</span><span class="o">);</span>
+        <span class="n">editIntent</span><span class="o">.</span><span class="na">addFlags</span><span class="o">(</span><span class="nc">Intent</span><span class="o">.</span><span class="na">FLAG_GRANT_WRITE_URI_PERMISSION</span><span class="o">);</span>
+
+        <span class="c1">// Create a edit action for the notification the same way.</span>
+        <span class="nc">PendingIntent</span> <span class="n">editAction</span> <span class="o">=</span> <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">getBroadcast</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="mi">1</span><span class="o">,</span>
+                <span class="k">new</span> <span class="nf">Intent</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="nc">GlobalScreenshot</span><span class="o">.</span><span class="na">ScreenshotActionReceiver</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+                        <span class="o">.</span><span class="na">putExtra</span><span class="o">(</span><span class="no">SHARING_INTENT</span><span class="o">,</span> <span class="n">editIntent</span><span class="o">),</span>
+                <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">FLAG_CANCEL_CURRENT</span><span class="o">);</span>
+        <span class="nc">Notification</span><span class="o">.</span><span class="na">Action</span><span class="o">.</span><span class="na">Builder</span> <span class="n">editActionBuilder</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Notification</span><span class="o">.</span><span class="na">Action</span><span class="o">.</span><span class="na">Builder</span><span class="o">(</span>
+                <span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">ic_screenshot_edit</span><span class="o">,</span>
+                <span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_edit</span><span class="o">),</span> <span class="n">editAction</span><span class="o">);</span>
+        <span class="n">mNotificationBuilder</span><span class="o">.</span><span class="na">addAction</span><span class="o">(</span><span class="n">editActionBuilder</span><span class="o">.</span><span class="na">build</span><span class="o">());</span>
+
+        <span class="c1">// 给通知创建删除截屏的操作</span>
+        <span class="nc">PendingIntent</span> <span class="n">deleteAction</span> <span class="o">=</span> <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">getBroadcast</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span>
+                <span class="k">new</span> <span class="nf">Intent</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="nc">GlobalScreenshot</span><span class="o">.</span><span class="na">DeleteScreenshotReceiver</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+                        <span class="o">.</span><span class="na">putExtra</span><span class="o">(</span><span class="nc">GlobalScreenshot</span><span class="o">.</span><span class="na">SCREENSHOT_URI_ID</span><span class="o">,</span> <span class="n">uri</span><span class="o">.</span><span class="na">toString</span><span class="o">()),</span>
+                <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">FLAG_CANCEL_CURRENT</span> <span class="o">|</span> <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">FLAG_ONE_SHOT</span><span class="o">);</span>
+        <span class="nc">Notification</span><span class="o">.</span><span class="na">Action</span><span class="o">.</span><span class="na">Builder</span> <span class="n">deleteActionBuilder</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Notification</span><span class="o">.</span><span class="na">Action</span><span class="o">.</span><span class="na">Builder</span><span class="o">(</span>
+                <span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">ic_screenshot_delete</span><span class="o">,</span>
+                <span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">delete</span><span class="o">),</span> <span class="n">deleteAction</span><span class="o">);</span>
+        <span class="n">mNotificationBuilder</span><span class="o">.</span><span class="na">addAction</span><span class="o">(</span><span class="n">deleteActionBuilder</span><span class="o">.</span><span class="na">build</span><span class="o">());</span>
+
+        <span class="n">mParams</span><span class="o">.</span><span class="na">imageUri</span> <span class="o">=</span> <span class="n">uri</span><span class="o">;</span>
+        <span class="n">mParams</span><span class="o">.</span><span class="na">image</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="n">mParams</span><span class="o">.</span><span class="na">errorMsgResId</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 外部存储没有挂载会抛出IOException/UnsupportedOperationException</span>
+        <span class="nc">Slog</span><span class="o">.</span><span class="na">e</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="s">"unable to save screenshot"</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+        <span class="n">mParams</span><span class="o">.</span><span class="na">clearImage</span><span class="o">();</span>
+        <span class="n">mParams</span><span class="o">.</span><span class="na">errorMsgResId</span> <span class="o">=</span> <span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_failed_to_save_text</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 回收位图</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">image</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">image</span><span class="o">.</span><span class="na">recycle</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="26-onpostexecute">2.6 onPostExecute</h4>
+
+<p>截图已经保存到磁盘中，给用户弹出成功或失败的提示。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onPostExecute</span><span class="o">(</span><span class="nc">Void</span> <span class="n">params</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mParams</span><span class="o">.</span><span class="na">errorMsgResId</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 图片保存到存储失败，弹出一个通知告知用户</span>
+        <span class="nc">GlobalScreenshot</span><span class="o">.</span><span class="na">notifyScreenshotError</span><span class="o">(</span><span class="n">mParams</span><span class="o">.</span><span class="na">context</span><span class="o">,</span> <span class="n">mNotificationManager</span><span class="o">,</span>
+                <span class="n">mParams</span><span class="o">.</span><span class="na">errorMsgResId</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 图片保存到存储成功，弹出通知指明已保存的截屏</span>
+        <span class="nc">Context</span> <span class="n">context</span> <span class="o">=</span> <span class="n">mParams</span><span class="o">.</span><span class="na">context</span><span class="o">;</span>
+        <span class="nc">Resources</span> <span class="n">r</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">getResources</span><span class="o">();</span>
+
+        <span class="c1">// 构造intent，引导用户跳到相册浏览截图</span>
+        <span class="nc">Intent</span> <span class="n">launchIntent</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Intent</span><span class="o">(</span><span class="nc">Intent</span><span class="o">.</span><span class="na">ACTION_VIEW</span><span class="o">);</span>
+        <span class="c1">// 带上图片的类型和资源地址</span>
+        <span class="n">launchIntent</span><span class="o">.</span><span class="na">setDataAndType</span><span class="o">(</span><span class="n">mParams</span><span class="o">.</span><span class="na">imageUri</span><span class="o">,</span> <span class="s">"image/png"</span><span class="o">);</span>
+        <span class="n">launchIntent</span><span class="o">.</span><span class="na">setFlags</span><span class="o">(</span>
+                <span class="nc">Intent</span><span class="o">.</span><span class="na">FLAG_ACTIVITY_NEW_TASK</span> <span class="o">|</span> <span class="nc">Intent</span><span class="o">.</span><span class="na">FLAG_GRANT_READ_URI_PERMISSION</span><span class="o">);</span>
+
+        <span class="kd">final</span> <span class="kt">long</span> <span class="n">now</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">();</span>
+
+        <span class="c1">// 更新已有通知的文本和icon</span>
+        <span class="n">mPublicNotificationBuilder</span>
+                <span class="o">.</span><span class="na">setContentTitle</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_saved_title</span><span class="o">))</span>
+                <span class="o">.</span><span class="na">setContentText</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_saved_text</span><span class="o">))</span>
+                <span class="o">.</span><span class="na">setContentIntent</span><span class="o">(</span><span class="nc">PendingIntent</span><span class="o">.</span><span class="na">getActivity</span><span class="o">(</span><span class="n">mParams</span><span class="o">.</span><span class="na">context</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">launchIntent</span><span class="o">,</span> <span class="mi">0</span><span class="o">))</span>
+                <span class="o">.</span><span class="na">setWhen</span><span class="o">(</span><span class="n">now</span><span class="o">)</span>
+                <span class="o">.</span><span class="na">setAutoCancel</span><span class="o">(</span><span class="kc">true</span><span class="o">)</span>
+                <span class="o">.</span><span class="na">setColor</span><span class="o">(</span><span class="n">context</span><span class="o">.</span><span class="na">getColor</span><span class="o">(</span>
+                        <span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">color</span><span class="o">.</span><span class="na">system_notification_accent_color</span><span class="o">));</span>
+        <span class="n">mNotificationBuilder</span>
+            <span class="o">.</span><span class="na">setContentTitle</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_saved_title</span><span class="o">))</span>
+            <span class="o">.</span><span class="na">setContentText</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_saved_text</span><span class="o">))</span>
+            <span class="o">.</span><span class="na">setContentIntent</span><span class="o">(</span><span class="nc">PendingIntent</span><span class="o">.</span><span class="na">getActivity</span><span class="o">(</span><span class="n">mParams</span><span class="o">.</span><span class="na">context</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">launchIntent</span><span class="o">,</span> <span class="mi">0</span><span class="o">))</span>
+            <span class="o">.</span><span class="na">setWhen</span><span class="o">(</span><span class="n">now</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">setAutoCancel</span><span class="o">(</span><span class="kc">true</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">setColor</span><span class="o">(</span><span class="n">context</span><span class="o">.</span><span class="na">getColor</span><span class="o">(</span>
+                    <span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">color</span><span class="o">.</span><span class="na">system_notification_accent_color</span><span class="o">))</span>
+            <span class="o">.</span><span class="na">setPublicVersion</span><span class="o">(</span><span class="n">mPublicNotificationBuilder</span><span class="o">.</span><span class="na">build</span><span class="o">())</span>
+            <span class="o">.</span><span class="na">setFlag</span><span class="o">(</span><span class="nc">Notification</span><span class="o">.</span><span class="na">FLAG_NO_CLEAR</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+
+        <span class="n">mNotificationManager</span><span class="o">.</span><span class="na">notify</span><span class="o">(</span><span class="nc">SystemMessage</span><span class="o">.</span><span class="na">NOTE_GLOBAL_SCREENSHOT</span><span class="o">,</span>
+                <span class="n">mNotificationBuilder</span><span class="o">.</span><span class="na">build</span><span class="o">());</span>
+    <span class="o">}</span>
+    <span class="c1">// 调起finish</span>
+    <span class="n">mParams</span><span class="o">.</span><span class="na">finisher</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+    <span class="n">mParams</span><span class="o">.</span><span class="na">clearContext</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="27-oncancelled">2.7 onCancelled</h4>
+
+<p>保存截图的操作被取消。如果截图正在后台保存的时候任务被取消，<strong>onCancelled</strong> 值为 <strong>null</strong>。同时，<strong>finisher</strong> 的预期是一定会被回调的，所以被取消的任务需要在这里回调 <strong>finisher</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCancelled</span><span class="o">(</span><span class="nc">Void</span> <span class="n">params</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mParams</span><span class="o">.</span><span class="na">finisher</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+    <span class="n">mParams</span><span class="o">.</span><span class="na">clearImage</span><span class="o">();</span>
+    <span class="n">mParams</span><span class="o">.</span><span class="na">clearContext</span><span class="o">();</span>
+
+    <span class="c1">// 取消已经弹出的通知</span>
+    <span class="n">mNotificationManager</span><span class="o">.</span><span class="na">cancel</span><span class="o">(</span><span class="nc">SystemMessage</span><span class="o">.</span><span class="na">NOTE_GLOBAL_SCREENSHOT</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三deleteimageinbackgroundtask">三、DeleteImageInBackgroundTask</h2>
+
+<p>在后台删除媒体存储的图片，此类继承 <strong>AsyncTask</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">DeleteImageInBackgroundTask</span> <span class="kd">extends</span> <span class="nc">AsyncTask</span><span class="o">&lt;</span><span class="nc">Uri</span><span class="o">,</span> <span class="nc">Void</span><span class="o">,</span> <span class="nc">Void</span><span class="o">&gt;</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="nc">Context</span> <span class="n">mContext</span><span class="o">;</span>
+
+    <span class="nc">DeleteImageInBackgroundTask</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">mContext</span> <span class="o">=</span> <span class="n">context</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="nc">Void</span> <span class="nf">doInBackground</span><span class="o">(</span><span class="nc">Uri</span><span class="o">...</span> <span class="n">params</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">params</span><span class="o">.</span><span class="na">length</span> <span class="o">!=</span> <span class="mi">1</span><span class="o">)</span> <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+
+        <span class="c1">// 从参数获取截图的资源路径Uri</span>
+        <span class="nc">Uri</span> <span class="n">screenshotUri</span> <span class="o">=</span> <span class="n">params</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span>
+        <span class="c1">// 获取ContentResolver</span>
+        <span class="nc">ContentResolver</span> <span class="n">resolver</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getContentResolver</span><span class="o">();</span>
+        <span class="c1">//  从ContentResolver移除指定图片</span>
+        <span class="n">resolver</span><span class="o">.</span><span class="na">delete</span><span class="o">(</span><span class="n">screenshotUri</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+        <span class="c1">// 给方法返回值类型Void返回null</span>
+        <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

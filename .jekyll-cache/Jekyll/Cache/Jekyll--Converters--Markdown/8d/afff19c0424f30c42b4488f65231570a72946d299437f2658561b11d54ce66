@@ -1,0 +1,286 @@
+I"�D<h1 id="一数据成员">一、数据成员</h1>
+
+<p>每个Looper拥有一个消息队列，归属于一个线程。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="kd">final</span> <span class="nc">ThreadLocal</span><span class="o">&lt;</span><span class="nc">Looper</span><span class="o">&gt;</span> <span class="n">sThreadLocal</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ThreadLocal</span><span class="o">&lt;</span><span class="nc">Looper</span><span class="o">&gt;();</span>
+
+<span class="c1">// 由Looper.class控制，静态全局的MainLooper</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="nc">Looper</span> <span class="n">sMainLooper</span><span class="o">;</span>
+
+<span class="c1">// Looper持有的MessageQueue</span>
+<span class="kd">final</span> <span class="nc">MessageQueue</span> <span class="n">mQueue</span><span class="o">;</span>
+
+<span class="c1">// Looper所在的线程实例</span>
+<span class="kd">final</span> <span class="nc">Thread</span> <span class="n">mThread</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h1 id="二初始化">二、初始化</h1>
+
+<p>每个线程仅能创建一个Looper，如果线程尝试创建第二个Looper会引起异常。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">prepare</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">prepare</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">private</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">prepare</span><span class="o">(</span><span class="kt">boolean</span> <span class="n">quitAllowed</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// ThreadLacal.get()的Looper不为空，表明之前已经初始化过了</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">sThreadLocal</span><span class="o">.</span><span class="na">get</span><span class="o">()</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span>
+            <span class="s">"Only one Looper may be created per thread"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 之前没有初始化则开始初始化</span>
+    <span class="n">sThreadLocal</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="k">new</span> <span class="nc">Looper</span><span class="o">(</span><span class="n">quitAllowed</span><span class="o">));</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>先创建<a href="/2018/11/02/MessageQueue/">MessageQueue</a>，并把线程实例保存到Looper中。方法是私有的，只能由<code class="highlighter-rouge">prepare()</code>调用。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nf">Looper</span><span class="o">(</span><span class="kt">boolean</span> <span class="n">quitAllowed</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 创建Looper时为这个Looper创建对应的MessageQueue</span>
+    <span class="n">mQueue</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">MessageQueue</span><span class="o">(</span><span class="n">quitAllowed</span><span class="o">);</span>
+    <span class="n">mThread</span> <span class="o">=</span> <span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>运行时通过这个方法自动创建主线程Looper，千万不要在主线程中再次调用这个方法。<strong>sMainLooper</strong> 是静态变量，所以任意 <strong>Looper</strong> 都能通过 <strong>sMainLooper</strong> 向主线程发送消息。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">prepareMainLooper</span><span class="o">()</span> <span class="o">{</span>
+    <span class="c1">// 主线程的消息队列禁止退出</span>
+    <span class="n">prepare</span><span class="o">(</span><span class="kc">false</span><span class="o">);</span>
+    
+    <span class="c1">// 且每个进程只有一个MainLooper</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="nc">Looper</span><span class="o">.</span><span class="na">class</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">sMainLooper</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span>
+                <span class="s">"The main Looper has already been prepared."</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="n">sMainLooper</span> <span class="o">=</span> <span class="n">myLooper</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h1 id="三启动looper">三、启动Looper</h1>
+
+<p>启动 <strong>Looper</strong> 的 <strong>MessageQueue</strong>。关于在 <strong>queue.next()</strong> 上阻塞请看 <a href="/2018/11/02/MessageQueue/#55-next">MessageQueue源码 - 5.5 next</a></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">loop</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="nc">Looper</span> <span class="n">me</span> <span class="o">=</span> <span class="n">myLooper</span><span class="o">();</span>
+
+    <span class="c1">// Looper没有通过prepare()方法初始化就抛出异常</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">me</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span><span class="s">"No Looper; Looper.prepare() wasn't called on this thread."</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 从Looper中获取其MessageQueue</span>
+    <span class="kd">final</span> <span class="nc">MessageQueue</span> <span class="n">queue</span> <span class="o">=</span> <span class="n">me</span><span class="o">.</span><span class="na">mQueue</span><span class="o">;</span>
+    <span class="c1">// 作用是清空远程调用端的uid和pid，用当前本地进程的uid和pid替代</span>
+    <span class="nc">Binder</span><span class="o">.</span><span class="na">clearCallingIdentity</span><span class="o">();</span>
+    <span class="kd">final</span> <span class="kt">long</span> <span class="n">ident</span> <span class="o">=</span> <span class="nc">Binder</span><span class="o">.</span><span class="na">clearCallingIdentity</span><span class="o">();</span>
+    
+    <span class="c1">// 循环遍历，从消息队列取消息</span>
+    <span class="k">for</span> <span class="o">(;;)</span> <span class="o">{</span>
+        <span class="c1">// 如果队列没有消息，queue.next()内部会阻塞等待</span>
+        <span class="nc">Message</span> <span class="n">msg</span> <span class="o">=</span> <span class="n">queue</span><span class="o">.</span><span class="na">next</span><span class="o">();</span>
+
+        <span class="c1">// 队列返回null表明消息队列已经关闭</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">msg</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 消息队列关闭，Looper退出</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+
+        <span class="c1">// 通过对应的Handler进行回调</span>
+        <span class="n">msg</span><span class="o">.</span><span class="na">target</span><span class="o">.</span><span class="na">dispatchMessage</span><span class="o">(</span><span class="n">msg</span><span class="o">);</span>
+
+        <span class="c1">// 确保消息在分发的时候线程没有出错</span>
+        <span class="kd">final</span> <span class="kt">long</span> <span class="n">newIdent</span> <span class="o">=</span> <span class="nc">Binder</span><span class="o">.</span><span class="na">clearCallingIdentity</span><span class="o">();</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">ident</span> <span class="o">!=</span> <span class="n">newIdent</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">Log</span><span class="o">.</span><span class="na">wtf</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="s">"Thread identity changed from 0x"</span>
+                    <span class="o">+</span> <span class="nc">Long</span><span class="o">.</span><span class="na">toHexString</span><span class="o">(</span><span class="n">ident</span><span class="o">)</span> <span class="o">+</span> <span class="s">" to 0x"</span>
+                    <span class="o">+</span> <span class="nc">Long</span><span class="o">.</span><span class="na">toHexString</span><span class="o">(</span><span class="n">newIdent</span><span class="o">)</span> <span class="o">+</span> <span class="s">" while dispatching to "</span>
+                    <span class="o">+</span> <span class="n">msg</span><span class="o">.</span><span class="na">target</span><span class="o">.</span><span class="na">getClass</span><span class="o">().</span><span class="na">getName</span><span class="o">()</span> <span class="o">+</span> <span class="s">" "</span>
+                    <span class="o">+</span> <span class="n">msg</span><span class="o">.</span><span class="na">callback</span> <span class="o">+</span> <span class="s">" what="</span> <span class="o">+</span> <span class="n">msg</span><span class="o">.</span><span class="na">what</span><span class="o">);</span>
+        <span class="o">}</span>
+
+        <span class="c1">// 消息体回收</span>
+        <span class="n">msg</span><span class="o">.</span><span class="na">recycleUnchecked</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h1 id="四消息队列退出">四、消息队列退出</h1>
+
+<p>消息队列关闭</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">quit</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">mQueue</span><span class="o">.</span><span class="na">quit</span><span class="o">(</span><span class="kc">false</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>消息队列安全关闭</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">quitSafely</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">mQueue</span><span class="o">.</span><span class="na">quit</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h1 id="五一般方法">五、一般方法</h1>
+
+<p>返回Looper所属线程和消息队列</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nd">@NonNull</span> <span class="nc">Thread</span> <span class="nf">getThread</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mThread</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nd">@NonNull</span> <span class="nc">MessageQueue</span> <span class="nf">getQueue</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mQueue</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 所有Looper实例持有同一个静态sMainLooper</span>
+<span class="kd">public</span> <span class="kd">static</span> <span class="nc">Looper</span> <span class="nf">getMainLooper</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="nc">Looper</span><span class="o">.</span><span class="na">class</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">sMainLooper</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>返回所属线程的Looper。如果子线程没有调用Looper.prepare()，sThreadLocal.get()为空。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="nd">@Nullable</span> <span class="nc">Looper</span> <span class="nf">myLooper</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">sThreadLocal</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>获取线程Looper的消息队列</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="nd">@NonNull</span> <span class="nc">MessageQueue</span> <span class="nf">myQueue</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">myLooper</span><span class="o">().</span><span class="na">mQueue</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>返回当前的线程是否就是Looper的线程</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">isCurrentThread</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">()</span> <span class="o">==</span> <span class="n">mThread</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h1 id="六参考链接">六、参考链接</h1>
+
+<ul>
+  <li><a href="http://gityuan.com/2016/03/05/binder-clearCallingIdentity/">Binder IPC的权限控制</a></li>
+</ul>
+:ET

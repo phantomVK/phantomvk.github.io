@@ -1,0 +1,38 @@
+I"�<p>开发库如 <strong>Gradle</strong> 和 <strong>Java11</strong> 之间存在兼容问题需用旧版本 <strong>Java</strong>，但安装旧版本无法用以下命令获取</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>brew <span class="nb">install </span>java8
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>Homebrew</strong> 会找不到该库而报错</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre>Error: No available formula with the name <span class="s2">"java8"</span>
+<span class="o">==&gt;</span> Searching <span class="k">for </span>a previously deleted formula <span class="o">(</span><span class="k">in </span>the last month<span class="o">)</span>...
+Error: No previously deleted formula found.
+<span class="o">==&gt;</span> Searching <span class="k">for </span>similarly named formulae...
+Error: No similarly named formulae found.
+<span class="o">==&gt;</span> Searching taps...
+<span class="o">==&gt;</span> Searching taps on GitHub...
+Error: No formulae found <span class="k">in </span>taps.
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>得先获取 <strong>cask-versions</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>brew tap homebrew/cask-versions
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>从 <strong>cask-versions</strong> 安装 <strong>JDK8</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>brew cask <span class="nb">install </span>homebrew/cask-versions/adoptopenjdk8
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

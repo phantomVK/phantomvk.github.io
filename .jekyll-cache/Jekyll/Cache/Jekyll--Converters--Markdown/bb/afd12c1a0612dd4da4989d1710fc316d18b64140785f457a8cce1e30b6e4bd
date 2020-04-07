@@ -1,0 +1,79 @@
+I"+<p>国内访问Python pip官方镜像源速度非常慢，matplotlib下载速度只有10KB/s，而且下载没一会连接超时。浪费时间不止，几次下载没有一次成功过。最好的解决办法就是给pip增加国内镜像源。按照下面步骤设置好后，matplotlib下载有超百倍提升，从15KB/s提升到3.6MB/s。体积比较小的库下载速度实测满速。</p>
+
+<p>先拿Mac OSX来详细说，终端进入目录：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nv">$ </span><span class="nb">cd</span> ~/
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果没有.pip这个文件夹就手动新建</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nv">$ </span><span class="nb">mkdir</span> .pip
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>然后进入.pip，在文件夹内新建一个文件</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nv">$ </span><span class="nb">cd</span> .pip
+<span class="nv">$ </span><span class="nb">touch </span>pip.conf
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>编辑 pip.conf 文件，写入阿里云镜像源</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre>[global]
+index-url = http://mirrors.aliyun.com/pypi/simple/
+
+[install]
+trusted-host=mirrors.aliyun.com
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>同样可以选择豆瓣镜像源</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre>[global]
+index-url = http://pypi.douban.com/simple
+
+[install]
+trusted-host=pypi.douban.com
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="其他系统pipconf保存位置">其他系统pip.conf保存位置</h2>
+
+<h3 id="linuxunix">Linux/Unix:</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>~/.pip/pip.conf
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="windows">Windows:</h3>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre>%APPDATA%\pip\pip.ini
+%HOME%\pip\pip.ini
+C:\Documents and Settings\All Users\Application Data\PyPA\pip\pip.conf (For Windows XP)
+C:\ProgramData\PyPA\pip\pip.conf (For Windows 7)
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>其他镜像源:</p>
+
+<ul>
+  <li>华中理工大学     http://pypi.hustunique.com/</li>
+  <li>山东理工大学     http://pypi.sdutlinux.org/</li>
+  <li>中国科学技术大学  http://pypi.mirrors.ustc.edu.cn/</li>
+</ul>
+
+:ET

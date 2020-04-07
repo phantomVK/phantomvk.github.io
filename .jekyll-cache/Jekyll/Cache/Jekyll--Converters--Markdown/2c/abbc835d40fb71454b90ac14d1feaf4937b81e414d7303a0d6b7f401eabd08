@@ -1,0 +1,478 @@
+I"�~<h2 id="一类签名">一、类签名</h2>
+
+<p>LruCache是Android提供的缓存工具类，根据最近最少使用算法缓存元素，避免缓存导致内存占用过大，或对象释放不及时引起内存溢出。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">LruCache</span><span class="o">&lt;</span><span class="no">K</span><span class="o">,</span> <span class="no">V</span><span class="o">&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>资源缓存除了最近最少使用外，还巧妙利用Java对象引用类型完成内存回收。被操作的元素会移到队列末位。一段时间后，原本处于队列末位的元素，因为其他元素的操作逐渐被挪动到队头。</p>
+
+<p>如果队列空间足够，所有元素都不会移除。否则，处于队头的元素优先被移除，腾出空间容纳新元素。因此使用热度高的资源得到有效缓存，长时间没有使用的资源会被移出队列。</p>
+
+<p>为了使该类适合实际应用，开发中多继承<code class="highlighter-rouge">LruCache</code>，重写<code class="highlighter-rouge">create()</code>、<code class="highlighter-rouge">entryRemoved()</code>和<code class="highlighter-rouge">sizeOf()</code>等方法。</p>
+
+<h2 id="二数据成员">二、数据成员</h2>
+
+<p><code class="highlighter-rouge">LruCache</code>通过<code class="highlighter-rouge">LinkedHashMap</code>数据结构完成item的保存，传送门：<a href="/2018/07/09/LinkedHashMap/">LinkedHashMap源码阅读</a></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">final</span> <span class="nc">LinkedHashMap</span><span class="o">&lt;</span><span class="no">K</span><span class="o">,</span> <span class="no">V</span><span class="o">&gt;</span> <span class="n">map</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>以下两个数值分别用来记录<code class="highlighter-rouge">保存容量</code>及<code class="highlighter-rouge">最大容量</code>，且前者不大于后者。值得注意的是，这个容量可能是键的个数(针对Key)，也可能是值总体积(针对Value)。</p>
+
+<p>例如LruCache缓存图片，可以限制图片数量，或限制缓存图片容量实现内存管理。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="c1">// 已保存数据大小</span>
+<span class="kd">private</span> <span class="kt">int</span> <span class="n">size</span><span class="o">;</span>
+
+<span class="c1">// 最大数据可保存大小</span>
+<span class="kd">private</span> <span class="kt">int</span> <span class="n">maxSize</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>统计所有操作次数，如：每次添加元素<code class="highlighter-rouge">putCount</code>递增。统计结果可作为性能优化的参考值。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">int</span> <span class="n">putCount</span><span class="o">;</span>     <span class="c1">// 加入</span>
+<span class="kd">private</span> <span class="kt">int</span> <span class="n">createCount</span><span class="o">;</span>  <span class="c1">// 创建</span>
+<span class="kd">private</span> <span class="kt">int</span> <span class="n">evictionCount</span><span class="o">;</span><span class="c1">// 舍弃</span>
+<span class="kd">private</span> <span class="kt">int</span> <span class="n">hitCount</span><span class="o">;</span>     <span class="c1">// 查找命中</span>
+<span class="kd">private</span> <span class="kt">int</span> <span class="n">missCount</span><span class="o">;</span>    <span class="c1">// 命中失败</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三构造方法">三、构造方法</h2>
+
+<p>参数<code class="highlighter-rouge">maxSize</code>记录整个列表最大保存数。为避免严重的哈希冲突，默认哈希因子设定为0.75。</p>
+
+<p><code class="highlighter-rouge">LinkedHashMap</code>构造函数参数<code class="highlighter-rouge">accessOrder</code>为<code class="highlighter-rouge">true</code>时以访问顺序排列元素，否则以插入顺序排列元素为准。从源码可知<code class="highlighter-rouge">LruCache</code>的<code class="highlighter-rouge">accessOrder</code>为<code class="highlighter-rouge">true</code>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nf">LruCache</span><span class="o">(</span><span class="kt">int</span> <span class="n">maxSize</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">maxSize</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">(</span><span class="s">"maxSize &lt;= 0"</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">maxSize</span> <span class="o">=</span> <span class="n">maxSize</span><span class="o">;</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">map</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">LinkedHashMap</span><span class="o">&lt;</span><span class="no">K</span><span class="o">,</span> <span class="no">V</span><span class="o">&gt;(</span><span class="mi">0</span><span class="o">,</span> <span class="mf">0.75f</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四成员方法">四、成员方法</h2>
+
+<p><code class="highlighter-rouge">LruCache</code>作为一个二次封装<code class="highlighter-rouge">LinkedHashMap</code>类，在增删查改上提供有限但实用的方法。关键操作都是线程安全的，可放心在多线程操作<code class="highlighter-rouge">LruCache</code>实例。</p>
+
+<h3 id="41-设置大小">4.1 设置大小</h3>
+
+<p>可以修改列表最大保存数量。如果maxSize变小，则通过<code class="highlighter-rouge">trimToSize()</code>移除多余元素。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">resize</span><span class="o">(</span><span class="kt">int</span> <span class="n">maxSize</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">maxSize</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">(</span><span class="s">"maxSize &lt;= 0"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 同步修改maxSize值</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">maxSize</span> <span class="o">=</span> <span class="n">maxSize</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="n">trimToSize</span><span class="o">(</span><span class="n">maxSize</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="42-存取">4.2 存取</h3>
+
+<p>通过非空键取值，对应键命中把值返回，且把这个元素移动到队列末位。</p>
+
+<p><img src="/img/android/lrucache/LruCache_get.png" alt="LruCache_get" /></p>
+
+<p>没有命中会根据<code class="highlighter-rouge">create()</code>做后续决定。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="no">V</span> <span class="nf">get</span><span class="o">(</span><span class="no">K</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">key</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">NullPointerException</span><span class="o">(</span><span class="s">"key == null"</span><span class="o">);</span> <span class="c1">// 禁止使用空键取值</span>
+    <span class="o">}</span>
+
+    <span class="no">V</span> <span class="n">mapValue</span><span class="o">;</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 从LinkedHashMap中通过Key获取值</span>
+        <span class="n">mapValue</span> <span class="o">=</span> <span class="n">map</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">key</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mapValue</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">hitCount</span><span class="o">++;</span>      <span class="c1">// 命中对应值</span>
+            <span class="k">return</span> <span class="n">mapValue</span><span class="o">;</span> <span class="c1">// 返回命中值</span>
+        <span class="o">}</span>
+        <span class="n">missCount</span><span class="o">++;</span> <span class="c1">// 命中失败</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 命中失败后尝试构建Value</span>
+    <span class="c1">// 构建过程可能比较长，且当create()返回值时，原队列顺序可能已发生改变</span>
+    <span class="c1">// 若发现存在Key相同的item在队列中，该item会保留并抛弃create()的对象</span>
+    <span class="no">V</span> <span class="n">createdValue</span> <span class="o">=</span> <span class="n">create</span><span class="o">(</span><span class="n">key</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">createdValue</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">createCount</span><span class="o">++;</span>
+        <span class="c1">// 先用createdValue插入，并获得原位置旧值mapValue</span>
+        <span class="n">mapValue</span> <span class="o">=</span> <span class="n">map</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">createdValue</span><span class="o">);</span>
+
+        <span class="c1">// 如果mapValue不为空，证明原位置有值</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mapValue</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 把mapValue又替换回去，刚刚添加进去的createdValue又被换出来</span>
+            <span class="c1">// 相当于LruCache没有进行任何修改</span>
+            <span class="n">map</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">mapValue</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// 没有冲突，新值成功插入，把新对象的大小加到总大小上</span>
+            <span class="n">size</span> <span class="o">+=</span> <span class="n">safeSizeOf</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">createdValue</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">mapValue</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 两个实例出现冲突后把多余实例回收，这里是createdValue</span>
+        <span class="n">entryRemoved</span><span class="o">(</span><span class="kc">false</span><span class="o">,</span> <span class="n">key</span><span class="o">,</span> <span class="n">createdValue</span><span class="o">,</span> <span class="n">mapValue</span><span class="o">);</span>
+        <span class="k">return</span> <span class="n">mapValue</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 新值插入成功，且没有旧值被替换出来</span>
+        <span class="c1">// trimToSize()检查是否需要调整空间</span>
+        <span class="n">trimToSize</span><span class="o">(</span><span class="n">maxSize</span><span class="o">);</span>
+        <span class="k">return</span> <span class="n">createdValue</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>添加键值逻辑比较简单：已存在值会被新值替换且移到队列末位，旧值作为方法返回值。如果缓存没有满，则新值直接存入。</p>
+
+<p><img src="/img/android/lrucache/LruCache_put.png" alt="LruCache_put" /></p>
+
+<p>如果缓存已满，则先移除最旧一项数据再添加新值：</p>
+
+<p><img src="/img/android/lrucache/LruCache_put_previous.png" alt="LruCache_put_previous" /></p>
+
+<p>存入键值对：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="no">V</span> <span class="nf">put</span><span class="o">(</span><span class="no">K</span> <span class="n">key</span><span class="o">,</span> <span class="no">V</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">key</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">||</span> <span class="n">value</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">NullPointerException</span><span class="o">(</span><span class="s">"key == null || value == null"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="no">V</span> <span class="n">previous</span><span class="o">;</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">putCount</span><span class="o">++;</span>
+        <span class="c1">// 添加新元素，把新元素的大小增加到size</span>
+        <span class="n">size</span> <span class="o">+=</span> <span class="n">safeSizeOf</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+        <span class="c1">// 被替换出来的元素</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="n">map</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+        <span class="c1">// 减去上一个元素空间占用</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">previous</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">size</span> <span class="o">-=</span> <span class="n">safeSizeOf</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">previous</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">previous</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 执行移除操作</span>
+        <span class="n">entryRemoved</span><span class="o">(</span><span class="kc">false</span><span class="o">,</span> <span class="n">key</span><span class="o">,</span> <span class="n">previous</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 调整大小</span>
+    <span class="n">trimToSize</span><span class="o">(</span><span class="n">maxSize</span><span class="o">);</span>
+    <span class="k">return</span> <span class="n">previous</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="43-调整容量">4.3 调整容量</h3>
+
+<p>已保存元素数量大于新队列容量值，调整过程中选择近期最少使用的item出列。</p>
+
+<p>下图把原长度从10裁剪为5，元素A到E被移除：</p>
+
+<p><img src="/img/android/lrucache/LruCache_trimToSize.png" alt="LruCache_resize" /></p>
+
+<p>若<code class="highlighter-rouge">maxSize</code>值为<code class="highlighter-rouge">-1</code>，所有元素依次移除直至队列为空。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">trimToSize</span><span class="o">(</span><span class="kt">int</span> <span class="n">maxSize</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">while</span> <span class="o">(</span><span class="kc">true</span><span class="o">)</span> <span class="o">{</span>
+        <span class="no">K</span> <span class="n">key</span><span class="o">;</span>
+        <span class="no">V</span> <span class="n">value</span><span class="o">;</span>
+        <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 出现map的已保存元素数量和size值不对应，抛出异常</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">size</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="o">(</span><span class="n">map</span><span class="o">.</span><span class="na">isEmpty</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="n">size</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">))</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span><span class="n">getClass</span><span class="o">().</span><span class="na">getName</span><span class="o">()</span>
+                        <span class="o">+</span> <span class="s">".sizeOf() is reporting inconsistent results!"</span><span class="o">);</span>
+            <span class="o">}</span>
+            
+            <span class="c1">// 已保存size没有超过最大值，不需要移除旧元素</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">size</span> <span class="o">&lt;=</span> <span class="n">maxSize</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">break</span><span class="o">;</span>
+            <span class="o">}</span>
+
+            <span class="c1">// 获取最近最少使用元素，其实就是LinkedHashMap的头节点</span>
+            <span class="c1">// public Map.Entry&lt;K, V&gt; eldest() {return head;}</span>
+            <span class="nc">Map</span><span class="o">.</span><span class="na">Entry</span><span class="o">&lt;</span><span class="no">K</span><span class="o">,</span> <span class="no">V</span><span class="o">&gt;</span> <span class="n">toEvict</span> <span class="o">=</span> <span class="n">map</span><span class="o">.</span><span class="na">eldest</span><span class="o">();</span>
+
+            <span class="c1">// LinkedHashMap已空，退出清理</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">toEvict</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">break</span><span class="o">;</span>
+            <span class="o">}</span>
+
+            <span class="n">key</span> <span class="o">=</span> <span class="n">toEvict</span><span class="o">.</span><span class="na">getKey</span><span class="o">();</span>
+            <span class="n">value</span> <span class="o">=</span> <span class="n">toEvict</span><span class="o">.</span><span class="na">getValue</span><span class="o">();</span>
+            <span class="c1">// 把该元素从LinkedHashMap中移除</span>
+            <span class="n">map</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">key</span><span class="o">);</span>
+            <span class="c1">// 调整总大小</span>
+            <span class="n">size</span> <span class="o">-=</span> <span class="n">safeSizeOf</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+            <span class="n">evictionCount</span><span class="o">++;</span>
+        <span class="o">}</span>
+
+        <span class="n">entryRemoved</span><span class="o">(</span><span class="kc">true</span><span class="o">,</span> <span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="44-移除键值">4.4 移除键值</h3>
+
+<p>通过指定键移除元素</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="no">V</span> <span class="nf">remove</span><span class="o">(</span><span class="no">K</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 键不能为空</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">key</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">NullPointerException</span><span class="o">(</span><span class="s">"key == null"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="no">V</span> <span class="n">previous</span><span class="o">;</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="k">this</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 根据key在LinkedHashMap中查找元素</span>
+        <span class="n">previous</span> <span class="o">=</span> <span class="n">map</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">key</span><span class="o">);</span>
+        <span class="c1">// 元素成功移除，减去元素大小</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">previous</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">size</span> <span class="o">-=</span> <span class="n">safeSizeOf</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">previous</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">previous</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">entryRemoved</span><span class="o">(</span><span class="kc">false</span><span class="o">,</span> <span class="n">key</span><span class="o">,</span> <span class="n">previous</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="k">return</span> <span class="n">previous</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="45-值创建和释放">4.5 值创建和释放</h3>
+
+<h4 id="451-entryremoved">4.5.1 entryRemoved()</h4>
+
+<p>有些类型的实例拥有独特回收逻辑，当实例被移出队列时，应该通过(需重写)此方法完成销毁操作。否则这个被移除的对象仅按照虚拟机垃圾回收策略进行回收。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">protected</span> <span class="kt">void</span> <span class="nf">entryRemoved</span><span class="o">(</span><span class="kt">boolean</span> <span class="n">evicted</span><span class="o">,</span> <span class="no">K</span> <span class="n">key</span><span class="o">,</span> <span class="no">V</span> <span class="n">oldValue</span><span class="o">,</span> <span class="no">V</span> <span class="n">newValue</span><span class="o">)</span> <span class="o">{}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>要确定item是否有特殊释放需要，忽略释放操作可能会造成内存泄漏问题。</p>
+
+<h4 id="452-create">4.5.2 create()</h4>
+
+<p>在子类选择性重写此方法，目的是键值命中失败时把新建的item加入队列，默认返回null。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">protected</span> <span class="no">V</span> <span class="nf">create</span><span class="o">(</span><span class="no">K</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="46-值大小">4.6 值大小</h3>
+
+<p>私有方法，对<code class="highlighter-rouge">sizeOf()</code>方法返回结果安全检查。假设item中存放的是Bitmap对象，需重写sizeof方法获取该对象占用内存大小。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">int</span> <span class="nf">safeSizeOf</span><span class="o">(</span><span class="no">K</span> <span class="n">key</span><span class="o">,</span> <span class="no">V</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kt">int</span> <span class="n">result</span> <span class="o">=</span> <span class="n">sizeOf</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">result</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span><span class="s">"Negative size: "</span> <span class="o">+</span> <span class="n">key</span> <span class="o">+</span> <span class="s">"="</span> <span class="o">+</span> <span class="n">value</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">result</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>拿图片缓存为例：虽然可以控制图片在队列中缓存的数量，但却无法控制图片在内存中的占用。可能出现队列保存若干张图，每张图片占用多达16M内存，以至为数不多图片占用大量内存。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">protected</span> <span class="kt">int</span> <span class="nf">sizeOf</span><span class="o">(</span><span class="no">K</span> <span class="n">key</span><span class="o">,</span> <span class="no">V</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="mi">1</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>为此，折中的解决方案是计算图片内存占用，即使item依然保存在队列中，当内存占用超过阈值，也要强制释放队列LRU资源。当被释放图片后再次使用，应通过create(K key)重新加载。</p>
+
+<p>默认值为1，表示元素占用一个单位。条目的size计算方法在运行时不能改变，否则会导致数量控制失效。</p>
+:ET

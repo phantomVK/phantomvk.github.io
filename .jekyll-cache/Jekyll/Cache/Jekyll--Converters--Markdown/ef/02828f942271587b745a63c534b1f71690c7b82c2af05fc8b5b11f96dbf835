@@ -1,0 +1,32 @@
+I"�<h1 id="并发失效">并发失效</h1>
+
+<p>新生代发生垃圾回收时，达到晋升年龄的对象会被移动到老年代。如果老年代没有足够空间容纳晋升对象，CMS为了获得老年代空间，就会从本来的<code class="highlighter-rouge">MinorGC</code>退化成<code class="highlighter-rouge">FullGC</code>开始垃圾回收。</p>
+
+<p><code class="highlighter-rouge">MinorGC</code>只回收新生代，而<code class="highlighter-rouge">FullGC</code>不仅回收老年代，新生代、永久区(PermGen)或元空间(MetaSpace)清理也随之执行。本来只是简单的新生代回收工作扩大到老年代甚至永久代。除此之外，老年代空间通常比新生代的<code class="highlighter-rouge">Eden</code>和<code class="highlighter-rouge">Survivor</code>区大得多，检查和清理无效对象的时间更多。</p>
+
+<p><code class="highlighter-rouge">FullGC</code>回收的同时，所有进程必须<code class="highlighter-rouge">Stop The World</code>，并用单线程开始垃圾回收。导致可以并发的MinorGC变得缓慢无比。</p>
+
+<h1 id="晋升失败">晋升失败</h1>
+
+<p>同样是老年代导致的问题。CMS开启新生代垃圾收集时，判断老年代似乎有足够空间容纳所有晋升对象。然而晋升过程发现老年代空间碎片化，无法容纳完整的晋升对象。</p>
+
+<p>所以只能触发内存整理，停止所有运行线程，CMS开始对老年代进行整理和压缩。空间压缩要通过移动对象，把对象排列到新位置上，所以晋升失败比不需要移动对象的并发失效更浪费时间。完成清理的堆空间变得规整，并出现空余。</p>
+
+<h1 id="调优">调优</h1>
+
+<p>并发失效调优手段：</p>
+
+<ul>
+  <li>令老生代垃圾回收提早，提高回收频率；</li>
+  <li>增大老年代空间，容纳更多对象；</li>
+  <li>增大新生代空间，增加对象滞留时间，令新对象被回收而不是晋升；</li>
+  <li>增加更多后台回收线程；</li>
+</ul>
+
+<p>晋升失败调优：</p>
+
+<ul>
+  <li>每次<code class="highlighter-rouge">Full GC</code>触发整理，或多次<code class="highlighter-rouge">Full GC</code>后触发一次</li>
+</ul>
+
+:ET

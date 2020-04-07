@@ -1,0 +1,1065 @@
+I"�<p>本文章根据 <strong>Android 27.1.1</strong> 的 <strong>AppCompatActivity</strong> 研读，比 <strong>Activity</strong> 实现源码更复杂。</p>
+
+<h2 id="一activity">一、Activity</h2>
+
+<p><strong>mWindow</strong> 是 <strong>Activity</strong> 的数据成员，类型是 <strong>Window</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Activity</span> <span class="kd">extends</span> <span class="nc">ContextThemeWrappers</span>
+        <span class="kd">implements</span> <span class="nc">LayoutInflater</span><span class="o">.</span><span class="na">Factory2</span><span class="o">,</span>
+        <span class="nc">Window</span><span class="o">.</span><span class="na">Callback</span><span class="o">,</span> <span class="nc">KeyEvent</span><span class="o">.</span><span class="na">Callback</span><span class="o">,</span>
+        <span class="nc">OnCreateContextMenuListener</span><span class="o">,</span> <span class="nc">ComponentCallbacks2</span><span class="o">,</span>
+        <span class="nc">Window</span><span class="o">.</span><span class="na">OnWindowDismissedCallback</span><span class="o">,</span> <span class="nc">WindowControllerCallback</span><span class="o">,</span>
+        <span class="nc">AutofillManager</span><span class="o">.</span><span class="na">AutofillClient</span> <span class="o">{</span>
+        
+    <span class="kd">private</span> <span class="nc">Window</span> <span class="n">mWindow</span><span class="o">;</span>
+
+    <span class="o">.....</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>PhoneWindow</strong> 是 <strong>Window</strong> 的具体实现。<strong>mDecor</strong> 为 <strong>DecorView</strong> 类型的成员 ，是界面的根布局。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">PhoneWindow</span> <span class="kd">extends</span> <span class="nc">Window</span> <span class="kd">implements</span> <span class="nc">MenuBuilder</span><span class="o">.</span><span class="na">Callback</span><span class="o">{</span>
+    <span class="o">.....</span>
+
+    <span class="c1">// This is the top-level view of the window, containing the window decor.</span>
+    <span class="kd">private</span> <span class="nc">DecorView</span> <span class="n">mDecor</span><span class="o">;</span>
+
+    <span class="o">.....</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="二appcompatactivity">二、AppCompatActivity</h2>
+
+<p><strong>AppCompatActivity</strong> 继承关系：</p>
+
+<p><img src="/img/android/Activity/AppCompatActivity.png" alt="AppCompatActivity" /></p>
+
+<p><strong>AppCompatActivity</strong> 重写 <strong>Activity.setContentView()</strong> 方法，把相关工作交给代理类完成。本文分析流程将沿着代理类的实现进行解释。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">setContentView</span><span class="o">(</span><span class="nd">@LayoutRes</span> <span class="kt">int</span> <span class="n">layoutResID</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">getDelegate</span><span class="o">().</span><span class="na">setContentView</span><span class="o">(</span><span class="n">layoutResID</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>通过单例模式获取代理类 <strong>AppCompatDelegate</strong> 实例。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="nd">@NonNull</span>
+<span class="kd">public</span> <span class="nc">AppCompatDelegate</span> <span class="nf">getDelegate</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mDelegate</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">mDelegate</span> <span class="o">=</span> <span class="nc">AppCompatDelegate</span><span class="o">.</span><span class="na">create</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="k">this</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">mDelegate</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三appcompatdelegate">三、AppCompatDelegate</h2>
+
+<p>代理实现类没有看见 <strong>AppCompatDelegateImplV9</strong> 的分支</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="nc">AppCompatDelegate</span> <span class="nf">create</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">,</span> <span class="nc">Window</span> <span class="n">window</span><span class="o">,</span>
+        <span class="nc">AppCompatCallback</span> <span class="n">callback</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="nc">Build</span><span class="o">.</span><span class="na">VERSION</span><span class="o">.</span><span class="na">SDK_INT</span> <span class="o">&gt;=</span> <span class="mi">24</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">AppCompatDelegateImplN</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">window</span><span class="o">,</span> <span class="n">callback</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="nc">Build</span><span class="o">.</span><span class="na">VERSION</span><span class="o">.</span><span class="na">SDK_INT</span> <span class="o">&gt;=</span> <span class="mi">23</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">AppCompatDelegateImplV23</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">window</span><span class="o">,</span> <span class="n">callback</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">AppCompatDelegateImplV14</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">window</span><span class="o">,</span> <span class="n">callback</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>AppCompatDelegateImplV14</strong> 继承自 <strong>AppCompatDelegateImplV9</strong>，可知v23以下工作都交给v14处理。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@RequiresApi</span><span class="o">(</span><span class="mi">14</span><span class="o">)</span>
+<span class="kd">class</span> <span class="nc">AppCompatDelegateImplV14</span> <span class="kd">extends</span> <span class="nc">AppCompatDelegateImplV9</span> <span class="o">{</span>
+    <span class="o">....</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>代理实现的 <strong>setContentView()</strong> 位于 <strong>AppCompatDelegateImplV9</strong>，其他子类没有重写这个方法。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">setContentView</span><span class="o">(</span><span class="kt">int</span> <span class="n">resId</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 先初始化SubDecor</span>
+    <span class="n">ensureSubDecor</span><span class="o">();</span>
+    <span class="c1">// mSubDecor里获取名为android.R.id.content的ViewGroup</span>
+    <span class="nc">ViewGroup</span> <span class="n">contentParent</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ViewGroup</span><span class="o">)</span> <span class="n">mSubDecor</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="n">android</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">content</span><span class="o">);</span>
+    <span class="c1">// 移除contentParent里所有视图</span>
+    <span class="n">contentParent</span><span class="o">.</span><span class="na">removeAllViews</span><span class="o">();</span>
+    <span class="c1">// 传入的resId在这里填充并添加到contentParent</span>
+    <span class="nc">LayoutInflater</span><span class="o">.</span><span class="na">from</span><span class="o">(</span><span class="n">mContext</span><span class="o">).</span><span class="na">inflate</span><span class="o">(</span><span class="n">resId</span><span class="o">,</span> <span class="n">contentParent</span><span class="o">);</span>
+    <span class="c1">// 通知Window</span>
+    <span class="n">mOriginalWindowCallback</span><span class="o">.</span><span class="na">onContentChanged</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="31-ensuresubdecor">3.1 ensureSubDecor()</h4>
+
+<p>标记 <strong>Window</strong> 的 <strong>subDecor</strong> 布局是否已经装载标志位，变量位于 <strong>AppCompatDelegateImplV9</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">boolean</span> <span class="n">mSubDecorInstalled</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>setContentView()</strong> 调用 <strong>ensureSubDecor()</strong> 流程中，最重要的方法是 <strong>createSubDecor()</strong> 。</p>
+
+<p>如果多次调用 <strong>setContentView(int resId)</strong> 方法，则后续 <strong>mSubDecorInstalled</strong> 标志位为 <strong>true</strong> 而不重复初始化 <strong>SubDecor</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">ensureSubDecor</span><span class="o">()</span> <span class="o">{</span>
+    <span class="c1">// 先检查标志位，避免SubDecor重复初始化</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">mSubDecorInstalled</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 构建SubDecor</span>
+        <span class="n">mSubDecor</span> <span class="o">=</span> <span class="n">createSubDecor</span><span class="o">();</span>
+
+        <span class="c1">// 如果在decor之前已经配置标题，则在decor装载完毕后使用这个标题</span>
+        <span class="nc">CharSequence</span> <span class="n">title</span> <span class="o">=</span> <span class="n">getTitle</span><span class="o">();</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="nc">TextUtils</span><span class="o">.</span><span class="na">isEmpty</span><span class="o">(</span><span class="n">title</span><span class="o">))</span> <span class="o">{</span>
+            <span class="n">onTitleChanged</span><span class="o">(</span><span class="n">title</span><span class="o">);</span>
+        <span class="o">}</span>
+
+        <span class="n">applyFixedSizeWindow</span><span class="o">();</span>
+
+        <span class="c1">// 空实现，里面没有逻辑</span>
+        <span class="n">onSubDecorInstalled</span><span class="o">(</span><span class="n">mSubDecor</span><span class="o">);</span>
+
+        <span class="c1">// 标记SubDecor已装载</span>
+        <span class="n">mSubDecorInstalled</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+
+        <span class="c1">// Invalidate if the panel menu hasn't been created before this.</span>
+        <span class="c1">// Panel menu invalidation is deferred avoiding application onCreateOptionsMenu</span>
+        <span class="c1">// being called in the middle of onCreate or similar.</span>
+        <span class="c1">// A pending invalidation will typically be resolved before the posted message</span>
+        <span class="c1">// would run normally in order to satisfy instance state restoration.</span>
+        <span class="nc">PanelFeatureState</span> <span class="n">st</span> <span class="o">=</span> <span class="n">getPanelState</span><span class="o">(</span><span class="no">FEATURE_OPTIONS_PANEL</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">isDestroyed</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="o">(</span><span class="n">st</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">||</span> <span class="n">st</span><span class="o">.</span><span class="na">menu</span> <span class="o">==</span> <span class="kc">null</span><span class="o">))</span> <span class="o">{</span>
+            <span class="n">invalidatePanelMenu</span><span class="o">(</span><span class="no">FEATURE_SUPPORT_ACTION_BAR</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="32-createsubdecor">3.2 createSubDecor()</h4>
+
+<p>上述 <strong>mSubDecorInstalled</strong> 为 false 则创建 <strong>SubDecor</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">ViewGroup</span> <span class="nf">createSubDecor</span><span class="o">()</span> <span class="o">{</span>
+    <span class="nc">TypedArray</span> <span class="n">a</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">.</span><span class="na">obtainStyledAttributes</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">AppCompatTheme</span><span class="o">);</span>
+
+    <span class="k">if</span> <span class="o">(!</span><span class="n">a</span><span class="o">.</span><span class="na">hasValue</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">AppCompatTheme_windowActionBar</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">a</span><span class="o">.</span><span class="na">recycle</span><span class="o">();</span>
+        <span class="c1">// AppCompatActivity需配合Theme.AppCompat使用，否则会抛出以下异常</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span>
+                <span class="s">"You need to use a Theme.AppCompat theme (or descendant) with this activity."</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 从主题获取样式，并通过requestWindowFeature()把对应属性标为true</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">AppCompatTheme_windowNoTitle</span><span class="o">,</span> <span class="kc">false</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">requestWindowFeature</span><span class="o">(</span><span class="nc">Window</span><span class="o">.</span><span class="na">FEATURE_NO_TITLE</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">AppCompatTheme_windowActionBar</span><span class="o">,</span> <span class="kc">false</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">requestWindowFeature</span><span class="o">(</span><span class="no">FEATURE_SUPPORT_ACTION_BAR</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">AppCompatTheme_windowActionBarOverlay</span><span class="o">,</span> <span class="kc">false</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">requestWindowFeature</span><span class="o">(</span><span class="no">FEATURE_SUPPORT_ACTION_BAR_OVERLAY</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">AppCompatTheme_windowActionModeOverlay</span><span class="o">,</span> <span class="kc">false</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">requestWindowFeature</span><span class="o">(</span><span class="no">FEATURE_ACTION_MODE_OVERLAY</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="n">mIsFloating</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">AppCompatTheme_android_windowIsFloating</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+    <span class="n">a</span><span class="o">.</span><span class="na">recycle</span><span class="o">();</span>
+
+    <span class="c1">// 创建DecorView并装载到Window，实现类是PhoneWindow</span>
+    <span class="n">mWindow</span><span class="o">.</span><span class="na">getDecorView</span><span class="o">();</span>
+
+    <span class="kd">final</span> <span class="nc">LayoutInflater</span> <span class="n">inflater</span> <span class="o">=</span> <span class="nc">LayoutInflater</span><span class="o">.</span><span class="na">from</span><span class="o">(</span><span class="n">mContext</span><span class="o">);</span>
+    <span class="nc">ViewGroup</span> <span class="n">subDecor</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+
+    <span class="c1">// 由主题配置决定使用的布局，填充视图赋值给subDecor</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">mWindowNoTitle</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mIsFloating</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 根据样式选择布局并初始化subDecor</span>
+                <span class="n">subDecor</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ViewGroup</span><span class="o">)</span> <span class="n">inflater</span><span class="o">.</span><span class="na">inflate</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">abc_dialog_title_material</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+
+                <span class="c1">// 悬浮windows没有action bar，重置该标志位</span>
+                <span class="n">mHasActionBar</span> <span class="o">=</span> <span class="n">mOverlayActionBar</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">mHasActionBar</span><span class="o">)</span> <span class="o">{</span>
+            <span class="o">.....</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="o">.....</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 上面配置设置完毕后subDecor不能为空</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">subDecor</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">(</span>
+                <span class="s">"AppCompat does not support the current theme features: { "</span>
+                        <span class="o">+</span> <span class="s">"windowActionBar: "</span> <span class="o">+</span> <span class="n">mHasActionBar</span>
+                        <span class="o">+</span> <span class="s">", windowActionBarOverlay: "</span><span class="o">+</span> <span class="n">mOverlayActionBar</span>
+                        <span class="o">+</span> <span class="s">", android:windowIsFloating: "</span> <span class="o">+</span> <span class="n">mIsFloating</span>
+                        <span class="o">+</span> <span class="s">", windowActionModeOverlay: "</span> <span class="o">+</span> <span class="n">mOverlayActionMode</span>
+                        <span class="o">+</span> <span class="s">", windowNoTitle: "</span> <span class="o">+</span> <span class="n">mWindowNoTitle</span>
+                        <span class="o">+</span> <span class="s">" }"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">mDecorContentParent</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">mTitleView</span> <span class="o">=</span> <span class="o">(</span><span class="nc">TextView</span><span class="o">)</span> <span class="n">subDecor</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">title</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// Make the decor optionally fit system windows, like the window's decor</span>
+    <span class="nc">ViewUtils</span><span class="o">.</span><span class="na">makeOptionalFitsSystemWindows</span><span class="o">(</span><span class="n">subDecor</span><span class="o">);</span>
+
+    <span class="kd">final</span> <span class="nc">ContentFrameLayout</span> <span class="n">contentView</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ContentFrameLayout</span><span class="o">)</span> <span class="n">subDecor</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span>
+            <span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">action_bar_activity_content</span><span class="o">);</span>
+
+    <span class="c1">// 从PhoneWindow中获取content布局对象</span>
+    <span class="kd">final</span> <span class="nc">ViewGroup</span> <span class="n">windowContentView</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ViewGroup</span><span class="o">)</span> <span class="n">mWindow</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="n">android</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">content</span><span class="o">);</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">windowContentView</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 把PhoneWindow的视图放入subDecor的contentView</span>
+        <span class="k">while</span> <span class="o">(</span><span class="n">windowContentView</span><span class="o">.</span><span class="na">getChildCount</span><span class="o">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kd">final</span> <span class="nc">View</span> <span class="n">child</span> <span class="o">=</span> <span class="n">windowContentView</span><span class="o">.</span><span class="na">getChildAt</span><span class="o">(</span><span class="mi">0</span><span class="o">);</span>
+            <span class="n">windowContentView</span><span class="o">.</span><span class="na">removeViewAt</span><span class="o">(</span><span class="mi">0</span><span class="o">);</span>
+            <span class="n">contentView</span><span class="o">.</span><span class="na">addView</span><span class="o">(</span><span class="n">child</span><span class="o">);</span>
+        <span class="o">}</span>
+
+        <span class="c1">// 把PhoneWindow名为android.R.id.content视图的id去掉</span>
+        <span class="n">windowContentView</span><span class="o">.</span><span class="na">setId</span><span class="o">(</span><span class="nc">View</span><span class="o">.</span><span class="na">NO_ID</span><span class="o">);</span>
+        <span class="c1">// 设置SubDecor.contentView的id为android.R.id.content</span>
+        <span class="c1">// 相当于PhoneWindow把同名id让给subDecor的子视图使用</span>
+        <span class="n">contentView</span><span class="o">.</span><span class="na">setId</span><span class="o">(</span><span class="n">android</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">content</span><span class="o">);</span>
+
+        <span class="c1">// The decorContent may have a foreground drawable set (windowContentOverlay).</span>
+        <span class="c1">// Remove this as we handle it ourselves</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">windowContentView</span> <span class="k">instanceof</span> <span class="nc">FrameLayout</span><span class="o">)</span> <span class="o">{</span>
+            <span class="o">((</span><span class="nc">FrameLayout</span><span class="o">)</span> <span class="n">windowContentView</span><span class="o">).</span><span class="na">setForeground</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 还要把subDecor加到PhoneWindow作为子视图</span>
+    <span class="n">mWindow</span><span class="o">.</span><span class="na">setContentView</span><span class="o">(</span><span class="n">subDecor</span><span class="o">);</span>
+
+    <span class="n">contentView</span><span class="o">.</span><span class="na">setAttachListener</span><span class="o">(</span><span class="k">new</span> <span class="nc">ContentFrameLayout</span><span class="o">.</span><span class="na">OnAttachListener</span><span class="o">()</span> <span class="o">{</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAttachedFromWindow</span><span class="o">()</span> <span class="o">{}</span>
+
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onDetachedFromWindow</span><span class="o">()</span> <span class="o">{</span>
+            <span class="n">dismissPopups</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">});</span>
+
+    <span class="k">return</span> <span class="n">subDecor</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果什么样式都没有配置，<strong>subDecor</strong> 会默认选择 <strong>R.layout.screen_simple</strong> 作为布局。从以下xml布局可见里面id为 <strong>content</strong> 的视图为 <strong>FrameLayout</strong>，里面保存着我们填充的 <strong>Activity</strong> 布局。这个也是赋值给 <strong>mContentParent</strong> 的视图。</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+</pre></td><td class="rouge-code"><pre><span class="nt">&lt;LinearLayout</span> <span class="na">xmlns:android=</span><span class="s">"http://schemas.android.com/apk/res/android"</span>
+    <span class="na">android:layout_width=</span><span class="s">"match_parent"</span>
+    <span class="na">android:layout_height=</span><span class="s">"match_parent"</span>
+    <span class="na">android:fitsSystemWindows=</span><span class="s">"true"</span>
+    <span class="na">android:orientation=</span><span class="s">"vertical"</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;ViewStub</span> <span class="na">android:id=</span><span class="s">"@+id/action_mode_bar_stub"</span>
+              <span class="na">android:inflatedId=</span><span class="s">"@+id/action_mode_bar"</span>
+              <span class="na">android:layout=</span><span class="s">"@layout/action_mode_bar"</span>
+              <span class="na">android:layout_width=</span><span class="s">"match_parent"</span>
+              <span class="na">android:layout_height=</span><span class="s">"wrap_content"</span>
+              <span class="na">android:theme=</span><span class="s">"?attr/actionBarTheme"</span> <span class="nt">/&gt;</span>
+
+    <span class="nt">&lt;FrameLayout</span>
+         <span class="na">android:id=</span><span class="s">"@android:id/content"</span>
+         <span class="na">android:layout_width=</span><span class="s">"match_parent"</span>
+         <span class="na">android:layout_height=</span><span class="s">"match_parent"</span>
+         <span class="na">android:foregroundInsidePadding=</span><span class="s">"false"</span>
+         <span class="na">android:foregroundGravity=</span><span class="s">"fill_horizontal|top"</span>
+         <span class="na">android:foreground=</span><span class="s">"?android:attr/windowContentOverlay"</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/LinearLayout&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="33-requestwindowfeature">3.3 requestWindowFeature()</h4>
+
+<p>从主题获取样式 <strong>featureId</strong>，由此id决定特性是否开启</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="c1">// true if this activity has an action bar.</span>
+<span class="kt">boolean</span> <span class="n">mHasActionBar</span><span class="o">;</span>
+<span class="c1">// true if this activity's action bar overlays other activity content.</span>
+<span class="kt">boolean</span> <span class="n">mOverlayActionBar</span><span class="o">;</span>
+<span class="c1">// true if this any action modes should overlay the activity content</span>
+<span class="kt">boolean</span> <span class="n">mOverlayActionMode</span><span class="o">;</span>
+<span class="c1">// true if this activity is floating (e.g. Dialog)</span>
+<span class="kt">boolean</span> <span class="n">mIsFloating</span><span class="o">;</span>
+<span class="c1">// true if this activity has no title</span>
+<span class="kt">boolean</span> <span class="n">mWindowNoTitle</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>由 <strong>requestWindowFeature</strong> 修改上述布尔值</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">requestWindowFeature</span><span class="o">(</span><span class="kt">int</span> <span class="n">featureId</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">featureId</span> <span class="o">=</span> <span class="n">sanitizeWindowFeatureId</span><span class="o">(</span><span class="n">featureId</span><span class="o">);</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">mWindowNoTitle</span> <span class="o">&amp;&amp;</span> <span class="n">featureId</span> <span class="o">==</span> <span class="no">FEATURE_SUPPORT_ACTION_BAR</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span> <span class="c1">// Ignore. No title dominates.</span>
+    <span class="o">}</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mHasActionBar</span> <span class="o">&amp;&amp;</span> <span class="n">featureId</span> <span class="o">==</span> <span class="nc">Window</span><span class="o">.</span><span class="na">FEATURE_NO_TITLE</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// Remove the action bar feature if we have no title. No title dominates.</span>
+        <span class="n">mHasActionBar</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="k">switch</span> <span class="o">(</span><span class="n">featureId</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">case</span> <span class="nl">FEATURE_SUPPORT_ACTION_BAR:</span>
+            <span class="n">throwFeatureRequestIfSubDecorInstalled</span><span class="o">();</span>
+            <span class="n">mHasActionBar</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="k">case</span> <span class="nl">FEATURE_SUPPORT_ACTION_BAR_OVERLAY:</span>
+            <span class="n">throwFeatureRequestIfSubDecorInstalled</span><span class="o">();</span>
+            <span class="n">mOverlayActionBar</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="k">case</span> <span class="nl">FEATURE_ACTION_MODE_OVERLAY:</span>
+            <span class="n">throwFeatureRequestIfSubDecorInstalled</span><span class="o">();</span>
+            <span class="n">mOverlayActionMode</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="k">case</span> <span class="nc">Window</span><span class="o">.</span><span class="na">FEATURE_PROGRESS</span><span class="o">:</span>
+            <span class="n">throwFeatureRequestIfSubDecorInstalled</span><span class="o">();</span>
+            <span class="n">mFeatureProgress</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="k">case</span> <span class="nc">Window</span><span class="o">.</span><span class="na">FEATURE_INDETERMINATE_PROGRESS</span><span class="o">:</span>
+            <span class="n">throwFeatureRequestIfSubDecorInstalled</span><span class="o">();</span>
+            <span class="n">mFeatureIndeterminateProgress</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="k">case</span> <span class="nc">Window</span><span class="o">.</span><span class="na">FEATURE_NO_TITLE</span><span class="o">:</span>
+            <span class="n">throwFeatureRequestIfSubDecorInstalled</span><span class="o">();</span>
+            <span class="n">mWindowNoTitle</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="k">return</span> <span class="n">mWindow</span><span class="o">.</span><span class="na">requestFeature</span><span class="o">(</span><span class="n">featureId</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四phonewindow">四、PhoneWindow</h2>
+
+<p><strong>Window</strong> 是 <strong>PhoneWindow</strong> 的父类，定义一些列绘制窗口的抽象方法，作为顶级视图添加到 <strong>window manager</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre><span class="c1">// Abstract base class for a top-level window look and behavior policy.  An</span>
+<span class="c1">// instance of this class should be used as the top-level view added to the</span>
+<span class="c1">// window manager. It provides standard UI policies such as a background, title</span>
+<span class="c1">// area, default key processing, etc.</span>
+<span class="c1">//</span>
+<span class="c1">// &lt;p&gt;The only existing implementation of this abstract class is</span>
+<span class="c1">// android.view.PhoneWindow, which you should instantiate when needing a</span>
+<span class="c1">// Window.</span>
+<span class="kd">public</span> <span class="kd">abstract</span> <span class="kd">class</span> <span class="nc">Window</span> <span class="o">{</span>
+    <span class="o">.....</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="41-getdecorview">4.1 getDecorView()</h4>
+
+<p>检查是否已经创建 <strong>mDecor</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kd">final</span> <span class="nc">View</span> <span class="nf">getDecorView</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mDecor</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">||</span> <span class="n">mForceDecorInstall</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">installDecor</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">mDecor</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="42-installdecor">4.2 installDecor()</h4>
+
+<p>如果 <strong>mDecor</strong> 没有创建，则必须先创建 <strong>DecorView</strong> 并赋值</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">installDecor</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">mForceDecorInstall</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mDecor</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 返回DecorView实例并赋值给mDecor，具体看下文</span>
+        <span class="n">mDecor</span> <span class="o">=</span> <span class="n">generateDecor</span><span class="o">(-</span><span class="mi">1</span><span class="o">);</span>
+        <span class="n">mDecor</span><span class="o">.</span><span class="na">setDescendantFocusability</span><span class="o">(</span><span class="nc">ViewGroup</span><span class="o">.</span><span class="na">FOCUS_AFTER_DESCENDANTS</span><span class="o">);</span>
+        <span class="n">mDecor</span><span class="o">.</span><span class="na">setIsRootNamespace</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">mInvalidatePanelMenuPosted</span> <span class="o">&amp;&amp;</span> <span class="n">mInvalidatePanelMenuFeatures</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">mDecor</span><span class="o">.</span><span class="na">postOnAnimation</span><span class="o">(</span><span class="n">mInvalidatePanelMenuRunnable</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// DecorView保存了PhoneWindow的实例</span>
+        <span class="n">mDecor</span><span class="o">.</span><span class="na">setWindow</span><span class="o">(</span><span class="k">this</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// Decor已经装载完毕，开始初始化mContentParent</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mContentParent</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 返回布局内id名为content的布局并赋值到mContentParent</span>
+        <span class="n">mContentParent</span> <span class="o">=</span> <span class="n">generateLayout</span><span class="o">(</span><span class="n">mDecor</span><span class="o">);</span>
+
+        <span class="o">.....</span>
+        <span class="o">.....</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="43-generatedecorfeatureid">4.3 generateDecor(featureId)</h4>
+
+<p>创建 <strong>DecorView</strong> 实例</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td><td class="rouge-code"><pre><span class="kd">protected</span> <span class="nc">DecorView</span> <span class="nf">generateDecor</span><span class="o">(</span><span class="kt">int</span> <span class="n">featureId</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// System process doesn't have application context and in that case we need to directly use</span>
+    <span class="c1">// the context we have. Otherwise we want the application context, so we don't cling to the</span>
+    <span class="c1">// activity.</span>
+    <span class="nc">Context</span> <span class="n">context</span><span class="o">;</span>
+    <span class="c1">// 处理Context和主题相关逻辑，省略</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mUseDecorContext</span><span class="o">)</span> <span class="o">{</span>
+        <span class="o">.....</span>
+    <span class="o">}</span>
+    <span class="c1">// 创建新DecorView</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="nf">DecorView</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">featureId</span><span class="o">,</span> <span class="k">this</span><span class="o">,</span> <span class="n">getAttributes</span><span class="o">());</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="44-generatelayoutdecorview-decor">4.4 generateLayout(DecorView decor)</h4>
+
+<p><strong>DecorView</strong> 创建完成赋值给 <strong>mDecor</strong>。本方法根据窗口的风格样式，选择窗口对应的资源根布局文件，作为 <strong>mDecor</strong> 的子布局进行添加。</p>
+
+<p>然后从这个布局里面，获取id名为 <strong>content</strong> 的 <strong>FrameLayout</strong> 赋值给 <strong>mContentParent</strong> 变量。对比 <strong>mContentRoot</strong>，<strong>mContentRoot</strong> 其实就是 <strong>mContentParent</strong> 所在的父布局。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+</pre></td><td class="rouge-code"><pre><span class="kd">protected</span> <span class="nc">ViewGroup</span> <span class="nf">generateLayout</span><span class="o">(</span><span class="nc">DecorView</span> <span class="n">decor</span><span class="o">)</span> <span class="kd">protected</span> <span class="nc">ViewGroup</span> <span class="nf">generateLayout</span><span class="o">(</span><span class="nc">DecorView</span> <span class="n">decor</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// Apply data from current theme.</span>
+
+    <span class="nc">TypedArray</span> <span class="n">a</span> <span class="o">=</span> <span class="n">getWindowStyle</span><span class="o">();</span>
+
+    <span class="c1">// 读取xml样式里相关配置信息</span>
+    <span class="n">mIsFloating</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowIsFloating</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+    <span class="kt">int</span> <span class="n">flagsToUpdate</span> <span class="o">=</span> <span class="o">(</span><span class="no">FLAG_LAYOUT_IN_SCREEN</span><span class="o">|</span><span class="no">FLAG_LAYOUT_INSET_DECOR</span><span class="o">)</span>
+            <span class="o">&amp;</span> <span class="o">(~</span><span class="n">getForcedWindowFlags</span><span class="o">());</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mIsFloating</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">setLayout</span><span class="o">(</span><span class="no">WRAP_CONTENT</span><span class="o">,</span> <span class="no">WRAP_CONTENT</span><span class="o">);</span>
+        <span class="n">setFlags</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="n">flagsToUpdate</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="n">setFlags</span><span class="o">(</span><span class="no">FLAG_LAYOUT_IN_SCREEN</span><span class="o">|</span><span class="no">FLAG_LAYOUT_INSET_DECOR</span><span class="o">,</span> <span class="n">flagsToUpdate</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowNoTitle</span><span class="o">,</span> <span class="kc">false</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">requestFeature</span><span class="o">(</span><span class="no">FEATURE_NO_TITLE</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowActionBar</span><span class="o">,</span> <span class="kc">false</span><span class="o">))</span> <span class="o">{</span>
+        <span class="c1">// Don't allow an action bar if there is no title.</span>
+        <span class="n">requestFeature</span><span class="o">(</span><span class="no">FEATURE_ACTION_BAR</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 这里省略类似上面这种配置处理的代码</span>
+    <span class="o">.....</span>
+    <span class="o">.....</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">params</span><span class="o">.</span><span class="na">windowAnimations</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">params</span><span class="o">.</span><span class="na">windowAnimations</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">getResourceId</span><span class="o">(</span>
+                <span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowAnimationStyle</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// The rest are only done if this window is not embedded; otherwise,</span>
+    <span class="c1">// the values are inherited from our container.</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">getContainer</span><span class="o">()</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mBackgroundDrawable</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mBackgroundResource</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">mBackgroundResource</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">getResourceId</span><span class="o">(</span>
+                        <span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowBackground</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mFrameResource</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">mFrameResource</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">getResourceId</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowFrame</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="n">mBackgroundFallbackResource</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">getResourceId</span><span class="o">(</span>
+                    <span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowBackgroundFallback</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mLoadElevation</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">mElevation</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">getDimension</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowElevation</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="n">mClipToOutline</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowClipToOutline</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+        <span class="n">mTextColor</span> <span class="o">=</span> <span class="n">a</span><span class="o">.</span><span class="na">getColor</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_textColor</span><span class="o">,</span> <span class="nc">Color</span><span class="o">.</span><span class="na">TRANSPARENT</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 通过设置的features决定layoutResource的id</span>
+    <span class="kt">int</span> <span class="n">layoutResource</span><span class="o">;</span>
+    <span class="c1">// 除了xml样式，通过代码也能完成相关配置，这里读取代码实现的配置</span>
+    <span class="kt">int</span> <span class="n">features</span> <span class="o">=</span> <span class="n">getLocalFeatures</span><span class="o">();</span>
+
+    <span class="c1">// 特性读取完成后，根据设置选择对应layoutResource</span>
+    <span class="k">if</span> <span class="o">((</span><span class="n">features</span> <span class="o">&amp;</span> <span class="o">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="no">FEATURE_SWIPE_TO_DISMISS</span><span class="o">))</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">layoutResource</span> <span class="o">=</span> <span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">screen_swipe_dismiss</span><span class="o">;</span>
+        <span class="n">setCloseOnSwipeEnabled</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">((</span><span class="n">features</span> <span class="o">&amp;</span> <span class="o">((</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="no">FEATURE_LEFT_ICON</span><span class="o">)</span> <span class="o">|</span> <span class="o">(</span><span class="mi">1</span> <span class="o">&lt;&lt;</span> <span class="no">FEATURE_RIGHT_ICON</span><span class="o">)))</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="o">.....</span> <span class="c1">// 省略类似的条件判断选择</span>
+        <span class="o">.....</span>
+    <span class="o">}</span>
+
+    <span class="n">mDecor</span><span class="o">.</span><span class="na">startChanging</span><span class="o">();</span>
+    <span class="c1">// 用layoutResource构建布局并加入到mDecor</span>
+    <span class="n">mDecor</span><span class="o">.</span><span class="na">onResourcesLoaded</span><span class="o">(</span><span class="n">mLayoutInflater</span><span class="o">,</span> <span class="n">layoutResource</span><span class="o">);</span>
+
+    <span class="c1">// 从mDecor内查找id为content的子视图</span>
+    <span class="nc">ViewGroup</span> <span class="n">contentParent</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ViewGroup</span><span class="o">)</span><span class="n">findViewById</span><span class="o">(</span><span class="no">ID_ANDROID_CONTENT</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">contentParent</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span><span class="s">"Window couldn't find content container view"</span><span class="o">);</span>
+    <span class="o">}</span>
+    
+    <span class="o">.....</span>
+    <span class="o">.....</span>
+
+    <span class="n">mDecor</span><span class="o">.</span><span class="na">finishChanging</span><span class="o">();</span>
+
+    <span class="c1">// 返回contentParent</span>
+    <span class="k">return</span> <span class="n">contentParent</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>installDecor()</strong> 中调用 <strong>generateDecor()</strong> 和 <strong>generateLayout</strong>，完成构建 <strong>DecorView</strong> 实例，并把其子视图内名为 <strong>content</strong> 的视图绑定到变量 <strong>mContentParent</strong> 。</p>
+
+<h4 id="45-onresourcesloaded">4.5 onResourcesLoaded</h4>
+
+<p>这个方法负责把 <strong>layoutResource</strong> 构建为视图，加入到 <strong>DecorView</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+</pre></td><td class="rouge-code"><pre><span class="kt">void</span> <span class="nf">onResourcesLoaded</span><span class="o">(</span><span class="nc">LayoutInflater</span> <span class="n">inflater</span><span class="o">,</span> <span class="kt">int</span> <span class="n">layoutResource</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mBackdropFrameRenderer</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">loadBackgroundDrawablesIfNeeded</span><span class="o">();</span>
+        <span class="n">mBackdropFrameRenderer</span><span class="o">.</span><span class="na">onResourcesLoaded</span><span class="o">(</span>
+                <span class="k">this</span><span class="o">,</span> <span class="n">mResizingBackgroundDrawable</span><span class="o">,</span> <span class="n">mCaptionBackgroundDrawable</span><span class="o">,</span>
+                <span class="n">mUserCaptionBackgroundDrawable</span><span class="o">,</span> <span class="n">getCurrentColor</span><span class="o">(</span><span class="n">mStatusColorViewState</span><span class="o">),</span>
+                <span class="n">getCurrentColor</span><span class="o">(</span><span class="n">mNavigationColorViewState</span><span class="o">));</span>
+    <span class="o">}</span>
+
+    <span class="n">mDecorCaptionView</span> <span class="o">=</span> <span class="n">createDecorCaptionView</span><span class="o">(</span><span class="n">inflater</span><span class="o">);</span>
+    <span class="c1">// 样式决定layoutResource，填充对应视图</span>
+    <span class="kd">final</span> <span class="nc">View</span> <span class="n">root</span> <span class="o">=</span> <span class="n">inflater</span><span class="o">.</span><span class="na">inflate</span><span class="o">(</span><span class="n">layoutResource</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mDecorCaptionView</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mDecorCaptionView</span><span class="o">.</span><span class="na">getParent</span><span class="o">()</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// mDecorCaptionView加入到DecorView</span>
+            <span class="n">addView</span><span class="o">(</span><span class="n">mDecorCaptionView</span><span class="o">,</span>
+                    <span class="k">new</span> <span class="nc">ViewGroup</span><span class="o">.</span><span class="na">LayoutParams</span><span class="o">(</span><span class="no">MATCH_PARENT</span><span class="o">,</span> <span class="no">MATCH_PARENT</span><span class="o">));</span>
+        <span class="o">}</span>
+        <span class="c1">// root加到mDecorCaptionView，所以root是DecorView的子视图，布局参数为MATCH_PARENT</span>
+        <span class="n">mDecorCaptionView</span><span class="o">.</span><span class="na">addView</span><span class="o">(</span><span class="n">root</span><span class="o">,</span>
+                <span class="k">new</span> <span class="nc">ViewGroup</span><span class="o">.</span><span class="na">MarginLayoutParams</span><span class="o">(</span><span class="no">MATCH_PARENT</span><span class="o">,</span> <span class="no">MATCH_PARENT</span><span class="o">));</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 填充layoutResource获得的视图添加到DecorView</span>
+        <span class="c1">// Put it below the color views.</span>
+        <span class="n">addView</span><span class="o">(</span><span class="n">root</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="k">new</span> <span class="nc">ViewGroup</span><span class="o">.</span><span class="na">LayoutParams</span><span class="o">(</span><span class="no">MATCH_PARENT</span><span class="o">,</span> <span class="no">MATCH_PARENT</span><span class="o">));</span>
+    <span class="o">}</span>
+    <span class="c1">// 赋值给mContentRoot</span>
+    <span class="n">mContentRoot</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ViewGroup</span><span class="o">)</span> <span class="n">root</span><span class="o">;</span>
+    <span class="n">initializeElevation</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>前文提到，Activity主题样式决定 <strong>layoutResource</strong> 所指布局，一般通过 <strong>xml</strong> 指定样式：</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>requestWindowFeature()</strong> 配置相关参数，由 <strong>getLocalFeature()</strong> 负责处理</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">requestWindowFeature</span><span class="o">(</span><span class="nc">Window</span><span class="o">.</span><span class="na">FEATURE_NO_TITLE</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="五填充布局">五、填充布局</h2>
+
+<p>经过上面 <strong>DecorView</strong> 创建和初始化的论述，现在回到原来关注的调用点上。随后填充视图并加入到 <strong>contentParent</strong>，这个视图就是日常使用的 <strong>setContentView(int resId)</strong> 的 <strong>resId</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">setContentView</span><span class="o">(</span><span class="kt">int</span> <span class="n">resId</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">ensureSubDecor</span><span class="o">();</span>
+    <span class="c1">// mSubDecor里获取名为android.R.id.content的ViewGroup</span>
+    <span class="nc">ViewGroup</span> <span class="n">contentParent</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ViewGroup</span><span class="o">)</span> <span class="n">mSubDecor</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="n">android</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">content</span><span class="o">);</span>
+    <span class="c1">// 移除contentParent里所有已有的视图</span>
+    <span class="n">contentParent</span><span class="o">.</span><span class="na">removeAllViews</span><span class="o">();</span>
+    <span class="c1">// 传入的Activity resId在这里填充并加入到contentParent</span>
+    <span class="nc">LayoutInflater</span><span class="o">.</span><span class="na">from</span><span class="o">(</span><span class="n">mContext</span><span class="o">).</span><span class="na">inflate</span><span class="o">(</span><span class="n">resId</span><span class="o">,</span> <span class="n">contentParent</span><span class="o">);</span>
+    <span class="n">mOriginalWindowCallback</span><span class="o">.</span><span class="na">onContentChanged</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>工作完成，回调 <strong>onContentChanged()</strong> 发出通知，而 <strong>Activity</strong> 基类实现为空逻辑。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">onContentChanged</span><span class="o">()</span> <span class="o">{</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="六总结">六、总结</h2>
+
+<p>假设 <strong>ContentRoot</strong> 布局为 <strong>R.layout.screen_simple</strong>，<strong>SubDecorView</strong> 布局为 <strong>R.layout.abc_screen_simple</strong>，均为最简单的默认布局，则填充完成的效果如下：</p>
+
+<p><img src="/img/android/Activity/Window.png" alt="Window" /></p>
+
+<p><strong>setContentView(int resId)</strong> 工作流程：</p>
+
+<ul>
+  <li><strong>Activity</strong> 的 <strong>mWindow</strong> 已提前初始化为 <strong>PhoneWindow</strong> 类型实例；</li>
+  <li><strong>Activity</strong> 把 <strong>PhoneWindow</strong> 的配置工作交给代理进行；</li>
+  <li>代理给 <strong>PhoneWindow</strong> 的 <strong>mDecor</strong> 创建 <strong>DecorView</strong> 实例；</li>
+  <li>并根据 <strong>Activity</strong> 主题样式选择 <strong>layoutResource</strong>，填充后赋值给 <strong>mContentRoot</strong>；</li>
+  <li>把 <strong>mContentRoot</strong> 加到 <strong>PhoneWindow</strong> 的 <strong>mDecor</strong> 作为子视图；</li>
+  <li>创建 <strong>contentParent</strong> 加到 <strong>mContentRoot</strong> 作为字数图；</li>
+  <li>在 <strong>mDecor</strong> 找一个 <strong>id</strong> 为 <strong>android.R.id.content</strong> 的视图赋值给  <strong>contentParent</strong>；</li>
+  <li>最后，根据开发者定义的布局 <strong>resId</strong>，实例化后加到 <strong>contentParent</strong> 内.</li>
+</ul>
+
+<h2 id="七参考链接">七、参考链接</h2>
+
+<ul>
+  <li>
+    <p><a href="https://blog.csdn.net/yanbober/article/details/45970721">Android应用setContentView与LayoutInflater加载解析机制源码分析</a></p>
+  </li>
+  <li>
+    <p><a href="https://juejin.im/entry/5a123c31f265da430d579cda">Android Window 机制探索</a></p>
+  </li>
+</ul>
+
+:ET

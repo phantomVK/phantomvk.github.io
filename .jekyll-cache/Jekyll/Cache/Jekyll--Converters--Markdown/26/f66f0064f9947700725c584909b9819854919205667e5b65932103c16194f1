@@ -1,0 +1,12 @@
+I"<p>操作步骤：</p>
+
+<p>1、右键开始菜单，选择 <strong>“运行”</strong> ，输入命令 <strong>“gpedit.msc”</strong> 并确定；</p>
+
+<p>2、弹出本地组策略编辑器，按照下图路径展开：</p>
+
+<p><img src="/img/Windows/Windows_update_dir.PNG" alt="Windows_update_dir" /></p>
+
+<p>3、进入 <strong>“Windows更新不包括驱动程序”</strong> 选项。双击打开，修改为已启动并确定即可。</p>
+
+<p><img src="/img/Windows/Windows_update_config.PNG" alt="Windows_update_config" /></p>
+:ET

@@ -1,0 +1,32 @@
+I"$<p>从16年10月至今，坚持每月写博客快2年了，也是使用GitHub Pages和Jekyll的2年。当时，用了第三方开源Jekyll主题，修修补补增加一些简陋的自定制功能，算是满足基本需求。但是，HTML代码优化的问题直到最近才找到解决方法。</p>
+
+<p><a href="https://github.com/penibelst/jekyll-compress-html/blob/master/site/_layouts/compress.html">compress.html</a>使用Jekyll layout进行代码压缩，不需依赖任何第三方工具，不依赖具体部署平台，配置简单、方便易用。</p>
+
+<p>首先，把上述<a href="https://github.com/penibelst/jekyll-compress-html/blob/master/site/_layouts/compress.html">compress.html</a>文件下载到本地，存放到Jekyll根目录的layout文件夹中。修改layout文件夹下的<code class="highlighter-rouge">default.html</code>文件，在文件头部增加并保存以下代码：</p>
+
+<div class="language-html highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre>---
+layout: compress
+---
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>然后，修改根目录的<code class="highlighter-rouge">_config.yml</code>文件，在最后增加并保存以下配置：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre># compress
+compress_html:
+  clippings:      all
+  comments:       ["&lt;!--", "--&gt;"]
+  endings:        all
+  startings:      [html, head, body]
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>最后，启动本地服务，在浏览器内检查页面HTML源码，即可发现代码已经开启压缩。最好再通过浏览器的控制台查看压缩后代码是否存在问题，尤其是 <strong>JavaScript</strong>，如果编写的时候不够仔细压缩后会出现语法问题。</p>
+:ET

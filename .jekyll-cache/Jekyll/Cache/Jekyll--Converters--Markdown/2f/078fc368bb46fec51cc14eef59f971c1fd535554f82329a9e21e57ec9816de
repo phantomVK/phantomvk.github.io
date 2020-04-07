@@ -1,0 +1,1015 @@
+I"~6<p>这篇文章介绍系统如何实现屏幕截取操作，并为拦截截屏事件提供思路。下篇文章 <a href="/2019/01/08/TakeScreenshotService/">Android源码系列(22) – TakeScreenshotService</a> 将介绍截图如何写入系统磁盘。源码版本 <strong>Android 28</strong>。</p>
+
+<h2 id="一takescreenshotservice">一、TakeScreenshotService</h2>
+
+<p><strong>TakeScreenshotService</strong> 是 <strong>Service</strong> 的子类，通过IPC的方式接受截屏请求，并通过 <strong>GlobalScreenshot</strong> 实现屏幕截取和图片保存逻辑。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">TakeScreenshotService</span> <span class="kd">extends</span> <span class="nc">Service</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">TAG</span> <span class="o">=</span> <span class="s">"TakeScreenshotService"</span><span class="o">;</span>
+
+    <span class="kd">private</span> <span class="kd">static</span> <span class="nc">GlobalScreenshot</span> <span class="n">mScreenshot</span><span class="o">;</span>
+
+    <span class="kd">private</span> <span class="nc">Handler</span> <span class="n">mHandler</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Handler</span><span class="o">()</span> <span class="o">{</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleMessage</span><span class="o">(</span><span class="nc">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kd">final</span> <span class="nc">Messenger</span> <span class="n">callback</span> <span class="o">=</span> <span class="n">msg</span><span class="o">.</span><span class="na">replyTo</span><span class="o">;</span>
+
+            <span class="c1">// 构建finisher响应Messenger</span>
+            <span class="nc">Runnable</span> <span class="n">finisher</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Runnable</span><span class="o">()</span> <span class="o">{</span>
+                <span class="nd">@Override</span>
+                <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span>
+                    <span class="nc">Message</span> <span class="n">reply</span> <span class="o">=</span> <span class="nc">Message</span><span class="o">.</span><span class="na">obtain</span><span class="o">(</span><span class="kc">null</span><span class="o">,</span> <span class="mi">1</span><span class="o">);</span>
+                    <span class="k">try</span> <span class="o">{</span>
+                        <span class="n">callback</span><span class="o">.</span><span class="na">send</span><span class="o">(</span><span class="n">reply</span><span class="o">);</span>
+                    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">RemoteException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="o">}</span>
+                <span class="o">}</span>
+            <span class="o">};</span>
+
+            <span class="c1">// 如果此用户的存储被锁定无法保存屏幕截图，跳过执行而不是显示误导性的动画和错误通知</span>
+            <span class="k">if</span> <span class="o">(!</span><span class="n">getSystemService</span><span class="o">(</span><span class="nc">UserManager</span><span class="o">.</span><span class="na">class</span><span class="o">).</span><span class="na">isUserUnlocked</span><span class="o">())</span> <span class="o">{</span>
+                <span class="nc">Log</span><span class="o">.</span><span class="na">w</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="s">"Skipping screenshot because storage is locked!"</span><span class="o">);</span>
+                <span class="c1">// 截图没有保存，发送finisher</span>
+                <span class="n">post</span><span class="o">(</span><span class="n">finisher</span><span class="o">);</span>
+                <span class="k">return</span><span class="o">;</span>
+            <span class="o">}</span>
+
+            <span class="c1">// 初始化GlobalScreenshot</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mScreenshot</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">mScreenshot</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">GlobalScreenshot</span><span class="o">(</span><span class="nc">TakeScreenshotService</span><span class="o">.</span><span class="na">this</span><span class="o">);</span>
+            <span class="o">}</span>
+
+            <span class="c1">// 获取消息类型，根据类型执行操作</span>
+            <span class="k">switch</span> <span class="o">(</span><span class="n">msg</span><span class="o">.</span><span class="na">what</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 全屏截取</span>
+                <span class="k">case</span> <span class="nc">WindowManager</span><span class="o">.</span><span class="na">TAKE_SCREENSHOT_FULLSCREEN</span><span class="o">:</span>
+                    <span class="n">mScreenshot</span><span class="o">.</span><span class="na">takeScreenshot</span><span class="o">(</span><span class="n">finisher</span><span class="o">,</span> <span class="n">msg</span><span class="o">.</span><span class="na">arg1</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">,</span> <span class="n">msg</span><span class="o">.</span><span class="na">arg2</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">);</span>
+                    <span class="k">break</span><span class="o">;</span>
+
+                <span class="c1">// 局部屏幕截取</span>
+                <span class="k">case</span> <span class="nc">WindowManager</span><span class="o">.</span><span class="na">TAKE_SCREENSHOT_SELECTED_REGION</span><span class="o">:</span>
+                    <span class="n">mScreenshot</span><span class="o">.</span><span class="na">takeScreenshotPartial</span><span class="o">(</span><span class="n">finisher</span><span class="o">,</span> <span class="n">msg</span><span class="o">.</span><span class="na">arg1</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">,</span> <span class="n">msg</span><span class="o">.</span><span class="na">arg2</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">);</span>
+                    <span class="k">break</span><span class="o">;</span>
+                    
+                <span class="c1">// 不支持类型，输出日志后不执行操作</span>
+                <span class="k">default</span><span class="o">:</span>
+                    <span class="nc">Log</span><span class="o">.</span><span class="na">d</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="s">"Invalid screenshot option: "</span> <span class="o">+</span> <span class="n">msg</span><span class="o">.</span><span class="na">what</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">};</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="nc">IBinder</span> <span class="nf">onBind</span><span class="o">(</span><span class="nc">Intent</span> <span class="n">intent</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 返回IBinder支持IPC</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">Messenger</span><span class="o">(</span><span class="n">mHandler</span><span class="o">).</span><span class="na">getBinder</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">onUnbind</span><span class="o">(</span><span class="nc">Intent</span> <span class="n">intent</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mScreenshot</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="n">mScreenshot</span><span class="o">.</span><span class="na">stopScreenshot</span><span class="o">();</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="二globalscreenshot">二、GlobalScreenshot</h2>
+
+<p>此类负责获取截图，下面出现的定义类都是 <strong>GlobalScreenshot</strong> 的内部类。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">GlobalScreenshot</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="21-常量">2.1 常量</h4>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">SCREENSHOT_URI_ID</span> <span class="o">=</span> <span class="s">"android:screenshot_uri_id"</span><span class="o">;</span>
+<span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">SHARING_INTENT</span> <span class="o">=</span> <span class="s">"android:screenshot_sharing_intent"</span><span class="o">;</span>
+
+<span class="c1">// 动画展示时间的配置</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">SCREENSHOT_FLASH_TO_PEAK_DURATION</span> <span class="o">=</span> <span class="mi">130</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">SCREENSHOT_DROP_IN_DURATION</span> <span class="o">=</span> <span class="mi">430</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">SCREENSHOT_DROP_OUT_DELAY</span> <span class="o">=</span> <span class="mi">500</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">SCREENSHOT_DROP_OUT_DURATION</span> <span class="o">=</span> <span class="mi">430</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">SCREENSHOT_DROP_OUT_SCALE_DURATION</span> <span class="o">=</span> <span class="mi">370</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">SCREENSHOT_FAST_DROP_OUT_DURATION</span> <span class="o">=</span> <span class="mi">320</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">float</span> <span class="no">BACKGROUND_ALPHA</span> <span class="o">=</span> <span class="mf">0.5f</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">float</span> <span class="no">SCREENSHOT_SCALE</span> <span class="o">=</span> <span class="mi">1</span><span class="n">f</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">float</span> <span class="no">SCREENSHOT_DROP_IN_MIN_SCALE</span> <span class="o">=</span> <span class="no">SCREENSHOT_SCALE</span> <span class="o">*</span> <span class="mf">0.725f</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">float</span> <span class="no">SCREENSHOT_DROP_OUT_MIN_SCALE</span> <span class="o">=</span> <span class="no">SCREENSHOT_SCALE</span> <span class="o">*</span> <span class="mf">0.45f</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">float</span> <span class="no">SCREENSHOT_FAST_DROP_OUT_MIN_SCALE</span> <span class="o">=</span> <span class="no">SCREENSHOT_SCALE</span> <span class="o">*</span> <span class="mf">0.6f</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">float</span> <span class="no">SCREENSHOT_DROP_OUT_MIN_SCALE_OFFSET</span> <span class="o">=</span> <span class="mi">0</span><span class="n">f</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="22-数据成员">2.2 数据成员</h4>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+</pre></td><td class="rouge-code"><pre><span class="c1">// 预览图宽高</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">mPreviewWidth</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">mPreviewHeight</span><span class="o">;</span>
+
+<span class="kd">private</span> <span class="nc">Context</span> <span class="n">mContext</span><span class="o">;</span>
+<span class="kd">private</span> <span class="nc">WindowManager</span> <span class="n">mWindowManager</span><span class="o">;</span>
+<span class="kd">private</span> <span class="nc">WindowManager</span><span class="o">.</span><span class="na">LayoutParams</span> <span class="n">mWindowLayoutParams</span><span class="o">;</span>
+<span class="kd">private</span> <span class="nc">NotificationManager</span> <span class="n">mNotificationManager</span><span class="o">;</span>
+
+<span class="c1">// 用于测量屏幕宽高</span>
+<span class="kd">private</span> <span class="nc">Display</span> <span class="n">mDisplay</span><span class="o">;</span>
+<span class="kd">private</span> <span class="nc">DisplayMetrics</span> <span class="n">mDisplayMetrics</span><span class="o">;</span>
+<span class="kd">private</span> <span class="nc">Matrix</span> <span class="n">mDisplayMatrix</span><span class="o">;</span>
+
+<span class="c1">// 截图的Bitmap</span>
+<span class="kd">private</span> <span class="nc">Bitmap</span> <span class="n">mScreenBitmap</span><span class="o">;</span>
+<span class="kd">private</span> <span class="nc">View</span> <span class="n">mScreenshotLayout</span><span class="o">;</span>
+
+<span class="c1">// 截图选择器</span>
+<span class="kd">private</span> <span class="nc">ScreenshotSelectorView</span> <span class="n">mScreenshotSelectorView</span><span class="o">;</span>
+<span class="kd">private</span> <span class="nc">ImageView</span> <span class="n">mBackgroundView</span><span class="o">;</span>
+<span class="kd">private</span> <span class="nc">ImageView</span> <span class="n">mScreenshotView</span><span class="o">;</span>
+<span class="kd">private</span> <span class="nc">ImageView</span> <span class="n">mScreenshotFlash</span><span class="o">;</span>
+
+<span class="c1">// 截屏的屏幕动画</span>
+<span class="kd">private</span> <span class="nc">AnimatorSet</span> <span class="n">mScreenshotAnimation</span><span class="o">;</span>
+
+<span class="kd">private</span> <span class="kt">int</span> <span class="n">mNotificationIconSize</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kt">float</span> <span class="n">mBgPadding</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kt">float</span> <span class="n">mBgPaddingScale</span><span class="o">;</span>
+
+<span class="c1">// 异步保存截图的AsyncTask</span>
+<span class="kd">private</span> <span class="nc">AsyncTask</span><span class="o">&lt;</span><span class="nc">Void</span><span class="o">,</span> <span class="nc">Void</span><span class="o">,</span> <span class="nc">Void</span><span class="o">&gt;</span> <span class="n">mSaveInBgTask</span><span class="o">;</span>
+
+<span class="c1">// 截屏时发出模拟快门的声音</span>
+<span class="kd">private</span> <span class="nc">MediaActionSound</span> <span class="n">mCameraSound</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="23-构造方法">2.3 构造方法</h4>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nf">GlobalScreenshot</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Resources</span> <span class="n">r</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">getResources</span><span class="o">();</span>
+    <span class="n">mContext</span> <span class="o">=</span> <span class="n">context</span><span class="o">;</span>
+    <span class="nc">LayoutInflater</span> <span class="n">layoutInflater</span> <span class="o">=</span> <span class="o">(</span><span class="nc">LayoutInflater</span><span class="o">)</span>
+            <span class="n">context</span><span class="o">.</span><span class="na">getSystemService</span><span class="o">(</span><span class="nc">Context</span><span class="o">.</span><span class="na">LAYOUT_INFLATER_SERVICE</span><span class="o">);</span>
+
+    <span class="n">mDisplayMatrix</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Matrix</span><span class="o">();</span>
+    
+    <span class="c1">// 填充截屏布局</span>
+    <span class="n">mScreenshotLayout</span> <span class="o">=</span> <span class="n">layoutInflater</span><span class="o">.</span><span class="na">inflate</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">global_screenshot</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+    <span class="c1">// 绑定View</span>
+    <span class="n">mBackgroundView</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ImageView</span><span class="o">)</span> <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">global_screenshot_background</span><span class="o">);</span>
+    <span class="n">mScreenshotView</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ImageView</span><span class="o">)</span> <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">global_screenshot</span><span class="o">);</span>
+    <span class="n">mScreenshotFlash</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ImageView</span><span class="o">)</span> <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">global_screenshot_flash</span><span class="o">);</span>
+    <span class="n">mScreenshotSelectorView</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ScreenshotSelectorView</span><span class="o">)</span> <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">findViewById</span><span class="o">(</span>
+            <span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">global_screenshot_selector</span><span class="o">);</span>
+    <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">setFocusable</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span> <span class="c1">// 令此布局获取焦点</span>
+    <span class="n">mScreenshotSelectorView</span><span class="o">.</span><span class="na">setFocusable</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+    <span class="n">mScreenshotSelectorView</span><span class="o">.</span><span class="na">setFocusableInTouchMode</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+    <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">setOnTouchListener</span><span class="o">(</span><span class="k">new</span> <span class="nc">View</span><span class="o">.</span><span class="na">OnTouchListener</span><span class="o">()</span> <span class="o">{</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">onTouch</span><span class="o">(</span><span class="nc">View</span> <span class="n">v</span><span class="o">,</span> <span class="nc">MotionEvent</span> <span class="n">event</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 拦截并抛弃所有触摸事件</span>
+            <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">});</span>
+
+    <span class="c1">// 设置将要使用的window</span>
+    <span class="n">mWindowLayoutParams</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">WindowManager</span><span class="o">.</span><span class="na">LayoutParams</span><span class="o">(</span>
+            <span class="nc">ViewGroup</span><span class="o">.</span><span class="na">LayoutParams</span><span class="o">.</span><span class="na">MATCH_PARENT</span><span class="o">,</span> <span class="nc">ViewGroup</span><span class="o">.</span><span class="na">LayoutParams</span><span class="o">.</span><span class="na">MATCH_PARENT</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span>
+            <span class="nc">WindowManager</span><span class="o">.</span><span class="na">LayoutParams</span><span class="o">.</span><span class="na">TYPE_SCREENSHOT</span><span class="o">,</span>
+            <span class="nc">WindowManager</span><span class="o">.</span><span class="na">LayoutParams</span><span class="o">.</span><span class="na">FLAG_FULLSCREEN</span>
+                <span class="o">|</span> <span class="nc">WindowManager</span><span class="o">.</span><span class="na">LayoutParams</span><span class="o">.</span><span class="na">FLAG_LAYOUT_IN_SCREEN</span>
+                <span class="o">|</span> <span class="nc">WindowManager</span><span class="o">.</span><span class="na">LayoutParams</span><span class="o">.</span><span class="na">FLAG_SHOW_WHEN_LOCKED</span><span class="o">,</span>
+            <span class="nc">PixelFormat</span><span class="o">.</span><span class="na">TRANSLUCENT</span><span class="o">);</span>
+    <span class="n">mWindowLayoutParams</span><span class="o">.</span><span class="na">setTitle</span><span class="o">(</span><span class="s">"ScreenshotAnimation"</span><span class="o">);</span>
+    <span class="n">mWindowLayoutParams</span><span class="o">.</span><span class="na">layoutInDisplayCutoutMode</span> <span class="o">=</span> <span class="no">LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS</span><span class="o">;</span>
+    <span class="n">mWindowManager</span> <span class="o">=</span> <span class="o">(</span><span class="nc">WindowManager</span><span class="o">)</span> <span class="n">context</span><span class="o">.</span><span class="na">getSystemService</span><span class="o">(</span><span class="nc">Context</span><span class="o">.</span><span class="na">WINDOW_SERVICE</span><span class="o">);</span>
+    <span class="n">mNotificationManager</span> <span class="o">=</span>
+        <span class="o">(</span><span class="nc">NotificationManager</span><span class="o">)</span> <span class="n">context</span><span class="o">.</span><span class="na">getSystemService</span><span class="o">(</span><span class="nc">Context</span><span class="o">.</span><span class="na">NOTIFICATION_SERVICE</span><span class="o">);</span>
+    <span class="c1">// 从WindowManager获取Display</span>
+    <span class="n">mDisplay</span> <span class="o">=</span> <span class="n">mWindowManager</span><span class="o">.</span><span class="na">getDefaultDisplay</span><span class="o">();</span>
+    <span class="n">mDisplayMetrics</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">DisplayMetrics</span><span class="o">();</span>
+    <span class="c1">// 测量Display参数</span>
+    <span class="n">mDisplay</span><span class="o">.</span><span class="na">getRealMetrics</span><span class="o">(</span><span class="n">mDisplayMetrics</span><span class="o">);</span>
+
+    <span class="c1">// 获取通知图标的尺寸</span>
+    <span class="n">mNotificationIconSize</span> <span class="o">=</span>
+        <span class="n">r</span><span class="o">.</span><span class="na">getDimensionPixelSize</span><span class="o">(</span><span class="n">android</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">dimen</span><span class="o">.</span><span class="na">notification_large_icon_height</span><span class="o">);</span>
+
+    <span class="c1">// 背景的边距</span>
+    <span class="n">mBgPadding</span> <span class="o">=</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="n">r</span><span class="o">.</span><span class="na">getDimensionPixelSize</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">dimen</span><span class="o">.</span><span class="na">global_screenshot_bg_padding</span><span class="o">);</span>
+    <span class="n">mBgPaddingScale</span> <span class="o">=</span> <span class="n">mBgPadding</span> <span class="o">/</span> <span class="n">mDisplayMetrics</span><span class="o">.</span><span class="na">widthPixels</span><span class="o">;</span>
+
+    <span class="c1">// 确定最优化的预览尺寸</span>
+    <span class="kt">int</span> <span class="n">panelWidth</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="n">panelWidth</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="na">getDimensionPixelSize</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">dimen</span><span class="o">.</span><span class="na">notification_panel_width</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Resources</span><span class="o">.</span><span class="na">NotFoundException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+    <span class="o">}</span>
+
+    <span class="c1">// panelWidth在上述异常出现时为0</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">panelWidth</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// includes notification_panel_width==match_parent (-1)</span>
+        <span class="n">panelWidth</span> <span class="o">=</span> <span class="n">mDisplayMetrics</span><span class="o">.</span><span class="na">widthPixels</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="n">mPreviewWidth</span> <span class="o">=</span> <span class="n">panelWidth</span><span class="o">;</span>
+    <span class="n">mPreviewHeight</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="na">getDimensionPixelSize</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">dimen</span><span class="o">.</span><span class="na">notification_max_height</span><span class="o">);</span>
+
+    <span class="c1">// 加载快门声音</span>
+    <span class="n">mCameraSound</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">MediaActionSound</span><span class="o">();</span>
+    <span class="n">mCameraSound</span><span class="o">.</span><span class="na">load</span><span class="o">(</span><span class="nc">MediaActionSound</span><span class="o">.</span><span class="na">SHUTTER_CLICK</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="24-savescreenshotinworkerthread">2.4 saveScreenshotInWorkerThread</h4>
+
+<p>调用方法时截图已经保存在内存中。此方法会创建新工作任务，并在 <strong>AsyncTask</strong> 子线程把截图保存到媒体存储。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">saveScreenshotInWorkerThread</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">finisher</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 创建空任务，把参数填到对象中</span>
+    <span class="nc">SaveImageInBackgroundData</span> <span class="n">data</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">SaveImageInBackgroundData</span><span class="o">();</span>
+    <span class="n">data</span><span class="o">.</span><span class="na">context</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">;</span>
+    <span class="n">data</span><span class="o">.</span><span class="na">image</span> <span class="o">=</span> <span class="n">mScreenBitmap</span><span class="o">;</span> <span class="c1">// 截图</span>
+    <span class="n">data</span><span class="o">.</span><span class="na">iconSize</span> <span class="o">=</span> <span class="n">mNotificationIconSize</span><span class="o">;</span>
+    <span class="n">data</span><span class="o">.</span><span class="na">finisher</span> <span class="o">=</span> <span class="n">finisher</span><span class="o">;</span>
+    <span class="n">data</span><span class="o">.</span><span class="na">previewWidth</span> <span class="o">=</span> <span class="n">mPreviewWidth</span><span class="o">;</span>
+    <span class="n">data</span><span class="o">.</span><span class="na">previewheight</span> <span class="o">=</span> <span class="n">mPreviewHeight</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mSaveInBgTask</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">mSaveInBgTask</span><span class="o">.</span><span class="na">cancel</span><span class="o">(</span><span class="kc">false</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="c1">// 由execute()可知任务在AsyncTask中串行执行</span>
+    <span class="n">mSaveInBgTask</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">SaveImageInBackgroundTask</span><span class="o">(</span><span class="n">mContext</span><span class="o">,</span> <span class="n">data</span><span class="o">,</span> <span class="n">mNotificationManager</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">execute</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>系统很多任务通过 <strong>AsyncTask</strong> 而不是子线程的方式执行后台任务，类似上面的截图写入到存储的场景。所以一定不能把长耗时任务放入 <strong>AsyncTask</strong> 导致任务阻塞，或依赖 <strong>AsyncTask</strong> 完成实时性要求高的工作。</p>
+
+<h4 id="25-getdegreesforrotation">2.5 getDegreesForRotation</h4>
+
+<p>获取屏幕旋转角度，矫正图片</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">float</span> <span class="nf">getDegreesForRotation</span><span class="o">(</span><span class="kt">int</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">switch</span> <span class="o">(</span><span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">case</span> <span class="nc">Surface</span><span class="o">.</span><span class="na">ROTATION_90</span><span class="o">:</span>
+        <span class="k">return</span> <span class="mi">360</span><span class="n">f</span> <span class="o">-</span> <span class="mi">90</span><span class="n">f</span><span class="o">;</span>
+    <span class="k">case</span> <span class="nc">Surface</span><span class="o">.</span><span class="na">ROTATION_180</span><span class="o">:</span>
+        <span class="k">return</span> <span class="mi">360</span><span class="n">f</span> <span class="o">-</span> <span class="mi">180</span><span class="n">f</span><span class="o">;</span>
+    <span class="k">case</span> <span class="nc">Surface</span><span class="o">.</span><span class="na">ROTATION_270</span><span class="o">:</span>
+        <span class="k">return</span> <span class="mi">360</span><span class="n">f</span> <span class="o">-</span> <span class="mi">270</span><span class="n">f</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="mi">0</span><span class="n">f</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="26-takescreenshot">2.6 takeScreenshot</h4>
+
+<p><strong>GlobalScreenshot</strong> 初始化完成后，即可截取当前屏幕并展示动画。方法使用 <strong>private</strong> 修饰，由同类的其他方法调用。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">takeScreenshot</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">finisher</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">statusBarVisible</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">navBarVisible</span><span class="o">,</span>
+        <span class="nc">Rect</span> <span class="n">crop</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 获取屏幕的旋转角度、宽、高</span>
+    <span class="kt">int</span> <span class="n">rot</span> <span class="o">=</span> <span class="n">mDisplay</span><span class="o">.</span><span class="na">getRotation</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">width</span> <span class="o">=</span> <span class="n">crop</span><span class="o">.</span><span class="na">width</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">height</span> <span class="o">=</span> <span class="n">crop</span><span class="o">.</span><span class="na">height</span><span class="o">();</span>
+
+    <span class="c1">// 从SurfaceControl获得截取的Bitmap</span>
+    <span class="n">mScreenBitmap</span> <span class="o">=</span> <span class="nc">SurfaceControl</span><span class="o">.</span><span class="na">screenshot</span><span class="o">(</span><span class="n">crop</span><span class="o">,</span> <span class="n">width</span><span class="o">,</span> <span class="n">height</span><span class="o">,</span> <span class="n">rot</span><span class="o">);</span>
+
+    <span class="c1">// 检查获取的屏幕截图是否为空</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mScreenBitmap</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">notifyScreenshotError</span><span class="o">(</span><span class="n">mContext</span><span class="o">,</span> <span class="n">mNotificationManager</span><span class="o">,</span>
+                <span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_failed_to_capture_text</span><span class="o">);</span>
+        <span class="n">finisher</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+        <span class="k">return</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 截图设置为非透明图片，能提升绘制速度</span>
+    <span class="n">mScreenBitmap</span><span class="o">.</span><span class="na">setHasAlpha</span><span class="o">(</span><span class="kc">false</span><span class="o">);</span>
+    <span class="n">mScreenBitmap</span><span class="o">.</span><span class="na">prepareToDraw</span><span class="o">();</span>
+
+    <span class="c1">// 开始截屏后的动画</span>
+    <span class="n">startAnimation</span><span class="o">(</span><span class="n">finisher</span><span class="o">,</span> <span class="n">mDisplayMetrics</span><span class="o">.</span><span class="na">widthPixels</span><span class="o">,</span> <span class="n">mDisplayMetrics</span><span class="o">.</span><span class="na">heightPixels</span><span class="o">,</span>
+            <span class="n">statusBarVisible</span><span class="o">,</span> <span class="n">navBarVisible</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>以下方法截取全屏图片，调用了上面的方法。根据全屏宽高创建 <strong>Rect</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="kt">void</span> <span class="nf">takeScreenshot</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">finisher</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">statusBarVisible</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">navBarVisible</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 计算全屏的DisplayMetrics</span>
+    <span class="n">mDisplay</span><span class="o">.</span><span class="na">getRealMetrics</span><span class="o">(</span><span class="n">mDisplayMetrics</span><span class="o">);</span>
+    <span class="c1">// 并把全屏宽高的参数传到方法内</span>
+    <span class="n">takeScreenshot</span><span class="o">(</span><span class="n">finisher</span><span class="o">,</span> <span class="n">statusBarVisible</span><span class="o">,</span> <span class="n">navBarVisible</span><span class="o">,</span>
+            <span class="k">new</span> <span class="nf">Rect</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mDisplayMetrics</span><span class="o">.</span><span class="na">widthPixels</span><span class="o">,</span> <span class="n">mDisplayMetrics</span><span class="o">.</span><span class="na">heightPixels</span><span class="o">));</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="27-takescreenshotpartial">2.7 takeScreenshotPartial</h4>
+
+<p><strong>takeScreenshot()</strong> 截取全屏，此方法能截取屏幕的部分区域。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+</pre></td><td class="rouge-code"><pre><span class="kt">void</span> <span class="nf">takeScreenshotPartial</span><span class="o">(</span><span class="kd">final</span> <span class="nc">Runnable</span> <span class="n">finisher</span><span class="o">,</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="n">statusBarVisible</span><span class="o">,</span>
+        <span class="kd">final</span> <span class="kt">boolean</span> <span class="n">navBarVisible</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 向WindowManager添加截屏布局</span>
+    <span class="n">mWindowManager</span><span class="o">.</span><span class="na">addView</span><span class="o">(</span><span class="n">mScreenshotLayout</span><span class="o">,</span> <span class="n">mWindowLayoutParams</span><span class="o">);</span>
+
+    <span class="c1">// 准备选择器的点击事件</span>
+    <span class="n">mScreenshotSelectorView</span><span class="o">.</span><span class="na">setOnTouchListener</span><span class="o">(</span><span class="k">new</span> <span class="nc">View</span><span class="o">.</span><span class="na">OnTouchListener</span><span class="o">()</span> <span class="o">{</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">onTouch</span><span class="o">(</span><span class="nc">View</span> <span class="n">v</span><span class="o">,</span> <span class="nc">MotionEvent</span> <span class="n">event</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">ScreenshotSelectorView</span> <span class="n">view</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ScreenshotSelectorView</span><span class="o">)</span> <span class="n">v</span><span class="o">;</span>
+            <span class="k">switch</span> <span class="o">(</span><span class="n">event</span><span class="o">.</span><span class="na">getAction</span><span class="o">())</span> <span class="o">{</span>
+                <span class="k">case</span> <span class="nc">MotionEvent</span><span class="o">.</span><span class="na">ACTION_DOWN</span><span class="o">:</span> <span class="c1">// 获取ACTION_DOWN操作，开始截屏</span>
+                    <span class="n">view</span><span class="o">.</span><span class="na">startSelection</span><span class="o">((</span><span class="kt">int</span><span class="o">)</span> <span class="n">event</span><span class="o">.</span><span class="na">getX</span><span class="o">(),</span> <span class="o">(</span><span class="kt">int</span><span class="o">)</span> <span class="n">event</span><span class="o">.</span><span class="na">getY</span><span class="o">());</span>
+                    <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+
+                <span class="k">case</span> <span class="nc">MotionEvent</span><span class="o">.</span><span class="na">ACTION_MOVE</span><span class="o">:</span> <span class="c1">// 选择截屏范围</span>
+                    <span class="n">view</span><span class="o">.</span><span class="na">updateSelection</span><span class="o">((</span><span class="kt">int</span><span class="o">)</span> <span class="n">event</span><span class="o">.</span><span class="na">getX</span><span class="o">(),</span> <span class="o">(</span><span class="kt">int</span><span class="o">)</span> <span class="n">event</span><span class="o">.</span><span class="na">getY</span><span class="o">());</span>
+                    <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+
+                <span class="k">case</span> <span class="nc">MotionEvent</span><span class="o">.</span><span class="na">ACTION_UP</span><span class="o">:</span> <span class="c1">// 手指离开屏幕，结束选择</span>
+                    <span class="n">view</span><span class="o">.</span><span class="na">setVisibility</span><span class="o">(</span><span class="nc">View</span><span class="o">.</span><span class="na">GONE</span><span class="o">);</span>
+                    <span class="n">mWindowManager</span><span class="o">.</span><span class="na">removeView</span><span class="o">(</span><span class="n">mScreenshotLayout</span><span class="o">);</span>
+                    <span class="c1">// 获取选择的矩形区域</span>
+                    <span class="kd">final</span> <span class="nc">Rect</span> <span class="n">rect</span> <span class="o">=</span> <span class="n">view</span><span class="o">.</span><span class="na">getSelectionRect</span><span class="o">();</span>
+                    <span class="k">if</span> <span class="o">(</span><span class="n">rect</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                        <span class="k">if</span> <span class="o">(</span><span class="n">rect</span><span class="o">.</span><span class="na">width</span><span class="o">()</span> <span class="o">!=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">rect</span><span class="o">.</span><span class="na">height</span><span class="o">()</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                            <span class="c1">// 在view消失之后需要mScreenshotLayout处理截图保存的任务</span>
+                            <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">post</span><span class="o">(</span><span class="k">new</span> <span class="nc">Runnable</span><span class="o">()</span> <span class="o">{</span>
+                                <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span>
+                                    <span class="c1">// 把选中的矩形区域作为依据从全屏截取部分图像</span>
+                                    <span class="n">takeScreenshot</span><span class="o">(</span><span class="n">finisher</span><span class="o">,</span> <span class="n">statusBarVisible</span><span class="o">,</span> <span class="n">navBarVisible</span><span class="o">,</span>
+                                            <span class="n">rect</span><span class="o">);</span>
+                                <span class="o">}</span>
+                            <span class="o">});</span>
+                        <span class="o">}</span>
+                    <span class="o">}</span>
+
+                    <span class="c1">// 结束选择操作</span>
+                    <span class="n">view</span><span class="o">.</span><span class="na">stopSelection</span><span class="o">();</span>
+                    <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="o">}</span>
+
+            <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">});</span>
+
+    <span class="c1">// 显示mScreenshotLayout并发出requestFocus()，开始截屏操作</span>
+    <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">post</span><span class="o">(</span><span class="k">new</span> <span class="nc">Runnable</span><span class="o">()</span> <span class="o">{</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span>
+            <span class="n">mScreenshotSelectorView</span><span class="o">.</span><span class="na">setVisibility</span><span class="o">(</span><span class="nc">View</span><span class="o">.</span><span class="na">VISIBLE</span><span class="o">);</span>
+            <span class="n">mScreenshotSelectorView</span><span class="o">.</span><span class="na">requestFocus</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">});</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="28-stopscreenshot">2.8 stopScreenshot</h4>
+
+<p>停止截屏</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="kt">void</span> <span class="nf">stopScreenshot</span><span class="o">()</span> <span class="o">{</span>
+    <span class="c1">// 如果选择器图层依然呈现在屏幕上，则将其移除并重置其状态</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mScreenshotSelectorView</span><span class="o">.</span><span class="na">getSelectionRect</span><span class="o">()</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">mWindowManager</span><span class="o">.</span><span class="na">removeView</span><span class="o">(</span><span class="n">mScreenshotLayout</span><span class="o">);</span>
+        <span class="n">mScreenshotSelectorView</span><span class="o">.</span><span class="na">stopSelection</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="29-startanimation">2.9 startAnimation</h4>
+
+<p>截图动画</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">startAnimation</span><span class="o">(</span><span class="kd">final</span> <span class="nc">Runnable</span> <span class="n">finisher</span><span class="o">,</span> <span class="kt">int</span> <span class="n">w</span><span class="o">,</span> <span class="kt">int</span> <span class="n">h</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">statusBarVisible</span><span class="o">,</span>
+        <span class="kt">boolean</span> <span class="n">navBarVisible</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 手机处于省电模式，显示一个toast提示用于已截屏</span>
+    <span class="nc">PowerManager</span> <span class="n">powerManager</span> <span class="o">=</span> <span class="o">(</span><span class="nc">PowerManager</span><span class="o">)</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getSystemService</span><span class="o">(</span><span class="nc">Context</span><span class="o">.</span><span class="na">POWER_SERVICE</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">powerManager</span><span class="o">.</span><span class="na">isPowerSaveMode</span><span class="o">())</span> <span class="o">{</span>
+        <span class="nc">Toast</span><span class="o">.</span><span class="na">makeText</span><span class="o">(</span><span class="n">mContext</span><span class="o">,</span> <span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_saved_title</span><span class="o">,</span> <span class="nc">Toast</span><span class="o">.</span><span class="na">LENGTH_SHORT</span><span class="o">).</span><span class="na">show</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 添加动画视图</span>
+    <span class="n">mScreenshotView</span><span class="o">.</span><span class="na">setImageBitmap</span><span class="o">(</span><span class="n">mScreenBitmap</span><span class="o">);</span>
+    <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">requestFocus</span><span class="o">();</span>
+
+    <span class="c1">// 使用刚拍摄的屏幕截图设置动画，如动画已启动则需要结束</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mScreenshotAnimation</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mScreenshotAnimation</span><span class="o">.</span><span class="na">isStarted</span><span class="o">())</span> <span class="o">{</span>
+            <span class="n">mScreenshotAnimation</span><span class="o">.</span><span class="na">end</span><span class="o">();</span>
+        <span class="o">}</span>
+        <span class="n">mScreenshotAnimation</span><span class="o">.</span><span class="na">removeAllListeners</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="n">mWindowManager</span><span class="o">.</span><span class="na">addView</span><span class="o">(</span><span class="n">mScreenshotLayout</span><span class="o">,</span> <span class="n">mWindowLayoutParams</span><span class="o">);</span>
+    <span class="c1">// 通过代码构建动画集合并组装</span>
+    <span class="nc">ValueAnimator</span> <span class="n">screenshotDropInAnim</span> <span class="o">=</span> <span class="n">createScreenshotDropInAnimation</span><span class="o">();</span>
+    <span class="nc">ValueAnimator</span> <span class="n">screenshotFadeOutAnim</span> <span class="o">=</span> <span class="n">createScreenshotDropOutAnimation</span><span class="o">(</span><span class="n">w</span><span class="o">,</span> <span class="n">h</span><span class="o">,</span>
+            <span class="n">statusBarVisible</span><span class="o">,</span> <span class="n">navBarVisible</span><span class="o">);</span>
+    <span class="n">mScreenshotAnimation</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AnimatorSet</span><span class="o">();</span>
+    <span class="n">mScreenshotAnimation</span><span class="o">.</span><span class="na">playSequentially</span><span class="o">(</span><span class="n">screenshotDropInAnim</span><span class="o">,</span> <span class="n">screenshotFadeOutAnim</span><span class="o">);</span>
+    <span class="n">mScreenshotAnimation</span><span class="o">.</span><span class="na">addListener</span><span class="o">(</span><span class="k">new</span> <span class="nc">AnimatorListenerAdapter</span><span class="o">()</span> <span class="o">{</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAnimationEnd</span><span class="o">(</span><span class="nc">Animator</span> <span class="n">animation</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 动画播放结束时启动保存截图的任务</span>
+            <span class="n">saveScreenshotInWorkerThread</span><span class="o">(</span><span class="n">finisher</span><span class="o">);</span>
+            <span class="c1">// 截屏的布局也可以从屏幕移除了</span>
+            <span class="n">mWindowManager</span><span class="o">.</span><span class="na">removeView</span><span class="o">(</span><span class="n">mScreenshotLayout</span><span class="o">);</span>
+
+            <span class="c1">// 清除位图的引用，避免内存泄漏</span>
+            <span class="n">mScreenBitmap</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="n">mScreenshotView</span><span class="o">.</span><span class="na">setImageBitmap</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">});</span>
+    <span class="n">mScreenshotLayout</span><span class="o">.</span><span class="na">post</span><span class="o">(</span><span class="k">new</span> <span class="nc">Runnable</span><span class="o">()</span> <span class="o">{</span>
+        <span class="nd">@Override</span>
+        <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span>
+            <span class="c1">// 播放快门声通知用户已截屏</span>
+            <span class="n">mCameraSound</span><span class="o">.</span><span class="na">play</span><span class="o">(</span><span class="nc">MediaActionSound</span><span class="o">.</span><span class="na">SHUTTER_CLICK</span><span class="o">);</span>
+            <span class="c1">// 通过硬件加速播放动画</span>
+            <span class="n">mScreenshotView</span><span class="o">.</span><span class="na">setLayerType</span><span class="o">(</span><span class="nc">View</span><span class="o">.</span><span class="na">LAYER_TYPE_HARDWARE</span><span class="o">,</span> <span class="kc">null</span><span class="o">);</span>
+            <span class="n">mScreenshotView</span><span class="o">.</span><span class="na">buildLayer</span><span class="o">();</span>
+            <span class="n">mScreenshotAnimation</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">});</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="210-notifyscreenshoterror">2.10 notifyScreenshotError</h4>
+
+<p>截屏出现错误通知用户</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="kt">void</span> <span class="nf">notifyScreenshotError</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">,</span> <span class="nc">NotificationManager</span> <span class="n">nManager</span><span class="o">,</span> <span class="kt">int</span> <span class="n">msgResId</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Resources</span> <span class="n">r</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">getResources</span><span class="o">();</span>
+    <span class="nc">String</span> <span class="n">errorMsg</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="n">msgResId</span><span class="o">);</span>
+
+    <span class="c1">// 重新利用现有通知以通知用户错误信息</span>
+    <span class="nc">Notification</span><span class="o">.</span><span class="na">Builder</span> <span class="n">b</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Notification</span><span class="o">.</span><span class="na">Builder</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="nc">NotificationChannels</span><span class="o">.</span><span class="na">ALERTS</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setTicker</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_failed_title</span><span class="o">))</span>
+        <span class="o">.</span><span class="na">setContentTitle</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">getString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">screenshot_failed_title</span><span class="o">))</span>
+        <span class="o">.</span><span class="na">setContentText</span><span class="o">(</span><span class="n">errorMsg</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setSmallIcon</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">stat_notify_image_error</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setWhen</span><span class="o">(</span><span class="nc">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">())</span>
+        <span class="o">.</span><span class="na">setVisibility</span><span class="o">(</span><span class="nc">Notification</span><span class="o">.</span><span class="na">VISIBILITY_PUBLIC</span><span class="o">)</span> <span class="c1">// ok to show outside lockscreen</span>
+        <span class="o">.</span><span class="na">setCategory</span><span class="o">(</span><span class="nc">Notification</span><span class="o">.</span><span class="na">CATEGORY_ERROR</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setAutoCancel</span><span class="o">(</span><span class="kc">true</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">setColor</span><span class="o">(</span><span class="n">context</span><span class="o">.</span><span class="na">getColor</span><span class="o">(</span>
+                    <span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">color</span><span class="o">.</span><span class="na">system_notification_accent_color</span><span class="o">));</span>
+
+    <span class="kd">final</span> <span class="nc">DevicePolicyManager</span> <span class="n">dpm</span> <span class="o">=</span> <span class="o">(</span><span class="nc">DevicePolicyManager</span><span class="o">)</span> <span class="n">context</span><span class="o">.</span><span class="na">getSystemService</span><span class="o">(</span>
+            <span class="nc">Context</span><span class="o">.</span><span class="na">DEVICE_POLICY_SERVICE</span><span class="o">);</span>
+    <span class="kd">final</span> <span class="nc">Intent</span> <span class="n">intent</span> <span class="o">=</span> <span class="n">dpm</span><span class="o">.</span><span class="na">createAdminSupportIntent</span><span class="o">(</span>
+            <span class="nc">DevicePolicyManager</span><span class="o">.</span><span class="na">POLICY_DISABLE_SCREEN_CAPTURE</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">intent</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">PendingIntent</span> <span class="n">pendingIntent</span> <span class="o">=</span> <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">getActivityAsUser</span><span class="o">(</span>
+                <span class="n">context</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">intent</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="nc">UserHandle</span><span class="o">.</span><span class="na">CURRENT</span><span class="o">);</span>
+        <span class="n">b</span><span class="o">.</span><span class="na">setContentIntent</span><span class="o">(</span><span class="n">pendingIntent</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nc">SystemUI</span><span class="o">.</span><span class="na">overrideNotificationAppName</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">b</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+
+    <span class="nc">Notification</span> <span class="n">n</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Notification</span><span class="o">.</span><span class="na">BigTextStyle</span><span class="o">(</span><span class="n">b</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">bigText</span><span class="o">(</span><span class="n">errorMsg</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">build</span><span class="o">();</span>
+    <span class="n">nManager</span><span class="o">.</span><span class="na">notify</span><span class="o">(</span><span class="nc">SystemMessage</span><span class="o">.</span><span class="na">NOTE_GLOBAL_SCREENSHOT</span><span class="o">,</span> <span class="n">n</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="211-screenshotactionreceiver">2.11 ScreenshotActionReceiver</h4>
+
+<p>代理分享或编辑intent的 <strong>Receiver</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">ScreenshotActionReceiver</span> <span class="kd">extends</span> <span class="nc">BroadcastReceiver</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onReceive</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">,</span> <span class="nc">Intent</span> <span class="n">intent</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="nc">ActivityManager</span><span class="o">.</span><span class="na">getService</span><span class="o">().</span><span class="na">closeSystemDialogs</span><span class="o">(</span><span class="no">SYSTEM_DIALOG_REASON_SCREENSHOT</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">RemoteException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="o">}</span>
+
+        <span class="nc">Intent</span> <span class="n">actionIntent</span> <span class="o">=</span> <span class="n">intent</span><span class="o">.</span><span class="na">getParcelableExtra</span><span class="o">(</span><span class="no">SHARING_INTENT</span><span class="o">);</span>
+
+        <span class="c1">// If this is an edit &amp; default editor exists, route straight there.</span>
+        <span class="nc">String</span> <span class="n">editorPackage</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">getResources</span><span class="o">().</span><span class="na">getString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">config_screenshotEditor</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">actionIntent</span><span class="o">.</span><span class="na">getAction</span><span class="o">()</span> <span class="o">==</span> <span class="nc">Intent</span><span class="o">.</span><span class="na">ACTION_EDIT</span> <span class="o">&amp;&amp;</span>
+                <span class="n">editorPackage</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">editorPackage</span><span class="o">.</span><span class="na">length</span><span class="o">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">actionIntent</span><span class="o">.</span><span class="na">setComponent</span><span class="o">(</span><span class="nc">ComponentName</span><span class="o">.</span><span class="na">unflattenFromString</span><span class="o">(</span><span class="n">editorPackage</span><span class="o">));</span>
+            <span class="kd">final</span> <span class="nc">NotificationManager</span> <span class="n">nm</span> <span class="o">=</span>
+                    <span class="o">(</span><span class="nc">NotificationManager</span><span class="o">)</span> <span class="n">context</span><span class="o">.</span><span class="na">getSystemService</span><span class="o">(</span><span class="nc">Context</span><span class="o">.</span><span class="na">NOTIFICATION_SERVICE</span><span class="o">);</span>
+            <span class="n">nm</span><span class="o">.</span><span class="na">cancel</span><span class="o">(</span><span class="nc">SystemMessage</span><span class="o">.</span><span class="na">NOTE_GLOBAL_SCREENSHOT</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="nc">PendingIntent</span> <span class="n">chooseAction</span> <span class="o">=</span> <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">getBroadcast</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span>
+                    <span class="k">new</span> <span class="nf">Intent</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="nc">GlobalScreenshot</span><span class="o">.</span><span class="na">TargetChosenReceiver</span><span class="o">.</span><span class="na">class</span><span class="o">),</span>
+                    <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">FLAG_CANCEL_CURRENT</span> <span class="o">|</span> <span class="nc">PendingIntent</span><span class="o">.</span><span class="na">FLAG_ONE_SHOT</span><span class="o">);</span>
+            <span class="n">actionIntent</span> <span class="o">=</span> <span class="nc">Intent</span><span class="o">.</span><span class="na">createChooser</span><span class="o">(</span><span class="n">actionIntent</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span>
+                    <span class="n">chooseAction</span><span class="o">.</span><span class="na">getIntentSender</span><span class="o">())</span>
+                    <span class="o">.</span><span class="na">addFlags</span><span class="o">(</span><span class="nc">Intent</span><span class="o">.</span><span class="na">FLAG_ACTIVITY_CLEAR_TASK</span> <span class="o">|</span> <span class="nc">Intent</span><span class="o">.</span><span class="na">FLAG_ACTIVITY_NEW_TASK</span><span class="o">);</span>
+        <span class="o">}</span>
+
+        <span class="nc">ActivityOptions</span> <span class="n">opts</span> <span class="o">=</span> <span class="nc">ActivityOptions</span><span class="o">.</span><span class="na">makeBasic</span><span class="o">();</span>
+        <span class="n">opts</span><span class="o">.</span><span class="na">setDisallowEnterPictureInPictureWhileLaunching</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+
+        <span class="n">context</span><span class="o">.</span><span class="na">startActivityAsUser</span><span class="o">(</span><span class="n">actionIntent</span><span class="o">,</span> <span class="n">opts</span><span class="o">.</span><span class="na">toBundle</span><span class="o">(),</span> <span class="nc">UserHandle</span><span class="o">.</span><span class="na">CURRENT</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="212-targetchosenreceiver">2.12 TargetChosenReceiver</h4>
+
+<p>选择分享或编辑目标后移除截图的通知</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">TargetChosenReceiver</span> <span class="kd">extends</span> <span class="nc">BroadcastReceiver</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onReceive</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">,</span> <span class="nc">Intent</span> <span class="n">intent</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 移除通知</span>
+        <span class="kd">final</span> <span class="nc">NotificationManager</span> <span class="n">nm</span> <span class="o">=</span>
+                <span class="o">(</span><span class="nc">NotificationManager</span><span class="o">)</span> <span class="n">context</span><span class="o">.</span><span class="na">getSystemService</span><span class="o">(</span><span class="nc">Context</span><span class="o">.</span><span class="na">NOTIFICATION_SERVICE</span><span class="o">);</span>
+        <span class="n">nm</span><span class="o">.</span><span class="na">cancel</span><span class="o">(</span><span class="nc">SystemMessage</span><span class="o">.</span><span class="na">NOTE_GLOBAL_SCREENSHOT</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="213-deletescreenshotreceiver">2.13 DeleteScreenshotReceiver</h4>
+
+<p>从存储里移除截图</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">DeleteScreenshotReceiver</span> <span class="kd">extends</span> <span class="nc">BroadcastReceiver</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onReceive</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">,</span> <span class="nc">Intent</span> <span class="n">intent</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">intent</span><span class="o">.</span><span class="na">hasExtra</span><span class="o">(</span><span class="no">SCREENSHOT_URI_ID</span><span class="o">))</span> <span class="o">{</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+
+        <span class="c1">// 移除通知，先获取NotificationManager</span>
+        <span class="kd">final</span> <span class="nc">NotificationManager</span> <span class="n">nm</span> <span class="o">=</span>
+                <span class="o">(</span><span class="nc">NotificationManager</span><span class="o">)</span> <span class="n">context</span><span class="o">.</span><span class="na">getSystemService</span><span class="o">(</span><span class="nc">Context</span><span class="o">.</span><span class="na">NOTIFICATION_SERVICE</span><span class="o">);</span>
+        <span class="c1">// 获取SCREENSHOT_URI_ID，构建Uri</span>
+        <span class="kd">final</span> <span class="nc">Uri</span> <span class="n">uri</span> <span class="o">=</span> <span class="nc">Uri</span><span class="o">.</span><span class="na">parse</span><span class="o">(</span><span class="n">intent</span><span class="o">.</span><span class="na">getStringExtra</span><span class="o">(</span><span class="no">SCREENSHOT_URI_ID</span><span class="o">));</span>
+        <span class="c1">// 移除截屏通知</span>
+        <span class="n">nm</span><span class="o">.</span><span class="na">cancel</span><span class="o">(</span><span class="nc">SystemMessage</span><span class="o">.</span><span class="na">NOTE_GLOBAL_SCREENSHOT</span><span class="o">);</span>
+
+        <span class="c1">// 从媒体存储中删除图片，后台任务串行执行</span>
+        <span class="k">new</span> <span class="nf">DeleteImageInBackgroundTask</span><span class="o">(</span><span class="n">context</span><span class="o">).</span><span class="na">execute</span><span class="o">(</span><span class="n">uri</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

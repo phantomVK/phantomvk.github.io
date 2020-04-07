@@ -1,0 +1,285 @@
+I"�N<p>Java方法执行一般会利用分层编译，先通过c1解释执行。方法执行编译等级逐渐提升，有机会通过JIT编译为特定平台汇编执行，以此获得最好的性能。</p>
+
+<h4 id="参数控制">参数控制</h4>
+
+<p>方法执行除了达到一定热度外，是否JIT编译也受到以下两个参数影响：</p>
+
+<p>HotSpot默认不会编译巨型方法，也就是<code class="highlighter-rouge">-XX:+DontCompileHugeMethods</code>。通过修改参数为<code class="highlighter-rouge">-XX:-DontCompileHugeMethods</code>开启巨型方法编译。</p>
+
+<blockquote>
+  <p>-XX:+DontCompileHugeMethods</p>
+</blockquote>
+
+<p>判断方法是否为大对象由<code class="highlighter-rouge">-XX:HugeMethodLimit=8000</code>来决定，<code class="highlighter-rouge">8000</code>表示JIT编译字节码大小超过8000字节的方法就是巨型方法，这个阈值在产品版HotSpot里无法调整。</p>
+
+<blockquote>
+  <p>-XX:HugeMethodLimit=8000</p>
+</blockquote>
+
+<p><code class="highlighter-rouge">DontCompileHugeMethods</code>和<code class="highlighter-rouge">HugeMethodLimit</code>默认值在<code class="highlighter-rouge">/hotspot/src/share/vm/runtime/globals.hpp</code></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="n">product</span><span class="p">(</span><span class="n">bool</span><span class="p">,</span> <span class="n">DontCompileHugeMethods</span><span class="p">,</span> <span class="nb">true</span><span class="p">,</span>
+      <span class="s">"Do not compile methods &gt; HugeMethodLimit"</span><span class="p">)</span>  
+
+<span class="n">develop</span><span class="p">(</span><span class="n">intx</span><span class="p">,</span> <span class="n">HugeMethodLimit</span><span class="p">,</span>  <span class="mi">8000</span><span class="p">,</span>                                     
+      <span class="s">"Don't compile methods larger than this if "</span>                      
+      <span class="s">"+DontCompileHugeMethods"</span><span class="p">)</span> 
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="可编译判断">可编译判断</h4>
+
+<p>下面看<code class="highlighter-rouge">JDK9</code>的<code class="highlighter-rouge">CompileTheWorld.java</code>，路径为</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nv">$ </span><span class="nb">cd</span> ./hotspot/src/jdk.internal.vm.compiler/share/classes/org.graalvm.compiler.hotspot/src/org/graalvm/compiler/hotspot
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>源码<code class="highlighter-rouge">canBeCompiled() Line 756</code>决定Java方法是否能被JIT编译。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">boolean</span> <span class="nf">canBeCompiled</span><span class="o">(</span><span class="nc">HotSpotResolvedJavaMethod</span> <span class="n">javaMethod</span><span class="o">,</span> <span class="kt">int</span> <span class="n">modifiers</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 抽象方法或原生方法不编译</span>
+    <span class="k">if</span> <span class="o">(</span><span class="nc">Modifier</span><span class="o">.</span><span class="na">isAbstract</span><span class="o">(</span><span class="n">modifiers</span><span class="o">)</span> <span class="o">||</span> <span class="nc">Modifier</span><span class="o">.</span><span class="na">isNative</span><span class="o">(</span><span class="n">modifiers</span><span class="o">))</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 获取JVM配置参数</span>
+    <span class="nc">GraalHotSpotVMConfig</span> <span class="n">c</span> <span class="o">=</span> <span class="n">compiler</span><span class="o">.</span><span class="na">getGraalRuntime</span><span class="o">().</span><span class="na">getVMConfig</span><span class="o">();</span>
+    <span class="c1">// 如果c.dontCompileHugeMethods为true</span>
+    <span class="c1">// 根据c.hugeMethodLimit判断该方法是否为巨型方法</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">c</span><span class="o">.</span><span class="na">dontCompileHugeMethods</span> <span class="o">&amp;&amp;</span> <span class="n">javaMethod</span><span class="o">.</span><span class="na">getCodeSize</span><span class="o">()</span> <span class="o">&gt;</span> <span class="n">c</span><span class="o">.</span><span class="na">hugeMethodLimit</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 判断为巨型方法，打出日志并退出方法</span>
+        <span class="n">println</span><span class="o">(</span><span class="n">verbose</span> <span class="o">||</span> <span class="n">methodFilters</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">,</span>
+                        <span class="nc">String</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="s">"CompileTheWorld (%d) : Skipping huge method %s "</span>
+                                      <span class="o">+</span> <span class="s">"(use -XX:-DontCompileHugeMethods "</span>
+                                      <span class="o">+</span> <span class="s">"or -XX:HugeMethodLimit=%d to include it)"</span><span class="o">,</span>
+                                        <span class="n">classFileCounter</span><span class="o">,</span>
+                                        <span class="n">javaMethod</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="s">"%H.%n(%p):%r"</span><span class="o">),</span>
+                                        <span class="n">javaMethod</span><span class="o">.</span><span class="na">getCodeSize</span><span class="o">()));</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 通过-XX:CompileCommand=dontinline标志不编译方法</span>
+    <span class="c1">// 排除可能有问题的目标方法</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">javaMethod</span><span class="o">.</span><span class="na">canBeInlined</span><span class="o">())</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 注解类型包含Snippet.class不编译</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Annotation</span> <span class="n">annotation</span> <span class="o">:</span> <span class="n">javaMethod</span><span class="o">.</span><span class="na">getAnnotations</span><span class="o">())</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">annotation</span><span class="o">.</span><span class="na">annotationType</span><span class="o">().</span><span class="na">equals</span><span class="o">(</span><span class="nc">Snippet</span><span class="o">.</span><span class="na">class</span><span class="o">))</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="k">return</span> <span class="kc">true</span><span class="o">;</span> <span class="c1">// 此方法可被JIT编译</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>总的来说只要符合以下任一条件就 <strong>不能</strong> 编译：</p>
+
+<ol>
+  <li>抽象方法或原生方法；</li>
+  <li>禁止编译巨型方法且条件吻合；</li>
+  <li>有<code class="highlighter-rouge">dontinline</code>标志的方法；</li>
+  <li>注解为 <strong>Snippet.class</strong>；</li>
+</ol>
+
+<h4 id="编译方法">编译方法</h4>
+
+<p>经过<code class="highlighter-rouge">canBeCompiled() Line627</code>判定的方法，送到<code class="highlighter-rouge">compileMethod() Line725</code>等待编译。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+</pre></td><td class="rouge-code"><pre><span class="c1">// Are we compiling this class?</span>
+<span class="nc">MetaAccessProvider</span> <span class="n">metaAccess</span> <span class="o">=</span> <span class="no">JVMCI</span><span class="o">.</span><span class="na">getRuntime</span><span class="o">().</span><span class="na">getHostJVMCIBackend</span><span class="o">().</span><span class="na">getMetaAccess</span><span class="o">();</span>
+<span class="k">if</span> <span class="o">(</span><span class="n">classFileCounter</span> <span class="o">&gt;=</span> <span class="n">startAt</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">println</span><span class="o">(</span><span class="s">"CompileTheWorld (%d) : %s"</span><span class="o">,</span> <span class="n">classFileCounter</span><span class="o">,</span> <span class="n">className</span><span class="o">);</span>
+
+    <span class="c1">// 循环遍历构造方法，判断能否JIT编译</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Constructor</span><span class="o">&lt;?&gt;</span> <span class="n">constructor</span> <span class="o">:</span> <span class="n">javaClass</span><span class="o">.</span><span class="na">getDeclaredConstructors</span><span class="o">())</span> <span class="o">{</span>
+        <span class="nc">HotSpotResolvedJavaMethod</span> <span class="n">javaMethod</span> <span class="o">=</span> <span class="o">(</span><span class="nc">HotSpotResolvedJavaMethod</span><span class="o">)</span> <span class="n">metaAccess</span><span class="o">.</span><span class="na">lookupJavaMethod</span><span class="o">(</span><span class="n">constructor</span><span class="o">);</span>
+        <span class="c1">// 逐个检查构造方法</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">canBeCompiled</span><span class="o">(</span><span class="n">javaMethod</span><span class="o">,</span> <span class="n">constructor</span><span class="o">.</span><span class="na">getModifiers</span><span class="o">()))</span> <span class="o">{</span>
+            <span class="n">compileMethod</span><span class="o">(</span><span class="n">javaMethod</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 循环遍历实例方法，判断能否JIT编译</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Method</span> <span class="n">method</span> <span class="o">:</span> <span class="n">javaClass</span><span class="o">.</span><span class="na">getDeclaredMethods</span><span class="o">())</span> <span class="o">{</span>
+        <span class="nc">HotSpotResolvedJavaMethod</span> <span class="n">javaMethod</span> <span class="o">=</span> <span class="o">(</span><span class="nc">HotSpotResolvedJavaMethod</span><span class="o">)</span> <span class="n">metaAccess</span><span class="o">.</span><span class="na">lookupJavaMethod</span><span class="o">(</span><span class="n">method</span><span class="o">);</span>
+        <span class="c1">// 逐个检查实例方法</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">canBeCompiled</span><span class="o">(</span><span class="n">javaMethod</span><span class="o">,</span> <span class="n">method</span><span class="o">.</span><span class="na">getModifiers</span><span class="o">()))</span> <span class="o">{</span>
+            <span class="n">compileMethod</span><span class="o">(</span><span class="n">javaMethod</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 类初始化器也是能被编译</span>
+    <span class="nc">HotSpotResolvedJavaMethod</span> <span class="n">clinit</span> <span class="o">=</span> <span class="o">(</span><span class="nc">HotSpotResolvedJavaMethod</span><span class="o">)</span> <span class="n">metaAccess</span><span class="o">.</span><span class="na">lookupJavaType</span><span class="o">(</span><span class="n">javaClass</span><span class="o">).</span><span class="na">getClassInitializer</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">clinit</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">canBeCompiled</span><span class="o">(</span><span class="n">clinit</span><span class="o">,</span> <span class="n">clinit</span><span class="o">.</span><span class="na">getModifiers</span><span class="o">()))</span> <span class="o">{</span>
+        <span class="n">compileMethod</span><span class="o">(</span><span class="n">clinit</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>编译过程中还会收集统计数据，完成后下次执行时新编译方法替换旧方法。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">compileMethod</span><span class="o">(</span><span class="nc">HotSpotResolvedJavaMethod</span> <span class="n">method</span><span class="o">,</span> <span class="kt">int</span> <span class="n">counter</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="c1">// 编译开始时间</span>
+        <span class="kt">long</span> <span class="n">start</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">();</span>
+        <span class="c1">// 编译开始时线程内存已开辟空间</span>
+        <span class="kt">long</span> <span class="n">allocatedAtStart</span> <span class="o">=</span> <span class="nc">MemUseTrackerImpl</span><span class="o">.</span><span class="na">getCurrentThreadAllocatedBytes</span><span class="o">();</span>
+        <span class="kt">int</span> <span class="n">entryBCI</span> <span class="o">=</span> <span class="nc">JVMCICompiler</span><span class="o">.</span><span class="na">INVOCATION_ENTRY_BCI</span><span class="o">;</span>
+        <span class="c1">// 构建方法编译请求实例</span>
+        <span class="nc">HotSpotCompilationRequest</span> <span class="n">request</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">HotSpotCompilationRequest</span><span class="o">(</span><span class="n">method</span><span class="o">,</span> <span class="n">entryBCI</span><span class="o">,</span> <span class="mi">0L</span><span class="o">);</span>
+
+        <span class="c1">// For more stable CTW execution, disable use of profiling information</span>
+        <span class="kt">boolean</span> <span class="n">useProfilingInfo</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="kt">boolean</span> <span class="n">installAsDefault</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+
+        <span class="c1">// 创建编译任务</span>
+        <span class="nc">CompilationTask</span> <span class="n">task</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">CompilationTask</span><span class="o">(</span><span class="n">jvmciRuntime</span><span class="o">,</span> <span class="n">compiler</span><span class="o">,</span> <span class="n">request</span><span class="o">,</span> <span class="n">useProfilingInfo</span><span class="o">,</span> <span class="n">installAsDefault</span><span class="o">);</span>
+
+        <span class="c1">// 开始编译任务</span>
+        <span class="n">task</span><span class="o">.</span><span class="na">runCompilation</span><span class="o">();</span>
+
+        <span class="c1">// 令已生成的code失效，避免code cache被填满</span>
+        <span class="nc">HotSpotInstalledCode</span> <span class="n">installedCode</span> <span class="o">=</span> <span class="n">task</span><span class="o">.</span><span class="na">getInstalledCode</span><span class="o">();</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">installedCode</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">installedCode</span><span class="o">.</span><span class="na">invalidate</span><span class="o">();</span>
+        <span class="o">}</span>
+
+        <span class="c1">// 统计累计内存占用</span>
+        <span class="n">memoryUsed</span><span class="o">.</span><span class="na">getAndAdd</span><span class="o">(</span><span class="nc">MemUseTrackerImpl</span><span class="o">.</span><span class="na">getCurrentThreadAllocatedBytes</span><span class="o">()</span> <span class="o">-</span> <span class="n">allocatedAtStart</span><span class="o">);</span>
+        <span class="c1">// 统计累计编译时长</span>
+        <span class="n">compileTime</span><span class="o">.</span><span class="na">getAndAdd</span><span class="o">(</span><span class="nc">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">()</span> <span class="o">-</span> <span class="n">start</span><span class="o">);</span>
+        <span class="c1">// 统计成功编译方法数</span>
+        <span class="n">compiledMethodsCounter</span><span class="o">.</span><span class="na">incrementAndGet</span><span class="o">();</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Throwable</span> <span class="n">t</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 编译方法过程中出现Throwable</span>
+        <span class="n">println</span><span class="o">(</span><span class="s">"CompileTheWorld (%d) : Error compiling method: %s"</span><span class="o">,</span> <span class="n">counter</span><span class="o">,</span> <span class="n">method</span><span class="o">.</span><span class="na">format</span><span class="o">(</span><span class="s">"%H.%n(%p):%r"</span><span class="o">));</span>
+        <span class="n">printStackTrace</span><span class="o">(</span><span class="n">t</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="参考链接">参考链接</h3>
+
+<ul>
+  <li>
+    <p><a href="https://www.zhihu.com/question/263322849/answer/268228465">Java中一个方法字节码的长度为什么会影响程序并发下的性能？ - RednaxelaFX的回答 - 知乎</a></p>
+  </li>
+  <li>
+    <p><a href="https://leenarts.net/2010/05/26/dontcompilehugemethods/">-XX:-DontCompileHugeMethods - BLOG OF JEROEN LEENARTS</a></p>
+  </li>
+</ul>
+
+:ET

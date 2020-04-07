@@ -1,0 +1,65 @@
+I"�<p>从Android 6.0版本开始，系统启用更加严格的权限管理，部分重要权限只能在运行过程由用户授权，无法通过声明获得。如READ_PHONE_STATE这种权限，即使在AndroidManifest中已经声明，如果既没有在运行时向用户请求，又没有做相应处理，就会导致应用闪退。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+</pre></td><td class="rouge-code"><pre>java.lang.RuntimeException: Error receiving broadcast Intent { act=android.net.conn.CONNECTIVITY_CHANGE flg=0x4000010 (has extras) }
+      in com.quanshi.tang.network.NetworkUtils$ConnectReceiver@2a526a5
+            at android.app.LoadedApk$ReceiverDispatcher$Args.run(LoadedApk.java:1235)
+            at android.os.Handler.handleCallback(Handler.java:761)
+            at android.os.Handler.dispatchMessage(Handler.java:98)
+            at android.os.Looper.loop(Looper.java:156)
+            at android.app.ActivityThread.main(ActivityThread.java:6585)
+            at java.lang.reflect.Method.invoke(Native Method)
+            at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:941)
+            at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:831)
+      Caused by: java.lang.SecurityException: getSubscriberId: Neither user 10190 nor current process has android.permission.READ_PHONE_STATE.
+            at android.os.Parcel.readException(Parcel.java:1665)
+            at android.os.Parcel.readException(Parcel.java:1618)
+            at com.android.internal.telephony.IPhoneSubInfo$Stub$Proxy.getSubscriberIdForSubscriber(IPhoneSubInfo.java:590)
+            at android.telephony.TelephonyManager.getSubscriberId(TelephonyManager.java:2208)
+            at android.telephony.TelephonyManager.getSubscriberId(TelephonyManager.java:2189)
+            at com.quanshi.tang.network.NetworkUtils.getProvidersName(Unknown Source)
+            at com.quanshi.tang.network.NetworkUtils.getNetworkInfo(Unknown Source)
+            at com.quanshi.tang.network.NetworkUtils.connectChanged(Unknown Source)
+            at com.quanshi.tang.network.NetworkUtils.access$100(Unknown Source)
+            at com.quanshi.tang.network.NetworkUtils$ConnectReceiver.onReceive(Unknown Source)
+            at android.app.LoadedApk$ReceiverDispatcher$Args.run(LoadedApk.java:1222)
+            at android.os.Handler.handleCallback(Handler.java:761) 
+            at android.os.Handler.dispatchMessage(Handler.java:98) 
+            at android.os.Looper.loop(Looper.java:156) 
+            at android.app.ActivityThread.main(ActivityThread.java:6585) 
+            at java.lang.reflect.Method.invoke(Native Method) 
+            at com.android.internal.os.ZygoteInit$MethodAndArgsCaller.run(ZygoteInit.java:941) 
+            at com.android.internal.os.ZygoteInit.main(ZygoteInit.java:831) 
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>但apk可通过build.gradle的targetSDK表明最高支持的系统版本。已知新的权限系统只在Android 6.0(23)及以上的系统有效，那把targetSDK设置小于等于22即可避开新的权限管理。</p>
+
+:ET

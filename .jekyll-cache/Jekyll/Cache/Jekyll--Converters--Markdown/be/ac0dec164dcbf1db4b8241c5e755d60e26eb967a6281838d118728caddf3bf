@@ -1,0 +1,1141 @@
+I"�/<h2 id="一threadlocal的作用">一、ThreadLocal的作用</h2>
+
+<p><strong>ThreadLocal</strong> 提供线程局部变量，以数据成员的形式存放在线程内，线程与线程之间副本相互独立。这些副本存放在 <strong>Thread.ThreadLocalMap</strong>，避免线程竞争同一实例造成等待锁的时间损耗。</p>
+
+<p><img src="/img/java/thredLocalRef.png" alt="ThreadLoacalMap" /></p>
+
+<ul>
+  <li><strong>Entry[1]</strong> : Entry.key通过弱引用持有ThreadLocal实例；</li>
+  <li><strong>Entry[10]</strong> : 没有强引用持有的ThreadLocal实例，Entry.key为null，Entry.value等待清理；</li>
+  <li><strong>其他</strong> ：Entry没有被使用，或曾经使用但已回收，Entry处于初始状态；</li>
+</ul>
+
+<h2 id="二示例">二、示例</h2>
+
+<p>例子中共有5个线程，每个线程给私有的ThreadLocal累加0到9。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+</pre></td><td class="rouge-code"><pre><span class="n">fun</span> <span class="nf">main</span><span class="o">(</span><span class="nl">args:</span> <span class="nc">Array</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;)</span> <span class="o">{</span>
+    <span class="n">val</span> <span class="n">threads</span> <span class="o">=</span> <span class="n">arrayOfNulls</span><span class="o">&lt;</span><span class="nc">Thread</span><span class="o">&gt;(</span><span class="mi">5</span><span class="o">)</span>
+    <span class="k">for</span> <span class="o">(</span><span class="n">i</span> <span class="n">in</span> <span class="mi">0</span> <span class="n">until</span> <span class="mi">5</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">threads</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="nc">Thread</span> <span class="o">{</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"${Thread.currentThread()}'s initial value is ${threadLocal.get()}"</span><span class="o">)</span>
+
+            <span class="k">for</span> <span class="o">(</span><span class="n">j</span> <span class="n">in</span> <span class="mi">0</span> <span class="n">until</span> <span class="mi">10</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">threadLocal</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="n">threadLocal</span><span class="o">.</span><span class="na">get</span><span class="o">()</span> <span class="o">+</span> <span class="n">j</span><span class="o">)</span>
+            <span class="o">}</span>
+
+            <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"${Thread.currentThread()}'s result is ${threadLocal.get()}"</span><span class="o">)</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="k">for</span> <span class="o">(</span><span class="n">i</span> <span class="n">in</span> <span class="n">threads</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">i</span><span class="o">?.</span><span class="na">start</span><span class="o">()</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 重写initialValue并返回初始值0</span>
+<span class="n">val</span> <span class="n">threadLocal</span> <span class="o">=</span> <span class="n">object</span> <span class="o">:</span> <span class="nc">ThreadLocal</span><span class="o">&lt;</span><span class="nc">Int</span><span class="o">&gt;()</span> <span class="o">{</span>
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">initialValue</span><span class="o">()</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>每个线程完成累加的结果值不会影响其他线程的初始值，可知每个线程之间的操作是完全独立的。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+</pre></td><td class="rouge-code"><pre>Thread[Thread-0,5,main]'s initial value is 0
+Thread[Thread-0,5,main]'s result is 45
+
+Thread[Thread-1,5,main]'s initial value is 0
+Thread[Thread-1,5,main]'s result is 45
+
+Thread[Thread-2,5,main]'s initial value is 0
+Thread[Thread-2,5,main]'s result is 45
+
+Thread[Thread-3,5,main]'s initial value is 0
+Thread[Thread-3,5,main]'s result is 45
+
+Thread[Thread-4,5,main]'s initial value is 0
+Thread[Thread-4,5,main]'s result is 45
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三源码剖析">三、源码剖析</h2>
+
+<h3 id="31-成员变量">3.1 成员变量</h3>
+
+<p><strong>ThreadLocal</strong> 依靠捆绑在每个线程的线性探针哈希表 <strong>ThreadLocalMap.Entry[]</strong>。<strong>ThreadLocal</strong> 对象作为Hash的键，通过 <strong>threadLocalHashCode</strong> 来搜索，且该值只用在 <strong>ThreadLocalMaps</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">threadLocalHashCode</span> <span class="o">=</span> <span class="n">nextHashCode</span><span class="o">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>不同线程访问同一个 <strong>ThreadLocal</strong>，Hash值由静态的<a href="/2018/01/17/AtomicInteger/">AtomicInteger：Java源码系列(7)</a>提供，<strong>ThreadLocal</strong> 创建新实例就会累加魔数 <strong>HASH_INCREMENT</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="c1">// 预计算下一实例的Hash值，从初始值0开始自动累加</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="nc">AtomicInteger</span> <span class="n">nextHashCode</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicInteger</span><span class="o">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>对长度为2的N次幂哈希表来说，和连续生成哈希码的差别是，此值把隐性序列 <strong>thread-local</strong> 的IDs，变为近似优化过的分散乘法哈希值</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">HASH_INCREMENT</span> <span class="o">=</span> <span class="mh">0x61c88647</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="32-nexthashcode">3.2 nextHashCode()</h3>
+
+<p>返回下一个哈希值</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kt">int</span> <span class="nf">nextHashCode</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">nextHashCode</span><span class="o">.</span><span class="na">getAndAdd</span><span class="o">(</span><span class="no">HASH_INCREMENT</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="33-initialvalue">3.3 initialValue()</h3>
+
+<p>给当前线程返回 <strong>thread-local</strong> 变量的初始值，<strong>initialValue()</strong> 方法可见性是 <strong>protected</strong>。当线程首次访问 <strong>ThreadLoacal.get()</strong> 方法时调用此方法。线程已经主动调用 <strong>set()</strong> 设置初始值，此方法不会调用。</p>
+
+<p>一般来说，这个方法在每个线程最多只会调用一次。如果线程执行 <strong>remove()</strong> 方法后再调用 <strong>get()</strong>，会再次触发 <strong>initialValue()</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">protected</span> <span class="no">T</span> <span class="nf">initialValue</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果不希望初始化值是null，可通过子类继承父类或匿名内部类重写 <strong>initialValue()</strong> 提供初始化值</p>
+
+<h3 id="34-get">3.4 get()</h3>
+
+<p>此方法返回当前线程在 <strong>thread-local</strong> 中变量的副本。如果当前线程不存在对应的线程局部变量，会调用 <strong>setInitialValue()</strong>，并由 <strong>setInitialValue()</strong> 中 <strong>initialValue()</strong> 给出初始化值。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="no">T</span> <span class="nf">get</span><span class="o">()</span> 
+    <span class="c1">// 获取当前线程</span>
+    <span class="nc">Thread</span> <span class="n">t</span> <span class="o">=</span> <span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">();</span>
+    <span class="c1">// 获取当前线程ThreadLocalMap</span>
+    <span class="nc">ThreadLocalMap</span> <span class="n">map</span> <span class="o">=</span> <span class="n">getMap</span><span class="o">(</span><span class="n">t</span><span class="o">);</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">map</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">ThreadLocalMap</span><span class="o">.</span><span class="na">Entry</span> <span class="n">e</span> <span class="o">=</span> <span class="n">map</span><span class="o">.</span><span class="na">getEntry</span><span class="o">(</span><span class="k">this</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">e</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unchecked"</span><span class="o">)</span>
+            <span class="c1">// e.value显式类型转换 Object -&gt; T</span>
+            <span class="no">T</span> <span class="n">result</span> <span class="o">=</span> <span class="o">(</span><span class="no">T</span><span class="o">)</span><span class="n">e</span><span class="o">.</span><span class="na">value</span><span class="o">;</span>
+            <span class="k">return</span> <span class="n">result</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 初始化ThreadLocalMap</span>
+    <span class="k">return</span> <span class="nf">setInitialValue</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="35-setinitialvalue">3.5 setInitialValue()</h3>
+
+<p>若 <strong>Thread.ThreadLocalMap</strong> 已经存在，调 <strong>map.set()</strong> 设置该 <strong>ThreadLocal</strong> 和对应 <strong>value</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="no">T</span> <span class="nf">setInitialValue</span><span class="o">()</span> <span class="o">{</span>
+    <span class="no">T</span> <span class="n">value</span> <span class="o">=</span> <span class="n">initialValue</span><span class="o">();</span>
+    <span class="nc">Thread</span> <span class="n">t</span> <span class="o">=</span> <span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">();</span>
+    <span class="c1">// ThreadLocalMap map = t.threadLocals</span>
+    <span class="nc">ThreadLocalMap</span> <span class="n">map</span> <span class="o">=</span> <span class="n">getMap</span><span class="o">(</span><span class="n">t</span><span class="o">);</span>
+    <span class="c1">// Thread已有对应的ThreadLocalMap</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">map</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="c1">// 设置指定的初始化值value</span>
+        <span class="n">map</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+    <span class="k">else</span>
+        <span class="c1">// ThreadLocalMap为null，创建后再设置value值</span>
+        <span class="n">createMap</span><span class="o">(</span><span class="n">t</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+    <span class="k">return</span> <span class="n">value</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>从示例代码可知 <strong>setInitialValue()</strong> 中 <strong>initialValue()</strong> 返回值就是下面的0。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="n">val</span> <span class="n">threadLocal</span> <span class="o">=</span> <span class="n">object</span> <span class="o">:</span> <span class="nc">ThreadLocal</span><span class="o">&lt;</span><span class="nc">Int</span><span class="o">&gt;()</span> <span class="o">{</span>
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">initialValue</span><span class="o">()</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="36-set-">3.6 set( )</h3>
+
+<p>把当前线程的 <strong>thread-local</strong> 设置为指定值，多数情况下子类没有必要重写这个方法</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">set</span><span class="o">(</span><span class="no">T</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Thread</span> <span class="n">t</span> <span class="o">=</span> <span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">();</span>
+    <span class="nc">ThreadLocalMap</span> <span class="n">map</span> <span class="o">=</span> <span class="n">getMap</span><span class="o">(</span><span class="n">t</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">map</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span>
+        <span class="n">map</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+    <span class="k">else</span>
+        <span class="nf">createMap</span><span class="o">(</span><span class="n">t</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="37-remove-">3.7 remove( )</h3>
+
+<p>用于从当前线程的 <strong>ThreadLocalMap</strong> 中移除此 <strong>thread-local</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre> <span class="kd">public</span> <span class="kt">void</span> <span class="nf">remove</span><span class="o">()</span> <span class="o">{</span>
+     <span class="nc">ThreadLocalMap</span> <span class="n">m</span> <span class="o">=</span> <span class="n">getMap</span><span class="o">(</span><span class="nc">Thread</span><span class="o">.</span><span class="na">currentThread</span><span class="o">());</span>
+     <span class="k">if</span> <span class="o">(</span><span class="n">m</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span>
+         <span class="n">m</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="k">this</span><span class="o">);</span>
+ <span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="38-getmap-">3.8 getMap( )</h3>
+
+<p>返回线程的 <strong>ThreadLocalMap</strong>，此方法在 <strong>InheritableThreadLocal</strong> 被重写了</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="nc">ThreadLocalMap</span> <span class="nf">getMap</span><span class="o">(</span><span class="nc">Thread</span> <span class="n">t</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">t</span><span class="o">.</span><span class="na">threadLocals</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>Thread.threadLocals</strong> 从属于 <strong>Thread</strong>，但是维护却由 <strong>ThreadLocal</strong> 类负责</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nc">ThreadLocal</span><span class="o">.</span><span class="na">ThreadLocalMap</span> <span class="n">threadLocals</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="38-createmap-">3.8 createMap( )</h3>
+
+<p>在当前线程初始化 <strong>ThreadLocalMap</strong> ，并把 <strong>firstValue</strong> 作为 <strong>Entry</strong> 的值放入。<strong>InheritableThreadLocal</strong> 重写了这个方法。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kt">void</span> <span class="nf">createMap</span><span class="o">(</span><span class="nc">Thread</span> <span class="n">t</span><span class="o">,</span> <span class="no">T</span> <span class="n">firstValue</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">t</span><span class="o">.</span><span class="na">threadLocals</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ThreadLocalMap</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">firstValue</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="310-suppliedthreadlocal">3.10 SuppliedThreadLocal</h3>
+
+<p>从 <strong>Supplier</strong> 获取 <strong>ThreadLocal</strong> 初始值，重写的 <strong>initialValue()</strong> 从 <strong>Supplier.get()</strong> 中取得变量。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">SuppliedThreadLocal</span><span class="o">&lt;</span><span class="no">T</span><span class="o">&gt;</span> <span class="kd">extends</span> <span class="nc">ThreadLocal</span><span class="o">&lt;</span><span class="no">T</span><span class="o">&gt;</span> <span class="o">{</span>
+
+    <span class="kd">private</span> <span class="kd">final</span> <span class="nc">Supplier</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="no">T</span><span class="o">&gt;</span> <span class="n">supplier</span><span class="o">;</span>
+
+    <span class="nc">SuppliedThreadLocal</span><span class="o">(</span><span class="nc">Supplier</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="no">T</span><span class="o">&gt;</span> <span class="n">supplier</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">this</span><span class="o">.</span><span class="na">supplier</span> <span class="o">=</span> <span class="nc">Objects</span><span class="o">.</span><span class="na">requireNonNull</span><span class="o">(</span><span class="n">supplier</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 重写了ThreadLocal.initialValue()</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="no">T</span> <span class="nf">initialValue</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">supplier</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四内部类threadlocalmap">四、内部类ThreadLocalMap</h2>
+
+<p><strong>ThreadLocalMap</strong> 是一个定制的哈希表，只给线程局部值使用。所有操作都不会导出 <strong>ThreadLocal</strong> 类以外。此类包私有。为应对大量长生命周期对象，哈希表使用弱引用持有所有键。由于没用缓存队列(例如LruCache)，那些废弃的记录只保证在空间用尽时(触发扩容阀值时)才尝试移除并回收。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="kd">class</span> <span class="nc">ThreadLocalMap</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="41-entry">4.1 Entry</h3>
+
+<p><strong>Entry</strong> 继承 <strong>WeakReference</strong> 父类，当 <strong>Entry</strong> 的key没有被外界引用，<strong>key</strong> 对应的 <strong>ThreadLocal</strong> 会被垃圾回收。虽然 <strong>key</strong> 已被回收，但是 <strong>Entry</strong> 本身和 <strong>Entry</strong> 的 <strong>value</strong> 依然由强引用持有。后面会说明这种情况下 <strong>Entry</strong> 如何被安全回收。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="kd">class</span> <span class="nc">Entry</span> <span class="kd">extends</span> <span class="nc">WeakReference</span><span class="o">&lt;</span><span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;&gt;</span> <span class="o">{</span>
+    <span class="c1">// ThreadLocal关联的value</span>
+    <span class="nc">Object</span> <span class="n">value</span><span class="o">;</span>
+    
+    <span class="c1">// key由父构造方法赋值到WeakReference，value保存在Entry本身</span>
+    <span class="nc">Entry</span><span class="o">(</span><span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">k</span><span class="o">,</span> <span class="nc">Object</span> <span class="n">v</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">(</span><span class="n">k</span><span class="o">);</span>
+        <span class="n">value</span> <span class="o">=</span> <span class="n">v</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="42-数据成员">4.2 数据成员</h3>
+
+<p>初始容量值16，为2的幂</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">INITIAL_CAPACITY</span> <span class="o">=</span> <span class="mi">16</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>由扩容方法控制长度符合2的幂，且仅在必要时扩容</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">Entry</span><span class="o">[]</span> <span class="n">table</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>已保存在表中的条目数量</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">int</span> <span class="n">size</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>由setThreshold()计算的阀值，超过该值就扩大table，避免哈希冲突。假设默认容量为16，可算出首个阀值(地板数)：16 * 2 / 3 = 10</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">int</span> <span class="n">threshold</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="43-setthresholdint">4.3 setThreshold(int)</h3>
+
+<p>从 len * 2 / 3 可知负载因子约为0.67</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">setThreshold</span><span class="o">(</span><span class="kt">int</span> <span class="n">len</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">threshold</span> <span class="o">=</span> <span class="n">len</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">/</span> <span class="mi">3</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="44-索引管理">4.4 索引管理</h3>
+<p>如果i+1没有超过长度则后移索引，否则索引回到头部索引0</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kt">int</span> <span class="nf">nextIndex</span><span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">,</span> <span class="kt">int</span> <span class="n">len</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="o">((</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">&lt;</span> <span class="n">len</span><span class="o">)</span> <span class="o">?</span> <span class="n">i</span> <span class="o">+</span> <span class="mi">1</span> <span class="o">:</span> <span class="mi">0</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果i-1没有小于长度则前移索引，否则索引跳到尾部索引len-1</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kt">int</span> <span class="nf">prevIndex</span><span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">,</span> <span class="kt">int</span> <span class="n">len</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="o">((</span><span class="n">i</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="n">i</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">:</span> <span class="n">len</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="45-构造方法">4.5 构造方法</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="nc">ThreadLocalMap</span><span class="o">(</span><span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">firstKey</span><span class="o">,</span> <span class="nc">Object</span> <span class="n">firstValue</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 构造大小为16的table</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Entry</span><span class="o">[</span><span class="no">INITIAL_CAPACITY</span><span class="o">];</span>
+    <span class="c1">// 计算ThreadLocal的Hash在上述长度的下标</span>
+    <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">firstKey</span><span class="o">.</span><span class="na">threadLocalHashCode</span> <span class="o">&amp;</span> <span class="o">(</span><span class="no">INITIAL_CAPACITY</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span>
+    <span class="n">table</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Entry</span><span class="o">(</span><span class="n">firstKey</span><span class="o">,</span> <span class="n">firstValue</span><span class="o">);</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="mi">1</span><span class="o">;</span>
+    <span class="n">setThreshold</span><span class="o">(</span><span class="no">INITIAL_CAPACITY</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="46-getentrythreadlocal">4.6 getEntry(ThreadLocal)</h3>
+
+<p>用关联的key获取对应entry。如果索引位置的entry合法就直接返回，否则需要 <strong>getEntryAfterMiss</strong> 方法查找。方法的设计主要为了最大限度达到直接命中的目的，且令方法更容易被内联。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">Entry</span> <span class="nf">getEntry</span><span class="o">(</span><span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 计算在表的下标</span>
+    <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="na">threadLocalHashCode</span> <span class="o">&amp;</span> <span class="o">(</span><span class="n">table</span><span class="o">.</span><span class="na">length</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span>
+    <span class="nc">Entry</span> <span class="n">e</span> <span class="o">=</span> <span class="n">table</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">e</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">()</span> <span class="o">==</span> <span class="n">key</span><span class="o">)</span> <span class="c1">// 命中Entry</span>
+        <span class="k">return</span> <span class="n">e</span><span class="o">;</span>
+    <span class="k">else</span>
+        <span class="c1">// e == null || e.get() != key</span>
+        <span class="k">return</span> <span class="nf">getEntryAfterMiss</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">i</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="47-getentryaftermissthreadlocal-int-entry">4.7 getEntryAfterMiss(ThreadLocal&lt;?&gt;, int, Entry)</h3>
+
+<p>从 <strong>getEntry(ThreadLocal&lt;?&gt;)</strong> 到 <strong>getEntryAfterMiss</strong> 有两种情况：<strong>e == null</strong> 或 <strong>e.get != key</strong></p>
+
+<p><strong>getEntry</strong> 方法没有找到直接下标的key，就调用此方法继续向后查找，一边清理一边查找，直到找到目标键或遇到<code class="highlighter-rouge">e == null</code>时退出。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">Entry</span> <span class="nf">getEntryAfterMiss</span><span class="o">(</span><span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">key</span><span class="o">,</span> <span class="kt">int</span> <span class="n">i</span><span class="o">,</span> <span class="nc">Entry</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Entry</span><span class="o">[]</span> <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">tab</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+
+    <span class="c1">// e.get() != key </span>
+    <span class="c1">// Map负载因子为0.75，所以总会遇到null而退出</span>
+    <span class="k">while</span> <span class="o">(</span><span class="n">e</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">k</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+
+        <span class="c1">// 命中指定ThreadLocal，返回该Entry</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">k</span> <span class="o">==</span> <span class="n">key</span><span class="o">)</span>
+            <span class="k">return</span> <span class="n">e</span><span class="o">;</span>
+
+        <span class="k">if</span> <span class="o">(</span><span class="n">k</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+            <span class="n">expungeStaleEntry</span><span class="o">(</span><span class="n">i</span><span class="o">);</span> <span class="c1">// Entry[]遇到的entry为空，清理该废弃的Entry</span>
+        <span class="k">else</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">i</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span> <span class="c1">// 遇到的entry不为空，继续迭代下一个下标</span>
+
+        <span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// e为null直接退出</span>
+    <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="48-set">4.8 set()</h3>
+
+<p>向 <strong>ThreadLocalMap</strong> 设置值</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">set</span><span class="o">(</span><span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">key</span><span class="o">,</span> <span class="nc">Object</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+
+    <span class="c1">// We don't use a fast path as with get() because it is at</span>
+    <span class="c1">// least as common to use set() to create new entries as</span>
+    <span class="c1">// it is to replace existing ones, in which case, a fast</span>
+    <span class="c1">// path would fail more often than not.</span>
+
+    <span class="nc">Entry</span><span class="o">[]</span> <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">tab</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+    <span class="c1">// 计算Key所在的下标</span>
+    <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="na">threadLocalHashCode</span> <span class="o">&amp;</span> <span class="o">(</span><span class="n">len</span><span class="o">-</span><span class="mi">1</span><span class="o">);</span>
+
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Entry</span> <span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+         <span class="n">e</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">;</span>
+         <span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">i</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">i</span><span class="o">,</span> <span class="n">len</span><span class="o">)])</span> <span class="o">{</span>
+        <span class="c1">// 从Entry获取Key</span>
+        <span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">k</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+
+        <span class="c1">// key已经存在，替换Entry.value为新值value</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">k</span> <span class="o">==</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">e</span><span class="o">.</span><span class="na">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">;</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+
+        <span class="c1">// key已经被解除引用，但Entry还存在</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">k</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">replaceStaleEntry</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">,</span> <span class="n">i</span><span class="o">);</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 这个key不存在，创建新的entry放入</span>
+    <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Entry</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+
+    <span class="c1">// 创建新的entry递增数量</span>
+    <span class="kt">int</span> <span class="n">sz</span> <span class="o">=</span> <span class="o">++</span><span class="n">size</span><span class="o">;</span>
+
+    <span class="c1">// 看看是否到了扩容阀值进行扩容</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">cleanSomeSlots</span><span class="o">(</span><span class="n">i</span><span class="o">,</span> <span class="n">sz</span><span class="o">)</span> <span class="o">&amp;&amp;</span> <span class="n">sz</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="o">)</span>
+        <span class="n">rehash</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="49-remove">4.9 remove()</h3>
+
+<p>从 <strong>ThreadLocalMap</strong> 移除值</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+</pre></td><td class="rouge-code"><pre><span class="c1">// 通过Key查找对应Entry并移除</span>
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">remove</span><span class="o">(</span><span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 获取ThreadLocalMap的Entry数组</span>
+    <span class="nc">Entry</span><span class="o">[]</span> <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">;</span>
+
+    <span class="c1">// 取数组的长度，值为2的幂大小</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">tab</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+
+    <span class="c1">// 假设len为16，二进制表示为1000，len-1即15的二进制是0111</span>
+    <span class="c1">// key.threadLocalHashCode与(len-1)进行位运算定位Entry[]的下标</span>
+    <span class="c1">// 通过%也能实现相同目的，但位运算性能更好</span>
+    <span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">key</span><span class="o">.</span><span class="na">threadLocalHashCode</span> <span class="o">&amp;</span> <span class="o">(</span><span class="n">len</span><span class="o">-</span><span class="mi">1</span><span class="o">);</span>
+
+    <span class="c1">// 从下标开始查找直到遇到null，或匹配到Key的Entry执行移除操作</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Entry</span> <span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+         <span class="n">e</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">;</span>
+         <span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">i</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">i</span><span class="o">,</span> <span class="n">len</span><span class="o">)])</span> <span class="o">{</span>
+        <span class="c1">// 匹配到对应key，移除e，并执行</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">()</span> <span class="o">==</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">e</span><span class="o">.</span><span class="na">clear</span><span class="o">();</span>
+            <span class="n">expungeStaleEntry</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="410-replacestaleentry">4.10 replaceStaleEntry()</h3>
+
+<p>设置值时遇到 <strong>Entry</strong> 的 key 为空进入此方法。此时索引 <strong>staleSlot</strong> 的 <strong>Entry</strong> 已废弃，向后查找 <strong>key</strong> 对应 <strong>Entry</strong> 更新为最新值，并挪回到 <strong>staleSlot</strong> 位置上</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+</pre></td><td class="rouge-code"><pre><span class="c1">// key: 正要设置的ThreadLocal</span>
+<span class="c1">// value: 设置的新值</span>
+<span class="c1">// staleSlot: 需要处理ThreadLocalMap的索引值</span>
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">replaceStaleEntry</span><span class="o">(</span><span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">key</span><span class="o">,</span> <span class="nc">Object</span> <span class="n">value</span><span class="o">,</span>
+                               <span class="kt">int</span> <span class="n">staleSlot</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Entry</span><span class="o">[]</span> <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">tab</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+    <span class="nc">Entry</span> <span class="n">e</span><span class="o">;</span>
+
+    <span class="kt">int</span> <span class="n">slotToExpunge</span> <span class="o">=</span> <span class="n">staleSlot</span><span class="o">;</span>
+
+    <span class="c1">// 从staleSlot向前遍历，查找遇到的key为null的Entry，记录到slotToExpunge</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">prevIndex</span><span class="o">(</span><span class="n">staleSlot</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+         <span class="o">(</span><span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">])</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">;</span>
+         <span class="n">i</span> <span class="o">=</span> <span class="n">prevIndex</span><span class="o">(</span><span class="n">i</span><span class="o">,</span> <span class="n">len</span><span class="o">))</span>
+         
+        <span class="c1">// WeakReference.Reference.referent == null</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">()</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+            <span class="n">slotToExpunge</span> <span class="o">=</span> <span class="n">i</span><span class="o">;</span>
+
+    <span class="c1">// 从staleSlot向后遍历</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">staleSlot</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+         <span class="o">(</span><span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">])</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">;</span>
+         <span class="n">i</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">i</span><span class="o">,</span> <span class="n">len</span><span class="o">))</span> <span class="o">{</span>
+        <span class="c1">// 从Entry获取Key</span>
+        <span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">k</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+
+        <span class="c1">// 命中指定ThreadLoacal的Entry</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">k</span> <span class="o">==</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 新value替换原value</span>
+            <span class="n">e</span><span class="o">.</span><span class="na">value</span> <span class="o">=</span> <span class="n">value</span><span class="o">;</span>
+
+            <span class="c1">// 交换位置i与位置staleSlot的Entry以维护hash顺序</span>
+            <span class="c1">// 换位后下次查找相同ThreadLocal实例能直接命中</span>
+            <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">staleSlot</span><span class="o">];</span>
+            <span class="n">tab</span><span class="o">[</span><span class="n">staleSlot</span><span class="o">]</span> <span class="o">=</span> <span class="n">e</span><span class="o">;</span>
+
+            <span class="c1">// Start expunge at preceding stale entry if it exists</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">slotToExpunge</span> <span class="o">==</span> <span class="n">staleSlot</span><span class="o">)</span>
+                <span class="c1">// staleSlot前方没有脏Entry，而staleSlot到i是有效的Entry</span>
+                <span class="c1">// 所以从i后面清理脏Entry</span>
+                <span class="n">slotToExpunge</span> <span class="o">=</span> <span class="n">i</span><span class="o">;</span>
+
+            <span class="c1">// 清除Entry.key为空的Entry</span>
+            <span class="n">cleanSomeSlots</span><span class="o">(</span><span class="n">expungeStaleEntry</span><span class="o">(</span><span class="n">slotToExpunge</span><span class="o">),</span> <span class="n">len</span><span class="o">);</span>
+            <span class="k">return</span><span class="o">;</span>
+        <span class="o">}</span>
+
+        <span class="c1">// If we didn't find stale entry on backward scan, the</span>
+        <span class="c1">// first stale entry seen while scanning for key is the</span>
+        <span class="c1">// first still present in the run.</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">k</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">slotToExpunge</span> <span class="o">==</span> <span class="n">staleSlot</span><span class="o">)</span>
+            <span class="n">slotToExpunge</span> <span class="o">=</span> <span class="n">i</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// key没找到，创建新的Entry到位置staleSlot上</span>
+    <span class="n">tab</span><span class="o">[</span><span class="n">staleSlot</span><span class="o">].</span><span class="na">value</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="n">tab</span><span class="o">[</span><span class="n">staleSlot</span><span class="o">]</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Entry</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+
+    <span class="c1">// 有任何废弃的entry就触发清理逻辑</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">slotToExpunge</span> <span class="o">!=</span> <span class="n">staleSlot</span><span class="o">)</span>
+        <span class="n">cleanSomeSlots</span><span class="o">(</span><span class="n">expungeStaleEntry</span><span class="o">(</span><span class="n">slotToExpunge</span><span class="o">),</span> <span class="n">len</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>进入方法时 <strong>ThreadLocalMap</strong> 结构如下图</p>
+
+<p><img src="/img/java/ThreadLocal_replaceStaleEntry_raw.png" alt="ThreadLocal_replaceStaleEntry_raw" /></p>
+
+<p>向前查找脏 <strong>Entry</strong></p>
+
+<p><img src="/img/java/ThreadLocal_replaceStaleEntry_slotToExpunge.png" alt="ThreadLocal_replaceStaleEntry_slotToExpunge" /></p>
+
+<p>向后查找目标 <strong>Entry</strong></p>
+
+<p><img src="/img/java/ThreadLocal_replaceStaleEntry_find.png" alt="ThreadLocal_replaceStaleEntry_find" /></p>
+
+<p>找到目标 <strong>Entry</strong>，更新该 <strong>Entry</strong> 的值</p>
+
+<p><img src="/img/java/ThreadLocal_replaceStaleEntry_match.png" alt="ThreadLocal_replaceStaleEntry_match" /></p>
+
+<p>目标 <strong>Entry</strong> 替换到 <strong>staleSlot</strong> 的位置</p>
+
+<p><img src="/img/java/ThreadLocal_replaceStaleEntry_exchange.png" alt="ThreadLocal_replaceStaleEntry_exchange" /></p>
+
+<p>最后从 <strong>slotToExpunge</strong> 开始向后清除脏 <strong>Entry</strong></p>
+
+<p><img src="/img/java/ThreadLocal_replaceStaleEntry_to_expunge.png" alt="ThreadLocal_replaceStaleEntry_to_expunge" /></p>
+
+<h3 id="411-expungestaleentryint">4.11 expungeStaleEntry(int)</h3>
+
+<p>发现需要清理的无效 <strong>Entry</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">int</span> <span class="nf">expungeStaleEntry</span><span class="o">(</span><span class="kt">int</span> <span class="n">staleSlot</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Entry</span><span class="o">[]</span> <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">tab</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+
+    <span class="c1">// 移除Entry.value的值</span>
+    <span class="n">tab</span><span class="o">[</span><span class="n">staleSlot</span><span class="o">].</span><span class="na">value</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="c1">// 后Entry从Entry[]中移除</span>
+    <span class="n">tab</span><span class="o">[</span><span class="n">staleSlot</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="c1">// 元素总数递减</span>
+    <span class="n">size</span><span class="o">--;</span>
+
+    <span class="c1">// 开放地址法需重Hash后续元素直到遇到null</span>
+    <span class="nc">Entry</span> <span class="n">e</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">i</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="n">i</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">staleSlot</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+         <span class="o">(</span><span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">])</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">;</span>
+         <span class="n">i</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">i</span><span class="o">,</span> <span class="n">len</span><span class="o">))</span> <span class="o">{</span>
+        <span class="c1">// 取Entry</span>
+        <span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">k</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+
+        <span class="k">if</span> <span class="o">(</span><span class="n">k</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// key为null，置空value并从Entry[]移除该Entry</span>
+            <span class="n">e</span><span class="o">.</span><span class="na">value</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="n">size</span><span class="o">--;</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// key非空，重新hash该Entry的新下标</span>
+            <span class="kt">int</span> <span class="n">h</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="na">threadLocalHashCode</span> <span class="o">&amp;</span> <span class="o">(</span><span class="n">len</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">h</span> <span class="o">!=</span> <span class="n">i</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 从该Entry目标索引h开始向后查找合适的位置存放</span>
+                <span class="c1">// 尽可能令Entry的索引靠近理想索引h</span>
+                <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+
+                <span class="c1">// Unlike Knuth 6.4 Algorithm R, we must scan until</span>
+                <span class="c1">// null because multiple entries could have been stale.</span>
+                <span class="k">while</span> <span class="o">(</span><span class="n">tab</span><span class="o">[</span><span class="n">h</span><span class="o">]</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span>
+                    <span class="n">h</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">h</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+                <span class="n">tab</span><span class="o">[</span><span class="n">h</span><span class="o">]</span> <span class="o">=</span> <span class="n">e</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">i</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="4111-清理">4.11.1 清理</h4>
+
+<p>从 <strong>staleSlot</strong> 开始向后清理脏 <strong>Entry</strong></p>
+
+<p><img src="/img/java/ThreadLocal_expungeStaleEntry_expunge.png" alt="ThreadLocal_ expungeStaleEntry_expunge" /></p>
+
+<h4 id="4112-重哈希">4.11.2 重哈希</h4>
+
+<p>重哈希 <strong>Entry</strong> 的位置，先看正在使用的情况。实例 <strong>Entry</strong> 原本需要放在索引为10的位置，由于索引10到13都被其他 <strong>Entry</strong> 先占用了，所以只能放在14的位置</p>
+
+<p><img src="/img/java/ThreadLocal_expungeStaleEntry_using.png" alt="ThreadLocal_expungeStaleEntry_using" /></p>
+
+<p>使用一段时间后，部分 <strong>Entry</strong> 已失效</p>
+
+<p><img src="/img/java/ThreadLocal_expungeStaleEntry_used.png" alt="ThreadLocal_expungeStaleEntry_used" /></p>
+
+<p>清理过程中脏 <strong>Entry</strong> 被清除，清理到索引14的有效 <strong>Entry</strong> 需要重哈希</p>
+
+<p><img src="/img/java/ThreadLocal_expungeStaleEntry_before_rehash.png" alt="ThreadLocal_expungeStaleEntry_before_rehash" /></p>
+
+<p>索引14的有效 <strong>Entry</strong> 重哈希之后，下图是 <strong>Entry</strong> 放在理想的索引10</p>
+
+<p><img src="/img/java/ThreadLocal_expungeStaleEntry_after_rehash.png" alt="ThreadLocal_expungeStaleEntry_after_rehash" /></p>
+
+<p>假设索引10原有的 <strong>Entry</strong> 有效不能被清除，那么索引14的 <strong>Entry</strong> 将通过开放地址法放在位置12</p>
+
+<p><img src="/img/java/ThreadLocal_expungeStaleEntry_after_rehash_sepcial.png" alt="ThreadLocal_expungeStaleEntry_after_rehash_sepcial" /></p>
+
+<h3 id="412-cleansomeslotsint-int">4.12 cleanSomeSlots(int, int)</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">boolean</span> <span class="nf">cleanSomeSlots</span><span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">,</span> <span class="kt">int</span> <span class="n">n</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 记录是否有元素被回收</span>
+    <span class="kt">boolean</span> <span class="n">removed</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="nc">Entry</span><span class="o">[]</span> <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">tab</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+    <span class="c1">// 从i的下一个下标开始，i = i + 1</span>
+    <span class="k">do</span> <span class="o">{</span>
+        <span class="n">i</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">i</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+        <span class="nc">Entry</span> <span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+        <span class="c1">// 检查i位置的Entry.key</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">e</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">()</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="n">len</span><span class="o">;</span>
+            <span class="n">removed</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="n">i</span> <span class="o">=</span> <span class="n">expungeStaleEntry</span><span class="o">(</span><span class="n">i</span><span class="o">);</span> <span class="c1">// 清除Entry[i]</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">while</span> <span class="o">(</span> <span class="o">(</span><span class="n">n</span> <span class="o">&gt;&gt;&gt;=</span> <span class="mi">1</span><span class="o">)</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">);</span> <span class="c1">// aka: (n = n / 2) != 0</span>
+    <span class="k">return</span> <span class="n">removed</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="413-rehash">4.13 rehash()</h3>
+
+<p>此方法会触发一次清理废弃元素的操作 <strong>expungeStaleEntries()</strong>。一般来说，经过全面清理后会腾出新空间，然后检查是否还需要扩容，即是否已达到扩容阀值的3 / 4。</p>
+
+<p>假设总容量是16：</p>
+
+<ul>
+  <li>扩容阀值：16 * 2 / 3 = 10</li>
+  <li>扩容阀值的3 / 4 : 10 * 3 / 4 = 7</li>
+</ul>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">rehash</span><span class="o">()</span> <span class="o">{</span>
+    <span class="c1">// 先清空所有无效的Entry腾出空间</span>
+    <span class="n">expungeStaleEntries</span><span class="o">();</span>
+
+    <span class="c1">// 已用空间大于等于阀值3/4，resize()扩容为原来2倍，以此避免迟滞现象  </span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">size</span> <span class="o">&gt;=</span> <span class="n">threshold</span> <span class="o">-</span> <span class="n">threshold</span> <span class="o">/</span> <span class="mi">4</span><span class="o">)</span>
+        <span class="n">resize</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="414-resize">4.14 resize()</h3>
+
+<p>table数组容量扩容2倍，tableSize为2的幂大小的要求</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">resize</span><span class="o">()</span> <span class="o">{</span>
+    <span class="nc">Entry</span><span class="o">[]</span> <span class="n">oldTab</span> <span class="o">=</span> <span class="n">table</span><span class="o">;</span>
+    <span class="c1">// 假设oldTab.length为16，可知newLen为32</span>
+    <span class="kt">int</span> <span class="n">oldLen</span> <span class="o">=</span> <span class="n">oldTab</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">newLen</span> <span class="o">=</span> <span class="n">oldLen</span> <span class="o">*</span> <span class="mi">2</span><span class="o">;</span>
+
+    <span class="c1">// 创建新的Entry[]</span>
+    <span class="nc">Entry</span><span class="o">[]</span> <span class="n">newTab</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Entry</span><span class="o">[</span><span class="n">newLen</span><span class="o">];</span>
+    <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+
+    <span class="c1">// 按顺序遍历旧表的元素，过时元素就地清理，否则重Hash并放入新位置</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">oldLen</span><span class="o">;</span> <span class="o">++</span><span class="n">j</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">Entry</span> <span class="n">e</span> <span class="o">=</span> <span class="n">oldTab</span><span class="o">[</span><span class="n">j</span><span class="o">];</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">e</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">ThreadLocal</span><span class="o">&lt;?&gt;</span> <span class="n">k</span> <span class="o">=</span> <span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">k</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">e</span><span class="o">.</span><span class="na">value</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span> <span class="c1">// Help the GC</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="c1">// 通过Hash计算元素在新Entry[]的下标</span>
+                <span class="kt">int</span> <span class="n">h</span> <span class="o">=</span> <span class="n">k</span><span class="o">.</span><span class="na">threadLocalHashCode</span> <span class="o">&amp;</span> <span class="o">(</span><span class="n">newLen</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span>
+                <span class="c1">// 利用开放地址法找到空位置的下标.</span>
+                <span class="k">while</span> <span class="o">(</span><span class="n">newTab</span><span class="o">[</span><span class="n">h</span><span class="o">]</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span>
+                    <span class="n">h</span> <span class="o">=</span> <span class="n">nextIndex</span><span class="o">(</span><span class="n">h</span><span class="o">,</span> <span class="n">newLen</span><span class="o">);</span>
+                <span class="c1">// 元素放入下标的数组位置中</span>
+                <span class="n">newTab</span><span class="o">[</span><span class="n">h</span><span class="o">]</span> <span class="o">=</span> <span class="n">e</span><span class="o">;</span>
+                <span class="c1">// 数量自增</span>
+                <span class="n">count</span><span class="o">++;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 当所有旧元素重Hash并放入新Entry[]后，更新下一次扩容的阀值；</span>
+    <span class="c1">// 假设容量已扩展到32，新threshold为32*2/3=21</span>
+    <span class="n">setThreshold</span><span class="o">(</span><span class="n">newLen</span><span class="o">);</span>
+    <span class="c1">// 更新已保存Entry数量</span>
+    <span class="n">size</span> <span class="o">=</span> <span class="n">count</span><span class="o">;</span>
+    <span class="c1">// 新Entry[]替换旧的Entry[]，新容量为旧容量的2倍</span>
+    <span class="n">table</span> <span class="o">=</span> <span class="n">newTab</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="415-expungestaleentries">4.15 expungeStaleEntries()</h3>
+
+<p>查找整个Entry[]，移除所有Entry.key为null的Entry</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">expungeStaleEntries</span><span class="o">()</span> <span class="o">{</span>
+    <span class="nc">Entry</span><span class="o">[]</span> <span class="n">tab</span> <span class="o">=</span> <span class="n">table</span><span class="o">;</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">tab</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">len</span><span class="o">;</span> <span class="n">j</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="nc">Entry</span> <span class="n">e</span> <span class="o">=</span> <span class="n">tab</span><span class="o">[</span><span class="n">j</span><span class="o">];</span>
+        <span class="c1">// 发现key为null，对该下标的Entry进行处理</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">e</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">e</span><span class="o">.</span><span class="na">get</span><span class="o">()</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+            <span class="n">expungeStaleEntry</span><span class="o">(</span><span class="n">j</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="五参考链接">五、参考链接</h2>
+
+<ul>
+  <li><a href="https://en.wikipedia.org/wiki/Hysteresis">Hysteresis</a></li>
+  <li><a href="https://juejin.im/post/5aeeb3e8518825672f19c52c#heading-8">从源码深入详解ThreadLocal内存泄漏问题</a></li>
+</ul>
+
+:ET

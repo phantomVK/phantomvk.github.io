@@ -1,0 +1,77 @@
+I"(<p>重写<code class="highlighter-rouge">dispatchTouchEvent</code>拦截点击事件，点击区域不是<code class="highlighter-rouge">EditText</code>隐藏键盘</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">MainActivity</span> <span class="o">:</span> <span class="nc">AppCompatActivity</span><span class="o">()</span> <span class="o">{</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nl">savedInstanceState:</span> <span class="nc">Bundle</span><span class="o">?)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">)</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">activity_main</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">dispatchTouchEvent</span><span class="o">(</span><span class="nl">ev:</span> <span class="nc">MotionEvent</span><span class="o">):</span> <span class="nc">Boolean</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">ev</span><span class="o">.</span><span class="na">action</span> <span class="o">==</span> <span class="nc">MotionEvent</span><span class="o">.</span><span class="na">ACTION_DOWN</span> <span class="o">&amp;&amp;</span> <span class="n">shouldHideInput</span><span class="o">(</span><span class="n">currentFocus</span><span class="o">,</span> <span class="n">ev</span><span class="o">))</span> <span class="o">{</span>
+            <span class="n">hideSoftInput</span><span class="o">(</span><span class="n">currentFocus</span><span class="o">.</span><span class="na">windowToken</span><span class="o">)</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="kd">super</span><span class="o">.</span><span class="na">dispatchTouchEvent</span><span class="o">(</span><span class="n">ev</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="c1">// Check if click on the EditText, return true to hide soft input.</span>
+    <span class="kd">private</span> <span class="n">fun</span> <span class="nf">shouldHideInput</span><span class="o">(</span><span class="nl">view:</span> <span class="nc">View</span><span class="o">?,</span> <span class="nl">event:</span> <span class="nc">MotionEvent</span><span class="o">):</span> <span class="nc">Boolean</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">view</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">view</span> <span class="n">is</span> <span class="nc">EditText</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">val</span> <span class="n">array</span> <span class="o">=</span> <span class="n">intArrayOf</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="mi">0</span><span class="o">)</span>
+            <span class="n">view</span><span class="o">.</span><span class="na">getLocationInWindow</span><span class="o">(</span><span class="n">array</span><span class="o">)</span>
+            <span class="n">val</span> <span class="n">left</span> <span class="o">=</span> <span class="n">array</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span>
+            <span class="n">val</span> <span class="n">top</span> <span class="o">=</span> <span class="n">array</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span>
+            <span class="n">val</span> <span class="n">bottom</span> <span class="o">=</span> <span class="n">top</span> <span class="o">+</span> <span class="n">view</span><span class="o">.</span><span class="na">getHeight</span><span class="o">()</span>
+            <span class="n">val</span> <span class="n">right</span> <span class="o">=</span> <span class="n">left</span> <span class="o">+</span> <span class="n">view</span><span class="o">.</span><span class="na">getWidth</span><span class="o">()</span>
+            <span class="k">return</span> <span class="n">event</span><span class="o">.</span><span class="na">x</span> <span class="o">&lt;=</span> <span class="n">left</span> <span class="o">||</span> <span class="n">event</span><span class="o">.</span><span class="na">x</span> <span class="o">&gt;=</span> <span class="n">right</span> <span class="o">||</span> <span class="n">event</span><span class="o">.</span><span class="na">y</span> <span class="o">&lt;=</span> <span class="n">top</span> <span class="o">||</span> <span class="n">event</span><span class="o">.</span><span class="na">y</span> <span class="o">&gt;=</span> <span class="n">bottom</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="kc">false</span>
+    <span class="o">}</span>
+
+    <span class="c1">// Hide system soft input.</span>
+    <span class="kd">private</span> <span class="n">fun</span> <span class="nf">hideSoftInput</span><span class="o">(</span><span class="nl">token:</span> <span class="nc">IBinder</span><span class="o">?)</span> <span class="o">{</span>
+        <span class="n">token</span><span class="o">?.</span><span class="na">let</span> <span class="o">{</span>
+            <span class="n">val</span> <span class="n">im</span> <span class="o">=</span> <span class="n">getSystemService</span><span class="o">(</span><span class="nc">Context</span><span class="o">.</span><span class="na">INPUT_METHOD_SERVICE</span><span class="o">)</span> <span class="n">as</span> <span class="nc">InputMethodManager</span>
+            <span class="n">im</span><span class="o">.</span><span class="na">hideSoftInputFromWindow</span><span class="o">(</span><span class="n">token</span><span class="o">,</span> <span class="nc">InputMethodManager</span><span class="o">.</span><span class="na">HIDE_NOT_ALWAYS</span><span class="o">)</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

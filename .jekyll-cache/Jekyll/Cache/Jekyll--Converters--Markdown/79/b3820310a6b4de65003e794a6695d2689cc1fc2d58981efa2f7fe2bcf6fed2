@@ -1,0 +1,349 @@
+I"�d<h2 id="前言">前言</h2>
+
+<p>这篇文章将深入介绍<code class="highlighter-rouge">CAS</code>在<code class="highlighter-rouge">JDK</code>具体的实现方式，填补<a href="/2018/01/17/AtomicInteger/">Java源码系列(7) – AtomicInteger</a>中相关内容的空缺，主要从高层调用开始，经历JDK、JNI和asm汇编，最终调用处理器CAS指令集，带你浏览整个实现过程。</p>
+
+<p>阅读需扎实Java基本功，了解或能看懂JNI和C语言。汇编没看过也没有关系，文章参考链接附带本文涉及所有汇编知识点以供查阅。</p>
+
+<h2 id="一什么是cas">一、什么是CAS</h2>
+
+<p>多线程不可避免带来了更多的元素同步处理。要在多线程环境中构成同步原语（如信号量和互斥），我们经常会提到被称为比较和交换 (CAS) 的原子操作。</p>
+
+<p>CAS的伪代码：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre>compare_and_swap (*p, oldval, newval):
+      if (*p == oldval)
+          *p = newval;
+          success;
+      else
+          fail;
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>首先比较内存位置 p (*p) 的内容与已知值 oldval（这应该是当前线程中 *p 的值）。只有当它们是相同值时，才会将 newval 写入 *p。若其他线程之前已经修改该内存位置，那么比较操作会失败。</p>
+
+<blockquote>
+  <p>参考自<a href="https://www.ibm.com/developerworks/cn/aix/library/au-inline_assembly/index.html">内联汇编 - 从头开始</a>，有删改</p>
+</blockquote>
+
+<h2 id="二unsafe">二、Unsafe</h2>
+
+<p>JDK8该方法名在Unsafe类为<code class="highlighter-rouge">compareAndSwapInt</code>：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="kd">native</span> <span class="kt">boolean</span> <span class="nf">compareAndSwapInt</span><span class="o">(</span><span class="nc">Object</span> <span class="n">var1</span><span class="o">,</span> <span class="kt">long</span> <span class="n">var2</span><span class="o">,</span> <span class="kt">int</span> <span class="n">var4</span><span class="o">,</span> <span class="kt">int</span> <span class="n">var5</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>JDK9命名在Unsafe类为<code class="highlighter-rouge">compareAndSetInt</code>：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="kd">native</span> <span class="kt">boolean</span> <span class="nf">compareAndSetInt</span><span class="o">(</span><span class="nc">Object</span> <span class="n">var1</span><span class="o">,</span> <span class="kt">long</span> <span class="n">var2</span><span class="o">,</span> <span class="kt">int</span> <span class="n">var4</span><span class="o">,</span> <span class="kt">int</span> <span class="n">var5</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>本文用JDK9介绍，首先看该方法的原生实现，对应unsafe.cpp文件的1198行，文件路径<code class="highlighter-rouge">jdk9/hotspot/src/share/vm/prims/</code>。</p>
+
+<p>下面 <strong>unsafe.cpp</strong> 尾段有个保存方法对应关系的静态数组：</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="k">static</span> <span class="n">JNINativeMethod</span> <span class="n">jdk_internal_misc_Unsafe_methods</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="p">......</span>
+    
+    <span class="p">{</span><span class="n">CC</span> <span class="s">"compareAndSetInt"</span><span class="p">,</span>   <span class="n">CC</span> <span class="s">"("</span> <span class="n">OBJ</span> <span class="s">"J""I""I"")Z"</span><span class="p">,</span>  <span class="n">FN_PTR</span><span class="p">(</span><span class="n">Unsafe_CompareAndSetInt</span><span class="p">)},</span>
+    <span class="p">{</span><span class="n">CC</span> <span class="s">"compareAndSetLong"</span><span class="p">,</span>  <span class="n">CC</span> <span class="s">"("</span> <span class="n">OBJ</span> <span class="s">"J""J""J"")Z"</span><span class="p">,</span>  <span class="n">FN_PTR</span><span class="p">(</span><span class="n">Unsafe_CompareAndSetLong</span><span class="p">)},</span>
+    <span class="p">{</span><span class="n">CC</span> <span class="s">"compareAndExchangeObject"</span><span class="p">,</span> <span class="n">CC</span> <span class="s">"("</span> <span class="n">OBJ</span> <span class="s">"J"</span> <span class="n">OBJ</span> <span class="s">""</span> <span class="n">OBJ</span> <span class="s">")"</span> <span class="n">OBJ</span><span class="p">,</span> <span class="n">FN_PTR</span><span class="p">(</span><span class="n">Unsafe_CompareAndExchangeObject</span><span class="p">)},</span>
+    <span class="p">{</span><span class="n">CC</span> <span class="s">"compareAndExchangeInt"</span><span class="p">,</span>  <span class="n">CC</span> <span class="s">"("</span> <span class="n">OBJ</span> <span class="s">"J""I""I"")I"</span><span class="p">,</span> <span class="n">FN_PTR</span><span class="p">(</span><span class="n">Unsafe_CompareAndExchangeInt</span><span class="p">)},</span>
+    <span class="p">{</span><span class="n">CC</span> <span class="s">"compareAndExchangeLong"</span><span class="p">,</span> <span class="n">CC</span> <span class="s">"("</span> <span class="n">OBJ</span> <span class="s">"J""J""J"")J"</span><span class="p">,</span> <span class="n">FN_PTR</span><span class="p">(</span><span class="n">Unsafe_CompareAndExchangeLong</span><span class="p">)},</span>
+    <span class="p">......</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>从查找对应关系知道<code class="highlighter-rouge">compareAndSetInt</code>是<code class="highlighter-rouge">Unsafe_CompareAndSetInt</code>，位于相同文件1031行。</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="n">UNSAFE_ENTRY</span><span class="p">(</span><span class="n">jboolean</span><span class="p">,</span> <span class="n">Unsafe_CompareAndSetInt</span><span class="p">(</span><span class="n">JNIEnv</span> <span class="o">*</span><span class="n">env</span><span class="p">,</span> <span class="n">jobject</span> <span class="n">unsafe</span><span class="p">,</span> <span class="n">jobject</span> <span class="n">obj</span><span class="p">,</span> <span class="n">jlong</span> <span class="n">offset</span><span class="p">,</span> <span class="n">jint</span> <span class="n">e</span><span class="p">,</span> <span class="n">jint</span> <span class="n">x</span><span class="p">))</span> <span class="p">{</span>
+  <span class="n">oop</span> <span class="n">p</span> <span class="o">=</span> <span class="n">JNIHandles</span><span class="o">::</span><span class="n">resolve</span><span class="p">(</span><span class="n">obj</span><span class="p">);</span>
+  <span class="n">jint</span><span class="o">*</span> <span class="n">addr</span> <span class="o">=</span> <span class="p">(</span><span class="n">jint</span> <span class="o">*</span><span class="p">)</span><span class="n">index_oop_from_field_offset_long</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">offset</span><span class="p">);</span>
+
+  <span class="k">return</span> <span class="p">(</span><span class="n">jint</span><span class="p">)(</span><span class="n">Atomic</span><span class="o">::</span><span class="n">cmpxchg</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">addr</span><span class="p">,</span> <span class="n">e</span><span class="p">))</span> <span class="o">==</span> <span class="n">e</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">UNSAFE_END</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>对比Java的方法签名：</p>
+
+<blockquote>
+  <p>boolean compareAndSetInt(Object var1, long var2, int var4, int var5);</p>
+</blockquote>
+
+<p>C函数参数为：</p>
+
+<blockquote>
+  <p>Unsafe_CompareAndSetInt(JNIEnv *env, jobject unsafe, jobject obj, jlong offset, jint e, jint x)</p>
+</blockquote>
+
+<p>忽略 <strong>JNIEnv *env, jobject unsafe</strong>，剩下参数 <strong>Object, long, int, int</strong> 顺序可一一对应。</p>
+
+<p>逻辑执行流程：</p>
+
+<ul>
+  <li><code class="highlighter-rouge">obj</code>是<code class="highlighter-rouge">AtomicInteger</code>对象，通过 JNIHandles::resolve() 获取<code class="highlighter-rouge">obj</code>在内存中OOP实例<code class="highlighter-rouge">p</code>;</li>
+  <li>根据<code class="highlighter-rouge">value</code>的内存偏移值<code class="highlighter-rouge">offset</code>去内存中取指针<code class="highlighter-rouge">addr</code>;</li>
+  <li>获得更新值<code class="highlighter-rouge">x</code>、指针<code class="highlighter-rouge">addr</code>、期待值<code class="highlighter-rouge">e</code>参数后调用<code class="highlighter-rouge">Atomic::cmpxchg(x, addr, e)</code>;</li>
+  <li>通过<code class="highlighter-rouge">Atomic::cmpxchg(x, addr, e)</code>实现CAS;</li>
+</ul>
+
+<h2 id="三cas本体">三、CAS本体</h2>
+
+<h3 id="31-atomiccmpxchg">3.1 Atomic::cmpxchg</h3>
+
+<p><code class="highlighter-rouge">jdk9/hotspot/src/os_cpu/linux_x86/vm/atomic_linux_x86</code>第100行调用asm汇编。</p>
+
+<p><strong>注意：形参order是JDK9中新加的，JDK8u没有该形参</strong></p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre><span class="kr">inline</span> <span class="n">jint</span> <span class="n">Atomic</span><span class="o">::</span><span class="n">cmpxchg</span><span class="p">(</span><span class="n">jint</span> <span class="n">exchange_value</span><span class="p">,</span>
+                            <span class="k">volatile</span> <span class="n">jint</span><span class="o">*</span> <span class="n">dest</span><span class="p">,</span>
+                            <span class="n">jint</span> <span class="n">compare_value</span><span class="p">,</span>
+                            <span class="n">cmpxchg_memory_order</span> <span class="n">order</span><span class="p">)</span> <span class="p">{</span>
+  <span class="kt">int</span> <span class="n">mp</span> <span class="o">=</span> <span class="n">os</span><span class="o">::</span><span class="n">is_MP</span><span class="p">();</span>
+  <span class="n">__asm__</span> <span class="k">volatile</span> <span class="p">(</span><span class="n">LOCK_IF_MP</span><span class="p">(</span><span class="o">%</span><span class="mi">4</span><span class="p">)</span> <span class="s">"cmpxchgl %1,(%3)"</span>
+                    <span class="o">:</span> <span class="s">"=a"</span> <span class="p">(</span><span class="n">exchange_value</span><span class="p">)</span>
+                    <span class="o">:</span> <span class="s">"r"</span> <span class="p">(</span><span class="n">exchange_value</span><span class="p">),</span> <span class="s">"a"</span> <span class="p">(</span><span class="n">compare_value</span><span class="p">),</span> <span class="s">"r"</span> <span class="p">(</span><span class="n">dest</span><span class="p">),</span> <span class="s">"r"</span> <span class="p">(</span><span class="n">mp</span><span class="p">)</span>
+                    <span class="o">:</span> <span class="s">"cc"</span><span class="p">,</span> <span class="s">"memory"</span><span class="p">);</span>
+  <span class="k">return</span> <span class="n">exchange_value</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>按顺序就是<code class="highlighter-rouge">%1</code>到<code class="highlighter-rouge">%4</code>，exchange_value是<code class="highlighter-rouge">%1</code>，dest是<code class="highlighter-rouge">%3</code>。<code class="highlighter-rouge">r</code>代表任意一个寄存器，<code class="highlighter-rouge">a</code>代表eax寄存器。</p>
+
+<blockquote>
+  <p>: “r” (exchange_value), “a” (compare_value), “r” (dest), “r” (mp)</p>
+</blockquote>
+
+<p>经过初步了解，cmpxchgl就容易理解多了:</p>
+
+<blockquote>
+  <p>cmpxchgl %1,(%3)</p>
+</blockquote>
+
+<p>奇怪的是<code class="highlighter-rouge">%2</code>没有用上，需要查证cmpxchgl的用法，它用到了一个隐含的操作数，即eax。在前面的输入操作数中，对应的%2没有在汇编模板里出现，但通过修饰符a把它存放到了eax寄存器，因此这里被cmpxchg指令隐含使用。</p>
+
+<p>指令cmpxchg比较eax(也就是compare_value)与dest的值。如果相等，那么将exchange_value的值赋值给dest；否则，将dest的值赋值给eax。</p>
+
+<blockquote>
+  <p>: “=a” (exchange_value)</p>
+</blockquote>
+
+<h3 id="32-osis_mp">3.2 os::is_MP</h3>
+
+<p>方法<code class="highlighter-rouge">is_MP()</code>实现在<code class="highlighter-rouge">jdk9/hotspot/src/share/vm/runtime/os.hpp</code>206行：</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kt">int</span> <span class="n">mp</span> <span class="o">=</span> <span class="n">os</span><span class="o">::</span><span class="n">is_MP</span><span class="p">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>用于获取当前系统处理器核心数，如果<code class="highlighter-rouge">_processor_count</code>在引导过程尚未初始化，就默认假设其是多处理器以保证线程安全。</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+</pre></td><td class="rouge-code"><pre><span class="k">static</span> <span class="kt">int</span> <span class="n">_processor_count</span><span class="p">;</span>                <span class="c1">// number of processors</span>
+<span class="k">static</span> <span class="kt">int</span> <span class="n">_initial_active_processor_count</span><span class="p">;</span> <span class="c1">// number of active processors during initialization.</span>
+
+<span class="c1">// Interface for detecting multiprocessor system</span>
+<span class="k">static</span> <span class="kr">inline</span> <span class="n">bool</span> <span class="nf">is_MP</span><span class="p">()</span> <span class="p">{</span>
+  <span class="c1">// During bootstrap if _processor_count is not yet initialized</span>
+  <span class="c1">// we claim to be MP as that is safest. If any platform has a</span>
+  <span class="c1">// stub generator that might be triggered in this phase and for</span>
+  <span class="c1">// which being declared MP when in fact not, is a problem - then</span>
+  <span class="c1">// the bootstrap routine for the stub generator needs to check</span>
+  <span class="c1">// the processor count directly and leave the bootstrap routine</span>
+  <span class="c1">// in place until called after initialization has ocurred.</span>
+  <span class="k">return</span> <span class="p">(</span><span class="n">_processor_count</span> <span class="o">!=</span> <span class="mi">1</span><span class="p">)</span> <span class="o">||</span> <span class="n">AssumeMP</span><span class="p">;</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="33-lock_if_mpmp">3.3 LOCK_IF_MP(mp)</h3>
+
+<p>获取成功后把核心数保存在整形值<code class="highlighter-rouge">mp</code>中，实际起到布尔值的作用。为0意味系统是单处理器系统，大于0是多处理器系统，并作为实参调起宏定义<code class="highlighter-rouge">LOCK_IF_MP(mp)</code>：</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="c1">// Adding a lock prefix to an instruction on MP machine</span>
+<span class="cp">#define LOCK_IF_MP(mp) "cmp $0, " #mp "; je 1f; lock; 1: "
+</span></pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>宏定义用<code class="highlighter-rouge">"cmp $0, " #mp "</code>检查核心是否为单核：</p>
+
+<ul>
+  <li>是：跳到<code class="highlighter-rouge">1f</code>，执行CPU指令<code class="highlighter-rouge">cmpxchgl %1,(%3)</code>。<code class="highlighter-rouge">1f</code>的意思是<code class="highlighter-rouge">1after</code>，参看<a href="https://stackoverflow.com/questions/27353096/1b-and-1f-in-gnu-assembly">参考链接-6</a>;</li>
+  <li>不是：则跳到<code class="highlighter-rouge">1f</code>前先通过<code class="highlighter-rouge">lock</code>给总线上锁，令物理处理器的其他核心不能通过总线访存，保证指令操作的原子性。</li>
+</ul>
+
+<p>值得一提的是，如果我们对一个变量使用<code class="highlighter-rouge">volatile</code>修饰符，汇编中也会增加<code class="highlighter-rouge">lock</code>指令前缀以保证该变量线程可见性和指令执行有序性。</p>
+
+<h3 id="34-__asm__-volatile---memory">3.4 __asm__ volatile (“”: : :”memory”)</h3>
+
+<p>还有一个结构：</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">__asm__</span> <span class="k">volatile</span> <span class="p">(</span><span class="s">""</span><span class="o">:</span> <span class="o">:</span> <span class="o">:</span><span class="s">"memory"</span><span class="p">)</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>此结构告诉编译器添加一个内存屏障禁止相关区域内的操作指令重排序，但如何执行还会受到具体处理器的影响。详见<a href="https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory">参考链接-3</a>：</p>
+
+<blockquote>
+  <p>Creates a compiler level memory barrier forcing optimizer to not re-order memory accesses across the barrier.</p>
+</blockquote>
+
+<h3 id="35-伪代码">3.5 伪代码</h3>
+
+<p>说了这么多还是不易理解，毕竟上述代码是C语言混编<code class="highlighter-rouge">asm</code>，翻译为<code class="highlighter-rouge">Java-like</code>伪代码：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+</pre></td><td class="rouge-code"><pre><span class="c1">// @param _processor_count processor count</span>
+<span class="c1">// @param assumeMP         assume is multiprocessor when is not yet initialized</span>
+<span class="c1">// @param compare_value    be comparing</span>
+<span class="c1">// @param dest             set as new value if true</span>
+<span class="nd">@AsmVolatileMemory</span>
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">isMultiProcessCAS</span><span class="o">(</span><span class="kt">int</span> <span class="n">_processor_count</span><span class="o">,</span>
+                               <span class="kt">boolean</span> <span class="n">assumeMP</span><span class="o">,</span>
+                               <span class="kt">int</span> <span class="n">compare_value</span><span class="o">,</span>
+                               <span class="kt">int</span> <span class="n">dest</span><span class="o">)</span> <span class="o">{</span>              
+    <span class="k">if</span> <span class="o">(</span><span class="n">_processor_count</span> <span class="o">!=</span> <span class="mi">1</span> <span class="o">||</span> <span class="n">assumeMP</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">lock</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="n">cmpxchgl</span><span class="o">(</span><span class="n">compare_value</span><span class="o">,</span> <span class="n">dest</span><span class="o">);</span>
+    <span class="c1">// Should unlock after cmpxchgl(int, int)???</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>有人提议<a href="https://bugs.java.com/view_bug.do?bug_id=8185062">参考链接-12</a>把<code class="highlighter-rouge">os::is_MP()</code>的<code class="highlighter-rouge">AssumeMP</code>改为<code class="highlighter-rouge">true</code>提升性能。且在2017-10-03的JDK10b13实现了该提议，所以上述伪代码可以进一步演进为：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre><span class="c1">// @param _processor_count processor count</span>
+<span class="c1">// @param compare_value    be comparing</span>
+<span class="c1">// @param dest             set as new value if true</span>
+<span class="nd">@AsmVolatileMemory</span>
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">isMultiProcessCAS</span><span class="o">(</span><span class="kt">int</span> <span class="n">_processor_count</span><span class="o">,</span>
+                               <span class="kt">int</span> <span class="n">compare_value</span><span class="o">,</span>
+                               <span class="kt">int</span> <span class="n">dest</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">_processor_count</span> <span class="o">!=</span> <span class="mi">1</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">lock</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="n">cmpxchgl</span><span class="o">(</span><span class="n">compare_value</span><span class="o">,</span> <span class="n">dest</span><span class="o">);</span>
+    <span class="c1">// Should unlock after cmpxchgl(int, int)???</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>到这里Java CAS底层实现全部讲解完毕。如果还有疑问，参考链接应该能给你所有需要的解答。</p>
+
+<h2 id="四参考链接">四、参考链接</h2>
+
+<ul>
+  <li>
+    <p><a href="https://juejin.im/post/5a73cbbff265da4e807783f5">Java CAS 原理剖析 - 卡巴拉的树 - 掘金</a></p>
+  </li>
+  <li>
+    <p><a href="https://stackoverflow.com/questions/1582960/assembly-language-je-jump-function">Assembly language je jump function - Stackoverflow</a></p>
+  </li>
+  <li>
+    <p><a href="https://stackoverflow.com/questions/14950614/working-of-asm-volatile-memory">Working of <strong>asm</strong> <strong>volatile</strong> (“” : : : “memory”) - Stackoverflow</a></p>
+  </li>
+  <li>
+    <p><a href="https://stackoverflow.com/questions/8012450/jni-converting-unsigned-int-to-jint">JNI: converting unsigned int to jint - Stackoverflow</a></p>
+  </li>
+  <li>
+    <p><a href="http://faydoc.tripod.com/cpu/cmpxchg.htm">CMPXCHG - Compare and Exchange</a></p>
+  </li>
+  <li>
+    <p><a href="https://stackoverflow.com/questions/27353096/1b-and-1f-in-gnu-assembly">1b and 1f in GNU assembly - Stackoverflow</a></p>
+  </li>
+  <li>
+    <p><a href="https://stackoverflow.com/questions/12665289/cmp-je-jg-how-they-work-in-assembly">cmp je/jg how they work in assembly - Stackoverflow</a></p>
+  </li>
+  <li>
+    <p><a href="http://www.unixwiz.net/techtips/x86-jumps.html">Intel x86 JUMP quick reference</a></p>
+  </li>
+  <li>
+    <p><a href="https://github.com/1184893257/simplelinux/blob/master/inlineasm.md">朴素linux: 内联汇编  - Github</a></p>
+  </li>
+  <li>
+    <p><a href="https://www.ibm.com/developerworks/cn/aix/library/au-inline_assembly/index.html">内联汇编 - 从头开始 - IBM</a></p>
+  </li>
+  <li>
+    <p><a href="https://www.zhihu.com/question/24844900">什么是桩代码（Stub）- 知乎</a></p>
+  </li>
+  <li>
+    <p><a href="https://bugs.java.com/view_bug.do?bug_id=8185062">JDK-8185062 : Set AssumeMP to true and deprecate the flag</a></p>
+  </li>
+  <li>
+    <p><a href="https://stackoverflow.com/questions/27837731/is-x86-cmpxchg-atomic">Is x86 CMPXCHG atomic? - Stackoverflow</a></p>
+  </li>
+</ul>
+
+:ET

@@ -1,0 +1,693 @@
+I"9�<h2 id="一recyclerview与性能">一、RecyclerView与性能</h2>
+
+<p>使用 <strong>RecyclerView</strong> 的难度可大可小，若仅展示单类型列表，只要优化视图绘制性能、降低布局复杂度，就能保证性能。</p>
+
+<p>若列表分类多、样式差异大，类似微信聊天消息界面，遇到问题的难度将大幅增加。需要在预加载、复用上做进一步调优，单纯实现 <strong>onCreateViewHolder()</strong> 和 <strong>onBindViewHolder()</strong> 并不能满足需求。总的来说，要以追求视图出现在屏幕前耗费最少时间为目标。</p>
+
+<p><strong>RecyclerView</strong> 缓存分为3级，每级有各自的缓存数量和策略。</p>
+
+<p><img src="/img/android/RecyclerView/RecyclerView_cache_level.png" alt="RecyclerView_cache_level" /></p>
+
+<p>当所有缓存层均没有所需实例，最后由 <strong>onCreateViewHolder()</strong> 创建并绑定数据。源码版本：Android 27.1.1</p>
+
+<h2 id="二一级缓存">二、一级缓存</h2>
+
+<p>一级缓存包含三个容器实例：<strong>mAttachedScrap</strong>、<strong>mChangedScrap</strong>、<strong>mCachedViews</strong>。根据不同场景 <strong>ViewHolder</strong> 缓存到不同容器。</p>
+
+<p><strong>mAttachedScrap</strong> 保存依附于 <strong>RecyclerView</strong> 的 <strong>ViewHolder</strong>。包含移出屏幕但未从 <strong>RecyclerView</strong> 移除的 <strong>ViewHolder</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">final</span> <span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">RecyclerView</span><span class="o">.</span><span class="na">ViewHolder</span><span class="o">&gt;</span> <span class="n">mAttachedScrap</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>mChangedScrap</strong> 保存数据发生改变的 <strong>ViewHolder</strong>，即调用 <strong>notifyDataSetChanged()</strong> 等系列方法后需要更新的 <strong>ViewHolder</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">RecyclerView</span><span class="o">.</span><span class="na">ViewHolder</span><span class="o">&gt;</span> <span class="n">mChangedScrap</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>mCachedViews</strong> 用于解决滑动抖动的问题，默认容量为2，可根据需要调优。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">final</span> <span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">RecyclerView</span><span class="o">.</span><span class="na">ViewHolder</span><span class="o">&gt;</span> <span class="n">mCachedViews</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三二级缓存">三、二级缓存</h2>
+
+<p>开发者自定义的缓存，需实现 <strong>ViewCacheExtension</strong> 抽象类。若没有定义此缓存默认为null。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">RecyclerView</span><span class="o">.</span><span class="na">ViewCacheExtension</span> <span class="n">mViewCacheExtension</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四三级缓存">四、三级缓存</h2>
+
+<p><strong>mCachedViews</strong> 无法保存屏幕上所有移除的 <strong>ViewHolder</strong> 时，剩余的 <strong>ViewHolder</strong> 根据 <strong>type</strong> 分类放入缓存池中。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nc">RecyclerView</span><span class="o">.</span><span class="na">RecycledViewPool</span> <span class="n">mRecyclerPool</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="五recycler">五、Recycler</h2>
+
+<h4 id="51-trygetviewholderforpositionbydeadline">5.1 tryGetViewHolderForPositionByDeadline()</h4>
+
+<p>以下是 <strong>RecyclerView</strong> 的内部类 <strong>Recycler</strong> 去除类签名的源码。<strong>Adapter</strong> 利用position获取 <strong>ViewHolder</strong>：若一级缓存命失、<strong>mViewCacheExtension</strong> 为空，则从缓存池查找对象。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+</pre></td><td class="rouge-code"><pre><span class="nd">@Nullable</span>
+<span class="nc">ViewHolder</span> <span class="nf">tryGetViewHolderForPositionByDeadline</span><span class="o">(</span><span class="kt">int</span> <span class="n">position</span><span class="o">,</span>
+        <span class="kt">boolean</span> <span class="n">dryRun</span><span class="o">,</span> <span class="kt">long</span> <span class="n">deadlineNs</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 越界检查</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">position</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">position</span> <span class="o">&gt;=</span> <span class="n">mState</span><span class="o">.</span><span class="na">getItemCount</span><span class="o">())</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">(</span><span class="s">"Invalid item position "</span> <span class="o">+</span> <span class="n">position</span>
+                <span class="o">+</span> <span class="s">"("</span> <span class="o">+</span> <span class="n">position</span> <span class="o">+</span> <span class="s">"). Item count:"</span> <span class="o">+</span> <span class="n">mState</span><span class="o">.</span><span class="na">getItemCount</span><span class="o">()</span>
+                <span class="o">+</span> <span class="n">exceptionLabel</span><span class="o">());</span>
+    <span class="o">}</span>
+    <span class="kt">boolean</span> <span class="n">fromScrapOrHiddenOrCache</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="nc">ViewHolder</span> <span class="n">holder</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+
+    <span class="c1">// 0) 从mChangedScrap获取ViewHolder</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mState</span><span class="o">.</span><span class="na">isPreLayout</span><span class="o">())</span> <span class="o">{</span>
+        <span class="c1">// 用position作为参数</span>
+        <span class="n">holder</span> <span class="o">=</span> <span class="n">getChangedScrapViewForPosition</span><span class="o">(</span><span class="n">position</span><span class="o">);</span>
+        <span class="c1">// from scrap.</span>
+        <span class="n">fromScrapOrHiddenOrCache</span> <span class="o">=</span> <span class="n">holder</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 1) 用position从scrap、hidden list、cache中获取</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">holder</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 从第一级缓存中获取，从mAttachedScrap和mCachedViews中获取ViewHolder</span>
+        <span class="n">holder</span> <span class="o">=</span> <span class="n">getScrapOrHiddenOrCachedHolderForPosition</span><span class="o">(</span><span class="n">position</span><span class="o">,</span> <span class="n">dryRun</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">holder</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(!</span><span class="n">validateViewHolderForOffsetPosition</span><span class="o">(</span><span class="n">holder</span><span class="o">))</span> <span class="o">{</span>
+                <span class="c1">// recycle holder (and unscrap if relevant) since it can't be used</span>
+                <span class="k">if</span> <span class="o">(!</span><span class="n">dryRun</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="c1">// we would like to recycle this but need to make sure it is not used by</span>
+                    <span class="c1">// animation logic etc.</span>
+                    <span class="n">holder</span><span class="o">.</span><span class="na">addFlags</span><span class="o">(</span><span class="nc">ViewHolder</span><span class="o">.</span><span class="na">FLAG_INVALID</span><span class="o">);</span>
+                    <span class="k">if</span> <span class="o">(</span><span class="n">holder</span><span class="o">.</span><span class="na">isScrap</span><span class="o">())</span> <span class="o">{</span>
+                        <span class="n">removeDetachedView</span><span class="o">(</span><span class="n">holder</span><span class="o">.</span><span class="na">itemView</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+                        <span class="n">holder</span><span class="o">.</span><span class="na">unScrap</span><span class="o">();</span>
+                    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">holder</span><span class="o">.</span><span class="na">wasReturnedFromScrap</span><span class="o">())</span> <span class="o">{</span>
+                        <span class="n">holder</span><span class="o">.</span><span class="na">clearReturnedFromScrapFlag</span><span class="o">();</span>
+                    <span class="o">}</span>
+                    <span class="n">recycleViewHolderInternal</span><span class="o">(</span><span class="n">holder</span><span class="o">);</span>
+                <span class="o">}</span>
+                <span class="n">holder</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="n">fromScrapOrHiddenOrCache</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 用posotion查找缓存失败，尝试使用stable ids获取缓存</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">holder</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">offsetPosition</span> <span class="o">=</span> <span class="n">mAdapterHelper</span><span class="o">.</span><span class="na">findPositionOffset</span><span class="o">(</span><span class="n">position</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">offsetPosition</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">offsetPosition</span> <span class="o">&gt;=</span> <span class="n">mAdapter</span><span class="o">.</span><span class="na">getItemCount</span><span class="o">())</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">(</span><span class="s">"Inconsistency detected. Invalid item "</span>
+                    <span class="o">+</span> <span class="s">"position "</span> <span class="o">+</span> <span class="n">position</span> <span class="o">+</span> <span class="s">"(offset:"</span> <span class="o">+</span> <span class="n">offsetPosition</span> <span class="o">+</span> <span class="s">")."</span>
+                    <span class="o">+</span> <span class="s">"state:"</span> <span class="o">+</span> <span class="n">mState</span><span class="o">.</span><span class="na">getItemCount</span><span class="o">()</span> <span class="o">+</span> <span class="n">exceptionLabel</span><span class="o">());</span>
+        <span class="o">}</span>
+
+        <span class="c1">// 用offsetPosition获取ViewType</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">type</span> <span class="o">=</span> <span class="n">mAdapter</span><span class="o">.</span><span class="na">getItemViewType</span><span class="o">(</span><span class="n">offsetPosition</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mAdapter</span><span class="o">.</span><span class="na">hasStableIds</span><span class="o">())</span> <span class="o">{</span>
+            <span class="c1">// 2) 通过stable ids和type从scrap/cache查找</span>
+            <span class="n">holder</span> <span class="o">=</span> <span class="n">getScrapOrCachedViewForId</span><span class="o">(</span><span class="n">mAdapter</span><span class="o">.</span><span class="na">getItemId</span><span class="o">(</span><span class="n">offsetPosition</span><span class="o">),</span>
+                    <span class="n">type</span><span class="o">,</span> <span class="n">dryRun</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">holder</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 更新position</span>
+                <span class="n">holder</span><span class="o">.</span><span class="na">mPosition</span> <span class="o">=</span> <span class="n">offsetPosition</span><span class="o">;</span>
+                <span class="n">fromScrapOrHiddenOrCache</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        
+        <span class="c1">// 从第二级缓存ViewCacheExtension中获取缓存内容，即mViewCacheExtension</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">holder</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">mViewCacheExtension</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// We are NOT sending the offsetPosition because LayoutManager does not</span>
+            <span class="c1">// know it.</span>
+            <span class="kd">final</span> <span class="nc">View</span> <span class="n">view</span> <span class="o">=</span> <span class="n">mViewCacheExtension</span>
+                    <span class="o">.</span><span class="na">getViewForPositionAndType</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="n">position</span><span class="o">,</span> <span class="n">type</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">view</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">holder</span> <span class="o">=</span> <span class="n">getChildViewHolder</span><span class="o">(</span><span class="n">view</span><span class="o">);</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">holder</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">(</span><span class="s">"getViewForPositionAndType returned"</span>
+                            <span class="o">+</span> <span class="s">" a view which does not have a ViewHolder"</span>
+                            <span class="o">+</span> <span class="n">exceptionLabel</span><span class="o">());</span>
+                <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">holder</span><span class="o">.</span><span class="na">shouldIgnore</span><span class="o">())</span> <span class="o">{</span>
+                    <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">(</span><span class="s">"getViewForPositionAndType returned"</span>
+                            <span class="o">+</span> <span class="s">" a view that is ignored. You must call stopIgnoring before"</span>
+                            <span class="o">+</span> <span class="s">" returning this view."</span> <span class="o">+</span> <span class="n">exceptionLabel</span><span class="o">());</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        
+        <span class="c1">// 从三级缓存RecycledViewPool中获取缓存内容</span>
+        <span class="c1">// ViewHolder内layout可重用，但是数据需重新绑定</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">holder</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 根据目标类型获取ViewHolder</span>
+            <span class="n">holder</span> <span class="o">=</span> <span class="n">getRecycledViewPool</span><span class="o">().</span><span class="na">getRecycledView</span><span class="o">(</span><span class="n">type</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">holder</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">holder</span><span class="o">.</span><span class="na">resetInternal</span><span class="o">();</span>
+                <span class="k">if</span> <span class="o">(</span><span class="no">FORCE_INVALIDATE_DISPLAY_LIST</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="n">invalidateDisplayListInt</span><span class="o">(</span><span class="n">holder</span><span class="o">);</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        
+        <span class="c1">// 从所有缓存中均没法获取对应数据，只能通过Adapter构造新的ViewHolder</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">holder</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kt">long</span> <span class="n">start</span> <span class="o">=</span> <span class="n">getNanoTime</span><span class="o">();</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">deadlineNs</span> <span class="o">!=</span> <span class="no">FOREVER_NS</span>
+                    <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">mRecyclerPool</span><span class="o">.</span><span class="na">willCreateInTime</span><span class="o">(</span><span class="n">type</span><span class="o">,</span> <span class="n">start</span><span class="o">,</span> <span class="n">deadlineNs</span><span class="o">))</span> <span class="o">{</span>
+                <span class="c1">// abort - we have a deadline we can't meet</span>
+                <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="o">}</span>
+            <span class="c1">// 这里调用继承Adapter后实现的createViewHolder方法</span>
+            <span class="n">holder</span> <span class="o">=</span> <span class="n">mAdapter</span><span class="o">.</span><span class="na">createViewHolder</span><span class="o">(</span><span class="nc">RecyclerView</span><span class="o">.</span><span class="na">this</span><span class="o">,</span> <span class="n">type</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="no">ALLOW_THREAD_GAP_WORK</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// only bother finding nested RV if prefetching</span>
+                <span class="nc">RecyclerView</span> <span class="n">innerView</span> <span class="o">=</span> <span class="n">findNestedRecyclerView</span><span class="o">(</span><span class="n">holder</span><span class="o">.</span><span class="na">itemView</span><span class="o">);</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">innerView</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="n">holder</span><span class="o">.</span><span class="na">mNestedRecyclerView</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">WeakReference</span><span class="o">&lt;&gt;(</span><span class="n">innerView</span><span class="o">);</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+
+            <span class="kt">long</span> <span class="n">end</span> <span class="o">=</span> <span class="n">getNanoTime</span><span class="o">();</span>
+            <span class="n">mRecyclerPool</span><span class="o">.</span><span class="na">factorInCreateTime</span><span class="o">(</span><span class="n">type</span><span class="o">,</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// This is very ugly but the only place we can grab this information</span>
+    <span class="c1">// before the View is rebound and returned to the LayoutManager for post layout ops.</span>
+    <span class="c1">// We don't need this in pre-layout since the VH is not updated by the LM.</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">fromScrapOrHiddenOrCache</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">mState</span><span class="o">.</span><span class="na">isPreLayout</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="n">holder</span>
+            <span class="o">.</span><span class="na">hasAnyOfTheFlags</span><span class="o">(</span><span class="nc">ViewHolder</span><span class="o">.</span><span class="na">FLAG_BOUNCED_FROM_HIDDEN_LIST</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">holder</span><span class="o">.</span><span class="na">setFlags</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="nc">ViewHolder</span><span class="o">.</span><span class="na">FLAG_BOUNCED_FROM_HIDDEN_LIST</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mState</span><span class="o">.</span><span class="na">mRunSimpleAnimations</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kt">int</span> <span class="n">changeFlags</span> <span class="o">=</span> <span class="nc">ItemAnimator</span>
+                    <span class="o">.</span><span class="na">buildAdapterChangeFlagsForAnimations</span><span class="o">(</span><span class="n">holder</span><span class="o">);</span>
+            <span class="n">changeFlags</span> <span class="o">|=</span> <span class="nc">ItemAnimator</span><span class="o">.</span><span class="na">FLAG_APPEARED_IN_PRE_LAYOUT</span><span class="o">;</span>
+            <span class="kd">final</span> <span class="nc">ItemHolderInfo</span> <span class="n">info</span> <span class="o">=</span> <span class="n">mItemAnimator</span><span class="o">.</span><span class="na">recordPreLayoutInformation</span><span class="o">(</span><span class="n">mState</span><span class="o">,</span>
+                    <span class="n">holder</span><span class="o">,</span> <span class="n">changeFlags</span><span class="o">,</span> <span class="n">holder</span><span class="o">.</span><span class="na">getUnmodifiedPayloads</span><span class="o">());</span>
+            <span class="n">recordAnimationInfoIfBouncedHiddenView</span><span class="o">(</span><span class="n">holder</span><span class="o">,</span> <span class="n">info</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="kt">boolean</span> <span class="n">bound</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mState</span><span class="o">.</span><span class="na">isPreLayout</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="n">holder</span><span class="o">.</span><span class="na">isBound</span><span class="o">())</span> <span class="o">{</span>
+        <span class="c1">// do not update unless we absolutely have to.</span>
+        <span class="n">holder</span><span class="o">.</span><span class="na">mPreLayoutPosition</span> <span class="o">=</span> <span class="n">position</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(!</span><span class="n">holder</span><span class="o">.</span><span class="na">isBound</span><span class="o">()</span> <span class="o">||</span> <span class="n">holder</span><span class="o">.</span><span class="na">needsUpdate</span><span class="o">()</span> <span class="o">||</span> <span class="n">holder</span><span class="o">.</span><span class="na">isInvalid</span><span class="o">())</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="no">DEBUG</span> <span class="o">&amp;&amp;</span> <span class="n">holder</span><span class="o">.</span><span class="na">isRemoved</span><span class="o">())</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span><span class="s">"Removed holder should be bound and it should"</span>
+                    <span class="o">+</span> <span class="s">" come here only in pre-layout. Holder: "</span> <span class="o">+</span> <span class="n">holder</span>
+                    <span class="o">+</span> <span class="n">exceptionLabel</span><span class="o">());</span>
+        <span class="o">}</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">offsetPosition</span> <span class="o">=</span> <span class="n">mAdapterHelper</span><span class="o">.</span><span class="na">findPositionOffset</span><span class="o">(</span><span class="n">position</span><span class="o">);</span>
+        <span class="c1">// 以下方法调用mAdapter.bindViewHolder把内容绑定到ViewHolder</span>
+        <span class="n">bound</span> <span class="o">=</span> <span class="n">tryBindViewHolderByDeadline</span><span class="o">(</span><span class="n">holder</span><span class="o">,</span> <span class="n">offsetPosition</span><span class="o">,</span> <span class="n">position</span><span class="o">,</span> <span class="n">deadlineNs</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">final</span> <span class="nc">ViewGroup</span><span class="o">.</span><span class="na">LayoutParams</span> <span class="n">lp</span> <span class="o">=</span> <span class="n">holder</span><span class="o">.</span><span class="na">itemView</span><span class="o">.</span><span class="na">getLayoutParams</span><span class="o">();</span>
+    <span class="kd">final</span> <span class="nc">LayoutParams</span> <span class="n">rvLayoutParams</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">lp</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">rvLayoutParams</span> <span class="o">=</span> <span class="o">(</span><span class="nc">LayoutParams</span><span class="o">)</span> <span class="n">generateDefaultLayoutParams</span><span class="o">();</span>
+        <span class="n">holder</span><span class="o">.</span><span class="na">itemView</span><span class="o">.</span><span class="na">setLayoutParams</span><span class="o">(</span><span class="n">rvLayoutParams</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(!</span><span class="n">checkLayoutParams</span><span class="o">(</span><span class="n">lp</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">rvLayoutParams</span> <span class="o">=</span> <span class="o">(</span><span class="nc">LayoutParams</span><span class="o">)</span> <span class="n">generateLayoutParams</span><span class="o">(</span><span class="n">lp</span><span class="o">);</span>
+        <span class="n">holder</span><span class="o">.</span><span class="na">itemView</span><span class="o">.</span><span class="na">setLayoutParams</span><span class="o">(</span><span class="n">rvLayoutParams</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="n">rvLayoutParams</span> <span class="o">=</span> <span class="o">(</span><span class="nc">LayoutParams</span><span class="o">)</span> <span class="n">lp</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="n">rvLayoutParams</span><span class="o">.</span><span class="na">mViewHolder</span> <span class="o">=</span> <span class="n">holder</span><span class="o">;</span>
+    <span class="n">rvLayoutParams</span><span class="o">.</span><span class="na">mPendingInvalidate</span> <span class="o">=</span> <span class="n">fromScrapOrHiddenOrCache</span> <span class="o">&amp;&amp;</span> <span class="n">bound</span><span class="o">;</span>
+    <span class="k">return</span> <span class="n">holder</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="52-getscraporhiddenorcachedholderforposition">5.2 getScrapOrHiddenOrCachedHolderForPosition()</h4>
+
+<p>从 <strong>attach scrap</strong>、<strong>hidden children</strong> 或 <strong>cache</strong> 根据 <strong>position</strong> 返回 <strong>ViewHolder</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+</pre></td><td class="rouge-code"><pre><span class="c1">// @param position 条目位置</span>
+<span class="c1">// @param dryRun   空转，只查找ViewHolder而不移除</span>
+<span class="nc">ViewHolder</span> <span class="nf">getScrapOrHiddenOrCachedHolderForPosition</span><span class="o">(</span><span class="kt">int</span> <span class="n">position</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">dryRun</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">scrapCount</span> <span class="o">=</span> <span class="n">mAttachedScrap</span><span class="o">.</span><span class="na">size</span><span class="o">();</span>
+
+    <span class="c1">// Try first for an exact, non-invalid match from scrap.</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">scrapCount</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">ViewHolder</span> <span class="n">holder</span> <span class="o">=</span> <span class="n">mAttachedScrap</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">holder</span><span class="o">.</span><span class="na">wasReturnedFromScrap</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="n">holder</span><span class="o">.</span><span class="na">getLayoutPosition</span><span class="o">()</span> <span class="o">==</span> <span class="n">position</span>
+                <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">holder</span><span class="o">.</span><span class="na">isInvalid</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="o">(</span><span class="n">mState</span><span class="o">.</span><span class="na">mInPreLayout</span> <span class="o">||</span> <span class="o">!</span><span class="n">holder</span><span class="o">.</span><span class="na">isRemoved</span><span class="o">()))</span> <span class="o">{</span>
+            <span class="n">holder</span><span class="o">.</span><span class="na">addFlags</span><span class="o">(</span><span class="nc">ViewHolder</span><span class="o">.</span><span class="na">FLAG_RETURNED_FROM_SCRAP</span><span class="o">);</span>
+            <span class="k">return</span> <span class="n">holder</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(!</span><span class="n">dryRun</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">View</span> <span class="n">view</span> <span class="o">=</span> <span class="n">mChildHelper</span><span class="o">.</span><span class="na">findHiddenNonRemovedView</span><span class="o">(</span><span class="n">position</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">view</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// This View is good to be used. We just need to unhide, detach and move to the</span>
+            <span class="c1">// scrap list.</span>
+            <span class="kd">final</span> <span class="nc">ViewHolder</span> <span class="n">vh</span> <span class="o">=</span> <span class="n">getChildViewHolderInt</span><span class="o">(</span><span class="n">view</span><span class="o">);</span>
+            <span class="n">mChildHelper</span><span class="o">.</span><span class="na">unhide</span><span class="o">(</span><span class="n">view</span><span class="o">);</span>
+            <span class="kt">int</span> <span class="n">layoutIndex</span> <span class="o">=</span> <span class="n">mChildHelper</span><span class="o">.</span><span class="na">indexOfChild</span><span class="o">(</span><span class="n">view</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">layoutIndex</span> <span class="o">==</span> <span class="nc">RecyclerView</span><span class="o">.</span><span class="na">NO_POSITION</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span><span class="s">"layout index should not be -1 after "</span>
+                        <span class="o">+</span> <span class="s">"unhiding a view:"</span> <span class="o">+</span> <span class="n">vh</span> <span class="o">+</span> <span class="n">exceptionLabel</span><span class="o">());</span>
+            <span class="o">}</span>
+            <span class="n">mChildHelper</span><span class="o">.</span><span class="na">detachViewFromParent</span><span class="o">(</span><span class="n">layoutIndex</span><span class="o">);</span>
+            <span class="n">scrapView</span><span class="o">(</span><span class="n">view</span><span class="o">);</span>
+            <span class="n">vh</span><span class="o">.</span><span class="na">addFlags</span><span class="o">(</span><span class="nc">ViewHolder</span><span class="o">.</span><span class="na">FLAG_RETURNED_FROM_SCRAP</span>
+                    <span class="o">|</span> <span class="nc">ViewHolder</span><span class="o">.</span><span class="na">FLAG_BOUNCED_FROM_HIDDEN_LIST</span><span class="o">);</span>
+            <span class="k">return</span> <span class="n">vh</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 从一级缓存查找已回收的视图缓存</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">cacheSize</span> <span class="o">=</span> <span class="n">mCachedViews</span><span class="o">.</span><span class="na">size</span><span class="o">();</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">cacheSize</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">ViewHolder</span> <span class="n">holder</span> <span class="o">=</span> <span class="n">mCachedViews</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+        <span class="c1">// invalid view holders may be in cache if adapter has stable ids as they can be</span>
+        <span class="c1">// retrieved via getScrapOrCachedViewForId</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">holder</span><span class="o">.</span><span class="na">isInvalid</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="n">holder</span><span class="o">.</span><span class="na">getLayoutPosition</span><span class="o">()</span> <span class="o">==</span> <span class="n">position</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(!</span><span class="n">dryRun</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">mCachedViews</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="k">return</span> <span class="n">holder</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="53-trybindviewholderbydeadline">5.3 tryBindViewHolderByDeadline()</h4>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">boolean</span> <span class="nf">tryBindViewHolderByDeadline</span><span class="o">(</span><span class="nc">ViewHolder</span> <span class="n">holder</span><span class="o">,</span> <span class="kt">int</span> <span class="n">offsetPosition</span><span class="o">,</span>
+        <span class="kt">int</span> <span class="n">position</span><span class="o">,</span> <span class="kt">long</span> <span class="n">deadlineNs</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 设置holder的RecyclerView</span>
+    <span class="n">holder</span><span class="o">.</span><span class="na">mOwnerRecyclerView</span> <span class="o">=</span> <span class="nc">RecyclerView</span><span class="o">.</span><span class="na">this</span><span class="o">;</span>
+    <span class="c1">// holder的viewType</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">viewType</span> <span class="o">=</span> <span class="n">holder</span><span class="o">.</span><span class="na">getItemViewType</span><span class="o">();</span>
+    <span class="kt">long</span> <span class="n">startBindNs</span> <span class="o">=</span> <span class="n">getNanoTime</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">deadlineNs</span> <span class="o">!=</span> <span class="no">FOREVER_NS</span>
+            <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">mRecyclerPool</span><span class="o">.</span><span class="na">willBindInTime</span><span class="o">(</span><span class="n">viewType</span><span class="o">,</span> <span class="n">startBindNs</span><span class="o">,</span> <span class="n">deadlineNs</span><span class="o">))</span> <span class="o">{</span>
+        <span class="c1">// abort - we have a deadline we can't meet</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="c1">// 绑定视图数据</span>
+    <span class="n">mAdapter</span><span class="o">.</span><span class="na">bindViewHolder</span><span class="o">(</span><span class="n">holder</span><span class="o">,</span> <span class="n">offsetPosition</span><span class="o">);</span>
+    <span class="kt">long</span> <span class="n">endBindNs</span> <span class="o">=</span> <span class="n">getNanoTime</span><span class="o">();</span>
+    <span class="n">mRecyclerPool</span><span class="o">.</span><span class="na">factorInBindTime</span><span class="o">(</span><span class="n">holder</span><span class="o">.</span><span class="na">getItemViewType</span><span class="o">(),</span> <span class="n">endBindNs</span> <span class="o">-</span> <span class="n">startBindNs</span><span class="o">);</span>
+    <span class="n">attachAccessibilityDelegateOnBind</span><span class="o">(</span><span class="n">holder</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mState</span><span class="o">.</span><span class="na">isPreLayout</span><span class="o">())</span> <span class="o">{</span>
+        <span class="n">holder</span><span class="o">.</span><span class="na">mPreLayoutPosition</span> <span class="o">=</span> <span class="n">position</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="六recycledviewpool">六、RecycledViewPool</h2>
+
+<p>若要把 <strong>RecycledViewPool</strong> 在多个 <strong>RecyclerViews</strong> 间共享，只需主动创建该实例，通过 <strong>RecyclerView.setRecycledViewPool(RecycledViewPool)</strong> 绑定到 <strong>RecyclerView</strong> 上。如果没有给 <strong>RecyclerView</strong> 指定任何 <strong>RecycledViewPool</strong>，则会自行创建该实例。</p>
+
+<p>每个 <strong>type</strong> 默认缓存5个 <strong>ViewHolder</strong>，可针对不同 <strong>type</strong> 修改需缓存数量。例如：增加显示面积较小 <strong>ViewHolder</strong> 缓存的数量，保证缓存对象足够填满屏幕又无需创建新对象。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">DEFAULT_MAX_SCRAP</span> <span class="o">=</span> <span class="mi">5</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>ScrapData</strong> 是 <strong>RecycledViewPool</strong> 的内部类</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="kd">class</span> <span class="nc">ScrapData</span> <span class="o">{</span>
+    <span class="c1">// 保存ViewHolder的列表</span>
+    <span class="kd">final</span> <span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">ViewHolder</span><span class="o">&gt;</span> <span class="n">mScrapHeap</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+    <span class="c1">// 本类型最多可保留多少ViewHolder</span>
+    <span class="kt">int</span> <span class="n">mMaxScrap</span> <span class="o">=</span> <span class="no">DEFAULT_MAX_SCRAP</span><span class="o">;</span>
+    <span class="c1">// 记录创建视图的平均时长</span>
+    <span class="kt">long</span> <span class="n">mCreateRunningAverageNs</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="c1">// 记录视图绑定的平均时长</span>
+    <span class="kt">long</span> <span class="n">mBindRunningAverageNs</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>根据分类缓存 <strong>ScrapData</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nc">SparseArray</span><span class="o">&lt;</span><span class="nc">ScrapData</span><span class="o">&gt;</span> <span class="n">mScrap</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">SparseArray</span><span class="o">&lt;&gt;();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>调整指定 <strong>viewType</strong> 视图缓存的最大值</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">setMaxRecycledViews</span><span class="o">(</span><span class="kt">int</span> <span class="n">viewType</span><span class="o">,</span> <span class="kt">int</span> <span class="n">max</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">ScrapData</span> <span class="n">scrapData</span> <span class="o">=</span> <span class="n">getScrapDataForType</span><span class="o">(</span><span class="n">viewType</span><span class="o">);</span>
+    <span class="c1">// 修改mMaxScrap的值</span>
+    <span class="n">scrapData</span><span class="o">.</span><span class="na">mMaxScrap</span> <span class="o">=</span> <span class="n">max</span><span class="o">;</span>
+    <span class="kd">final</span> <span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">ViewHolder</span><span class="o">&gt;</span> <span class="n">scrapHeap</span> <span class="o">=</span> <span class="n">scrapData</span><span class="o">.</span><span class="na">mScrapHeap</span><span class="o">;</span>
+    <span class="c1">// 裁剪多余缓存实例</span>
+    <span class="k">while</span> <span class="o">(</span><span class="n">scrapHeap</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">&gt;</span> <span class="n">max</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">scrapHeap</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">scrapHeap</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>例如：下图样式的 <strong>ViewHolder</strong> 仅缓存5个，多余视图移出屏幕后会销毁。下次需要该 <strong>ViewHolder</strong> 又要重新构建，所以提高缓存数量可减少这种情况发生次数。</p>
+
+<p><img src="/img/android/RecyclerView/RecyclerView_demo_30.png" alt="RecyclerView_demo" /></p>
+
+<p>根据 <strong>viewType</strong> 从缓存池获取 <strong>ScrapData</strong>，再从 <strong>ScrapData</strong> 取出有效 <strong>ViewHolder</strong>。如果缓存池内没有缓存该实例则返回null。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="nd">@Nullable</span>
+<span class="kd">public</span> <span class="nc">ViewHolder</span> <span class="nf">getRecycledView</span><span class="o">(</span><span class="kt">int</span> <span class="n">viewType</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="nc">ScrapData</span> <span class="n">scrapData</span> <span class="o">=</span> <span class="n">mScrap</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">viewType</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">scrapData</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">scrapData</span><span class="o">.</span><span class="na">mScrapHeap</span><span class="o">.</span><span class="na">isEmpty</span><span class="o">())</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">ViewHolder</span><span class="o">&gt;</span> <span class="n">scrapHeap</span> <span class="o">=</span> <span class="n">scrapData</span><span class="o">.</span><span class="na">mScrapHeap</span><span class="o">;</span>
+        <span class="c1">// 从列表取出一个ViewHolder</span>
+        <span class="k">return</span> <span class="n">scrapHeap</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">scrapHeap</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>读取 <strong>ViewHolder</strong> 的 <strong>viewType</strong> 并找到对应 <strong>scrapHeap</strong> 列表，把 <strong>ViewHolder</strong> 缓存到该列表</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kt">void</span> <span class="nf">putRecycledView</span><span class="o">(</span><span class="nc">ViewHolder</span> <span class="n">scrap</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">viewType</span> <span class="o">=</span> <span class="n">scrap</span><span class="o">.</span><span class="na">getItemViewType</span><span class="o">();</span>
+    <span class="kd">final</span> <span class="nc">ArrayList</span><span class="o">&lt;</span><span class="nc">ViewHolder</span><span class="o">&gt;</span> <span class="n">scrapHeap</span> <span class="o">=</span> <span class="n">getScrapDataForType</span><span class="o">(</span><span class="n">viewType</span><span class="o">).</span><span class="na">mScrapHeap</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mScrap</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">viewType</span><span class="o">).</span><span class="na">mMaxScrap</span> <span class="o">&lt;=</span> <span class="n">scrapHeap</span><span class="o">.</span><span class="na">size</span><span class="o">())</span> <span class="o">{</span>
+        <span class="k">return</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="n">scrap</span><span class="o">.</span><span class="na">resetInternal</span><span class="o">();</span>
+    <span class="n">scrapHeap</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">scrap</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>根据 <strong>viewType</strong> 获取 <strong>ScrapData</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">ScrapData</span> <span class="nf">getScrapDataForType</span><span class="o">(</span><span class="kt">int</span> <span class="n">viewType</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">ScrapData</span> <span class="n">scrapData</span> <span class="o">=</span> <span class="n">mScrap</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">viewType</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">scrapData</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">scrapData</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ScrapData</span><span class="o">();</span>
+        <span class="n">mScrap</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">viewType</span><span class="o">,</span> <span class="n">scrapData</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">scrapData</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="七参考链接">七、参考链接</h2>
+
+<ul>
+  <li><a href="https://juejin.im/post/5b79a0b851882542b13d204b">RecyclerView缓存原理，有图有真相</a></li>
+</ul>
+:ET

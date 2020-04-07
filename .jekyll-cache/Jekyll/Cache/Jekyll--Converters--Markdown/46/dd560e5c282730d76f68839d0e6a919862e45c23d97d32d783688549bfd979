@@ -1,0 +1,245 @@
+I"�?<h1 id="介绍">介绍</h1>
+
+<p>ButterKnife是专为Android View而设的注解绑定库，把我们从<code class="highlighter-rouge">findViewById()</code>和<code class="highlighter-rouge">setOnClicktListener()</code>中全面解放。</p>
+
+<p>使用ButterKnife注意要点：</p>
+
+<ul>
+  <li>属性不能用<code class="highlighter-rouge">private</code>或<code class="highlighter-rouge">static</code>修饰，否则会报错</li>
+  <li>不能通过注解实现<code class="highlighter-rouge">setContentView()</code></li>
+  <li>调用<code class="highlighter-rouge">ButterKnife.bind(this)</code>之前必须先调用<code class="highlighter-rouge">setContentView(R.layout.id)</code></li>
+  <li>父类已经调用<code class="highlighter-rouge">ButterKnife.bind(this)</code>，则子类无需再次调用。</li>
+</ul>
+
+<p>ButterKnife Github: <a href="https://github.com/JakeWharton/butterknife">https://github.com/JakeWharton/butterknife</a></p>
+
+<p>ButterKnife 博客: <a href="http://jakewharton.github.io/butterknife/">http://jakewharton.github.io/butterknife/</a></p>
+
+<h1 id="一导入">一、导入</h1>
+
+<p>在作者的Github中可以获得最新的源码和版本号。下面是Android Studio Gradle使用ButterKnife，演示的版本是8.4.0。如果想知道更多使用的方法，在作者的博客中有详细的介绍。</p>
+
+<h2 id="11-buildgradlemodule">1.1 build.gradle(Module)</h2>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre>apply plugin: 'com.android.application'
+apply plugin: 'com.jakewharton.butterknife'
+
+dependencies {
+    compile fileTree(dir: 'libs', include: ['*.jar'])
+    compile 'com.android.support:appcompat-v7:23.4.0'
+
+    compile 'com.jakewharton:butterknife:8.4.0'
+    annotationProcessor 'com.jakewharton:butterknife-compiler:8.4.0'
+}
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>设置完成后同步一下。</p>
+
+<h2 id="12-buildgradleproject">1.2 build.gradle(Project)</h2>
+
+<p>在build.gradle(Project)中插入如下代码</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre>dependencies {
+    classpath 'com.jakewharton:butterknife-gradle-plugin:8.4.0'
+}
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>设置完成后同步一下就完成了。</p>
+
+<h1 id="2使用">2.使用</h1>
+
+<p>因为每次都要在Activity中的<code class="highlighter-rouge">onCreate</code>通过<code class="highlighter-rouge">setContentView()</code>绑定<code class="highlighter-rouge">Activity</code>，所以写一个<code class="highlighter-rouge">BaseActivity</code>来完成绑定，子类继承并实现抽象方法。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">abstract</span> <span class="kd">class</span> <span class="nc">BaseActivity</span> <span class="kd">extends</span> <span class="nc">Activity</span> <span class="o">{</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="n">getContentViewId</span><span class="o">());</span>
+        <span class="nc">ButterKnife</span><span class="o">.</span><span class="na">bind</span><span class="o">(</span><span class="k">this</span><span class="o">);</span>
+        <span class="n">afterCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">protected</span> <span class="kd">abstract</span> <span class="kt">int</span> <span class="nf">getContentViewId</span><span class="o">();</span>
+    <span class="kd">protected</span> <span class="kd">abstract</span> <span class="kt">void</span> <span class="nf">afterCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">bundle</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>MainActivity继承BaseActivity，实现两个抽象方法。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MainActivity</span> <span class="kd">extends</span> <span class="nc">BaseActivity</span> <span class="o">{</span>
+
+    <span class="nd">@BindView</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">button_click</span><span class="o">)</span> <span class="nc">Button</span> <span class="n">button_click</span><span class="o">;</span>
+    
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">int</span> <span class="nf">getContentViewId</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">activity_main</span><span class="o">;</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 以前初始化的工作在onCreate()中完成，现在放在afterCreate().</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">afterCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">bundle</span><span class="o">)</span> <span class="o">{}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>在对应的xml布局中加入一个按钮，按钮资源名为<code class="highlighter-rouge">R.id.button_click</code>，运行然后点击按钮就可以看见按钮字的变化。</p>
+
+<h1 id="三更多用法">三、更多用法</h1>
+
+<p>对资源进行绑定</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@BindString</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">string</span><span class="o">.</span><span class="na">title</span><span class="o">)</span> <span class="nc">String</span> <span class="n">title</span><span class="o">;</span>
+<span class="nd">@BindDrawable</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">graphic</span><span class="o">)</span> <span class="nc">Drawable</span> <span class="n">graphic</span><span class="o">;</span>
+<span class="nd">@BindColor</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">color</span><span class="o">.</span><span class="na">red</span><span class="o">)</span> <span class="kt">int</span> <span class="n">red</span><span class="o">;</span>
+<span class="nd">@BindDimen</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">dimen</span><span class="o">.</span><span class="na">spacer</span><span class="o">)</span> <span class="nc">Float</span> <span class="n">spacer</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>控件的点击事件绑定。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@OnClick</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">button_click</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">setTextView</span><span class="o">(</span><span class="nc">Button</span> <span class="n">button</span><span class="o">){</span>
+    <span class="n">button</span><span class="o">.</span><span class="na">setText</span><span class="o">(</span><span class="s">"Button Clicked"</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果控件的行为不会被改变，就不需要传控件的引用</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@OnClick</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">button_click</span><span class="o">)</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">setTextView</span><span class="o">(){</span>
+    <span class="nc">Toast</span><span class="o">.</span><span class="na">makeText</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="s">"Button Clicked"</span><span class="o">,</span> <span class="no">LENGTH_SHORT</span><span class="o">).</span><span class="na">show</span><span class="o">();</span>  
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>多个控件绑定到同一个方法，注意多了个花括号</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@OnClick</span><span class="o">({</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">button_click</span><span class="o">,</span> <span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">text_1</span><span class="o">})</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">setTextView</span><span class="o">(){</span>
+    <span class="nc">Toast</span><span class="o">.</span><span class="na">makeText</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="s">"Clicked"</span><span class="o">,</span> <span class="no">LENGTH_SHORT</span><span class="o">).</span><span class="na">show</span><span class="o">();</span>  
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>相当于给<code class="highlighter-rouge">EditText</code>加<code class="highlighter-rouge">addTextChangedListener()</code>，实现了文本改变监听器。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre><span class="nd">@OnTextChanged</span><span class="o">(</span><span class="n">value</span> <span class="o">=</span> <span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">editText</span><span class="o">,</span><span class="n">callback</span> <span class="o">=</span> <span class="nc">OnTextChanged</span><span class="o">.</span><span class="na">Callback</span><span class="o">.</span><span class="na">BEFORE_TEXT_CHANGED</span><span class="o">)</span>
+<span class="kt">void</span> <span class="nf">beforeTextChanged</span><span class="o">(</span><span class="nc">CharSequence</span> <span class="n">s</span><span class="o">,</span> <span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">count</span><span class="o">,</span> <span class="kt">int</span> <span class="n">after</span><span class="o">)</span> <span class="o">{}</span>
+
+<span class="nd">@OnTextChanged</span><span class="o">(</span><span class="n">value</span> <span class="o">=</span> <span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">editText</span><span class="o">,</span> <span class="n">callback</span> <span class="o">=</span> <span class="nc">OnTextChanged</span><span class="o">.</span><span class="na">Callback</span><span class="o">.</span><span class="na">TEXT_CHANGED</span><span class="o">)</span>
+<span class="kt">void</span> <span class="nf">onTextChanged</span><span class="o">(</span><span class="nc">CharSequence</span> <span class="n">s</span><span class="o">,</span> <span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">before</span><span class="o">,</span> <span class="kt">int</span> <span class="n">count</span><span class="o">)</span> <span class="o">{}</span>
+
+<span class="nd">@OnTextChanged</span><span class="o">(</span><span class="n">value</span> <span class="o">=</span> <span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">editText</span><span class="o">,</span> <span class="n">callback</span> <span class="o">=</span> <span class="nc">OnTextChanged</span><span class="o">.</span><span class="na">Callback</span><span class="o">.</span><span class="na">AFTER_TEXT_CHANGED</span><span class="o">)</span>
+<span class="kt">void</span> <span class="nf">afterTextChanged</span><span class="o">(</span><span class="nc">Editable</span> <span class="n">s</span><span class="o">)</span> <span class="o">{}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h1 id="四技巧">四、技巧</h1>
+
+<h2 id="41-免混淆">4.1 免混淆</h2>
+
+<p>在proguard配置文件中加入以下规则</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre>-keep class butterknife.** { *; }
+-dontwarn butterknife.internal.**
+-keep class **$$ViewBinder { *; }
+
+-keepclasseswithmembernames class * {
+    @butterknife.* &lt;fields&gt;;
+}
+
+-keepclasseswithmembernames class * {
+    @butterknife.* &lt;methods&gt;;
+}
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="42-代码生成插件">4.2 代码生成插件</h2>
+
+<p>使用Zelezny能自动生成ButterKnife Injections。</p>
+
+<p>AndroidStudio-&gt;File-&gt;Settings-&gt;Plugins-&gt;搜索Zelezny下载添加
+<img src="/img/android/Zelezny/Zelezny.png" alt="img" /></p>
+
+<p>鼠标先要选中布局文件，如图中选中<code class="highlighter-rouge">R.layout.activity_main</code>，然后点击右键，选中<code class="highlighter-rouge">Generate</code>
+<img src="/img/android/Zelezny/zelezny_1.jpg" alt="img" /></p>
+
+<p>点击<code class="highlighter-rouge">Generate Butterknife Injections</code>
+<img src="/img/android/Zelezny/zelezny_2.jpg" alt="img" /></p>
+
+<p>默认选中所有课识别的空间，如果需要<code class="highlighter-rouge">OnClick</code>就手动勾选。如果控件已经被绑定，该选项会变为灰色
+<img src="/img/android/Zelezny/zelezny_3.jpg" alt="img" /></p>
+
+<p>代码自动生成后
+<img src="/img/android/Zelezny/zelezny_4.jpg" alt="img" /></p>
+
+:ET

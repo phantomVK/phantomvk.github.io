@@ -1,0 +1,865 @@
+I"�5<h3 id="零导读">零、导读</h3>
+
+<p>笔者负责的工程长年进行功能迭代，没有处理性能问题，最近终于有空进行内存问题修复。本文记录此次内存问题定位过程及修复方法，并总结开发心得和经验。</p>
+
+<p>应用频繁申请小对象，占用处理器时间片(<strong>虚拟机TLAB划分</strong>、<strong>对象初始化</strong>)，样本超限令抽样工具卡顿崩溃。<strong>巨型对象</strong>、<strong>长周期对象</strong> 增加垃圾回收的时间，给调试处理器占用率、主线程阻塞增加未知风险。</p>
+
+<h3 id="一目标">一、目标</h3>
+
+<p>每次性能优化要明确阶段性目标，明确目标为”启动速度优化“，还是”修复内存占用高“。确定目标可以对特定性能点做出高度优化，降低优化量化的难度。</p>
+
+<p>受产品形态所限，本产品需集成到宿主应用作为运行部分。启动过程高内存占用，加上宿主已经申请空间，容易造成 <strong>OutOfMemoryError</strong>。可以明确，本次首要目标为削启动内存的峰值，其次查找启动后内存泄漏。</p>
+
+<h3 id="二工具">二、工具</h3>
+
+<h4 id="21-android-profiler">2.1 Android Profiler</h4>
+
+<p>按照Google最新开发指引，<strong>Android Profiler</strong> 是首要推荐性能检测工具，用于分析运行过程产生对象的数量和总大小，下文基于 <strong>Android Studio 3.5.1</strong> 版本的工具。</p>
+
+<p><img src="/img/android/performance/android_profiler.png" alt="android_profiler" /></p>
+
+<p>主要有以下参数：</p>
+
+<ul>
+  <li>
+    <p><strong>Java</strong>：从 Java 或 Kotlin 代码分配的对象的内存</p>
+  </li>
+  <li>
+    <p><strong>Native</strong>：从 C 或 C++ 代码分配的对象的内存</p>
+
+    <p>即使您的应用中不使用 C++，您也可能会看到此处使用的一些原生内存，因为 Android 框架使用原生内存代表您处理各种任务，如处理图像资源和其他图形时，即使您编写的代码采用 Java 或 Kotlin 语言</p>
+  </li>
+  <li>
+    <p><strong>Graphics</strong>：图形缓冲区队列向屏幕显示像素（包括 GL 表面、GL 纹理等等）所使用的内存。（请注意，这是与 CPU 共享的内存，不是 GPU 专用内存。）</p>
+  </li>
+  <li>
+    <p><strong>Stack</strong>：您的应用中的原生堆栈和 Java 堆栈使用的内存。这通常与您的应用运行多少线程有关</p>
+  </li>
+  <li>
+    <p><strong>Code</strong>：您的应用用于处理代码和资源（如 dex 字节码、经过优化或编译的 dex 代码、.so 库和字体）的内存</p>
+  </li>
+  <li>
+    <p><strong>Others</strong>：您的应用使用的系统不确定如何分类的内存</p>
+  </li>
+  <li>
+    <p><strong>Allocated</strong>：您的应用分配的 Java/Kotlin 对象数。此数字没有计入 C 或 C++ 中分配的对象</p>
+  </li>
+</ul>
+
+<p>较新的系统版本才能完全提供以上参数，旧版本则根据版本不同有差别。一般来说从上到下的顺序就是优化难度，即从 <strong>Java堆内存</strong> 开始难度逐渐提升，到 <strong>Other</strong> 内存最难处理。</p>
+
+<p>不同应用场景内存占用比例也不一样，优化效果要在同一场景反复测量后确定。</p>
+
+<h4 id="22-eclipse-mat">2.2 Eclipse MAT</h4>
+
+<p>老牌内存分析工具用于检查内存泄漏问题，不过这个工具对 <strong>Android</strong> 内存泄漏自动推断不准确。</p>
+
+<p>从 <strong>Android Profiler</strong> 导出内存快照后，用 <strong>platform-tools</strong> 的 <strong>hprof-conv</strong> 工具转换后的镜像才能导入 <strong>MAT</strong>。而 <strong>-z</strong> 参数转换结果只包含应用自身内存，易于查看。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nv">$ </span><span class="nb">cd</span> /Users/phantomvk/Library/Android/sdk/platform-tools <span class="c"># MacOS</span>
+<span class="nv">$ </span>hprof-conv <span class="nt">-z</span> dump_from.hprof dump_to.hprof
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>导入 <strong>dump_to.hprof</strong> 到 <strong>MAT</strong> 后可见内存分类，选择左下角 <strong>Histogram</strong> 视图：</p>
+
+<p><img src="/img/android/performance/histogram.png" alt="histogram" /></p>
+
+<p>如图右键结果，先排除软、弱、虚引用对该实例干扰：</p>
+
+<p><img src="/img/android/performance/exclude_references.png" alt="exclude_references" /></p>
+
+<p>剩下的全都是强引用，选择其中一项展开：</p>
+
+<p><img src="/img/android/performance/ScreenShotListenManager.png" alt="ScreenShotListenManager" /></p>
+
+<p>右键点击 <strong>List objects</strong> 选择 <strong>with incoming references</strong> 可看见泄漏对象被引用的路径：</p>
+
+<p><img src="/img/android/performance/leak_MediaContentObserver.png" alt="leak_MediaContentObserver" /></p>
+
+<p>除了显示内存泄漏的引用，<strong>MAT</strong> 其他可见结果主要是类加载器持有的静态变量、常量。下图是枚举类型 <strong>FuncType</strong> 被类加载器持有的示意图，内部28个数值共使用448B内存：</p>
+
+<p><img src="/img/android/performance/no_memory_leak.png" alt="no_memory_leak" /></p>
+
+<p><strong>Android</strong> 枚举类型在混淆的优化阶段内联到调用点，不再出现上述448B内存占用。但别忘记现在处于没有开启混淆的 <strong>debug</strong> 模式，所以能看见枚举类在内存的形态。</p>
+
+<h3 id="三详情">三、详情</h3>
+
+<h4 id="31-使用arouter">3.1 使用ARouter</h4>
+
+<p><strong>ARouter</strong> 在本工程负责页面路由跳转和服务提供，完成组件化大部分工作，正常不会有性能问题。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">RoomSummaryComparator</span> <span class="o">:</span> <span class="nc">Comparator</span><span class="o">&lt;</span><span class="nc">RoomSummary</span><span class="o">&gt;</span> <span class="o">{</span>
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">compare</span><span class="o">(</span><span class="nl">lSummary:</span> <span class="nc">RoomSummary</span><span class="o">?,</span> <span class="nl">rSummary:</span> <span class="nc">RoomSummary</span><span class="o">?):</span> <span class="nc">Int</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">when</span> <span class="o">{</span>
+            <span class="k">else</span> <span class="o">-&gt;</span> <span class="o">{</span>
+                <span class="c1">// 从ARouter获取对象SessionManager</span>
+                <span class="n">val</span> <span class="n">lTs</span> <span class="o">=</span> <span class="nc">ServiceFactory</span><span class="o">.</span><span class="na">getInstance</span><span class="o">().</span><span class="na">sessionManager</span>
+                        <span class="o">.</span><span class="na">defaultLatestChatMessageCache</span>
+                        <span class="o">.</span><span class="na">getLatestTextTs</span><span class="o">(</span><span class="n">applicationContext</span><span class="o">,</span> <span class="n">lSummary</span><span class="o">.</span><span class="na">roomId</span><span class="o">)</span>
+                        <span class="o">?:</span> <span class="n">lEvent</span><span class="o">.</span><span class="na">getOriginServerTs</span><span class="o">()</span>
+
+                <span class="c1">// 从ARouter获取对象SessionManager</span>
+                <span class="n">val</span> <span class="n">rTs</span> <span class="o">=</span> <span class="nc">ServiceFactory</span><span class="o">.</span><span class="na">getInstance</span><span class="o">().</span><span class="na">sessionManager</span>
+                        <span class="o">.</span><span class="na">defaultLatestChatMessageCache</span>
+                        <span class="o">.</span><span class="na">getLatestTextTs</span><span class="o">(</span><span class="n">applicationContext</span><span class="o">,</span> <span class="n">rSummary</span><span class="o">.</span><span class="na">roomId</span><span class="o">)</span>
+                        <span class="o">?:</span> <span class="n">rEvent</span><span class="o">.</span><span class="na">getOriginServerTs</span><span class="o">()</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>这里调用嵌套在 <strong>Comparator</strong>，房间列表排序累计调用 <strong>ARouter</strong> 多达3.6万次，每次调用都创建 <strong>PostCard</strong> 实例，累计浅内存使用2MB。</p>
+
+<p><img src="/img/android/performance/arouter_postcard_larger.png" alt="arouter_postcard" /></p>
+
+<p>需要整合调用点避免重复调用 <strong>ARouter</strong>，优化后相同场景只有1000次调用。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">RoomSummaryComparator</span> <span class="p">:</span> <span class="nc">Comparator</span><span class="p">&lt;</span><span class="nc">RoomSummary</span><span class="p">&gt;</span> <span class="p">{</span>
+
+    <span class="k">private</span> <span class="kd">val</span> <span class="py">messageCache</span> <span class="p">=</span> <span class="nc">ServiceFactory</span><span class="p">.</span><span class="nf">getInstance</span><span class="p">()</span>
+            <span class="p">.</span><span class="n">sessionManager</span>
+            <span class="p">.</span><span class="n">defaultLatestChatMessageCache</span>
+
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">compare</span><span class="p">(</span><span class="n">lSummary</span><span class="p">:</span> <span class="nc">RoomSummary</span><span class="p">?,</span> <span class="n">rSummary</span><span class="p">:</span> <span class="nc">RoomSummary</span><span class="p">?):</span> <span class="nc">Int</span> <span class="p">{</span>
+        <span class="o">....</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="32-堆栈跟踪开销">3.2 堆栈跟踪开销</h4>
+
+<p>下面代码从 <strong>JsonObject</strong> 获取名为 <strong>flag</strong> 的整形值，否则捕获异常并返回null。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">val</span> <span class="py">flag</span> <span class="p">=</span> <span class="k">try</span> <span class="p">{</span>
+    <span class="n">event</span><span class="p">.</span><span class="nf">getContent</span><span class="p">().</span><span class="n">asJsonObject</span><span class="p">.</span><span class="k">get</span><span class="p">(</span><span class="s">"flag"</span><span class="p">).</span><span class="n">asInt</span>
+<span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="nc">Exception</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">null</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>该整型值存在是少数情况，所以频繁抛出异常并使用 <strong>StackTraceElement</strong> 记录堆栈信息。</p>
+
+<p>上述代码多次生成该实例，每个大小32B共抛出1041次，<strong>ShallowSize</strong> 总计33,312B。考虑到 <strong>StackTraceElement</strong> 包含保存堆栈信息的字符串，实际占用将大于 33,312B。</p>
+
+<p>处理方法比较简单：从 <strong>JsonObject</strong> 获取整形值前检查该值是否存在。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="kd">val</span> <span class="py">jsObj</span> <span class="p">=</span> <span class="n">event</span><span class="p">.</span><span class="nf">getContent</span><span class="p">().</span><span class="n">asJsonObject</span>
+<span class="k">if</span> <span class="p">(</span><span class="n">jsObj</span><span class="p">.</span><span class="nf">has</span><span class="p">(</span><span class="s">"flag"</span><span class="p">))</span> <span class="p">{</span>
+    <span class="n">jsObj</span><span class="p">.</span><span class="k">get</span><span class="p">(</span><span class="s">"flag"</span><span class="p">).</span><span class="n">asInt</span> <span class="c1">// 该值约定为int，不考虑其他类型</span>
+<span class="p">}</span> <span class="k">else</span> <span class="p">{</span>
+    <span class="k">null</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="33-重用对象">3.3 重用对象</h4>
+
+<p>很多文章提到在 <strong>onDraw()</strong> 不应该创建对象，但同事的 <strong>onDraw()</strong> 和 <strong>onResize()</strong> 图省事频繁创建 <strong>RectF</strong>。按照每个方法执行一次的情况算，共计创建9个 <strong>RectF</strong> 对象。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">BubbleShape</span> <span class="nd">@JvmOverloads</span> <span class="k">constructor</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="nc">Context</span><span class="p">)</span> <span class="p">:</span> <span class="nc">Shape</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">draw</span><span class="p">(</span><span class="n">canvas</span><span class="p">:</span> <span class="nc">Canvas</span><span class="p">,</span> <span class="n">paint</span><span class="p">:</span> <span class="nc">Paint</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawPath</span><span class="p">(</span><span class="n">mTop</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawRect</span><span class="p">(</span><span class="nc">RectF</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawPath</span><span class="p">(</span><span class="n">mBottom</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+
+        <span class="n">paint</span><span class="p">.</span><span class="n">color</span> <span class="p">=</span> <span class="n">strokeColor</span>
+        <span class="n">paint</span><span class="p">.</span><span class="n">style</span> <span class="p">=</span> <span class="nc">Paint</span><span class="p">.</span><span class="nc">Style</span><span class="p">.</span><span class="nc">STROKE</span>
+        <span class="n">paint</span><span class="p">.</span><span class="n">strokeCap</span> <span class="p">=</span> <span class="nc">Paint</span><span class="p">.</span><span class="nc">Cap</span><span class="p">.</span><span class="nc">ROUND</span>
+        <span class="n">paint</span><span class="p">.</span><span class="n">strokeJoin</span> <span class="p">=</span> <span class="nc">Paint</span><span class="p">.</span><span class="nc">Join</span><span class="p">.</span><span class="nc">ROUND</span>
+        <span class="n">paint</span><span class="p">.</span><span class="n">strokeWidth</span> <span class="p">=</span> <span class="n">strokeWidth</span><span class="p">.</span><span class="nf">toFloat</span><span class="p">()</span>
+        <span class="kd">val</span> <span class="py">offset</span> <span class="p">=</span> <span class="n">strokeWidth</span> <span class="p">/</span> <span class="m">2f</span>
+        <span class="kd">val</span> <span class="py">ext</span> <span class="p">=</span> <span class="n">cornerRadius</span> <span class="p">*</span> <span class="m">0.5f</span>
+
+        <span class="c1">// 使用时直接创建RectF实例，下列代码中此问题多次出现</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawArc</span><span class="p">(</span><span class="nc">RectF</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">offset</span><span class="p">),</span>
+                <span class="m">180f</span><span class="p">,</span> <span class="m">90f</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">ext</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span>
+                <span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawArc</span><span class="p">(</span><span class="nc">RectF</span><span class="p">((</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">offset</span><span class="p">),</span> <span class="n">offset</span><span class="p">,</span> <span class="n">width</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">offset</span><span class="p">),</span> <span class="m">270f</span><span class="p">,</span>
+                <span class="m">90f</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">width</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">ext</span><span class="p">,</span> <span class="n">width</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawArc</span><span class="p">(</span><span class="nc">RectF</span><span class="p">(</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">width</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">offset</span><span class="p">),</span>
+                <span class="m">0f</span><span class="p">,</span> <span class="m">90f</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span>
+                <span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">ext</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawArc</span><span class="p">(</span><span class="nc">RectF</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="p">(</span><span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">offset</span><span class="p">),</span> <span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">height</span> <span class="p">-</span> <span class="n">offset</span><span class="p">),</span>
+                <span class="m">90f</span><span class="p">,</span> <span class="m">90f</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span><span class="p">,</span> <span class="m">0f</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span> <span class="p">/</span> <span class="m">2</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="m">0f</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span> <span class="p">/</span> <span class="m">2</span><span class="p">,</span> <span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span><span class="p">,</span> <span class="n">arrowWidth</span><span class="p">,</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">ext</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">restore</span><span class="p">()</span>
+    <span class="p">}</span>
+
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">onResize</span><span class="p">(</span><span class="n">width</span><span class="p">:</span> <span class="nc">Float</span><span class="p">,</span> <span class="n">height</span><span class="p">:</span> <span class="nc">Float</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">reset</span><span class="p">()</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">moveTo</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span><span class="p">))</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="m">0f</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span> <span class="p">/</span> <span class="m">2</span><span class="p">))</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">cornerRadius</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">arcTo</span><span class="p">(</span><span class="nc">RectF</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="m">0f</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">cornerRadius</span><span class="p">),</span>
+                <span class="m">180f</span><span class="p">,</span> <span class="m">90f</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">((</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="m">0f</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">arcTo</span><span class="p">(</span><span class="nc">RectF</span><span class="p">((</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="m">0f</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="m">270f</span><span class="p">,</span> <span class="m">90f</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowHeight</span> <span class="p">+</span> <span class="n">arrowMarginTop</span><span class="p">))</span>
+
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">reset</span><span class="p">()</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">moveTo</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="p">(</span><span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">))</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">arcTo</span><span class="p">(</span><span class="nc">RectF</span><span class="p">((</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="p">(</span><span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">),</span> <span class="m">0f</span><span class="p">,</span> <span class="m">90f</span><span class="p">)</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">((</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">height</span><span class="p">)</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">arcTo</span><span class="p">(</span><span class="nc">RectF</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="p">(</span><span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">height</span><span class="p">),</span>
+                <span class="m">90f</span><span class="p">,</span> <span class="m">90f</span><span class="p">)</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">)</span>
+
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>修改为复用 <strong>RectF</strong> 的变量，使用时先调用 <strong>RectF.set(left, top, right, button)</strong> 传入更新值，再把 <strong>RectF</strong> 提供给绘制方法。</p>
+
+<p>若确保 <strong>BubbleShape</strong> 只在主线程执行，则能把 <strong>RectF</strong> 设置为常量。无论多少个 <strong>BubbleShape</strong> 实例都只会复用单个 <strong>RectF</strong> 常量。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">BubbleShape</span> <span class="nd">@JvmOverloads</span> <span class="k">constructor</span><span class="p">(</span><span class="n">context</span><span class="p">:</span> <span class="nc">Context</span><span class="p">)</span> <span class="p">:</span> <span class="nc">Shape</span><span class="p">()</span> <span class="p">{</span>
+    <span class="k">private</span> <span class="kd">val</span> <span class="py">rect</span> <span class="p">=</span> <span class="nc">RectF</span><span class="p">()</span>
+
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">draw</span><span class="p">(</span><span class="n">canvas</span><span class="p">:</span> <span class="nc">Canvas</span><span class="p">,</span> <span class="n">paint</span><span class="p">:</span> <span class="nc">Paint</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawPath</span><span class="p">(</span><span class="n">mTop</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="c1">// 更新rectF实例的数据</span>
+        <span class="n">rect</span><span class="p">.</span><span class="k">set</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawRect</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawPath</span><span class="p">(</span><span class="n">mBottom</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+
+        <span class="n">paint</span><span class="p">.</span><span class="n">color</span> <span class="p">=</span> <span class="n">strokeColor</span>
+        <span class="n">paint</span><span class="p">.</span><span class="n">style</span> <span class="p">=</span> <span class="nc">Paint</span><span class="p">.</span><span class="nc">Style</span><span class="p">.</span><span class="nc">STROKE</span>
+        <span class="n">paint</span><span class="p">.</span><span class="n">strokeCap</span> <span class="p">=</span> <span class="nc">Paint</span><span class="p">.</span><span class="nc">Cap</span><span class="p">.</span><span class="nc">ROUND</span>
+        <span class="n">paint</span><span class="p">.</span><span class="n">strokeJoin</span> <span class="p">=</span> <span class="nc">Paint</span><span class="p">.</span><span class="nc">Join</span><span class="p">.</span><span class="nc">ROUND</span>
+        <span class="n">paint</span><span class="p">.</span><span class="n">strokeWidth</span> <span class="p">=</span> <span class="n">strokeWidth</span><span class="p">.</span><span class="nf">toFloat</span><span class="p">()</span>
+        <span class="kd">val</span> <span class="py">offset</span> <span class="p">=</span> <span class="n">strokeWidth</span> <span class="p">/</span> <span class="m">2f</span>
+        <span class="kd">val</span> <span class="py">ext</span> <span class="p">=</span> <span class="n">cornerRadius</span> <span class="p">*</span> <span class="m">0.5f</span>
+
+        <span class="n">rect</span><span class="p">.</span><span class="k">set</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawArc</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="m">180f</span><span class="p">,</span> <span class="m">90f</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">ext</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span>
+                <span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">rect</span><span class="p">.</span><span class="k">set</span><span class="p">((</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">offset</span><span class="p">),</span> <span class="n">offset</span><span class="p">,</span> <span class="n">width</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawArc</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="m">270f</span><span class="p">,</span> <span class="m">90f</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">width</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">ext</span><span class="p">,</span> <span class="n">width</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+
+        <span class="n">rect</span><span class="p">.</span><span class="k">set</span><span class="p">(</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">width</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawArc</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="m">0f</span><span class="p">,</span> <span class="m">90f</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span>
+                <span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">ext</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">offset</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">rect</span><span class="p">.</span><span class="k">set</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="p">(</span><span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">offset</span><span class="p">),</span> <span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">height</span> <span class="p">-</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawArc</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="m">90f</span><span class="p">,</span> <span class="m">90f</span><span class="p">,</span> <span class="k">false</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span> <span class="p">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span><span class="p">,</span> <span class="m">0f</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span> <span class="p">/</span> <span class="m">2</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="m">0f</span><span class="p">,</span> <span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span> <span class="p">/</span> <span class="m">2</span><span class="p">,</span> <span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">drawLine</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span><span class="p">,</span> <span class="n">arrowWidth</span><span class="p">,</span> <span class="n">cornerRadius</span> <span class="p">-</span> <span class="n">ext</span><span class="p">,</span> <span class="n">paint</span><span class="p">)</span>
+        <span class="n">canvas</span><span class="p">.</span><span class="nf">restore</span><span class="p">()</span>
+    <span class="p">}</span>
+
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">onResize</span><span class="p">(</span><span class="n">width</span><span class="p">:</span> <span class="nc">Float</span><span class="p">,</span> <span class="n">height</span><span class="p">:</span> <span class="nc">Float</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">reset</span><span class="p">()</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">moveTo</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span><span class="p">))</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="m">0f</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowMarginTop</span> <span class="p">+</span> <span class="n">arrowHeight</span> <span class="p">/</span> <span class="m">2</span><span class="p">))</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">arrowMarginTop</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">cornerRadius</span><span class="p">)</span>
+
+        <span class="n">rect</span><span class="p">.</span><span class="k">set</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="m">0f</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">cornerRadius</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">arcTo</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="m">180f</span><span class="p">,</span> <span class="m">90f</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">((</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="m">0f</span><span class="p">)</span>
+
+        <span class="n">rect</span><span class="p">.</span><span class="k">set</span><span class="p">((</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="m">0f</span><span class="p">,</span> <span class="n">width</span><span class="p">,</span> <span class="n">cornerRadius</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">arcTo</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="m">270f</span><span class="p">,</span> <span class="m">90f</span><span class="p">)</span>
+        <span class="n">mTop</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="p">(</span><span class="n">arrowHeight</span> <span class="p">+</span> <span class="n">arrowMarginTop</span><span class="p">))</span>
+
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">reset</span><span class="p">()</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">moveTo</span><span class="p">(</span><span class="n">width</span><span class="p">,</span> <span class="p">(</span><span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">))</span>
+
+        <span class="n">rect</span><span class="p">.</span><span class="k">set</span><span class="p">((</span><span class="n">width</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="p">(</span><span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">width</span><span class="p">,</span> <span class="n">height</span><span class="p">)</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">arcTo</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="m">0f</span><span class="p">,</span> <span class="m">90f</span><span class="p">)</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">((</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">height</span><span class="p">)</span>
+
+        <span class="n">rect</span><span class="p">.</span><span class="k">set</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="p">(</span><span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="p">(</span><span class="n">arrowWidth</span> <span class="p">+</span> <span class="n">cornerRadius</span><span class="p">),</span> <span class="n">height</span><span class="p">)</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">arcTo</span><span class="p">(</span><span class="n">rect</span><span class="p">,</span> <span class="m">90f</span><span class="p">,</span> <span class="m">90f</span><span class="p">)</span>
+        <span class="n">mBottom</span><span class="p">.</span><span class="nf">lineTo</span><span class="p">(</span><span class="n">arrowWidth</span><span class="p">,</span> <span class="n">height</span> <span class="p">-</span> <span class="n">cornerRadius</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>此处优化的效果不好统计，不过可知有效降低垃圾回收对主线程绘制造成的影响。</p>
+
+<h4 id="34-重复创建">3.4 重复创建</h4>
+
+<p>在 <strong>RecyclerView.Adapter</strong> 的 <strong>onBindViewHolder()</strong> 从 <strong>allRows()</strong> 获取列表，发现 <strong>allRows()</strong> 每次都生成新 <strong>ArrayList</strong>。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">MessagesListAdapter</span><span class="p">(</span><span class="n">mContext</span><span class="p">:</span> <span class="nc">Context</span><span class="p">,</span>
+                          <span class="k">private</span> <span class="kd">val</span> <span class="py">mSession</span><span class="p">:</span> <span class="nc">Session</span><span class="p">,</span>
+                          <span class="k">private</span> <span class="kd">val</span> <span class="py">mRoom</span><span class="p">:</span> <span class="nc">Room</span><span class="p">,</span>
+                          <span class="k">private</span> <span class="kd">val</span> <span class="py">mMediasCache</span><span class="p">:</span> <span class="nc">MediasCache</span><span class="p">)</span> <span class="p">:</span> <span class="nc">RecyclerView</span><span class="p">.</span><span class="nc">Adapter</span><span class="p">&lt;</span><span class="nc">ViewHolder</span><span class="p">&gt;()</span> <span class="p">{</span>
+
+    <span class="k">private</span> <span class="kd">val</span> <span class="py">messageRows</span> <span class="p">=</span> <span class="nc">ArrayList</span><span class="p">&lt;</span><span class="nc">MessageRow</span><span class="p">&gt;()</span>
+    <span class="k">private</span> <span class="kd">val</span> <span class="py">headerMessageRows</span> <span class="p">=</span> <span class="nc">ArrayList</span><span class="p">&lt;</span><span class="nc">MessageRow</span><span class="p">&gt;()</span>
+    <span class="k">private</span> <span class="kd">val</span> <span class="py">footerMessageRows</span> <span class="p">=</span> <span class="nc">ArrayList</span><span class="p">&lt;</span><span class="nc">MessageRow</span><span class="p">&gt;()</span>
+
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">onBindViewHolder</span><span class="p">(</span><span class="n">holder</span><span class="p">:</span> <span class="nc">ViewHolder</span><span class="p">,</span> <span class="n">position</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// 从allRows()获取列表</span>
+        <span class="n">holders</span><span class="p">.</span><span class="nf">bind</span><span class="p">(</span><span class="n">holder</span><span class="p">,</span> <span class="nf">allRows</span><span class="p">()[</span><span class="n">position</span><span class="p">])</span>
+    <span class="p">}</span>
+
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">getPosition</span><span class="p">(</span><span class="n">messageRow</span><span class="p">:</span> <span class="nc">MessageRow</span><span class="p">?):</span> <span class="nc">Int</span> <span class="p">{</span>
+        <span class="c1">// 从allRows()获取列表</span>
+        <span class="k">return</span> <span class="nf">allRows</span><span class="p">().</span><span class="nf">indexOf</span><span class="p">(</span><span class="n">messageRow</span><span class="p">)</span>
+    <span class="p">}</span>
+  
+    <span class="k">private</span> <span class="k">fun</span> <span class="nf">allRows</span><span class="p">():</span> <span class="nc">ArrayList</span><span class="p">&lt;</span><span class="nc">MessageRow</span><span class="p">&gt;</span> <span class="p">{</span>
+      <span class="c1">// 每次调用都会生成新的ArrayList实例</span>
+      <span class="kd">val</span> <span class="py">rows</span> <span class="p">=</span> <span class="nc">ArrayList</span><span class="p">&lt;</span><span class="nc">MessageRow</span><span class="p">&gt;()</span>
+      <span class="n">rows</span><span class="p">.</span><span class="nf">addAll</span><span class="p">(</span><span class="n">headerMessageRows</span><span class="p">)</span>
+      <span class="n">rows</span><span class="p">.</span><span class="nf">addAll</span><span class="p">(</span><span class="n">messageRows</span><span class="p">)</span>
+      <span class="n">rows</span><span class="p">.</span><span class="nf">addAll</span><span class="p">(</span><span class="n">footerMessageRows</span><span class="p">)</span>
+      <span class="k">return</span> <span class="n">rows</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>修改为 <strong>headerMessageRows</strong>、<strong>messageRows</strong>、<strong>footerMessageRows</strong> 没改变时，复用上次生成的 <strong>ArrayList</strong> 结果。</p>
+
+<h4 id="35-多次json解析">3.5 多次Json解析</h4>
+
+<p>重复在主线程解析 <strong>Json</strong> 不仅占用时间片导致卡顿，还产生很多小对象，所以直接缓存结果即可。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nf">RoomTopic</span><span class="o">(</span><span class="kd">private</span> <span class="n">val</span> <span class="nl">topicString:</span> <span class="nc">String</span><span class="o">?)</span> <span class="o">{</span>
+
+    <span class="c1">// 转换字符串变量topicString为JsonObject</span>
+    <span class="kd">private</span> <span class="kt">var</span> <span class="n">topicJson</span> <span class="o">=</span> <span class="k">try</span> <span class="o">{</span>
+        <span class="c1">// 小对象开销</span>
+        <span class="n">val</span> <span class="n">element</span> <span class="o">=</span> <span class="nc">JsonParser</span><span class="o">().</span><span class="na">parse</span><span class="o">(</span><span class="n">topicString</span><span class="o">)</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">element</span><span class="o">.</span><span class="na">isJsonObject</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">element</span><span class="o">.</span><span class="na">asJsonObject</span><span class="o">!!</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="nc">JsonObject</span><span class="o">().</span><span class="na">apply</span> <span class="o">{</span>
+                <span class="n">addProperty</span><span class="o">(</span><span class="no">JSON_KEY_TOPIC</span><span class="o">,</span> <span class="n">topicString</span><span class="o">)</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nl">e:</span> <span class="nc">Exception</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">JsonObject</span><span class="o">().</span><span class="na">apply</span> <span class="o">{</span>
+            <span class="n">addProperty</span><span class="o">(</span><span class="no">JSON_KEY_TOPIC</span><span class="o">,</span> <span class="n">topicString</span><span class="o">)</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 房间属性</span>
+    <span class="kt">var</span> <span class="n">topic</span> <span class="n">by</span> <span class="n">jsonProperty</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">&gt;(</span><span class="no">JSON_KEY_TOPIC</span><span class="o">)</span>
+
+    <span class="c1">// 是否单聊</span>
+    <span class="kt">var</span> <span class="n">isDirect</span> <span class="n">by</span> <span class="n">jsonProperty</span><span class="o">&lt;</span><span class="nc">Boolean</span><span class="o">&gt;(</span><span class="no">JSON_KEY_IS_DIRECT</span><span class="o">)</span>
+
+    <span class="o">....</span>
+
+    <span class="n">operator</span> <span class="n">fun</span> <span class="o">&lt;</span><span class="n">reified</span> <span class="no">T</span><span class="o">&gt;</span> <span class="nf">get</span><span class="o">(</span><span class="nl">key:</span> <span class="nc">String</span><span class="o">):</span> <span class="no">T</span><span class="o">?</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">gson</span><span class="o">.</span><span class="na">fromJson</span><span class="o">(</span><span class="n">getElement</span><span class="o">(</span><span class="n">key</span><span class="o">),</span> <span class="n">object</span> <span class="o">:</span> <span class="nc">TypeToken</span><span class="o">&lt;</span><span class="no">T</span><span class="o">&gt;()</span> <span class="o">{}.</span><span class="na">type</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="kd">private</span> <span class="n">inline</span> <span class="n">fun</span> <span class="o">&lt;</span><span class="n">reified</span> <span class="no">T</span><span class="o">&gt;</span> <span class="nf">jsonProperty</span><span class="o">(</span><span class="nl">key:</span> <span class="nc">String</span><span class="o">):</span> <span class="nc">ReadWriteProperty</span><span class="o">&lt;</span><span class="nc">Any</span><span class="o">,</span> <span class="no">T</span><span class="o">?&gt;</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">object</span> <span class="o">:</span> <span class="nc">ReadWriteProperty</span><span class="o">&lt;</span><span class="nc">Any</span><span class="o">,</span> <span class="no">T</span><span class="o">?&gt;</span> <span class="o">{</span>
+            <span class="n">override</span> <span class="n">fun</span> <span class="nf">getValue</span><span class="o">(</span><span class="nl">thisRef:</span> <span class="nc">Any</span><span class="o">,</span> <span class="nl">property:</span> <span class="nc">KProperty</span><span class="o">&lt;*&gt;):</span> <span class="no">T</span><span class="o">?</span> <span class="o">=</span> <span class="n">get</span><span class="o">&lt;</span><span class="no">T</span><span class="o">&gt;(</span><span class="n">key</span><span class="o">)</span>
+            <span class="n">override</span> <span class="n">fun</span> <span class="nf">setValue</span><span class="o">(</span><span class="nl">thisRef:</span> <span class="nc">Any</span><span class="o">,</span> <span class="nl">property:</span> <span class="nc">KProperty</span><span class="o">&lt;*&gt;,</span> <span class="nl">value:</span> <span class="no">T</span><span class="o">?)</span> <span class="o">=</span>
+                    <span class="n">set</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">)</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="36-冗余实例">3.6 冗余实例</h4>
+
+<p>每个 <strong>Room</strong> 对象包含一个 <strong>Gson</strong> 实例，用于处理 <strong>Json</strong> 序列化操作。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Room</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="nc">Gson</span> <span class="n">gson</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">GsonBuilder</span><span class="o">().</span><span class="na">create</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>但根据 <a href="https://javadoc.io/doc/com.google.code.gson/gson/2.8.0/com/google/gson/Gson.html">API文档</a> 可知 <strong>Gson</strong> 本身是线程安全，没必要每个 <strong>Room</strong> 对象持有各自 <strong>Gson</strong> 实例。</p>
+
+<blockquote>
+  <p>Gson instances are Thread-safe so you can reuse them freely across multiple threads.</p>
+</blockquote>
+
+<p>让所有 <strong>Room</strong> 共享常量实例：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">Room</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">Gson</span> <span class="no">GSON_INSTANCE</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">GsonBuilder</span><span class="o">().</span><span class="na">create</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>按照测试账号有307个 <strong>Room</strong> 实例，每个 <strong>Gson</strong> 引用占用4B(32位4B，64位8B)，实例体积654B，此优化总计节省内存197KB。</p>
+
+<p><img src="/img/android/performance/gson_instance_retained_size.png" alt="gson_instance_retained_size" /></p>
+
+<h4 id="37-关闭资源">3.7 关闭资源</h4>
+
+<p>内存取样过程还发现 <strong>InputStream</strong> 实例滞留在内存没有正确关闭，从内存申请点发现以下代码：</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="k">try</span> <span class="p">{</span>
+    <span class="nc">BitmapFactory</span><span class="p">.</span><span class="nf">decodeStream</span><span class="p">(</span><span class="nc">FileInputStream</span><span class="p">(</span><span class="n">file</span><span class="p">),</span> <span class="k">null</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+<span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="nc">OutOfMemoryError</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">e</span><span class="p">.</span><span class="nf">printStackTrace</span><span class="p">()</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>使用 <strong>Kotlin</strong> 的 <strong>try-resources</strong> 关闭：</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="k">try</span> <span class="p">{</span>
+    <span class="nc">FileInputStream</span><span class="p">(</span><span class="n">file</span><span class="p">).</span><span class="nf">use</span> <span class="p">{</span>
+        <span class="nc">BitmapFactory</span><span class="p">.</span><span class="nf">decodeStream</span><span class="p">(</span><span class="n">it</span><span class="p">,</span> <span class="k">null</span><span class="p">,</span> <span class="n">opts</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="nc">OutOfMemoryError</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">e</span><span class="p">.</span><span class="nf">printStackTrace</span><span class="p">()</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="38-监听器泄漏">3.8 监听器泄漏</h4>
+
+<p>最后在 <strong>MAT</strong> 检查发现小的内存泄漏，会导致 <strong>ScreenShotListenManager</strong> 被系统引用。不过幸好 <strong>ScreenShotListenManager</strong> 不引用 <strong>Activity</strong>，所以该泄漏没有造成严重后果。</p>
+
+<p><img src="/img/android/performance/leak_MediaContentObserver.png" alt="leak_MediaContentObserver" /></p>
+
+<p>泄漏原因：在 <strong>onResume()</strong> 生命周期多次注册不同实例，但在 <strong>onDestroy()</strong> 仅注销了最后一次注册的监听器，导致此前创建的监听器被系统持有造成泄漏。</p>
+
+<p><img src="/img/android/performance/activity_lifecycle_listener_leaks.jpg" alt="activity_lifecycle_listener_leaks" /></p>
+
+<p>源码实现如下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">ScreenShotListenManager</span> <span class="o">{</span>
+
+    <span class="kd">private</span> <span class="nc">MediaContentObserver</span> <span class="n">mInternalObserver</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="nc">MediaContentObserver</span> <span class="n">mExternalObserver</span><span class="o">;</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="nc">Handler</span> <span class="n">mUiHandler</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Handler</span><span class="o">(</span><span class="nc">Looper</span><span class="o">.</span><span class="na">getMainLooper</span><span class="o">());</span>
+
+    <span class="c1">// 向系统注册监听器，在onResume()调用</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">startListen</span><span class="o">()</span> <span class="o">{</span>
+        <span class="n">mInternalObserver</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">MediaContentObserver</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">Media</span><span class="o">.</span><span class="na">INTERNAL_CONTENT_URI</span><span class="o">,</span> <span class="n">mUiHandler</span><span class="o">);</span>
+        <span class="n">mExternalObserver</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">MediaContentObserver</span><span class="o">(</span><span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">Media</span><span class="o">.</span><span class="na">EXTERNAL_CONTENT_URI</span><span class="o">,</span> <span class="n">mUiHandler</span><span class="o">);</span>
+
+        <span class="n">mContext</span><span class="o">.</span><span class="na">getApplicationContext</span><span class="o">()</span>
+                <span class="o">.</span><span class="na">getContentResolver</span><span class="o">()</span>
+                <span class="o">.</span><span class="na">registerContentObserver</span><span class="o">(</span>
+                        <span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">Media</span><span class="o">.</span><span class="na">INTERNAL_CONTENT_URI</span><span class="o">,</span>
+                        <span class="kc">false</span><span class="o">,</span>
+                        <span class="n">mInternalObserver</span><span class="o">);</span>
+
+        <span class="n">mContext</span><span class="o">.</span><span class="na">getApplicationContext</span><span class="o">()</span>
+                <span class="o">.</span><span class="na">getContentResolver</span><span class="o">()</span>
+                <span class="o">.</span><span class="na">registerContentObserver</span><span class="o">(</span>
+                        <span class="nc">MediaStore</span><span class="o">.</span><span class="na">Images</span><span class="o">.</span><span class="na">Media</span><span class="o">.</span><span class="na">EXTERNAL_CONTENT_URI</span><span class="o">,</span>
+                        <span class="kc">false</span><span class="o">,</span>
+                        <span class="n">mExternalObserver</span><span class="o">);</span>
+    <span class="o">}</span>
+  
+    <span class="c1">// 从系统注销监听器，在onDestroy()调用</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">stopListen</span><span class="o">()</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mInternalObserver</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="n">mContext</span><span class="o">.</span><span class="na">getApplicationContext</span><span class="o">()</span>
+                        <span class="o">.</span><span class="na">getContentResolver</span><span class="o">()</span>
+                        <span class="o">.</span><span class="na">unregisterContentObserver</span><span class="o">(</span><span class="n">mInternalObserver</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">e</span><span class="o">.</span><span class="na">printStackTrace</span><span class="o">();</span>
+            <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+                <span class="n">mInternalObserver</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+
+        <span class="k">if</span> <span class="o">(</span><span class="n">mExternalObserver</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="n">mContext</span><span class="o">.</span><span class="na">getApplicationContext</span><span class="o">()</span>
+                        <span class="o">.</span><span class="na">getContentResolver</span><span class="o">()</span>
+                        <span class="o">.</span><span class="na">unregisterContentObserver</span><span class="o">(</span><span class="n">mExternalObserver</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">e</span><span class="o">.</span><span class="na">printStackTrace</span><span class="o">();</span>
+            <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+                <span class="n">mExternalObserver</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>把原来在 <strong>onDestroy</strong> 的注销操作，移动到 <strong>onResume</strong> 配对的 <strong>onPause</strong> 上即可修复。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onResume</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">onResume</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mManager</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">mManager</span><span class="o">.</span><span class="na">startListen</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 错误的案例：在错误的生命周期释放监听器</span>
+<span class="nd">@Override</span>
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onDestroy</span><span class="o">()</span> <span class="o">{</span>   
+    <span class="kd">super</span><span class="o">.</span><span class="na">onDestroy</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mManager</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">mManager</span><span class="o">.</span><span class="na">stopListen</span><span class="o">();</span>
+        <span class="n">mManager</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="四效果">四、效果</h3>
+
+<p>没有优化内存前，启动后25秒大幅超过32MB内存分配，且25秒到45秒期间多次出现内存毛刺和垃圾回收行为。45秒时界面已经加载完成，但是后台服务还在频繁申请和释放内存。</p>
+
+<p><img src="/img/android/performance/dump_size_compare.png" alt="dump_size_compare" /></p>
+
+<p>对比优化后，整个启动只有两次轻微越过32MB堆内存，整体内存申请曲线相对柔和，启动完成时间从45秒提前到28秒。随后也不再触发垃圾回收操作，内存占用维持32MB。</p>
+
+<p>时间到1分钟整，应用退到后台并手动触发GC，两者堆内存均减低到25MB，可见应用处于后台时占用内存不多。</p>
+
+<h3 id="五总结">五、总结</h3>
+
+<p>此次优化所用技术方案，可减少启动过程对象产生数量，缩减最大内存占用量。然而读者可能会疑惑，一般技术优化效果如此明显？答案是否定的。</p>
+
+<p>除了上述技术优化，在跟踪源码过程发现业务代码，存在执行低效、甚至是冗余的问题。这种查找不具有一般性，不能在此一一列出，只能按照“能省则省”的基本法则，在技术优化的过程完善。</p>
+
+<p>若考虑用户动态使用场景、隐含未知的内存泄漏、图中尚存在的尖峰，后续还有进一步优化空间。</p>
+
+<p>经验总结：</p>
+
+<ul>
+  <li>若频繁输出日志，使用mmap而不是基于Java的日志框架，避免String内存开销；</li>
+  <li>线程安全工具类可声明为常量对象，为所有调用点提供服务而减少冗余实例；</li>
+  <li>选用知名图片加载框架不仅节约开发时间，还能避免图片加载引起的内存问题；</li>
+  <li>非受检异常如 <strong>NullPointerException</strong>、<strong>ClassCastException</strong> 都能预防，处理后可避免堆栈打印快照引起的停顿及 <strong>StackTraceElement</strong> 开销；</li>
+  <li>削减空闲线程也是优化内存占用方法之一，酌情操作；</li>
+  <li>谨慎对待每个内存开销，在 <strong>Comparator</strong> 或 双重 <strong>for</strong> 循环助力下，开销能以 <strong>n</strong> 甚至 <strong>n*n</strong> 方式增加；</li>
+</ul>
+
+<h3 id="六参考链接">六、参考链接</h3>
+
+<ul>
+  <li><a href="https://developer.android.com/studio/profile/memory-profiler?hl=zh-cn">使用 Memory Profiler 查看 Java 堆和内存分配</a></li>
+  <li><a href="https://wetest.qq.com/lab/view/359.html">我这样减少了26.5M Java内存！</a></li>
+  <li><a href="https://wetest.qq.com/lab/view/362.html">Android 内存暴减的秘密？！</a></li>
+</ul>
+:ET

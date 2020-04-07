@@ -1,0 +1,163 @@
+I"�'<p>ToolBar上添加Menu，除搜索图标外其他的都收起来。修改ToolBar背景色为深灰色，然后才发现MenuItem里面的背景色还是原来白色。</p>
+
+<p>修改颜色后，ToolBar为深灰，有搜索和菜单图标</p>
+
+<p><img src="/img/android/menuitem/toolbar.png" alt="img" /></p>
+
+<p>打开菜单后</p>
+
+<p><img src="/img/android/menuitem/overflow.png" alt="img" /></p>
+
+<h1 id="修改menuitem背景颜色">修改MenuItem背景颜色</h1>
+
+<p>原来<code class="highlighter-rouge">res/values/styles.xml</code>的配置</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="nt">&lt;resources&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"AppTheme"</span> <span class="na">parent=</span><span class="s">"Theme.AppCompat.Light.DarkActionBar"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimary"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimaryDark"</span><span class="nt">&gt;</span>@color/colorPrimaryDark<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorAccent"</span><span class="nt">&gt;</span>@color/colorAccent<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+
+<span class="nt">&lt;/resources&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>修改后</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+</pre></td><td class="rouge-code"><pre><span class="nt">&lt;resources&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"AppTheme"</span> <span class="na">parent=</span><span class="s">"Theme.AppCompat.Light.DarkActionBar"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimary"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimaryDark"</span><span class="nt">&gt;</span>@color/colorPrimaryDark<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorAccent"</span><span class="nt">&gt;</span>@color/colorAccent<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"actionOverflowMenuStyle"</span><span class="nt">&gt;</span>@style/optionMenu<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"optionMenu"</span> <span class="na">parent=</span><span class="s">"Widget.AppCompat.ActionBar.Overflow"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:popupBackground"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+    
+<span class="nt">&lt;/resources&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>这样MenuItem的背景颜色就修改了</p>
+
+<p><img src="/img/android/menuitem/bg_overflow.png" alt="img" /></p>
+
+<hr />
+
+<p>但这看起来明显不对劲：</p>
+
+<ul>
+  <li>菜单把ToolBar的两个图标遮住</li>
+  <li>背景色改变后和文字颜色不协调</li>
+</ul>
+
+<h1 id="修改文字颜色">修改文字颜色</h1>
+
+<p>我们先处理文字的颜色，添加<code class="highlighter-rouge">android:textColor</code>和对应的颜色即可</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+</pre></td><td class="rouge-code"><pre><span class="nt">&lt;resources&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"AppTheme"</span> <span class="na">parent=</span><span class="s">"Theme.AppCompat.Light.DarkActionBar"</span><span class="nt">&gt;</span>
+        <span class="c">&lt;!-- Customize your theme here. --&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimary"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorPrimaryDark"</span><span class="nt">&gt;</span>@color/colorPrimaryDark<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"colorAccent"</span><span class="nt">&gt;</span>@color/colorAccent<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"actionOverflowMenuStyle"</span><span class="nt">&gt;</span>@style/optionMenu<span class="nt">&lt;/item&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:textColor"</span><span class="nt">&gt;</span>@color/colorWhite<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+
+    <span class="nt">&lt;style</span> <span class="na">name=</span><span class="s">"optionMenu"</span> <span class="na">parent=</span><span class="s">"Widget.AppCompat.ActionBar.Overflow"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:popupBackground"</span><span class="nt">&gt;</span>@color/colorWeChatGray<span class="nt">&lt;/item&gt;</span>
+    <span class="nt">&lt;/style&gt;</span>
+
+<span class="nt">&lt;/resources&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><img src="/img/android/menuitem/bg_text_overflow.png" alt="img" /></p>
+
+<h1 id="遮蔽toolbar图标">遮蔽ToolBar图标</h1>
+
+<p>遮蔽图标的问题比较好解决，
+把<code class="highlighter-rouge">parent="Widget.AppCompat.ActionBar.Overflow"&gt;</code>的<code class="highlighter-rouge">.Overflow</code>去掉</p>
+
+<p><img src="/img/android/menuitem/bg_text_good.png" alt="img" /></p>
+
+<h1 id="menuitem图标显示">MenuItem图标显示</h1>
+
+<p>上面的图片中MenuItem的Icon本来是不显示的，需要加入以下代码。在Android 5.0手机上测试可以用，Android 4.4及之前的还不清楚。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">protected</span> <span class="kt">boolean</span> <span class="nf">onPrepareOptionsPanel</span><span class="o">(</span><span class="nc">View</span> <span class="n">view</span><span class="o">,</span> <span class="nc">Menu</span> <span class="n">menu</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">menu</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">menu</span><span class="o">.</span><span class="na">getClass</span><span class="o">().</span><span class="na">getSimpleName</span><span class="o">().</span><span class="na">equals</span><span class="o">(</span><span class="s">"MenuBuilder"</span><span class="o">))</span> <span class="o">{</span>
+            <span class="k">try</span><span class="o">{</span>
+                <span class="nc">Method</span> <span class="n">m</span> <span class="o">=</span> <span class="n">menu</span><span class="o">.</span><span class="na">getClass</span><span class="o">().</span><span class="na">getDeclaredMethod</span><span class="o">(</span><span class="s">"setOptionalIconsVisible"</span><span class="o">,</span> <span class="nc">Boolean</span><span class="o">.</span><span class="na">TYPE</span><span class="o">);</span>
+                <span class="n">m</span><span class="o">.</span><span class="na">setAccessible</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+                <span class="n">m</span><span class="o">.</span><span class="na">invoke</span><span class="o">(</span><span class="n">menu</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="nc">Log</span><span class="o">.</span><span class="na">e</span><span class="o">(</span><span class="n">getClass</span><span class="o">().</span><span class="na">getSimpleName</span><span class="o">(),</span> <span class="s">"onMenuOpened...Unable to set icons for overflow menu"</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="kd">super</span><span class="o">.</span><span class="na">onPrepareOptionsPanel</span><span class="o">(</span><span class="n">view</span><span class="o">,</span> <span class="n">menu</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

@@ -1,0 +1,25 @@
+I"�	<p>通过反射<code class="highlighter-rouge">ToolBar</code>中<code class="highlighter-rouge">TextView</code>的<code class="highlighter-rouge">setEllipsize</code>方法，设置标题中间为截断位置</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">setEllipsize</span><span class="o">(</span><span class="nc">Toolbar</span> <span class="n">toolBar</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="nc">Field</span> <span class="n">field</span> <span class="o">=</span> <span class="nc">Toolbar</span><span class="o">.</span><span class="na">class</span><span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"mTitleTextView"</span><span class="o">);</span>
+        <span class="n">field</span><span class="o">.</span><span class="na">setAccessible</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+        <span class="nc">TextView</span> <span class="n">textView</span> <span class="o">=</span> <span class="o">(</span><span class="nc">TextView</span><span class="o">)</span> <span class="n">field</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">toolBar</span><span class="o">);</span>
+        <span class="n">textView</span><span class="o">.</span><span class="na">setEllipsize</span><span class="o">(</span><span class="nc">TextUtils</span><span class="o">.</span><span class="na">TruncateAt</span><span class="o">.</span><span class="na">MIDDLE</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">ignored</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">e</span><span class="o">(</span><span class="no">LOG_TAG</span><span class="o">,</span> <span class="n">ignored</span><span class="o">.</span><span class="na">getMessage</span><span class="o">());</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

@@ -1,0 +1,137 @@
+I"�"<p>空对象模式(Null Object Pattern)，指通过特定的、没有负载有效数据的空对象，表示实例不存在的默认状态。可用在不能接受 <strong>null</strong> 的逻辑，或者利用空对象实现区别于实例为空的应用场景。</p>
+
+<p>这是一般场景的用户模型，包含用户id和昵称：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nf">User</span><span class="o">(</span><span class="kd">private</span> <span class="n">val</span> <span class="nl">userId:</span> <span class="nc">String</span><span class="o">,</span>
+           <span class="kd">private</span> <span class="n">val</span> <span class="nl">roomId:</span> <span class="nc">String</span><span class="o">,</span>
+           <span class="kd">private</span> <span class="n">val</span> <span class="nl">nickname:</span> <span class="nc">String</span><span class="o">)</span> <span class="o">{</span>
+
+    <span class="n">fun</span> <span class="nf">getUserId</span><span class="o">():</span> <span class="nc">String</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">userId</span>
+    <span class="o">}</span>
+    
+    <span class="n">fun</span> <span class="nf">getRoomId</span><span class="o">():</span> <span class="nc">String</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">roomId</span>
+    <span class="o">}</span>
+
+    <span class="n">fun</span> <span class="nf">getRemark</span><span class="o">():</span> <span class="nc">String</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">nickname</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>实现空对象的形式有很多，比较正式的实现方法是：子类继承父类并重写所有可见成员方法，通过抛出异常的方式，阻止代码调用空对象方法。这样做的目的是强调不要通过空对象获取无效数据。</p>
+
+<p>这种方式在父类有很多可重写方法是会略显麻烦，可自行约束对空对象的使用达到相同目的，或不妨考虑使用动态代理，代理所有方法并抛出同一个提示。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nf">UserNull</span><span class="o">()</span> <span class="o">:</span> <span class="nc">User</span><span class="o">(</span><span class="s">""</span><span class="o">,</span> <span class="s">""</span><span class="o">,</span> <span class="s">""</span><span class="o">)</span> <span class="o">{</span>
+
+    <span class="c1">// 重写父类方法，禁止通过空对象实例获取无效数据</span>
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">getUserId</span><span class="o">():</span> <span class="nc">String</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="nf">IllegalAccessException</span><span class="o">(</span><span class="s">"Access to this method is denied."</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">getRemark</span><span class="o">():</span> <span class="nc">String</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="nf">IllegalAccessException</span><span class="o">(</span><span class="s">"Access to this method is denied."</span><span class="o">)</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>当然，父类可(根据实际)允许子类重写部分父类方法，以下是 <strong>User</strong> 方法使用 <strong>open</strong> 修饰允许重写。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+</pre></td><td class="rouge-code"><pre><span class="n">open</span> <span class="kd">class</span> <span class="nf">User</span><span class="o">(</span><span class="kd">private</span> <span class="n">val</span> <span class="nl">userId:</span> <span class="nc">String</span><span class="o">,</span>
+                <span class="kd">private</span> <span class="n">val</span> <span class="nl">roomId:</span> <span class="nc">String</span><span class="o">,</span>
+                <span class="kd">private</span> <span class="n">val</span> <span class="nl">nickname:</span> <span class="nc">String</span><span class="o">)</span> <span class="o">{</span>
+
+    <span class="n">open</span> <span class="n">fun</span> <span class="nf">getUserId</span><span class="o">():</span> <span class="nc">String</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">userId</span>
+    <span class="o">}</span>
+
+    <span class="n">open</span> <span class="n">fun</span> <span class="nf">getRoomId</span><span class="o">():</span> <span class="nc">String</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">roomId</span>
+    <span class="o">}</span>
+
+    <span class="n">open</span> <span class="n">fun</span> <span class="nf">getRemark</span><span class="o">():</span> <span class="nc">String</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">nickname</span>
+    <span class="o">}</span>
+   
+    <span class="c1">// 同时增加此方法判断实例是否为空对象</span>
+    <span class="n">fun</span> <span class="nf">isNullObject</span><span class="o">():</span> <span class="nc">Boolean</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">this</span> <span class="o">==</span> <span class="nc">User</span><span class="o">.</span><span class="na">USER_NULL_OBJ</span>
+    <span class="o">}</span>
+
+    <span class="n">companion</span> <span class="n">object</span> <span class="o">{</span>
+        <span class="c1">// 定义单例空对象，避免创建多余实例</span>
+        <span class="n">val</span> <span class="no">USER_NULL_OBJ</span> <span class="o">=</span> <span class="nc">UserNull</span><span class="o">()</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>对于 <strong>RxJava</strong> 这种不能接受 <strong>null</strong> 对象的应用场景来说，使用空对象表达 <strong>null</strong> 最合适不过。查不到用户时使用 <strong>空对象</strong> 代替 <strong>null</strong>，既能利用 <strong>filter</strong> 提前结束操作，又能避免 <strong>fromCallable</strong> 返回 <strong>null</strong> 引起空指针异常堆栈跟踪的性能损耗。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="nc">Observable</span><span class="o">.</span><span class="na">fromCallable</span> <span class="o">{</span> <span class="nc">UserDao</span><span class="o">.</span><span class="na">load</span><span class="o">(</span><span class="n">userId</span><span class="o">)</span> <span class="o">?:</span> <span class="nc">User</span><span class="o">.</span><span class="na">USER_NULL_OBJ</span> <span class="o">}</span>
+        <span class="o">.</span><span class="na">filter</span> <span class="o">{</span> <span class="o">!</span><span class="n">it</span><span class="o">.</span><span class="na">isNullObject</span><span class="o">()</span> <span class="o">}</span>
+        <span class="o">.</span><span class="na">subscribeOn</span><span class="o">(</span><span class="nc">Schedulers</span><span class="o">.</span><span class="na">io</span><span class="o">())</span>
+        <span class="o">.</span><span class="na">observeOn</span><span class="o">(</span><span class="nc">AndroidSchedulers</span><span class="o">.</span><span class="na">mainThread</span><span class="o">())</span>
+        <span class="o">.</span><span class="na">subscribe</span> <span class="o">{</span> <span class="n">removeUser</span><span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">userId</span><span class="o">)</span> <span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

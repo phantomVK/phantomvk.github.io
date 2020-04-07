@@ -1,0 +1,282 @@
+I"=U<p>源码版本 <strong>Glide 4.8.0</strong></p>
+
+<h2 id="resourcetranscoder">ResourceTranscoder</h2>
+
+<p><strong>ResourceTranscoder</strong> 是 <strong>Glide</strong> 内类型转换器的抽象接口，表示资源从一种类型转换为另一种类型。泛型 <strong>Z</strong> 表示转换前资源的原始类型，泛型 <strong>R</strong> 表示资源转换后的目标类型。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="no">Z</span><span class="o">,</span> <span class="no">R</span><span class="o">&gt;</span> <span class="o">{</span>
+
+  <span class="c1">// 子类实现此方法，根据既定规则和传入参数返回转换结果</span>
+  <span class="nd">@Nullable</span>
+  <span class="nc">Resource</span><span class="o">&lt;</span><span class="no">R</span><span class="o">&gt;</span> <span class="nf">transcode</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="no">Z</span><span class="o">&gt;</span> <span class="n">toTranscode</span><span class="o">,</span> <span class="nd">@NonNull</span> <span class="nc">Options</span> <span class="n">options</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>ResourceTranscoder</strong> 的子类实现一共有5种：</p>
+
+<p><img src="/img/Glide/ResourceTranscoder.png" alt="ResourceTranscoder" /></p>
+
+<h2 id="bitmapbytestranscoder">BitmapBytesTranscoder</h2>
+
+<p>转换 <strong>Bitmap</strong> 资源为字节数组</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">BitmapBytesTranscoder</span> <span class="kd">implements</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="nc">Bitmap</span><span class="o">,</span> <span class="kt">byte</span><span class="o">[]&gt;</span> <span class="o">{</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">Bitmap</span><span class="o">.</span><span class="na">CompressFormat</span> <span class="n">compressFormat</span><span class="o">;</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">quality</span><span class="o">;</span>
+
+  <span class="kd">public</span> <span class="nf">BitmapBytesTranscoder</span><span class="o">()</span> <span class="o">{</span>
+    <span class="c1">// 默认转换为JPEG，压缩质量100，该质量相当于最轻量的压缩，而非不压缩</span>
+    <span class="k">this</span><span class="o">(</span><span class="nc">Bitmap</span><span class="o">.</span><span class="na">CompressFormat</span><span class="o">.</span><span class="na">JPEG</span><span class="o">,</span> <span class="mi">100</span><span class="o">);</span>
+  <span class="o">}</span>
+
+  <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"WeakerAccess"</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="nf">BitmapBytesTranscoder</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Bitmap</span><span class="o">.</span><span class="na">CompressFormat</span> <span class="n">compressFormat</span><span class="o">,</span> <span class="kt">int</span> <span class="n">quality</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">compressFormat</span> <span class="o">=</span> <span class="n">compressFormat</span><span class="o">;</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">quality</span> <span class="o">=</span> <span class="n">quality</span><span class="o">;</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Nullable</span>
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="kt">byte</span><span class="o">[]&gt;</span> <span class="nf">transcode</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="nc">Bitmap</span><span class="o">&gt;</span> <span class="n">toTranscode</span><span class="o">,</span>
+      <span class="nd">@NonNull</span> <span class="nc">Options</span> <span class="n">options</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 创建输出流</span>
+    <span class="nc">ByteArrayOutputStream</span> <span class="n">os</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ByteArrayOutputStream</span><span class="o">();</span>
+    <span class="c1">// 调用Bitmap的compress方法，结果写入os</span>
+    <span class="n">toTranscode</span><span class="o">.</span><span class="na">get</span><span class="o">().</span><span class="na">compress</span><span class="o">(</span><span class="n">compressFormat</span><span class="o">,</span> <span class="n">quality</span><span class="o">,</span> <span class="n">os</span><span class="o">);</span>
+    <span class="c1">// 回收Bitmap</span>
+    <span class="n">toTranscode</span><span class="o">.</span><span class="na">recycle</span><span class="o">();</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="nf">BytesResource</span><span class="o">(</span><span class="n">os</span><span class="o">.</span><span class="na">toByteArray</span><span class="o">());</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="bitmapdrawabletranscoder">BitmapDrawableTranscoder</h2>
+
+<p>转换 <strong>Bitmap</strong> 资源为 <strong>BitmapDrawable</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">BitmapDrawableTranscoder</span> <span class="kd">implements</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="nc">Bitmap</span><span class="o">,</span> <span class="nc">BitmapDrawable</span><span class="o">&gt;</span> <span class="o">{</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">Resources</span> <span class="n">resources</span><span class="o">;</span>
+
+  <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unused"</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="nf">BitmapDrawableTranscoder</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="n">context</span><span class="o">.</span><span class="na">getResources</span><span class="o">());</span>
+  <span class="o">}</span>
+
+  <span class="c1">// @deprecated Use {@link #BitmapDrawableTranscoder(Resources)}, {@code bitmapPool} is unused.</span>
+  <span class="nd">@Deprecated</span>
+  <span class="kd">public</span> <span class="nf">BitmapDrawableTranscoder</span><span class="o">(</span>
+      <span class="nd">@NonNull</span> <span class="nc">Resources</span> <span class="n">resources</span><span class="o">,</span> <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unused"</span><span class="o">)</span> <span class="nc">BitmapPool</span> <span class="n">bitmapPool</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="n">resources</span><span class="o">);</span>
+  <span class="o">}</span>
+
+  <span class="kd">public</span> <span class="nf">BitmapDrawableTranscoder</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Resources</span> <span class="n">resources</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">resources</span> <span class="o">=</span> <span class="nc">Preconditions</span><span class="o">.</span><span class="na">checkNotNull</span><span class="o">(</span><span class="n">resources</span><span class="o">);</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Nullable</span>
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="nc">BitmapDrawable</span><span class="o">&gt;</span> <span class="nf">transcode</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="nc">Bitmap</span><span class="o">&gt;</span> <span class="n">toTranscode</span><span class="o">,</span>
+      <span class="nd">@NonNull</span> <span class="nc">Options</span> <span class="n">options</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nc">LazyBitmapDrawableResource</span><span class="o">.</span><span class="na">obtain</span><span class="o">(</span><span class="n">resources</span><span class="o">,</span> <span class="n">toTranscode</span><span class="o">);</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="drawablebytestranscoder">DrawableBytesTranscoder</h2>
+
+<p>转换 <strong>Drawable</strong> 资源为字节数组</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">DrawableBytesTranscoder</span> <span class="kd">implements</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="nc">Drawable</span><span class="o">,</span> <span class="kt">byte</span><span class="o">[]&gt;</span> <span class="o">{</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">BitmapPool</span> <span class="n">bitmapPool</span><span class="o">;</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="nc">Bitmap</span><span class="o">,</span> <span class="kt">byte</span><span class="o">[]&gt;</span> <span class="n">bitmapBytesTranscoder</span><span class="o">;</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="nc">GifDrawable</span><span class="o">,</span> <span class="kt">byte</span><span class="o">[]&gt;</span> <span class="n">gifDrawableBytesTranscoder</span><span class="o">;</span>
+
+  <span class="kd">public</span> <span class="nf">DrawableBytesTranscoder</span><span class="o">(</span>
+      <span class="nd">@NonNull</span> <span class="nc">BitmapPool</span> <span class="n">bitmapPool</span><span class="o">,</span>
+      <span class="nd">@NonNull</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="nc">Bitmap</span><span class="o">,</span> <span class="kt">byte</span><span class="o">[]&gt;</span> <span class="n">bitmapBytesTranscoder</span><span class="o">,</span>
+      <span class="nd">@NonNull</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="nc">GifDrawable</span><span class="o">,</span> <span class="kt">byte</span><span class="o">[]&gt;</span> <span class="n">gifDrawableBytesTranscoder</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">bitmapPool</span> <span class="o">=</span> <span class="n">bitmapPool</span><span class="o">;</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">bitmapBytesTranscoder</span> <span class="o">=</span> <span class="n">bitmapBytesTranscoder</span><span class="o">;</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">gifDrawableBytesTranscoder</span> <span class="o">=</span> <span class="n">gifDrawableBytesTranscoder</span><span class="o">;</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Nullable</span>
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="kt">byte</span><span class="o">[]&gt;</span> <span class="nf">transcode</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="nc">Drawable</span><span class="o">&gt;</span> <span class="n">toTranscode</span><span class="o">,</span>
+      <span class="nd">@NonNull</span> <span class="nc">Options</span> <span class="n">options</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Drawable</span> <span class="n">drawable</span> <span class="o">=</span> <span class="n">toTranscode</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">drawable</span> <span class="k">instanceof</span> <span class="nc">BitmapDrawable</span><span class="o">)</span> <span class="o">{</span>
+      <span class="k">return</span> <span class="n">bitmapBytesTranscoder</span><span class="o">.</span><span class="na">transcode</span><span class="o">(</span>
+          <span class="nc">BitmapResource</span><span class="o">.</span><span class="na">obtain</span><span class="o">(((</span><span class="nc">BitmapDrawable</span><span class="o">)</span> <span class="n">drawable</span><span class="o">).</span><span class="na">getBitmap</span><span class="o">(),</span> <span class="n">bitmapPool</span><span class="o">),</span> <span class="n">options</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">drawable</span> <span class="k">instanceof</span> <span class="nc">GifDrawable</span><span class="o">)</span> <span class="o">{</span>
+      <span class="k">return</span> <span class="n">gifDrawableBytesTranscoder</span><span class="o">.</span><span class="na">transcode</span><span class="o">(</span><span class="n">toGifDrawableResource</span><span class="o">(</span><span class="n">toTranscode</span><span class="o">),</span> <span class="n">options</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+  <span class="o">}</span>
+
+  <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unchecked"</span><span class="o">)</span>
+  <span class="nd">@NonNull</span>
+  <span class="kd">private</span> <span class="kd">static</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="nc">GifDrawable</span><span class="o">&gt;</span> <span class="nf">toGifDrawableResource</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="nc">Drawable</span><span class="o">&gt;</span> <span class="n">resource</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="o">(</span><span class="nc">Resource</span><span class="o">&lt;</span><span class="nc">GifDrawable</span><span class="o">&gt;)</span> <span class="o">(</span><span class="nc">Resource</span><span class="o">&lt;?&gt;)</span> <span class="n">resource</span><span class="o">;</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="gifdrawablebytestranscoder">GifDrawableBytesTranscoder</h2>
+
+<p>把 <strong>com.bumptech.glide.load.resource.gif.GifDrawable</strong> 资源转换为字节数组</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">GifDrawableBytesTranscoder</span> <span class="kd">implements</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="nc">GifDrawable</span><span class="o">,</span> <span class="kt">byte</span><span class="o">[]&gt;</span> <span class="o">{</span>
+  <span class="nd">@Nullable</span>
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="kt">byte</span><span class="o">[]&gt;</span> <span class="nf">transcode</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="nc">GifDrawable</span><span class="o">&gt;</span> <span class="n">toTranscode</span><span class="o">,</span>
+      <span class="nd">@NonNull</span> <span class="nc">Options</span> <span class="n">options</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">GifDrawable</span> <span class="n">gifData</span> <span class="o">=</span> <span class="n">toTranscode</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+    <span class="nc">ByteBuffer</span> <span class="n">byteBuffer</span> <span class="o">=</span> <span class="n">gifData</span><span class="o">.</span><span class="na">getBuffer</span><span class="o">();</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="nf">BytesResource</span><span class="o">(</span><span class="nc">ByteBufferUtil</span><span class="o">.</span><span class="na">toBytes</span><span class="o">(</span><span class="n">byteBuffer</span><span class="o">));</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="unittranscoder">UnitTranscoder</h2>
+
+<p><strong>ResourceTranscoder</strong> 的实现最简单，输入和输出类型完全相同</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">UnitTranscoder</span><span class="o">&lt;</span><span class="no">Z</span><span class="o">&gt;</span> <span class="kd">implements</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="no">Z</span><span class="o">,</span> <span class="no">Z</span><span class="o">&gt;</span> <span class="o">{</span>
+  <span class="c1">// 本实现类的单例</span>
+  <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">UnitTranscoder</span><span class="o">&lt;?&gt;</span> <span class="no">UNIT_TRANSCODER</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">UnitTranscoder</span><span class="o">&lt;&gt;();</span>
+
+  <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unchecked"</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="kd">static</span> <span class="o">&lt;</span><span class="no">Z</span><span class="o">&gt;</span> <span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="no">Z</span><span class="o">,</span> <span class="no">Z</span><span class="o">&gt;</span> <span class="nf">get</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="o">(</span><span class="nc">ResourceTranscoder</span><span class="o">&lt;</span><span class="no">Z</span><span class="o">,</span> <span class="no">Z</span><span class="o">&gt;)</span> <span class="no">UNIT_TRANSCODER</span><span class="o">;</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Nullable</span>
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="no">Z</span><span class="o">&gt;</span> <span class="nf">transcode</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Resource</span><span class="o">&lt;</span><span class="no">Z</span><span class="o">&gt;</span> <span class="n">toTranscode</span><span class="o">,</span> <span class="nd">@NonNull</span> <span class="nc">Options</span> <span class="n">options</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 直接返回传入对象</span>
+    <span class="k">return</span> <span class="n">toTranscode</span><span class="o">;</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

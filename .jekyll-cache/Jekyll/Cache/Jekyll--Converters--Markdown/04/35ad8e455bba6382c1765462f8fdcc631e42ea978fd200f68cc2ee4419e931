@@ -1,0 +1,19 @@
+I"�<p>平常都是用魅族MX5真机调试，有问题直接打断点看数据，不依赖控制台输出的Log。后来发现控制台应用Log只能打出 <strong>Error</strong> 级别，其他级别没有任何输出。开始以为是应用Log的问题，换三星手机所有Log都能打印。最后找魅族 <strong>开发者选项</strong> ，找到相关解决方案。</p>
+
+<p>在<code class="highlighter-rouge">关于手机</code>里面多次点击下方的<code class="highlighter-rouge">版本号</code>开启<code class="highlighter-rouge">开发者选项</code>：</p>
+
+<p><img src="/img/android/mz_log/mz1.jpeg" alt="关于手机" /></p>
+
+<p><code class="highlighter-rouge">开发者选项</code>在<code class="highlighter-rouge">辅助功能</code>中：</p>
+
+<p><img src="/img/android/mz_log/mz2.jpeg" alt="辅助功能" /></p>
+
+<p>然后拉到<code class="highlighter-rouge">开发者选项</code>最下面点击<code class="highlighter-rouge">性能优化</code>：</p>
+
+<p><img src="/img/android/mz_log/mz3.jpeg" alt="性能优化" /></p>
+
+<p>修改<code class="highlighter-rouge">高级日志输出</code>级别：</p>
+
+<p><img src="/img/android/mz_log/mz4.jpeg" alt="高级日志输出" /></p>
+
+:ET

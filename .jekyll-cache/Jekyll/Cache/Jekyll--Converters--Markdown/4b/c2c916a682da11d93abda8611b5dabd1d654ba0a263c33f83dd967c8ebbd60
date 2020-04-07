@@ -1,0 +1,143 @@
+I"L"<h2 id="一起因">一、起因</h2>
+
+<p>旧版本<code class="highlighter-rouge">Glide</code>中<code class="highlighter-rouge">.signature()</code>方法形参支持使用<code class="highlighter-rouge">StringSignature</code>。但在<code class="highlighter-rouge">Glide 4.0</code>里面这个方法不仅被移到<code class="highlighter-rouge">RequestOptions</code>中，而且形参改为<code class="highlighter-rouge">Key</code>。</p>
+
+<h2 id="二解决办法">二、解决办法</h2>
+
+<h3 id="21-key">2.1 Key</h3>
+
+<p>不过<code class="highlighter-rouge">Key</code>是一个接口，需要实现抽象方法</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kt">void</span> <span class="nf">updateDiskCacheKey</span><span class="o">(</span><span class="nc">MessageDigest</span> <span class="n">messageDigest</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="22-objectkey">2.2 ObjectKey</h3>
+
+<p><code class="highlighter-rouge">Key</code>还有一个使用相对方便的子类<code class="highlighter-rouge">ObjectKey</code>，构造方法以<code class="highlighter-rouge">Object</code>为参数，下面是实际用法:</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="nc">RequestOptions</span> <span class="n">userAvatarOptions</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">RequestOptions</span><span class="o">()</span>
+            <span class="o">.</span><span class="na">placeholder</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">def_avatar</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">error</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">def_avatar</span><span class="o">)</span>
+            <span class="o">.</span><span class="na">signature</span><span class="o">(</span><span class="k">new</span> <span class="nc">ObjectKey</span><span class="o">(</span><span class="nc">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">()))</span>
+            <span class="o">.</span><span class="na">encodeQuality</span><span class="o">(</span><span class="mi">70</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>代码中创建了一个<code class="highlighter-rouge">ObjectKey</code>实例，并把当前时间戳整形值作为参数。</p>
+
+<h2 id="三源码">三、源码</h2>
+
+<p>顺便贴出<code class="highlighter-rouge">Key</code>和<code class="highlighter-rouge">ObjectKey</code>的源码，请自行查阅:</p>
+
+<h3 id="31-key">3.1 Key</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">interface</span> <span class="nc">Key</span> <span class="o">{</span>
+  <span class="nc">String</span> <span class="no">STRING_CHARSET_NAME</span> <span class="o">=</span> <span class="s">"UTF-8"</span><span class="o">;</span>
+  <span class="nc">Charset</span> <span class="no">CHARSET</span> <span class="o">=</span> <span class="nc">Charset</span><span class="o">.</span><span class="na">forName</span><span class="o">(</span><span class="no">STRING_CHARSET_NAME</span><span class="o">);</span>
+
+  <span class="kt">void</span> <span class="nf">updateDiskCacheKey</span><span class="o">(</span><span class="nc">MessageDigest</span> <span class="n">messageDigest</span><span class="o">);</span>
+
+  <span class="nd">@Override</span>
+  <span class="kt">boolean</span> <span class="nf">equals</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">);</span>
+
+  <span class="nd">@Override</span>
+  <span class="kt">int</span> <span class="nf">hashCode</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="32-objectkey">3.2 ObjectKey</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">ObjectKey</span> <span class="kd">implements</span> <span class="nc">Key</span> <span class="o">{</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">Object</span> <span class="n">object</span><span class="o">;</span>
+
+  <span class="kd">public</span> <span class="nf">ObjectKey</span><span class="o">(</span><span class="nc">Object</span> <span class="n">object</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">object</span> <span class="o">=</span> <span class="nc">Preconditions</span><span class="o">.</span><span class="na">checkNotNull</span><span class="o">(</span><span class="n">object</span><span class="o">);</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="nc">String</span> <span class="nf">toString</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="s">"ObjectKey{"</span>
+        <span class="o">+</span> <span class="s">"object="</span> <span class="o">+</span> <span class="n">object</span>
+        <span class="o">+</span> <span class="sc">'}'</span><span class="o">;</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">equals</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">o</span> <span class="k">instanceof</span> <span class="nc">ObjectKey</span><span class="o">)</span> <span class="o">{</span>
+      <span class="nc">ObjectKey</span> <span class="n">other</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ObjectKey</span><span class="o">)</span> <span class="n">o</span><span class="o">;</span>
+      <span class="k">return</span> <span class="n">object</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">other</span><span class="o">.</span><span class="na">object</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">int</span> <span class="nf">hashCode</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">object</span><span class="o">.</span><span class="na">hashCode</span><span class="o">();</span>
+  <span class="o">}</span>
+
+  <span class="c1">// Charset CHARSET = Charset.forName("UTF-8");</span>
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">updateDiskCacheKey</span><span class="o">(</span><span class="nc">MessageDigest</span> <span class="n">messageDigest</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">messageDigest</span><span class="o">.</span><span class="na">update</span><span class="o">(</span><span class="n">object</span><span class="o">.</span><span class="na">toString</span><span class="o">().</span><span class="na">getBytes</span><span class="o">(</span><span class="no">CHARSET</span><span class="o">));</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四参考链接">四、参考链接</h2>
+
+<ul>
+  <li><a href="https://github.com/bumptech/glide/issues/2692">StringSignature class not found #2692</a></li>
+</ul>
+
+:ET

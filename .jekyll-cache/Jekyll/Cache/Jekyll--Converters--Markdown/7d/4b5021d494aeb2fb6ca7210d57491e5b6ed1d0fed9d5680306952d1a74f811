@@ -1,0 +1,294 @@
+I"ZS<p>最近重看《Android开发艺术探索》一书，其中第3页 <strong>Activity</strong> 生命周期 <strong>onPause</strong> 到 <strong>onResume</strong> 过程的确如作者所说“在一般的开发中用不上”，但是作为开发者还是有研究的必要。</p>
+
+<p><strong>onResume</strong> 的状态是 <strong>Activity</strong> 前台可见正在活动，<strong>onPause</strong> 是置于前台可见停止活动。从后者到前者的变化场景，可以通过一个透明的 <strong>Dialog</strong> 弹出遮蔽 <strong>MainActivity</strong> 重现。</p>
+
+<p>不过，这是个“特殊”的 <strong>Dialog</strong>。一般 <strong>Dialog</strong> 弹出时，背景可见 <strong>MainActivity</strong> 依然是 <strong>onResume</strong>，表明这个 <strong>Activity</strong> 的生命周期并没有因为这个 <strong>Dialog</strong> 的弹出而变化。</p>
+
+<p>但是，我们使用 <strong>Activity</strong> 实现 <strong>Dialog</strong> 时，由于是 <strong>MainActivity</strong> 启动 <strong>DialogActivity</strong>，所以 <strong>MainActivity</strong> 生命周期必然会变化。</p>
+
+<p><strong>MainActivity.java代码</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">MainActivity</span> <span class="kd">extends</span> <span class="nc">AppCompatActivity</span> <span class="o">{</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">activity_main</span><span class="o">);</span>
+
+        <span class="n">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">btn_dialog</span><span class="o">).</span><span class="na">setOnClickListener</span><span class="o">(</span><span class="k">new</span> <span class="nc">View</span><span class="o">.</span><span class="na">OnClickListener</span><span class="o">()</span> <span class="o">{</span>
+            <span class="nd">@Override</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onClick</span><span class="o">(</span><span class="nc">View</span> <span class="n">v</span><span class="o">)</span> <span class="o">{</span>
+                <span class="nc">Intent</span> <span class="n">i</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Intent</span><span class="o">(</span><span class="nc">MainActivity</span><span class="o">.</span><span class="na">this</span><span class="o">,</span> <span class="nc">DialogActivity</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+                <span class="n">startActivity</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">});</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"onCreate"</span><span class="o">);</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 实现所有生命周期方法Log</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onStart</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onStart</span><span class="o">();</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"onStart"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onRestart</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onRestart</span><span class="o">();</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"onRestart"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onResume</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onResume</span><span class="o">();</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"onResume"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onPause</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onPause</span><span class="o">();</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"onPause"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onStop</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onStop</span><span class="o">();</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"onStop"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onDestroy</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onDestroy</span><span class="o">();</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">.</span><span class="na">println</span><span class="o">(</span><span class="s">"onDestroy"</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>MainActivity.java对应activity_main.xml</strong></p>
+
+<p><strong>Button</strong> 只是用来启动 <strong>Dialog_Activity</strong></p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td><td class="rouge-code"><pre><span class="nt">&lt;RelativeLayout</span> <span class="na">xmlns:android=</span><span class="s">"http://schemas.android.com/apk/res/android"</span>
+    <span class="na">xmlns:tools=</span><span class="s">"http://schemas.android.com/tools"</span>
+    <span class="na">android:id=</span><span class="s">"@+id/activity_main"</span>
+    <span class="na">android:layout_width=</span><span class="s">"match_parent"</span>
+    <span class="na">android:layout_height=</span><span class="s">"match_parent"</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;Button</span>
+        <span class="na">android:id=</span><span class="s">"@+id/btn_dialog"</span>
+        <span class="na">android:layout_width=</span><span class="s">"wrap_content"</span>
+        <span class="na">android:layout_height=</span><span class="s">"wrap_content"</span>
+        <span class="na">android:text=</span><span class="s">"Button"</span> <span class="nt">/&gt;</span>
+<span class="nt">&lt;/RelativeLayout&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>DialogActivity.java代码</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">DialogActivity</span> <span class="kd">extends</span> <span class="nc">Activity</span> <span class="o">{</span>
+    
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nc">Bundle</span> <span class="n">savedInstanceState</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">);</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">test_dialog</span><span class="o">);</span>
+        <span class="c1">// 这里图个方便直接给findViewById加监听</span>
+        <span class="n">findViewById</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">id</span><span class="o">.</span><span class="na">returnButton</span><span class="o">).</span><span class="na">setOnClickListener</span><span class="o">(</span><span class="k">new</span> <span class="nc">View</span><span class="o">.</span><span class="na">OnClickListener</span><span class="o">()</span> <span class="o">{</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onClick</span><span class="o">(</span><span class="nc">View</span> <span class="n">v</span><span class="o">)</span> <span class="o">{</span>
+                <span class="nc">DialogActivity</span><span class="o">.</span><span class="na">this</span><span class="o">.</span><span class="na">finish</span><span class="o">();</span>
+            <span class="o">}</span>
+        <span class="o">});</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>test_dialog.xml</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td><td class="rouge-code"><pre><span class="o">&lt;</span><span class="nc">LinearLayout</span> <span class="nl">xmlns:</span><span class="n">android</span><span class="o">=</span><span class="s">"http://schemas.android.com/apk/res/android"</span>
+    <span class="nl">android:</span><span class="n">layout_width</span><span class="o">=</span><span class="s">"match_parent"</span>
+    <span class="nl">android:</span><span class="n">layout_height</span><span class="o">=</span><span class="s">"match_parent"</span>
+    <span class="nl">android:</span><span class="n">orientation</span><span class="o">=</span><span class="s">"vertical"</span><span class="o">&gt;</span>
+
+    <span class="o">&lt;</span><span class="nc">Button</span>
+        <span class="nl">android:</span><span class="n">id</span><span class="o">=</span><span class="s">"@+id/returnButton"</span>
+        <span class="nl">android:</span><span class="n">layout_width</span><span class="o">=</span><span class="s">"fill_parent"</span>
+        <span class="nl">android:</span><span class="n">layout_height</span><span class="o">=</span><span class="s">"wrap_content"</span>
+        <span class="nl">android:</span><span class="n">text</span><span class="o">=</span><span class="s">"点击退出"</span><span class="o">/&gt;</span>
+
+<span class="o">&lt;/</span><span class="nc">LinearLayout</span><span class="o">&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>AndroidManifest.xml</strong></p>
+
+<p>注意： <strong>DialogActivity</strong> 使用主题 <strong>@android:style/Theme.Dialog</strong>，不然无法实现上述生命周期。</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+</pre></td><td class="rouge-code"><pre><span class="nt">&lt;manifest</span> <span class="na">xmlns:android=</span><span class="s">"http://schemas.android.com/apk/res/android"</span>
+    <span class="na">package=</span><span class="s">"com.phantomvk.exampleapp"</span><span class="nt">&gt;</span>
+
+    <span class="nt">&lt;application</span>
+        <span class="na">android:allowBackup=</span><span class="s">"true"</span>
+        <span class="na">android:icon=</span><span class="s">"@mipmap/ic_launcher"</span>
+        <span class="na">android:label=</span><span class="s">"@string/app_name"</span>
+        <span class="na">android:supportsRtl=</span><span class="s">"true"</span>
+        <span class="na">android:theme=</span><span class="s">"@style/AppTheme"</span><span class="nt">&gt;</span>
+        <span class="nt">&lt;activity</span> <span class="na">android:name=</span><span class="s">".MainActivity"</span><span class="nt">&gt;</span>
+            <span class="nt">&lt;intent-filter&gt;</span>
+                <span class="nt">&lt;action</span> <span class="na">android:name=</span><span class="s">"android.intent.action.MAIN"</span> <span class="nt">/&gt;</span>
+
+                <span class="nt">&lt;category</span> <span class="na">android:name=</span><span class="s">"android.intent.category.LAUNCHER"</span> <span class="nt">/&gt;</span>
+            <span class="nt">&lt;/intent-filter&gt;</span>
+        <span class="nt">&lt;/activity&gt;</span>
+        <span class="nt">&lt;activity</span> <span class="na">android:name=</span><span class="s">".DialogActivity"</span>
+            <span class="na">android:theme=</span><span class="s">"@android:style/Theme.Dialog"</span><span class="nt">/&gt;</span>
+    <span class="nt">&lt;/application&gt;</span>
+
+<span class="nt">&lt;/manifest&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>结果：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+</pre></td><td class="rouge-code"><pre><span class="c1">// MainActivity到可见可操作的三个周期变化</span>
+<span class="mi">12</span><span class="o">-</span><span class="mi">16</span> <span class="mi">23</span><span class="o">:</span><span class="mi">59</span><span class="o">:</span><span class="mf">35.806</span> <span class="mi">7477</span><span class="o">-</span><span class="mi">7477</span><span class="o">/</span><span class="n">com</span><span class="o">.</span><span class="na">phantomvk</span><span class="o">.</span><span class="na">exampleapp</span> <span class="no">I</span><span class="o">/</span><span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">:</span> <span class="n">onCreate</span>
+<span class="mi">12</span><span class="o">-</span><span class="mi">16</span> <span class="mi">23</span><span class="o">:</span><span class="mi">59</span><span class="o">:</span><span class="mf">35.811</span> <span class="mi">7477</span><span class="o">-</span><span class="mi">7477</span><span class="o">/</span><span class="n">com</span><span class="o">.</span><span class="na">phantomvk</span><span class="o">.</span><span class="na">exampleapp</span> <span class="no">I</span><span class="o">/</span><span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">:</span> <span class="n">onStart</span>
+<span class="mi">12</span><span class="o">-</span><span class="mi">16</span> <span class="mi">23</span><span class="o">:</span><span class="mi">59</span><span class="o">:</span><span class="mf">35.811</span> <span class="mi">7477</span><span class="o">-</span><span class="mi">7477</span><span class="o">/</span><span class="n">com</span><span class="o">.</span><span class="na">phantomvk</span><span class="o">.</span><span class="na">exampleapp</span> <span class="no">I</span><span class="o">/</span><span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">:</span> <span class="n">onResume</span>
+
+<span class="c1">// 点击Button后，MainActivity仅仅是暂停(onPause)，没有停止(onStop)</span>
+<span class="mi">12</span><span class="o">-</span><span class="mi">16</span> <span class="mi">23</span><span class="o">:</span><span class="mi">59</span><span class="o">:</span><span class="mf">50.731</span> <span class="mi">7477</span><span class="o">-</span><span class="mi">7477</span><span class="o">/</span><span class="n">com</span><span class="o">.</span><span class="na">phantomvk</span><span class="o">.</span><span class="na">exampleapp</span> <span class="no">I</span><span class="o">/</span><span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">:</span> <span class="n">onPause</span>
+
+<span class="c1">// 在DialogActivity里面退出，MainActivity状态变为onResume</span>
+<span class="mi">12</span><span class="o">-</span><span class="mi">17</span> <span class="mo">00</span><span class="o">:</span><span class="mo">00</span><span class="o">:</span><span class="mf">00.161</span> <span class="mi">7477</span><span class="o">-</span><span class="mi">7477</span><span class="o">/</span><span class="n">com</span><span class="o">.</span><span class="na">phantomvk</span><span class="o">.</span><span class="na">exampleapp</span> <span class="no">I</span><span class="o">/</span><span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">:</span> <span class="n">onResume</span>
+
+<span class="c1">// 退出应用: onPause -&gt; onStop -&gt; onDestroy</span>
+<span class="mi">12</span><span class="o">-</span><span class="mi">17</span> <span class="mo">00</span><span class="o">:</span><span class="mo">00</span><span class="o">:</span><span class="mf">30.576</span> <span class="mi">7477</span><span class="o">-</span><span class="mi">7477</span><span class="o">/</span><span class="n">com</span><span class="o">.</span><span class="na">phantomvk</span><span class="o">.</span><span class="na">exampleapp</span> <span class="no">I</span><span class="o">/</span><span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">:</span> <span class="n">onPause</span>
+<span class="mi">12</span><span class="o">-</span><span class="mi">17</span> <span class="mo">00</span><span class="o">:</span><span class="mo">00</span><span class="o">:</span><span class="mf">31.151</span> <span class="mi">7477</span><span class="o">-</span><span class="mi">7477</span><span class="o">/</span><span class="n">com</span><span class="o">.</span><span class="na">phantomvk</span><span class="o">.</span><span class="na">exampleapp</span> <span class="no">I</span><span class="o">/</span><span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">:</span> <span class="n">onStop</span>
+<span class="mi">12</span><span class="o">-</span><span class="mi">17</span> <span class="mo">00</span><span class="o">:</span><span class="mo">00</span><span class="o">:</span><span class="mf">31.151</span> <span class="mi">7477</span><span class="o">-</span><span class="mi">7477</span><span class="o">/</span><span class="n">com</span><span class="o">.</span><span class="na">phantomvk</span><span class="o">.</span><span class="na">exampleapp</span> <span class="no">I</span><span class="o">/</span><span class="nc">System</span><span class="o">.</span><span class="na">out</span><span class="o">:</span> <span class="n">onDestroy</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>上述代码已经成功重现 onPause -&gt; onResume。运行截图如下</p>
+
+<p><img src="/img/android/images/onPause_onResume.png" alt="img" /></p>
+:ET

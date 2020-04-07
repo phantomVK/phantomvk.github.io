@@ -1,0 +1,135 @@
+I"�<p><strong>macOS</strong> 先通过 <strong>Homebrew</strong> 安装 <strong>Polipo</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>brew <span class="nb">install </span>polipo
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>在用户根目录创建或修改配置文件 <strong>~/.polipo</strong>。有两个参数需要修改：</p>
+
+<ul>
+  <li><strong>proxyPort</strong>：<strong>polipo</strong> 提供服务的端口，默认为8123；</li>
+  <li><strong>socksParentProxy</strong>：本地 <strong>Socks5</strong> 地址，具体看 <strong>ShadowSocks</strong> 配置，一般为 <strong>“127.0.0.1:1080”</strong>；</li>
+</ul>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+</pre></td><td class="rouge-code"><pre>proxyAddress = "0.0.0.0"
+proxyPort = 8123
+allowedClients = 127.0.0.1, 10.0.1.0/24
+allowedPorts = 1-65535
+tunnelAllowedPorts = 1-65535
+proxyName = "localhost"
+cacheIsShared = false
+socksParentProxy = "127.0.0.1:1080"
+socksProxyType = socks5
+# chunkHighMark = 33554432
+# diskCacheRoot = ""
+# localDocumentRoot = ""
+disableLocalInterface = true
+disableConfiguration = true
+dnsUseGethostbyname = yes
+disableVia = true
+censoredHeaders = from,accept-language,x-pad,link
+censorReferer = maybe
+# maxConnectionAge = 5m
+# maxConnectionRequests = 120
+# serverMaxSlots = 8
+# serverSlots = 2
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>启动 <strong>polipo</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre>brew services start polipo
+brew services restart polipo <span class="c"># 重启</span>
+brew services stop polipo    <span class="c"># 关闭</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果需要引导全部终端流量，可以把配置写到bash：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nb">export </span><span class="nv">http_proxy</span><span class="o">=</span><span class="s2">"http://127.0.0.1:8123"</span>
+<span class="nb">export </span><span class="nv">https_proxy</span><span class="o">=</span><span class="s2">"http://127.0.0.1:8123"</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果只针对某个命令走 <strong>polipo</strong>，执行命令时指定proxy：</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nv">http_proxy</span><span class="o">=</span><span class="s2">"http://127.0.0.1:8123"</span> curl ip.gs
+<span class="nv">https_proxy</span><span class="o">=</span><span class="s2">"http://127.0.0.1:8123"</span> curl ip.gs
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>用 <strong>curl</strong> 检查ip</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre><span class="o">&gt;</span> <span class="nv">http_proxy</span><span class="o">=</span><span class="s2">"http://127.0.0.1:8123"</span> curl ip.gs
+
+Current IP / 当前 IP: 194.156.<span class="k">***</span>.<span class="k">***</span>
+ISP / 运营商:  thinkhuge.net
+City / 城市: Tokyo Tokyo
+Country / 国家: Japan
+IP.GS is now IP.SB, please visit https://ip.sb/ <span class="k">for </span>more information. / IP.GS 已更改为 IP.SB ，请访问 https://ip.sb/ 获取更详细 IP 信息！
+Please <span class="nb">join </span>Telegram group https://t.me/sbfans <span class="k">if </span>you have any issues. / 如有问题，请加入 Telegram 群 https://t.me/sbfans
+
+  /<span class="se">\_</span>/<span class="se">\</span>
+<span class="o">=(</span> °w° <span class="o">)=</span>
+  <span class="o">)</span>   <span class="o">(</span>  //
+ <span class="o">(</span>__ __<span class="o">)</span>//
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>https</strong> 导流可以直接使用 <strong>http_proxy</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre><span class="o">&gt;</span> <span class="nv">https_proxy</span><span class="o">=</span><span class="s2">"http://127.0.0.1:8123"</span> curl https://google.com
+
+&lt;HTML&gt;&lt;HEAD&gt;&lt;meta http-equiv<span class="o">=</span><span class="s2">"content-type"</span> <span class="nv">content</span><span class="o">=</span><span class="s2">"text/html;charset=utf-8"</span><span class="o">&gt;</span>
+&lt;TITLE&gt;301 Moved&lt;/TITLE&gt;&lt;/HEAD&gt;&lt;BODY&gt;
+&lt;H1&gt;301 Moved&lt;/H1&gt;
+The document has moved
+&lt;A <span class="nv">HREF</span><span class="o">=</span><span class="s2">"https://www.google.com/"</span><span class="o">&gt;</span>here&lt;/A&gt;.
+&lt;/BODY&gt;&lt;/HTML&gt;
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

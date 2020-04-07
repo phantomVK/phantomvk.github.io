@@ -1,0 +1,44 @@
+I"�<p>如果同时引入以下库</p>
+
+<div class="language-groovy highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="n">implementation</span> <span class="s1">'io.reactivex.rxjava2:rxjava:2.1.3'</span>
+<span class="n">implementation</span> <span class="s1">'com.squareup.retrofit2:retrofit:2.3.0'</span>
+<span class="n">implementation</span> <span class="s1">'com.squareup.retrofit2:converter-gson:2.3.0'</span>
+<span class="n">implementation</span> <span class="s1">'com.squareup.retrofit2:adapter-rxjava:2.3.0'</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>就会出现</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre>Error:Execution failed for task ':app:transformResourcesWithMergeJavaResForDebug'.
+com.android.build.api.transform.TransformException: com.android.builder.packaging.DuplicateFileException: Duplicate files copied in APK META-INF/rxjava.properties
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>即使通过以下方式忽略<code class="highlighter-rouge">META-INF/rxjava.properties</code>，重新编译后还会出现<code class="highlighter-rouge">Unable to merge dex</code>错误</p>
+
+<div class="language-groovy highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="n">packagingOptions</span> <span class="o">{</span>  
+    <span class="n">exclude</span> <span class="s1">'META-INF/rxjava.properties'</span>
+<span class="o">}</span> 
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>报错的原因是<code class="highlighter-rouge">com.squareup.retrofit2:adapter-rxjava</code>只能支持<code class="highlighter-rouge">Retrofit1</code>，不支持<code class="highlighter-rouge">Retrofit2</code>，所以只要引入以下的库替代即可：</p>
+
+<div class="language-groovy highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">implementation</span> <span class="s1">'com.squareup.retrofit2:adapter-rxjava2:1.0.0'</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>参考链接：</p>
+
+<ul>
+  <li><a href="http://blog.csdn.net/bingducaijun/article/details/53584449">http://blog.csdn.net/bingducaijun/article/details/53584449</a></li>
+  <li><a href="http://winkyqin.com/2017/01/21/Android%E5%B8%B8%E8%A7%81%E5%BC%82%E5%B8%B8%E8%A7%A3%E5%86%B3/2017-02-07/">http://winkyqin.com/2017/01/21/Android%E5%B8%B8%E8%A7%81%E5%BC%82%E5%B8%B8%E8%A7%A3%E5%86%B3/2017-02-07/</a></li>
+</ul>
+
+:ET

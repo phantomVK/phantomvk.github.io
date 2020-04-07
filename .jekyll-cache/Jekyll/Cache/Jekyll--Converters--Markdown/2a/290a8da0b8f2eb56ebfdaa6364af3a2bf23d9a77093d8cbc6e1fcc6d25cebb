@@ -1,0 +1,1412 @@
+I"S}<h2 id="一类签名">一、类签名</h2>
+
+<p><strong>ArrayMap</strong> 是通用的键值对映射数据结构，相比 <strong>HashMap</strong> 有更高内存利用率。因为 <strong>ArrayMap</strong> 使用数组结构保存映射：一个整形数组存放哈希值，一个 <strong>Object</strong> 数组存放 <strong>Key</strong> 和 <strong>Value</strong>。</p>
+
+<p>使用数组能避免为每个放入 <strong>Map</strong> 的entry创建额外对象(对比<a href="/2018/06/30/HashMap/#51-%E6%A1%B6%E8%8A%82%E7%82%B9">HashMap#Node</a>)，并能更有力地控制数组扩展的大小。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">ArrayMap</span><span class="o">&lt;</span><span class="no">K</span><span class="o">,</span> <span class="no">V</span><span class="o">&gt;</span> <span class="kd">implements</span> <span class="nc">Map</span><span class="o">&lt;</span><span class="no">K</span><span class="o">,</span> <span class="no">V</span><span class="o">&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>相比传统 <strong>HashMap</strong>，<strong>ArrayMap</strong> 速度更慢且不存放大量items的场景。因为ArrayMap通过二分查找搜索item，添加或移除元素需要操作数组的entries。容器仅持有数百个items时，两者性能差距不大。</p>
+
+<p><img src="/img/java/ArrayMap_HASH_UML.png" alt="ArrayMap_HASH_UML" /></p>
+
+<p>为更平衡的内存利用率，ArrayMap不像其他标准Java容器类，它会在items移除同时缩小数组。也不能主动控制数组的大小：设置capacity后当任意item移除，数组大小会减少到刚好容纳所有item。</p>
+
+<p>源码来自Android 26</p>
+
+<h2 id="二常量">二、常量</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="no">CONCURRENT_MODIFICATION_EXCEPTIONS</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>最低扩容容量</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">BASE_SIZE</span> <span class="o">=</span> <span class="mi">4</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>cache size大小</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">CACHE_SIZE</span> <span class="o">=</span> <span class="mi">10</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>特殊哈希数组值，表示container不可变</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span><span class="o">[]</span> <span class="no">EMPTY_IMMUTABLE_INTS</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">int</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>特殊不可变空ArrayMap常量表示空状态</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">ArrayMap</span> <span class="no">EMPTY</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayMap</span><span class="o">&lt;&gt;(-</span><span class="mi">1</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三成员变量">三、成员变量</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+</pre></td><td class="rouge-code"><pre><span class="c1">// 缓存小数组对象避免垃圾回收</span>
+<span class="c1">// mBaseCache[0]指向列表中的下一个数组</span>
+<span class="c1">// mBaseCache[1]指向int[]</span>
+<span class="kd">static</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">mBaseCache</span><span class="o">;</span>
+<span class="kd">static</span> <span class="kt">int</span> <span class="n">mBaseCacheSize</span><span class="o">;</span>
+
+<span class="c1">// 缓存小数组对象避免垃圾回收</span>
+<span class="kd">static</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">mTwiceBaseCache</span><span class="o">;</span>
+<span class="kd">static</span> <span class="kt">int</span> <span class="n">mTwiceBaseCacheSize</span><span class="o">;</span>
+
+<span class="kd">final</span> <span class="kt">boolean</span> <span class="n">mIdentityHashCode</span><span class="o">;</span>
+
+<span class="c1">// 哈希数组</span>
+<span class="kt">int</span><span class="o">[]</span> <span class="n">mHashes</span><span class="o">;</span>
+
+<span class="c1">// 存放key-value的数组</span>
+<span class="nc">Object</span><span class="o">[]</span> <span class="n">mArray</span><span class="o">;</span>
+
+<span class="c1">// 已保存items数量</span>
+<span class="kt">int</span> <span class="n">mSize</span><span class="o">;</span>
+
+<span class="nc">MapCollections</span><span class="o">&lt;</span><span class="no">K</span><span class="o">,</span> <span class="no">V</span><span class="o">&gt;</span> <span class="n">mCollections</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四构造方法">四、构造方法</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+</pre></td><td class="rouge-code"><pre><span class="c1">// 构造空ArrayMap，初始默认容量为0</span>
+<span class="kd">public</span> <span class="nf">ArrayMap</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 根据给定容量值构造实例</span>
+<span class="kd">public</span> <span class="nf">ArrayMap</span><span class="o">(</span><span class="kt">int</span> <span class="n">capacity</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="n">capacity</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nf">ArrayMap</span><span class="o">(</span><span class="kt">int</span> <span class="n">capacity</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">identityHashCode</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mIdentityHashCode</span> <span class="o">=</span> <span class="n">identityHashCode</span><span class="o">;</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">capacity</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 此实例内容不可变，使用常量标记</span>
+        <span class="n">mHashes</span> <span class="o">=</span> <span class="no">EMPTY_IMMUTABLE_INTS</span><span class="o">;</span>
+        <span class="n">mArray</span> <span class="o">=</span> <span class="nc">EmptyArray</span><span class="o">.</span><span class="na">OBJECT</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">capacity</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 此实例内容可变，初始大小为0</span>
+        <span class="n">mHashes</span> <span class="o">=</span> <span class="nc">EmptyArray</span><span class="o">.</span><span class="na">INT</span><span class="o">;</span>
+        <span class="n">mArray</span> <span class="o">=</span> <span class="nc">EmptyArray</span><span class="o">.</span><span class="na">OBJECT</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 根据指定大小进行构造</span>
+        <span class="n">allocArrays</span><span class="o">(</span><span class="n">capacity</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="c1">// 保存元素数量为0</span>
+    <span class="n">mSize</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 根据给定map构造实例</span>
+<span class="kd">public</span> <span class="nf">ArrayMap</span><span class="o">(</span><span class="nc">ArrayMap</span><span class="o">&lt;</span><span class="no">K</span><span class="o">,</span> <span class="no">V</span><span class="o">&gt;</span> <span class="n">map</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">map</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">putAll</span><span class="o">(</span><span class="n">map</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="五静态方法">五、静态方法</h2>
+
+<p>在保存hash的数组中，通过二分查找找出目标hash的索引值</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kt">int</span> <span class="nf">binarySearchHashes</span><span class="o">(</span><span class="kt">int</span><span class="o">[]</span> <span class="n">hashes</span><span class="o">,</span> <span class="kt">int</span> <span class="no">N</span><span class="o">,</span> <span class="kt">int</span> <span class="n">hash</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="nc">ContainerHelpers</span><span class="o">.</span><span class="na">binarySearch</span><span class="o">(</span><span class="n">hashes</span><span class="o">,</span> <span class="no">N</span><span class="o">,</span> <span class="n">hash</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ArrayIndexOutOfBoundsException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="no">CONCURRENT_MODIFICATION_EXCEPTIONS</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="n">e</span><span class="o">;</span> <span class="c1">// the cache is poisoned at this point, there's not much we can do</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>释放hash数组与key-value数组。合适的数组不会释放而是缓存起来，等下次数组大小合适时复用</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">freeArrays</span><span class="o">(</span><span class="kd">final</span> <span class="kt">int</span><span class="o">[]</span> <span class="n">hashes</span><span class="o">,</span> <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">array</span><span class="o">,</span> <span class="kd">final</span> <span class="kt">int</span> <span class="n">size</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">hashes</span><span class="o">.</span><span class="na">length</span> <span class="o">==</span> <span class="o">(</span><span class="no">BASE_SIZE</span><span class="o">*</span><span class="mi">2</span><span class="o">))</span> <span class="o">{</span>
+        <span class="c1">// hashes.length == 8</span>
+        <span class="kd">synchronized</span> <span class="o">(</span><span class="nc">ArrayMap</span><span class="o">.</span><span class="na">class</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// mTwiceBaseCacheSize最多保存10个</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mTwiceBaseCacheSize</span> <span class="o">&lt;</span> <span class="no">CACHE_SIZE</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 通过链表的方法保存</span>
+                <span class="n">array</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">mTwiceBaseCache</span><span class="o">;</span>
+                <span class="n">array</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="n">hashes</span><span class="o">;</span>
+                <span class="c1">// 置空数组索引 [2，(size&lt;&lt;1)-1] 的entry</span>
+                <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=(</span><span class="n">size</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">)-</span><span class="mi">1</span><span class="o">;</span> <span class="n">i</span><span class="o">&gt;=</span><span class="mi">2</span><span class="o">;</span> <span class="n">i</span><span class="o">--)</span> <span class="o">{</span>
+                    <span class="n">array</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+                <span class="o">}</span>
+                <span class="n">mTwiceBaseCache</span> <span class="o">=</span> <span class="n">array</span><span class="o">;</span>
+                <span class="n">mTwiceBaseCacheSize</span><span class="o">++;</span> <span class="c1">// 已保存数量递增</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">hashes</span><span class="o">.</span><span class="na">length</span> <span class="o">==</span> <span class="no">BASE_SIZE</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// hashes.length == 4</span>
+        <span class="kd">synchronized</span> <span class="o">(</span><span class="nc">ArrayMap</span><span class="o">.</span><span class="na">class</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// mBaseCacheSize最多保存10个</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mBaseCacheSize</span> <span class="o">&lt;</span> <span class="no">CACHE_SIZE</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">array</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">mBaseCache</span><span class="o">;</span>
+                <span class="n">array</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="n">hashes</span><span class="o">;</span>
+                <span class="c1">// 置空数组index [2，(size&lt;&lt;1)-1] 的entry</span>
+                <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=(</span><span class="n">size</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">)-</span><span class="mi">1</span><span class="o">;</span> <span class="n">i</span><span class="o">&gt;=</span><span class="mi">2</span><span class="o">;</span> <span class="n">i</span><span class="o">--)</span> <span class="o">{</span>
+                    <span class="n">array</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+                <span class="o">}</span>
+                <span class="n">mBaseCache</span> <span class="o">=</span> <span class="n">array</span><span class="o">;</span>
+                <span class="n">mBaseCacheSize</span><span class="o">++;</span> <span class="c1">// 已保存数量递增</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="六成员方法">六、成员方法</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+324
+325
+326
+327
+328
+329
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339
+340
+341
+342
+343
+344
+345
+346
+347
+348
+349
+350
+351
+352
+353
+354
+355
+356
+357
+358
+359
+360
+361
+362
+363
+364
+365
+366
+367
+368
+369
+370
+371
+372
+373
+374
+375
+376
+377
+378
+379
+380
+381
+382
+383
+384
+385
+386
+387
+388
+389
+390
+391
+392
+393
+394
+395
+396
+397
+398
+399
+400
+401
+402
+403
+404
+405
+406
+407
+408
+409
+410
+411
+412
+413
+414
+415
+416
+417
+418
+419
+420
+421
+422
+423
+424
+425
+426
+427
+428
+429
+430
+431
+432
+433
+434
+435
+436
+437
+438
+439
+440
+441
+442
+443
+444
+445
+446
+447
+448
+449
+450
+451
+452
+453
+454
+455
+456
+457
+458
+459
+460
+461
+462
+463
+464
+465
+466
+467
+468
+469
+470
+471
+472
+473
+474
+475
+476
+477
+478
+479
+480
+481
+482
+483
+484
+485
+486
+487
+488
+489
+490
+491
+492
+493
+494
+495
+496
+497
+498
+499
+500
+501
+502
+503
+504
+505
+506
+507
+508
+509
+510
+511
+512
+513
+514
+515
+516
+517
+518
+519
+520
+521
+522
+523
+524
+525
+526
+527
+528
+529
+530
+531
+532
+533
+534
+535
+536
+537
+538
+539
+540
+541
+542
+543
+544
+545
+546
+547
+548
+549
+550
+551
+552
+553
+554
+555
+556
+557
+558
+559
+560
+561
+562
+563
+564
+565
+566
+567
+568
+</pre></td><td class="rouge-code"><pre><span class="c1">// 通过key和hash找索引</span>
+<span class="kt">int</span> <span class="nf">indexOf</span><span class="o">(</span><span class="nc">Object</span> <span class="n">key</span><span class="o">,</span> <span class="kt">int</span> <span class="n">hash</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="no">N</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">;</span>
+
+    <span class="c1">// ArrayMap为空，返回~0</span>
+    <span class="k">if</span> <span class="o">(</span><span class="no">N</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="o">~</span><span class="mi">0</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 通过二分查找确认索引值</span>
+    <span class="kt">int</span> <span class="n">index</span> <span class="o">=</span> <span class="n">binarySearchHashes</span><span class="o">(</span><span class="n">mHashes</span><span class="o">,</span> <span class="no">N</span><span class="o">,</span> <span class="n">hash</span><span class="o">);</span>
+
+    <span class="c1">// 索引小于零表示此key没有对应Entry</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">index</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 该key和index所表示的'key'匹配，则表示index成功命中</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">key</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">mArray</span><span class="o">[</span><span class="n">index</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">]))</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">index</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 从index开始，检查后方索引的key是否匹配</span>
+    <span class="kt">int</span> <span class="n">end</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="n">end</span> <span class="o">=</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">;</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="no">N</span> <span class="o">&amp;&amp;</span> <span class="n">mHashes</span><span class="o">[</span><span class="n">end</span><span class="o">]</span> <span class="o">==</span> <span class="n">hash</span><span class="o">;</span> <span class="n">end</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">key</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">mArray</span><span class="o">[</span><span class="n">end</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">]))</span> <span class="k">return</span> <span class="n">end</span><span class="o">;</span> <span class="c1">// 返回匹配的索引值</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 从index开始，检查前方索引的key是否匹配</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="o">;</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">mHashes</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">==</span> <span class="n">hash</span><span class="o">;</span> <span class="n">i</span><span class="o">--)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">key</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">mArray</span><span class="o">[</span><span class="n">i</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">]))</span> <span class="k">return</span> <span class="n">i</span><span class="o">;</span> <span class="c1">// 返回匹配的索引值</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 找不到对应key</span>
+    <span class="c1">// 返回这个key的新条目可以直接插入的索引位置，值为负数</span>
+    <span class="c1">// 方法直接使用哈希链的尾部位置，减少因插入而导致拷贝数组条目的数量</span>
+    <span class="k">return</span> <span class="o">~</span><span class="n">end</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kt">int</span> <span class="nf">indexOfNull</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="no">N</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">;</span>
+
+    <span class="c1">// ArrayMap为空，返回~0</span>
+    <span class="k">if</span> <span class="o">(</span><span class="no">N</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="o">~</span><span class="mi">0</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kt">int</span> <span class="n">index</span> <span class="o">=</span> <span class="n">binarySearchHashes</span><span class="o">(</span><span class="n">mHashes</span><span class="o">,</span> <span class="no">N</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+
+    <span class="c1">// 哈希值没有命中，表示此kay没有对应的条目</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">index</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 该key和index所表示的'key'匹配，则表示index成功命中</span>
+    <span class="k">if</span> <span class="o">(</span><span class="kc">null</span> <span class="o">==</span> <span class="n">mArray</span><span class="o">[</span><span class="n">index</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">])</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="n">index</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 从index开始，检查后方索引的key是否匹配</span>
+    <span class="kt">int</span> <span class="n">end</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="n">end</span> <span class="o">=</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">;</span> <span class="n">end</span> <span class="o">&lt;</span> <span class="no">N</span> <span class="o">&amp;&amp;</span> <span class="n">mHashes</span><span class="o">[</span><span class="n">end</span><span class="o">]</span> <span class="o">==</span> <span class="mi">0</span><span class="o">;</span> <span class="n">end</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="kc">null</span> <span class="o">==</span> <span class="n">mArray</span><span class="o">[</span><span class="n">end</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">])</span> <span class="k">return</span> <span class="n">end</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 从index开始，检查前方索引的key是否匹配</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="o">;</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">mHashes</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">==</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span><span class="o">--)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="kc">null</span> <span class="o">==</span> <span class="n">mArray</span><span class="o">[</span><span class="n">i</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">])</span> <span class="k">return</span> <span class="n">i</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 找不到对应key</span>
+    <span class="c1">// 返回这个key的新条目可以直接插入的索引位置，值为负数</span>
+    <span class="c1">// 方法直接使用哈希链的尾部位置，减少因插入而导致拷贝数组条目的数量</span>
+    <span class="k">return</span> <span class="o">~</span><span class="n">end</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 分配数组空间</span>
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">allocArrays</span><span class="o">(</span><span class="kd">final</span> <span class="kt">int</span> <span class="n">size</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 若mHashes为EMPTY_IMMUTABLE_INTS，表示此ArrayMap是不可变的，并抛出异常</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mHashes</span> <span class="o">==</span> <span class="no">EMPTY_IMMUTABLE_INTS</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">UnsupportedOperationException</span><span class="o">(</span><span class="s">"ArrayMap is immutable"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">size</span> <span class="o">==</span> <span class="o">(</span><span class="no">BASE_SIZE</span><span class="o">*</span><span class="mi">2</span><span class="o">))</span> <span class="o">{</span>
+        <span class="c1">// size == 8，从缓存中复用数组</span>
+        <span class="kd">synchronized</span> <span class="o">(</span><span class="nc">ArrayMap</span><span class="o">.</span><span class="na">class</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mTwiceBaseCache</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">array</span> <span class="o">=</span> <span class="n">mTwiceBaseCache</span><span class="o">;</span>
+                <span class="n">mArray</span> <span class="o">=</span> <span class="n">array</span><span class="o">;</span>
+                <span class="c1">// mTwiceBaseCache = mTwiceBaseCache[0]</span>
+                <span class="n">mTwiceBaseCache</span> <span class="o">=</span> <span class="o">(</span><span class="nc">Object</span><span class="o">[])</span><span class="n">array</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span>
+                <span class="c1">// 取出缓存的hashes赋值给mHashes复用</span>
+                <span class="n">mHashes</span> <span class="o">=</span> <span class="o">(</span><span class="kt">int</span><span class="o">[])</span><span class="n">array</span><span class="o">[</span><span class="mi">1</span><span class="o">];</span>
+                <span class="c1">// 置空索引0和索引1的空间</span>
+                <span class="n">array</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">array</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+                <span class="c1">// 已缓存数组数量递减</span>
+                <span class="n">mTwiceBaseCacheSize</span><span class="o">--;</span>
+                <span class="k">return</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">size</span> <span class="o">==</span> <span class="no">BASE_SIZE</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// size == 4，从缓存中复用数组</span>
+        <span class="kd">synchronized</span> <span class="o">(</span><span class="nc">ArrayMap</span><span class="o">.</span><span class="na">class</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mBaseCache</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">array</span> <span class="o">=</span> <span class="n">mBaseCache</span><span class="o">;</span>
+                <span class="n">mArray</span> <span class="o">=</span> <span class="n">array</span><span class="o">;</span>
+                <span class="c1">// mBaseCache = mBaseCache[0]</span>
+                <span class="n">mBaseCache</span> <span class="o">=</span> <span class="o">(</span><span class="nc">Object</span><span class="o">[])</span><span class="n">array</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span>
+                <span class="c1">// 取出缓存的hashes赋值给mHashes复用</span>
+                <span class="n">mHashes</span> <span class="o">=</span> <span class="o">(</span><span class="kt">int</span><span class="o">[])</span><span class="n">array</span><span class="o">[</span><span class="mi">1</span><span class="o">];</span>
+                <span class="c1">// 置空索引0和索引1的空间</span>
+                <span class="n">array</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">array</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+                <span class="c1">// 已缓存数组数量递减</span>
+                <span class="n">mBaseCacheSize</span><span class="o">--;</span>         
+                <span class="k">return</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// size大小不是4或8就创建新数组并赋值</span>
+    <span class="n">mHashes</span> <span class="o">=</span> <span class="k">new</span> <span class="kt">int</span><span class="o">[</span><span class="n">size</span><span class="o">];</span>
+    <span class="n">mArray</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">[</span><span class="n">size</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">];</span>
+<span class="o">}</span>
+
+<span class="c1">// 清空所有键值对数据</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">clear</span><span class="o">()</span> <span class="o">{</span>
+    <span class="c1">// 已保存元素数量不为空</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mSize</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// ohashes 为 oldHashes</span>
+        <span class="kd">final</span> <span class="kt">int</span><span class="o">[]</span> <span class="n">ohashes</span> <span class="o">=</span> <span class="n">mHashes</span><span class="o">;</span>
+        <span class="c1">// oarray 为 oldArray </span>
+        <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">oarray</span> <span class="o">=</span> <span class="n">mArray</span><span class="o">;</span>
+        <span class="c1">// osize 为 oldSize</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">osize</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">;</span>
+        <span class="c1">// 设置EmptyArray.INT，表明为空</span>
+        <span class="n">mHashes</span> <span class="o">=</span> <span class="nc">EmptyArray</span><span class="o">.</span><span class="na">INT</span><span class="o">;</span>
+        <span class="c1">// 设置EmptyArray.OBJECT，表明为空</span>
+        <span class="n">mArray</span> <span class="o">=</span> <span class="nc">EmptyArray</span><span class="o">.</span><span class="na">OBJECT</span><span class="o">;</span>
+        <span class="c1">// 已保存item为0</span>
+        <span class="n">mSize</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+        <span class="c1">// 释放数组空间</span>
+        <span class="n">freeArrays</span><span class="o">(</span><span class="n">ohashes</span><span class="o">,</span> <span class="n">oarray</span><span class="o">,</span> <span class="n">osize</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 检查是否存在并发修改</span>
+    <span class="k">if</span> <span class="o">(</span><span class="no">CONCURRENT_MODIFICATION_EXCEPTIONS</span> <span class="o">&amp;&amp;</span> <span class="n">mSize</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 清除所有items，但不减少ArrayMap已开辟空间</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">erase</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mSize</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="no">N</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">;</span>
+        <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">array</span> <span class="o">=</span> <span class="n">mArray</span><span class="o">;</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="o">;</span> <span class="n">i</span><span class="o">&lt;</span><span class="no">N</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+            <span class="n">array</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="n">mSize</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 保证ArrayMap扩容到minimumCapacity个空间</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">ensureCapacity</span><span class="o">(</span><span class="kt">int</span> <span class="n">minimumCapacity</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">osize</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mHashes</span><span class="o">.</span><span class="na">length</span> <span class="o">&lt;</span> <span class="n">minimumCapacity</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="kt">int</span><span class="o">[]</span> <span class="n">ohashes</span> <span class="o">=</span> <span class="n">mHashes</span><span class="o">;</span>
+        <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">oarray</span> <span class="o">=</span> <span class="n">mArray</span><span class="o">;</span>
+        <span class="c1">// 创建新数组空间</span>
+        <span class="n">allocArrays</span><span class="o">(</span><span class="n">minimumCapacity</span><span class="o">);</span>
+        <span class="c1">// 迁移items到新数组空间</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mSize</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">ohashes</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mHashes</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">osize</span><span class="o">);</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">oarray</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mArray</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">osize</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="c1">// 释放旧数组空间</span>
+        <span class="n">freeArrays</span><span class="o">(</span><span class="n">ohashes</span><span class="o">,</span> <span class="n">oarray</span><span class="o">,</span> <span class="n">osize</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 检查是否存在并发修改</span>
+    <span class="k">if</span> <span class="o">(</span><span class="no">CONCURRENT_MODIFICATION_EXCEPTIONS</span> <span class="o">&amp;&amp;</span> <span class="n">mSize</span> <span class="o">!=</span> <span class="n">osize</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 检查key是否包含在数组中</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">containsKey</span><span class="o">(</span><span class="nc">Object</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">indexOfKey</span><span class="o">(</span><span class="n">key</span><span class="o">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">;</span>
+<span class="o">}</span>
+
+ <span class="c1">// 返回key在集合中的索引</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">indexOfKey</span><span class="o">(</span><span class="nc">Object</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">key</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">?</span> <span class="n">indexOfNull</span><span class="o">()</span>
+            <span class="o">:</span> <span class="n">indexOf</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">mIdentityHashCode</span> <span class="o">?</span> <span class="nc">System</span><span class="o">.</span><span class="na">identityHashCode</span><span class="o">(</span><span class="n">key</span><span class="o">)</span> <span class="o">:</span> <span class="n">key</span><span class="o">.</span><span class="na">hashCode</span><span class="o">());</span>
+<span class="o">}</span>
+
+<span class="c1">// 检查value在数组中的索引值</span>
+<span class="kt">int</span> <span class="nf">indexOfValue</span><span class="o">(</span><span class="nc">Object</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="no">N</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">*</span><span class="mi">2</span><span class="o">;</span>
+    <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">array</span> <span class="o">=</span> <span class="n">mArray</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">value</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// value为空，则查找第一个值为空的索引</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="mi">1</span><span class="o">;</span> <span class="n">i</span><span class="o">&lt;</span><span class="no">N</span><span class="o">;</span> <span class="n">i</span><span class="o">+=</span><span class="mi">2</span><span class="o">)</span> <span class="o">{</span> <span class="c1">// 每次递增2，保证索引指到值的位置上</span>
+            <span class="c1">// array[i]匹配null</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">array</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">return</span> <span class="n">i</span><span class="o">&gt;&gt;</span><span class="mi">1</span><span class="o">;</span> <span class="c1">// 整形值通过右移1位完成除以2的操作，即i/2</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// value不为空，则查找第一个值匹配的索引</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="mi">1</span><span class="o">;</span> <span class="n">i</span><span class="o">&lt;</span><span class="no">N</span><span class="o">;</span> <span class="n">i</span><span class="o">+=</span><span class="mi">2</span><span class="o">)</span> <span class="o">{</span> <span class="c1">// 每次递增2，保证索引指到值的位置上</span>
+            <span class="c1">// array[i]value</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">value</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">array</span><span class="o">[</span><span class="n">i</span><span class="o">]))</span> <span class="o">{</span>
+                <span class="k">return</span> <span class="n">i</span><span class="o">&gt;&gt;</span><span class="mi">1</span><span class="o">;</span> <span class="c1">//  整形值通过右移1位完成除以2的操作，即i/2</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 集合中没有指定key，返回-1</span>
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 检查value是否包含在数组中，此调用会对整个数组进行线性查找</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">containsValue</span><span class="o">(</span><span class="nc">Object</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">indexOfValue</span><span class="o">(</span><span class="n">value</span><span class="o">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 根据key从数组中获取对应值，没有对应值则返回null</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="no">V</span> <span class="nf">get</span><span class="o">(</span><span class="nc">Object</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 根据key算出所在数组的索引值</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">index</span> <span class="o">=</span> <span class="n">indexOfKey</span><span class="o">(</span><span class="n">key</span><span class="o">);</span>
+    <span class="c1">// 从索引值取值，若索引值为负数，则返回null</span>
+    <span class="k">return</span> <span class="n">index</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">?</span> <span class="o">(</span><span class="no">V</span><span class="o">)</span><span class="n">mArray</span><span class="o">[(</span><span class="n">index</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">)+</span><span class="mi">1</span><span class="o">]</span> <span class="o">:</span> <span class="kc">null</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 根据key的索引从数组中取key</span>
+<span class="kd">public</span> <span class="no">K</span> <span class="nf">keyAt</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 根据索引值直接取key</span>
+    <span class="k">return</span> <span class="o">(</span><span class="no">K</span><span class="o">)</span><span class="n">mArray</span><span class="o">[</span><span class="n">index</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">];</span>
+<span class="o">}</span>
+
+<span class="c1">// 根据key的索引从数组中取value</span>
+<span class="kd">public</span> <span class="no">V</span> <span class="nf">valueAt</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 根据索引值直接取value</span>
+    <span class="k">return</span> <span class="o">(</span><span class="no">V</span><span class="o">)</span><span class="n">mArray</span><span class="o">[(</span><span class="n">index</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">];</span>
+<span class="o">}</span>
+
+<span class="c1">// 根据key的索引在数组中设置新值，已有旧值作为结果返回</span>
+<span class="kd">public</span> <span class="no">V</span> <span class="nf">setValueAt</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="no">V</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 计算value索引</span>
+    <span class="n">index</span> <span class="o">=</span> <span class="o">(</span><span class="n">index</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">;</span>
+    <span class="c1">// 获取旧元素</span>
+    <span class="no">V</span> <span class="n">old</span> <span class="o">=</span> <span class="o">(</span><span class="no">V</span><span class="o">)</span><span class="n">mArray</span><span class="o">[</span><span class="n">index</span><span class="o">];</span>
+    <span class="c1">// 存入新元素</span>
+    <span class="n">mArray</span><span class="o">[</span><span class="n">index</span><span class="o">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">;</span>
+    <span class="c1">// 返回旧元素</span>
+    <span class="k">return</span> <span class="n">old</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 检查数组是否为空</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">isEmpty</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mSize</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 向ArrayMap中存入新的&lt;Key, value&gt;，如果key有对应旧value，则旧value会被替换</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="no">V</span> <span class="nf">put</span><span class="o">(</span><span class="no">K</span> <span class="n">key</span><span class="o">,</span> <span class="no">V</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 原数组元素数量</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">osize</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">;</span>
+    <span class="c1">// 根据变量key算出来的哈希值</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">hash</span><span class="o">;</span>
+    <span class="c1">// 索引值</span>
+    <span class="kt">int</span> <span class="n">index</span><span class="o">;</span>
+    <span class="c1">// key为空则搜索值为空的索引</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">key</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">hash</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">indexOfNull</span><span class="o">();</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 通过key计算hash</span>
+        <span class="n">hash</span> <span class="o">=</span> <span class="n">mIdentityHashCode</span> <span class="o">?</span> <span class="nc">System</span><span class="o">.</span><span class="na">identityHashCode</span><span class="o">(</span><span class="n">key</span><span class="o">)</span> <span class="o">:</span> <span class="n">key</span><span class="o">.</span><span class="na">hashCode</span><span class="o">();</span>
+        <span class="c1">// key和hash查找索引</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="n">indexOf</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">hash</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 已有key在mArray数组的索引</span>
+        <span class="n">index</span> <span class="o">=</span> <span class="o">(</span><span class="n">index</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">;</span>
+        <span class="c1">// 取出旧值</span>
+        <span class="kd">final</span> <span class="no">V</span> <span class="n">old</span> <span class="o">=</span> <span class="o">(</span><span class="no">V</span><span class="o">)</span><span class="n">mArray</span><span class="o">[</span><span class="n">index</span><span class="o">];</span>
+        <span class="c1">// 数组相同位置存入新值</span>
+        <span class="n">mArray</span><span class="o">[</span><span class="n">index</span><span class="o">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">;</span>
+        <span class="c1">// 返回旧值</span>
+        <span class="k">return</span> <span class="n">old</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="n">index</span> <span class="o">=</span> <span class="o">~</span><span class="n">index</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">osize</span> <span class="o">&gt;=</span> <span class="n">mHashes</span><span class="o">.</span><span class="na">length</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 计算n值：</span>
+        <span class="c1">//   1. osize &lt; BASE_SIZE   返回 BASE_SIZE</span>
+        <span class="c1">//   2. BASE_SIZE &lt;= osize &lt; BASE_SIZE*2 返回 BASE_SIZE*2</span>
+        <span class="c1">//   3. BASE_SIZE*2 &lt;= osize               返回 osize+(osize&gt;&gt;1)</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="n">osize</span> <span class="o">&gt;=</span> <span class="o">(</span><span class="no">BASE_SIZE</span><span class="o">*</span><span class="mi">2</span><span class="o">)</span> <span class="o">?</span> <span class="o">(</span><span class="n">osize</span><span class="o">+(</span><span class="n">osize</span><span class="o">&gt;&gt;</span><span class="mi">1</span><span class="o">))</span>
+                <span class="o">:</span> <span class="o">(</span><span class="n">osize</span> <span class="o">&gt;=</span> <span class="no">BASE_SIZE</span> <span class="o">?</span> <span class="o">(</span><span class="no">BASE_SIZE</span><span class="o">*</span><span class="mi">2</span><span class="o">)</span> <span class="o">:</span> <span class="no">BASE_SIZE</span><span class="o">);</span>
+
+        <span class="kd">final</span> <span class="kt">int</span><span class="o">[]</span> <span class="n">ohashes</span> <span class="o">=</span> <span class="n">mHashes</span><span class="o">;</span>
+        <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">oarray</span> <span class="o">=</span> <span class="n">mArray</span><span class="o">;</span>
+        <span class="n">allocArrays</span><span class="o">(</span><span class="n">n</span><span class="o">);</span>
+
+        <span class="c1">// 检查是否存在并发修改</span>
+        <span class="k">if</span> <span class="o">(</span><span class="no">CONCURRENT_MODIFICATION_EXCEPTIONS</span> <span class="o">&amp;&amp;</span> <span class="n">osize</span> <span class="o">!=</span> <span class="n">mSize</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+        <span class="o">}</span>
+        
+        <span class="c1">// ohashes元素全部复制到mHashes</span>
+        <span class="c1">// oarray元素全部复制到mArray</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mHashes</span><span class="o">.</span><span class="na">length</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">ohashes</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mHashes</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">ohashes</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">oarray</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mArray</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">oarray</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+        <span class="o">}</span>
+        
+        <span class="c1">// 释放ohashes和oarray的空间</span>
+        <span class="n">freeArrays</span><span class="o">(</span><span class="n">ohashes</span><span class="o">,</span> <span class="n">oarray</span><span class="o">,</span> <span class="n">osize</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 原有元素为新key-value腾出空位</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&lt;</span> <span class="n">osize</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">mHashes</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">mHashes</span><span class="o">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">,</span> <span class="n">osize</span> <span class="o">-</span> <span class="n">index</span><span class="o">);</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">mArray</span><span class="o">,</span> <span class="n">index</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">,</span> <span class="n">mArray</span><span class="o">,</span> <span class="o">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">,</span> <span class="o">(</span><span class="n">mSize</span> <span class="o">-</span> <span class="n">index</span><span class="o">)</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 检查是否存在并发修改</span>
+    <span class="k">if</span> <span class="o">(</span><span class="no">CONCURRENT_MODIFICATION_EXCEPTIONS</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">osize</span> <span class="o">!=</span> <span class="n">mSize</span> <span class="o">||</span> <span class="n">index</span> <span class="o">&gt;=</span> <span class="n">mHashes</span><span class="o">.</span><span class="na">length</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 数组已创建完毕，且原有元素位置都移动好，则在指定位置放入新key-value</span>
+    <span class="n">mHashes</span><span class="o">[</span><span class="n">index</span><span class="o">]</span> <span class="o">=</span> <span class="n">hash</span><span class="o">;</span>
+    <span class="n">mArray</span><span class="o">[</span><span class="n">index</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="n">key</span><span class="o">;</span>
+    <span class="n">mArray</span><span class="o">[(</span><span class="n">index</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">)+</span><span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">;</span>
+
+    <span class="c1">// 以保存元素数量递增</span>
+    <span class="n">mSize</span><span class="o">++;</span>
+    <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 不验证数组是否有足够空间即插入key-value</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">append</span><span class="o">(</span><span class="no">K</span> <span class="n">key</span><span class="o">,</span> <span class="no">V</span> <span class="n">value</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kt">int</span> <span class="n">index</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">;</span>
+    <span class="c1">// kay的hash</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">hash</span> <span class="o">=</span> <span class="n">key</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">?</span> <span class="mi">0</span>
+            <span class="o">:</span> <span class="o">(</span><span class="n">mIdentityHashCode</span> <span class="o">?</span> <span class="nc">System</span><span class="o">.</span><span class="na">identityHashCode</span><span class="o">(</span><span class="n">key</span><span class="o">)</span> <span class="o">:</span> <span class="n">key</span><span class="o">.</span><span class="na">hashCode</span><span class="o">());</span>
+    
+    <span class="c1">// 空间不足直接抛出异常</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;=</span> <span class="n">mHashes</span><span class="o">.</span><span class="na">length</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span><span class="s">"Array is full"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">mHashes</span><span class="o">[</span><span class="n">index</span><span class="o">-</span><span class="mi">1</span><span class="o">]</span> <span class="o">&gt;</span> <span class="n">hash</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">RuntimeException</span> <span class="n">e</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">RuntimeException</span><span class="o">(</span><span class="s">"here"</span><span class="o">);</span>
+        <span class="n">e</span><span class="o">.</span><span class="na">fillInStackTrace</span><span class="o">();</span>
+        <span class="n">put</span><span class="o">(</span><span class="n">key</span><span class="o">,</span> <span class="n">value</span><span class="o">);</span>
+        <span class="k">return</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 空间足够，正常插入key-value</span>
+    <span class="n">mSize</span> <span class="o">=</span> <span class="n">index</span><span class="o">+</span><span class="mi">1</span><span class="o">;</span>
+    <span class="c1">// 存入哈希值</span>
+    <span class="n">mHashes</span><span class="o">[</span><span class="n">index</span><span class="o">]</span> <span class="o">=</span> <span class="n">hash</span><span class="o">;</span>
+    <span class="n">index</span> <span class="o">&lt;&lt;=</span> <span class="mi">1</span><span class="o">;</span>
+    <span class="c1">// 存入key-value</span>
+    <span class="n">mArray</span><span class="o">[</span><span class="n">index</span><span class="o">]</span> <span class="o">=</span> <span class="n">key</span><span class="o">;</span>
+    <span class="n">mArray</span><span class="o">[</span><span class="n">index</span><span class="o">+</span><span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="n">value</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 使用append()会导致array maps失效，尤其是同一个key出现了多次</span>
+<span class="c1">// 此方法验证array map是有效的，并在出现问题时抛出IllegalArgumentException</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">validate</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="no">N</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">;</span>
+    <span class="c1">// 最多一个键值对的话，不可能存在重复，直接退出</span>
+    <span class="k">if</span> <span class="o">(</span><span class="no">N</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="kt">int</span> <span class="n">basehash</span> <span class="o">=</span> <span class="n">mHashes</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span> <span class="c1">// 初始index为0</span>
+    <span class="kt">int</span> <span class="n">basei</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+
+    <span class="c1">// 先通过检查所有哈希值，看是否重复，如果哈希值不重复就算验证通过</span>
+    <span class="c1">// 初始i为1，和index为0的哈希进行对比</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="mi">1</span><span class="o">;</span> <span class="n">i</span><span class="o">&lt;</span><span class="no">N</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+        <span class="kt">int</span> <span class="n">hash</span> <span class="o">=</span> <span class="n">mHashes</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">hash</span> <span class="o">!=</span> <span class="n">basehash</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">basehash</span> <span class="o">=</span> <span class="n">hash</span><span class="o">;</span>
+            <span class="n">basei</span> <span class="o">=</span> <span class="n">i</span><span class="o">;</span>
+            <span class="k">continue</span><span class="o">;</span>
+        <span class="o">}</span>
+
+        <span class="c1">// 存在哈希值相同，向前检查看key是否出现重复</span>
+        <span class="kd">final</span> <span class="nc">Object</span> <span class="n">cur</span> <span class="o">=</span> <span class="n">mArray</span><span class="o">[</span><span class="n">i</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">];</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">j</span><span class="o">=</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="o">;</span> <span class="n">j</span><span class="o">&gt;=</span><span class="n">basei</span><span class="o">;</span> <span class="n">j</span><span class="o">--)</span> <span class="o">{</span>
+            <span class="kd">final</span> <span class="nc">Object</span> <span class="n">prev</span> <span class="o">=</span> <span class="n">mArray</span><span class="o">[</span><span class="n">j</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">];</span>
+            <span class="c1">// 出现相同key</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">cur</span> <span class="o">==</span> <span class="n">prev</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">(</span><span class="s">"Duplicate key in ArrayMap: "</span> <span class="o">+</span> <span class="n">cur</span><span class="o">);</span>
+            <span class="o">}</span>
+            
+            <span class="c1">// 出现相同key</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">cur</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">prev</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">cur</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">prev</span><span class="o">))</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalArgumentException</span><span class="o">(</span><span class="s">"Duplicate key in ArrayMap: "</span> <span class="o">+</span> <span class="n">cur</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 把array变量中的所有键值对存入实例中</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">putAll</span><span class="o">(</span><span class="nc">ArrayMap</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="no">K</span><span class="o">,</span> <span class="o">?</span> <span class="kd">extends</span> <span class="no">V</span><span class="o">&gt;</span> <span class="n">array</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 获取当前实例array长度</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="no">N</span> <span class="o">=</span> <span class="n">array</span><span class="o">.</span><span class="na">mSize</span><span class="o">;</span>
+    <span class="c1">// 确保当前ArrayMap有足够空间保存array的所有元素</span>
+    <span class="n">ensureCapacity</span><span class="o">(</span><span class="n">mSize</span> <span class="o">+</span> <span class="no">N</span><span class="o">);</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">mSize</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 原ArrayMap没有元素，批量插入所有新元素</span>
+        <span class="k">if</span> <span class="o">(</span><span class="no">N</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">array</span><span class="o">.</span><span class="na">mHashes</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mHashes</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="no">N</span><span class="o">);</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">array</span><span class="o">.</span><span class="na">mArray</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mArray</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="no">N</span><span class="o">&lt;&lt;</span><span class="mi">1</span><span class="o">);</span>
+            <span class="n">mSize</span> <span class="o">=</span> <span class="no">N</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 原ArrayMap有元素，逐个插入新元素</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="o">;</span> <span class="n">i</span><span class="o">&lt;</span><span class="no">N</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+            <span class="n">put</span><span class="o">(</span><span class="n">array</span><span class="o">.</span><span class="na">keyAt</span><span class="o">(</span><span class="n">i</span><span class="o">),</span> <span class="n">array</span><span class="o">.</span><span class="na">valueAt</span><span class="o">(</span><span class="n">i</span><span class="o">));</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 从ArrayMap中移除该key和对应value</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="no">V</span> <span class="nf">remove</span><span class="o">(</span><span class="nc">Object</span> <span class="n">key</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 根据key查找对应索引</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">index</span> <span class="o">=</span> <span class="n">indexOfKey</span><span class="o">(</span><span class="n">key</span><span class="o">);</span>
+
+    <span class="c1">// 索引值大于0表示key存在</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 移除该key</span>
+        <span class="k">return</span> <span class="nf">removeAt</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// key没有找到，返回null</span>
+    <span class="k">return</span> <span class="kc">null</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 根据给定的index移除目标键值对，方法结果返回键值对的值</span>
+<span class="kd">public</span> <span class="no">V</span> <span class="nf">removeAt</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 旧value的值old</span>
+    <span class="kd">final</span> <span class="nc">Object</span> <span class="n">old</span> <span class="o">=</span> <span class="n">mArray</span><span class="o">[(</span><span class="n">index</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">];</span>
+    <span class="c1">// 原ArrayMap元素数量</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">osize</span> <span class="o">=</span> <span class="n">mSize</span><span class="o">;</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">nsize</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">osize</span> <span class="o">&lt;=</span> <span class="mi">1</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">freeArrays</span><span class="o">(</span><span class="n">mHashes</span><span class="o">,</span> <span class="n">mArray</span><span class="o">,</span> <span class="n">osize</span><span class="o">);</span>
+        <span class="n">mHashes</span> <span class="o">=</span> <span class="nc">EmptyArray</span><span class="o">.</span><span class="na">INT</span><span class="o">;</span>
+        <span class="n">mArray</span> <span class="o">=</span> <span class="nc">EmptyArray</span><span class="o">.</span><span class="na">OBJECT</span><span class="o">;</span>
+        <span class="n">nsize</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="n">nsize</span> <span class="o">=</span> <span class="n">osize</span> <span class="o">-</span> <span class="mi">1</span><span class="o">;</span>
+        <span class="c1">// mHashes.length &gt; 8 &amp;&amp; mSize &lt; mHashes.length/3</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mHashes</span><span class="o">.</span><span class="na">length</span> <span class="o">&gt;</span> <span class="o">(</span><span class="no">BASE_SIZE</span><span class="o">*</span><span class="mi">2</span><span class="o">)</span> <span class="o">&amp;&amp;</span> <span class="n">mSize</span> <span class="o">&lt;</span> <span class="n">mHashes</span><span class="o">.</span><span class="na">length</span><span class="o">/</span><span class="mi">3</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 缩小数组的空间，并且大小不低于BASE_SIZE*2</span>
+            <span class="kd">final</span> <span class="kt">int</span> <span class="n">n</span> <span class="o">=</span> <span class="n">osize</span> <span class="o">&gt;</span> <span class="o">(</span><span class="no">BASE_SIZE</span><span class="o">*</span><span class="mi">2</span><span class="o">)</span> <span class="o">?</span> <span class="o">(</span><span class="n">osize</span> <span class="o">+</span> <span class="o">(</span><span class="n">osize</span><span class="o">&gt;&gt;</span><span class="mi">1</span><span class="o">))</span> <span class="o">:</span> <span class="o">(</span><span class="no">BASE_SIZE</span><span class="o">*</span><span class="mi">2</span><span class="o">);</span>
+            <span class="kd">final</span> <span class="kt">int</span><span class="o">[]</span> <span class="n">ohashes</span> <span class="o">=</span> <span class="n">mHashes</span><span class="o">;</span>
+            <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">oarray</span> <span class="o">=</span> <span class="n">mArray</span><span class="o">;</span>
+            <span class="n">allocArrays</span><span class="o">(</span><span class="n">n</span><span class="o">);</span>
+            
+            <span class="c1">// 出现并发修改，抛出异常</span>
+            <span class="k">if</span> <span class="o">(</span><span class="no">CONCURRENT_MODIFICATION_EXCEPTIONS</span> <span class="o">&amp;&amp;</span> <span class="n">osize</span> <span class="o">!=</span> <span class="n">mSize</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+            <span class="o">}</span>
+            
+            <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 从ohashes拷贝[0, index)到mHashes</span>
+                <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">ohashes</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mHashes</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">index</span><span class="o">);</span>
+                <span class="c1">// 从oarray拷贝[0，index &lt;&lt; 1)到mArray</span>
+                <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">oarray</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">mArray</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">index</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">);</span>
+            <span class="o">}</span>
+
+            <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&lt;</span> <span class="n">nsize</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 从ohashes拷贝剩余items到mHashes</span>
+                <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">ohashes</span><span class="o">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">,</span> <span class="n">mHashes</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">nsize</span> <span class="o">-</span> <span class="n">index</span><span class="o">);</span>
+                <span class="c1">// 从oarray拷贝剩余items到mArray</span>
+                <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">oarray</span><span class="o">,</span> <span class="o">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">,</span> <span class="n">mArray</span><span class="o">,</span> <span class="n">index</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">,</span>
+                        <span class="o">(</span><span class="n">nsize</span> <span class="o">-</span> <span class="n">index</span><span class="o">)</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&lt;</span> <span class="n">nsize</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// mHashes数组，index后的hash逐个前移一位</span>
+                <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">mHashes</span><span class="o">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">,</span> <span class="n">mHashes</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">nsize</span> <span class="o">-</span> <span class="n">index</span><span class="o">);</span>
+                <span class="c1">// mArray数组，(index + 1) &lt;&lt; 1后的元素前移</span>
+                <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">mArray</span><span class="o">,</span> <span class="o">(</span><span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">)</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">,</span> <span class="n">mArray</span><span class="o">,</span> <span class="n">index</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">,</span>
+                        <span class="o">(</span><span class="n">nsize</span> <span class="o">-</span> <span class="n">index</span><span class="o">)</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="c1">// mArray最后两个空间置空 </span>
+            <span class="n">mArray</span><span class="o">[</span><span class="n">nsize</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="n">mArray</span><span class="o">[(</span><span class="n">nsize</span> <span class="o">&lt;&lt;</span> <span class="mi">1</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="c1">// 检查是否存在并发修改</span>
+    <span class="k">if</span> <span class="o">(</span><span class="no">CONCURRENT_MODIFICATION_EXCEPTIONS</span> <span class="o">&amp;&amp;</span> <span class="n">osize</span> <span class="o">!=</span> <span class="n">mSize</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+    <span class="o">}</span>
+    <span class="n">mSize</span> <span class="o">=</span> <span class="n">nsize</span><span class="o">;</span>
+    <span class="k">return</span> <span class="o">(</span><span class="no">V</span><span class="o">)</span><span class="n">old</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 返回ArrayMap保存键值对数量</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">size</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mSize</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 检查元素和本实例是否等同</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">equals</span><span class="o">(</span><span class="nc">Object</span> <span class="n">object</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 为同一个对象返回false</span>
+    <span class="k">if</span> <span class="o">(</span><span class="k">this</span> <span class="o">==</span> <span class="n">object</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 先检查对象object是否为Map的子类，不是则无法进行比较，返回false</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">object</span> <span class="k">instanceof</span> <span class="nc">Map</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">Map</span><span class="o">&lt;?,</span> <span class="o">?&gt;</span> <span class="n">map</span> <span class="o">=</span> <span class="o">(</span><span class="nc">Map</span><span class="o">&lt;?,</span> <span class="o">?&gt;)</span> <span class="n">object</span><span class="o">;</span>
+        <span class="c1">// 先检查元素数量，以便快速确认失败并返回false</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">size</span><span class="o">()</span> <span class="o">!=</span> <span class="n">map</span><span class="o">.</span><span class="na">size</span><span class="o">())</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span>
+        
+        <span class="c1">// 类型一致且数量一样，需要逐个对比元素是否一样</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="mi">0</span><span class="o">;</span> <span class="n">i</span><span class="o">&lt;</span><span class="n">mSize</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+                <span class="no">K</span> <span class="n">key</span> <span class="o">=</span> <span class="n">keyAt</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+                <span class="no">V</span> <span class="n">mine</span> <span class="o">=</span> <span class="n">valueAt</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+                <span class="nc">Object</span> <span class="n">theirs</span> <span class="o">=</span> <span class="n">map</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">key</span><span class="o">);</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">mine</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="k">if</span> <span class="o">(</span><span class="n">theirs</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">||</span> <span class="o">!</span><span class="n">map</span><span class="o">.</span><span class="na">containsKey</span><span class="o">(</span><span class="n">key</span><span class="o">))</span> <span class="o">{</span>
+                        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+                    <span class="o">}</span>
+                <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(!</span><span class="n">mine</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">theirs</span><span class="o">))</span> <span class="o">{</span>
+                    <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">NullPointerException</span> <span class="n">ignored</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ClassCastException</span> <span class="n">ignored</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 比较过程中元素类型转换抛出异常，返回false</span>
+            <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="c1">// 两个map的元素完全相同，返回true</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="c1">// 两个map的元素不完全相同，返回false</span>
+    <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

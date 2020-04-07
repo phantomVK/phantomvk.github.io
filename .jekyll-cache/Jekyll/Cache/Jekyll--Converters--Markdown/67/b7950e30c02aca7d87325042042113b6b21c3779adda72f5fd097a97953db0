@@ -1,0 +1,60 @@
+I"�<h2 id="类定义">类定义</h2>
+
+<p>抽象类 <strong>Number</strong> 代表所有能从 <strong>数值型</strong> 转换到 <strong>基本类型</strong> 平台类的父类。这些基本类型包括 <strong>byte</strong>、<strong>double</strong>、<strong>float</strong>、<strong>int</strong>、<strong>long</strong>、<strong>short</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">abstract</span> <span class="kd">class</span> <span class="nc">Number</span> <span class="kd">implements</span> <span class="n">java</span><span class="o">.</span><span class="na">io</span><span class="o">.</span><span class="na">Serializable</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>从特定 <strong>Number</strong> 实现的数值型到给定基本类型转换的特定语义，由所定义的 <strong>Number</strong> 实现定义。例如 <strong>Double</strong> 是 <strong>Number</strong> 的子类，转换到基本类型由 <strong>Double</strong> 的实现决定。</p>
+
+<p>对于平台类来说，转换行为类似基本类型向下转换，或类似由 <strong>The Java™ Language Specification</strong> 定义的对基本类型之间范围扩大转换。因此，转换可能会丢失有关数值总大小的信息、失去原有精度，或返回不同于输入值正负号的结果。源码来自 <strong>JDK11</strong>。</p>
+
+<h2 id="方法">方法</h2>
+
+<p>此抽象类共定义了 <strong>4个抽象方法</strong> 和 <strong>2个成员方法</strong>。这些抽象方法，需要由 <strong>Number</strong> 的子类实现，例如 <strong>Double</strong>、<strong>Float</strong> 等。通过这些方法，可按照指定基本类型获取值，但是获取值和实际值相比可能会丢失数值原有精度。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+</pre></td><td class="rouge-code"><pre><span class="c1">// 把指定数值按照int基本类型返回</span>
+<span class="kd">public</span> <span class="kd">abstract</span> <span class="kt">int</span> <span class="nf">intValue</span><span class="o">();</span>
+
+<span class="c1">// 把指定数值按照long基本类型返回</span>
+<span class="kd">public</span> <span class="kd">abstract</span> <span class="kt">long</span> <span class="nf">longValue</span><span class="o">();</span>
+
+<span class="c1">// 把指定数值按照float基本类型返回</span>
+<span class="kd">public</span> <span class="kd">abstract</span> <span class="kt">float</span> <span class="nf">floatValue</span><span class="o">();</span>
+
+<span class="c1">// 把指定数值按照double基本类型返回</span>
+<span class="kd">public</span> <span class="kd">abstract</span> <span class="kt">double</span> <span class="nf">doubleValue</span><span class="o">();</span>
+
+<span class="c1">// 把指定数值按照byte基本类型返回</span>
+<span class="kd">public</span> <span class="kt">byte</span> <span class="nf">byteValue</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="o">(</span><span class="kt">byte</span><span class="o">)</span><span class="n">intValue</span><span class="o">();</span>
+<span class="o">}</span>
+
+<span class="c1">// 把指定数值按照short基本类型返回</span>
+<span class="kd">public</span> <span class="kt">short</span> <span class="nf">shortValue</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="o">(</span><span class="kt">short</span><span class="o">)</span><span class="n">intValue</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

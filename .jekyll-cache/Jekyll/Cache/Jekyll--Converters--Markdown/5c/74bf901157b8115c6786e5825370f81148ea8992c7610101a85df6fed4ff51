@@ -1,0 +1,168 @@
+I"C#<p>设备：<strong>Samsung Galaxy S4</strong>
+系统：<strong>Android 5.0.1</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">MainActivity</span> <span class="o">:</span> <span class="nc">AppCompatActivity</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onCreate</span><span class="o">(</span><span class="nl">savedInstanceState:</span> <span class="nc">Bundle</span><span class="o">?)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onCreate</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">)</span>
+        <span class="n">setContentView</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">activity_main</span><span class="o">)</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"MainActivity"</span><span class="o">,</span> <span class="s">"onCreate"</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onStart</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onStart</span><span class="o">()</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"MainActivity"</span><span class="o">,</span> <span class="s">"onStart"</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onRestoreInstanceState</span><span class="o">(</span><span class="nl">savedInstanceState:</span> <span class="nc">Bundle</span><span class="o">?)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onRestoreInstanceState</span><span class="o">(</span><span class="n">savedInstanceState</span><span class="o">)</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"MainActivity"</span><span class="o">,</span> <span class="s">"onRestoreInstanceState"</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onResume</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onResume</span><span class="o">()</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"MainActivity"</span><span class="o">,</span> <span class="s">"onResume"</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onPause</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onPause</span><span class="o">()</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"MainActivity"</span><span class="o">,</span> <span class="s">"onPause"</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onSaveInstanceState</span><span class="o">(</span><span class="nl">outState:</span> <span class="nc">Bundle</span><span class="o">?)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onSaveInstanceState</span><span class="o">(</span><span class="n">outState</span><span class="o">)</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"MainActivity"</span><span class="o">,</span> <span class="s">"onSaveInstanceState"</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onStop</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onStop</span><span class="o">()</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"MainActivity"</span><span class="o">,</span> <span class="s">"onStop"</span><span class="o">)</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onDestroy</span><span class="o">()</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">onDestroy</span><span class="o">()</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="s">"MainActivity"</span><span class="o">,</span> <span class="s">"onDestroy"</span><span class="o">)</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>启动进入前台</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre>com.phantomvk.playground I/MainActivity: onCreate
+com.phantomvk.playground I/MainActivity: onStart
+com.phantomvk.playground I/MainActivity: onResume
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>按Home键</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre>com.phantomvk.playground I/MainActivity: onPause
+com.phantomvk.playground I/MainActivity: onSaveInstanceState
+com.phantomvk.playground I/MainActivity: onStop
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>点击图标回到前台</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre>com.phantomvk.playground I/MainActivity: onStart
+com.phantomvk.playground I/MainActivity: onResume
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>竖屏切换到横屏、横屏回到竖屏</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre>com.phantomvk.playground I/MainActivity: onPause
+com.phantomvk.playground I/MainActivity: onSaveInstanceState
+com.phantomvk.playground I/MainActivity: onStop
+com.phantomvk.playground I/MainActivity: onDestroy
+
+com.phantomvk.playground I/MainActivity: onCreate
+com.phantomvk.playground I/MainActivity: onStart
+com.phantomvk.playground I/MainActivity: onRestoreInstanceState
+com.phantomvk.playground I/MainActivity: onResume
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>前台点击返回键</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre>com.phantomvk.playground I/MainActivity: onPause
+com.phantomvk.playground I/MainActivity: onStop
+com.phantomvk.playground I/MainActivity: onDestroy
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>电源键关闭屏幕</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre>com.phantomvk.playground I/MainActivity: onPause
+com.phantomvk.playground I/MainActivity: onSaveInstanceState
+com.phantomvk.playground I/MainActivity: onStop
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>电源键解锁回到前台</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre>com.phantomvk.playground I/MainActivity: onStart
+com.phantomvk.playground I/MainActivity: onResume
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

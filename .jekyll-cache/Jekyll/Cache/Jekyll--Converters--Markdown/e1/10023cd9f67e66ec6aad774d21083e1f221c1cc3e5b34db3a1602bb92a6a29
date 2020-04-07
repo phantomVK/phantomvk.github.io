@@ -1,0 +1,993 @@
+I"�<h2 id="一类签名">一、类签名</h2>
+
+<h4 id="11-作用">1.1 作用</h4>
+
+<p><strong>AsyncTask</strong> 令主线程的正确使用变得简单。无需维护线程或 <strong>Handler</strong> ，即能让任务在后台线程运算，并把结果提交到主线程。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">abstract</span> <span class="kd">class</span> <span class="nc">AsyncTask</span><span class="o">&lt;</span><span class="nc">Params</span><span class="o">,</span> <span class="nc">Progress</span><span class="o">,</span> <span class="nc">Result</span><span class="o">&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>AsyncTask</strong> 设计为围绕着 <strong>Thread</strong> 和 <strong>Handler</strong>，且无需构造普通线程框架的帮助类。适合执行(最多运算几秒的)短任务。具体用法可参考作者的实例工程：<a href="https://github.com/phantomVK/QRCode/blob/1c490510255b7a80290067b8a1e7ee190611507a/app/src/main/java/com/phantomvk/qrcode/zxingdemo/GeneratorActivity.kt#L59">GeneratorActivity.kt</a>。</p>
+
+<p>如果任务导致线程长时间执行，强烈建议用由 <strong>java.util.concurrent</strong> 包下 <strong>Executor</strong>、<strong>ThreadPoolExecutor</strong> 和 <strong>FutureTask</strong> 提供的APIs。</p>
+
+<h4 id="12-组成">1.2 组成</h4>
+
+<p>工作任务通过后台线程执行，结果最后发布到主线程。异步任务构成：</p>
+
+<ul>
+  <li>3个泛型： <strong>Params</strong>、 <strong>Progress</strong>、 <strong>Result</strong></li>
+  <li>4个步骤： <strong>onPreExecute</strong>、 <strong>doInBackground</strong>、 <strong>onProgressUpdate</strong>、 <strong>onPostExecute</strong></li>
+</ul>
+
+<p><strong>AsyncTask</strong> 由子类继承并重写方法 <strong>doInBackground()</strong>，通常也重写方法 <strong>onPostExecute()</strong>。</p>
+
+<p>用法示例：任务执行参数为URL，进度值类型为Integer，执行结果类型为Long</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">class</span> <span class="nc">DownloadFilesTask</span> <span class="kd">extends</span> <span class="nf">AsyncTask</span><span class="o">(</span><span class="no">URL</span><span class="o">,</span> <span class="nc">Integer</span><span class="o">,</span> <span class="nc">Long</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="nc">Long</span> <span class="nf">doInBackground</span><span class="o">(</span><span class="no">URL</span><span class="o">...</span> <span class="n">urls</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kt">int</span> <span class="n">count</span> <span class="o">=</span> <span class="n">urls</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="kt">long</span> <span class="n">totalSize</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">count</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+            <span class="n">totalSize</span> <span class="o">+=</span> <span class="nc">Downloader</span><span class="o">.</span><span class="na">downloadFile</span><span class="o">(</span><span class="n">urls</span><span class="o">[</span><span class="n">i</span><span class="o">]);</span>
+            <span class="c1">// 把下载进度传递到主线程更新UI</span>
+            <span class="n">publishProgress</span><span class="o">((</span><span class="kt">int</span><span class="o">)</span> <span class="o">((</span><span class="n">i</span> <span class="o">/</span> <span class="o">(</span><span class="kt">float</span><span class="o">)</span> <span class="n">count</span><span class="o">)</span> <span class="o">*</span> <span class="mi">100</span><span class="o">));</span>
+            <span class="c1">// 通过isCancelled()判断任务是否被提前终止，尽快跳出本方法</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">isCancelled</span><span class="o">())</span> <span class="k">break</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">totalSize</span><span class="o">;</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 本方法在主线程调用</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onProgressUpdate</span><span class="o">(</span><span class="nc">Integer</span><span class="o">...</span> <span class="n">progress</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">setProgressPercent</span><span class="o">(</span><span class="n">progress</span><span class="o">[</span><span class="mi">0</span><span class="o">]);</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// 本方法在主线程调用</span>
+    <span class="nd">@Override</span>
+    <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onPostExecute</span><span class="o">(</span><span class="nc">Long</span> <span class="n">result</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">showDialog</span><span class="o">(</span><span class="s">"Downloaded "</span> <span class="o">+</span> <span class="n">result</span> <span class="o">+</span> <span class="s">" bytes"</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>用法：启动已创建的任务，用法非常简单:</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="k">new</span> <span class="nc">DownloadFilesTask</span><span class="o">().</span><span class="na">execute</span><span class="o">(</span><span class="n">url1</span><span class="o">,</span> <span class="n">url2</span><span class="o">,</span> <span class="n">url3</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="13-3个参数类型">1.3 3个参数类型</h4>
+
+<p>有以下三个被异步任务使用的参数：</p>
+<ul>
+  <li><strong>Params：</strong> 任务执行所需参数的类型；</li>
+  <li><strong>Progress：</strong> 任务在后台计算时进度单元的类型，如Integer；</li>
+  <li><strong>Result：</strong> 后台计算结果返回类型；</li>
+</ul>
+
+<p>三个参数不需全部用上，不需要的用 <strong>Void</strong> 代替。例如：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">class</span> <span class="nc">MyTask</span> <span class="kd">extends</span> <span class="nc">AsyncTask</span><span class="o">&lt;</span><span class="nc">Void</span><span class="o">,</span> <span class="nc">Void</span><span class="o">,</span> <span class="nc">Void</span><span class="o">&gt;</span> <span class="o">{</span> <span class="o">...</span> <span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="14-4个方法">1.4 4个方法</h4>
+
+<p>分别是 <strong>onPreExecute</strong>、 <strong>doInBackground</strong> 、 <strong>onProgressUpdate</strong>、 <strong>onPostExecute</strong></p>
+
+<p><img src="/img/android/images/AsyncTask_Execution.png" alt="AsyncTask_Execution" /></p>
+
+<ol>
+  <li><strong>onPreExecute</strong> 在任务执行前于主线程调用，起配置任务的作用：如在界面上弹出进度条；</li>
+  <li>随后在后台线程调用 <strong>doInBackground</strong>：
+    <ul>
+      <li>本步骤执行时间长的计算任务，参数在此步骤传递给异步任务；</li>
+      <li>计算完成后结果也在从这里返给上游；</li>
+      <li>子线程计算过程中，可通过 <strong>publishProgress</strong> 提交进度值到主线程；</li>
+    </ul>
+  </li>
+  <li>子线程执行 <strong>publishProgress</strong> 触发主线程调用 <strong>onProgressUpdate</strong>，向界面传送进度；</li>
+  <li>后台线程执行完毕，计算结果作为参数在主线程传给方法 <strong>onPostExecute</strong> ；</li>
+</ol>
+
+<h4 id="15-取消任务">1.5 取消任务</h4>
+
+<p>任何时候都可通过 <strong>cancel(boolean)</strong> 取消任务，方法会继续调起 <strong>isCancelled()</strong> 并返回 <strong>true</strong>。</p>
+
+<p>调用 <strong>cancel(boolean)</strong> 后，<strong>doInBackground(Object[])</strong> 返回后的下一个执行方法是 <strong>onCancelled(Object)</strong>，而不是 <strong>onPostExecute(Object)</strong> 。(参考<a href="/2018/10/21/AsyncTask/#14-4个方法">小节1.4</a>示意图)</p>
+
+<p>为保证任务能及时取消，需周期性地在 <strong>doInBackground(Object[])</strong> 中检查 <strong>isCancelled()</strong> 方法的返回值。(参考<a href="/2018/10/21/AsyncTask/#12-组成">小节1.2</a>示例代码)</p>
+
+<h4 id="16-线程规则">1.6 线程规则</h4>
+
+<p>为保证类正常运行，有些线程规则需要遵守：</p>
+
+<ul>
+  <li><strong>AsyncTask</strong> 必须在主线程载入。<strong>VERSION_CODES.JELLY_BEAN</strong> 中此过程自动完成；</li>
+  <li>任务实例必须在主线程中创建；</li>
+  <li><strong>execute</strong> 方法必须在主线程调用；</li>
+  <li>不得手动调用 <strong>onPreExecute()</strong> 、<strong>onPostExecute()</strong>、 <strong>doInBackground()</strong>、 <strong>onProgressUpdate()</strong> ；</li>
+  <li>每个任务仅能执行一次，任务重复启动会抛出异常；</li>
+</ul>
+
+<h4 id="17-内存可观察能力">1.7 内存可观察能力</h4>
+
+<p><strong>AsyncTask</strong> 保证所有回调通过以下安全、不需显式同步的方式调用：</p>
+
+<ul>
+  <li>在 <strong>构造方法</strong> 或 <strong>onPreExecute</strong> 设置成员变量，在 <strong>doInBackground</strong> 引用；</li>
+  <li>在 <strong>doInBackground</strong> 设置成员变量，在 <strong>onProgressUpdate</strong> 、<strong>onPostExecute</strong> 引用；</li>
+</ul>
+
+<h4 id="18-执行的顺序">1.8 执行的顺序</h4>
+
+<p>历史实现：</p>
+
+<ul>
+  <li>
+    <p>首次发布的 <strong>AsyncTasks</strong> 类，任务在后台线程中串行执行；</p>
+  </li>
+  <li>
+    <p>从 <strong>VERSION_CODES.DONUT</strong> 开始改为线程池，并在多线程并行执行；</p>
+  </li>
+  <li>
+    <p>为避免并行计算导致错误，从 <strong>VERSION_CODES.HONEYCOMB</strong> 始任务回到单线程执行；</p>
+  </li>
+</ul>
+
+<p>需要并行执行任务可以通过 <strong>executeOnExecutor(java.util.concurrent.Executor, Object[])</strong> 达到使用 <strong>THREAD_POOL_EXECUTOR</strong> 的目的。并行线程池无法约束任务完成的先后顺序，所以任务之间不能有依赖关系。</p>
+
+<h4 id="19-关于系统版本">1.9 关于系统版本</h4>
+
+<p>本文源码来自 <strong>Android 28</strong> 。但不同历史版本源码实现方法差别非常大，也会出现不同结果。所以在实际运行过程中，务必关注运行时系统版本。</p>
+
+<h2 id="二常量">二、常量</h2>
+
+<h4 id="21-并行线程池">2.1 并行线程池</h4>
+
+<p>获取设备处理器核心数</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">CPU_COUNT</span> <span class="o">=</span> <span class="nc">Runtime</span><span class="o">.</span><span class="na">getRuntime</span><span class="o">().</span><span class="na">availableProcessors</span><span class="o">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>核心线程数</strong> 最少2个线程、最多4个线程。遵循此前提下，<strong>AsyncTask</strong> 倾向核心线程数比实际核心数少1个，避免完全占用处理器而影其他任务执行。计算 <strong>CORE_POOL_SIZE</strong> 方法：</p>
+
+<ul>
+  <li>1-3个物理核心：2个线程；</li>
+  <li>4个物理核心：3个线程；</li>
+  <li>5个及以上物理核心：4个线程；</li>
+</ul>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">CORE_POOL_SIZE</span> <span class="o">=</span> <span class="nc">Math</span><span class="o">.</span><span class="na">max</span><span class="o">(</span><span class="mi">2</span><span class="o">,</span> <span class="nc">Math</span><span class="o">.</span><span class="na">min</span><span class="o">(</span><span class="no">CPU_COUNT</span> <span class="o">-</span> <span class="mi">1</span><span class="o">,</span> <span class="mi">4</span><span class="o">));</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>线程池 <strong>最大线程数</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">MAXIMUM_POOL_SIZE</span> <span class="o">=</span> <span class="no">CPU_COUNT</span> <span class="o">*</span> <span class="mi">2</span> <span class="o">+</span> <span class="mi">1</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>非核心线程存活时间，单位为秒</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">KEEP_ALIVE_SECONDS</span> <span class="o">=</span> <span class="mi">30</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>线程工厂为并行任务构建新线程</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">ThreadFactory</span> <span class="n">sThreadFactory</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ThreadFactory</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">private</span> <span class="kd">final</span> <span class="nc">AtomicInteger</span> <span class="n">mCount</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicInteger</span><span class="o">(</span><span class="mi">1</span><span class="o">);</span> <span class="c1">// 原子整形，从1开始递增</span>
+
+    <span class="kd">public</span> <span class="nc">Thread</span> <span class="nf">newThread</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">r</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">Thread</span><span class="o">(</span><span class="n">r</span><span class="o">,</span> <span class="s">"AsyncTask #"</span> <span class="o">+</span> <span class="n">mCount</span><span class="o">.</span><span class="na">getAndIncrement</span><span class="o">());</span> <span class="c1">// 设置线程名称</span>
+    <span class="o">}</span>
+<span class="o">};</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>缓存任务的阻塞队列，长度128</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">BlockingQueue</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;</span> <span class="n">sPoolWorkQueue</span> <span class="o">=</span>
+        <span class="k">new</span> <span class="nc">LinkedBlockingQueue</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;(</span><span class="mi">128</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>并行任务Executor</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">Executor</span> <span class="no">THREAD_POOL_EXECUTOR</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>初始化并行线程池Executor</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="o">{</span>
+    <span class="nc">ThreadPoolExecutor</span> <span class="n">threadPoolExecutor</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ThreadPoolExecutor</span><span class="o">(</span>
+            <span class="no">CORE_POOL_SIZE</span><span class="o">,</span> <span class="no">MAXIMUM_POOL_SIZE</span><span class="o">,</span> <span class="no">KEEP_ALIVE_SECONDS</span><span class="o">,</span> <span class="nc">TimeUnit</span><span class="o">.</span><span class="na">SECONDS</span><span class="o">,</span>
+            <span class="n">sPoolWorkQueue</span><span class="o">,</span> <span class="n">sThreadFactory</span><span class="o">);</span>
+    <span class="n">threadPoolExecutor</span><span class="o">.</span><span class="na">allowCoreThreadTimeOut</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+    <span class="no">THREAD_POOL_EXECUTOR</span> <span class="o">=</span> <span class="n">threadPoolExecutor</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="22-串行线程池">2.2 串行线程池</h4>
+
+<p>同一进程共用一个Executor顺序执行任务</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">Executor</span> <span class="no">SERIAL_EXECUTOR</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">SerialExecutor</span><span class="o">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="23-消息类型">2.3 消息类型</h4>
+
+<p>消息类型为任务执行结果</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">MESSAGE_POST_RESULT</span> <span class="o">=</span> <span class="mh">0x1</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>消息类型为主线程进度通知</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">MESSAGE_POST_PROGRESS</span> <span class="o">=</span> <span class="mh">0x2</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三数据成员">三、数据成员</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td><td class="rouge-code"><pre><span class="c1">// 顺序任务执行的Executor</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">volatile</span> <span class="nc">Executor</span> <span class="n">sDefaultExecutor</span> <span class="o">=</span> <span class="no">SERIAL_EXECUTOR</span><span class="o">;</span>
+
+<span class="c1">// 保存InternalHandler，内部使用主线程Looper或自定义Looper</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="nc">InternalHandler</span> <span class="n">sHandler</span><span class="o">;</span>
+
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">WorkerRunnable</span><span class="o">&lt;</span><span class="nc">Params</span><span class="o">,</span> <span class="nc">Result</span><span class="o">&gt;</span> <span class="n">mWorker</span><span class="o">;</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">FutureTask</span><span class="o">&lt;</span><span class="nc">Result</span><span class="o">&gt;</span> <span class="n">mFuture</span><span class="o">;</span>
+
+<span class="c1">// 任务状态，任务构建后默认处于Status.PENDING</span>
+<span class="kd">private</span> <span class="kd">volatile</span> <span class="nc">Status</span> <span class="n">mStatus</span> <span class="o">=</span> <span class="nc">Status</span><span class="o">.</span><span class="na">PENDING</span><span class="o">;</span>
+
+<span class="c1">// 任务是否已被取消，注意类型是AtomicBoolean</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">AtomicBoolean</span> <span class="n">mCancelled</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicBoolean</span><span class="o">();</span>
+
+<span class="c1">// 任务是否已被触发，注意类型是AtomicBoolean</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">AtomicBoolean</span> <span class="n">mTaskInvoked</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">AtomicBoolean</span><span class="o">();</span>
+
+<span class="kd">private</span> <span class="kd">final</span> <span class="nc">Handler</span> <span class="n">mHandler</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>设置 <strong>sHandler</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td><td class="rouge-code"><pre><span class="c1">// 获取主线程Handler</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="nc">Handler</span> <span class="nf">getMainHandler</span><span class="o">()</span> <span class="o">{</span>
+    <span class="c1">// AsyncTask共用同一InternalHandler</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="nc">AsyncTask</span><span class="o">.</span><span class="na">class</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 初始化InternalHandler</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">sHandler</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 向InternalHandler传递主线程的Looper</span>
+            <span class="n">sHandler</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">InternalHandler</span><span class="o">(</span><span class="nc">Looper</span><span class="o">.</span><span class="na">getMainLooper</span><span class="o">());</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">sHandler</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>设置 <strong>sDefaultExecutor</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="c1">// 设置默认Executor</span>
+<span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">setDefaultExecutor</span><span class="o">(</span><span class="nc">Executor</span> <span class="n">exec</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">sDefaultExecutor</span> <span class="o">=</span> <span class="n">exec</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四serialexecutor">四、SerialExecutor</h2>
+
+<p>在方法 <strong>execute(final Runnable r)</strong> 中把新任务r包装到Runnable，达到完成执行任务r后调度下一个任务的目的。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">SerialExecutor</span> <span class="kd">implements</span> <span class="nc">Executor</span> <span class="o">{</span>
+    <span class="c1">// 存放Runnable的任务队列，ArrayDeque本身非线程安全</span>
+    <span class="kd">final</span> <span class="nc">ArrayDeque</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;</span> <span class="n">mTasks</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayDeque</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;();</span>
+
+    <span class="c1">// 当前正在执行的Runnable</span>
+    <span class="nc">Runnable</span> <span class="n">mActive</span><span class="o">;</span>
+
+    <span class="c1">// 方法使用synchronized修饰，保证mTasks操作线程安全插入新任务</span>
+    <span class="kd">public</span> <span class="kd">synchronized</span> <span class="kt">void</span> <span class="nf">execute</span><span class="o">(</span><span class="kd">final</span> <span class="nc">Runnable</span> <span class="n">r</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// Runnable封装到Runnable，实现上一个任务完成顺带启动下一个任务</span>
+        <span class="n">mTasks</span><span class="o">.</span><span class="na">offer</span><span class="o">(</span><span class="k">new</span> <span class="nc">Runnable</span><span class="o">()</span> <span class="o">{</span>
+            <span class="kd">public</span> <span class="kt">void</span> <span class="nf">run</span><span class="o">()</span> <span class="o">{</span>
+                <span class="k">try</span> <span class="o">{</span>
+                    <span class="n">r</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+                <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+                    <span class="c1">// 此任务运行完成后触发下一个任务执行</span>
+                    <span class="n">scheduleNext</span><span class="o">();</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">});</span>
+        
+        <span class="c1">// 线程池首次执行时mActive为空，在此开始调度第一个任务</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mActive</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">scheduleNext</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// SerialExecutor进程内只有一个实例</span>
+    <span class="c1">// 方法使用synchronized修饰，保证mTasks操作线程安全</span>
+    <span class="kd">protected</span> <span class="kd">synchronized</span> <span class="kt">void</span> <span class="nf">scheduleNext</span><span class="o">()</span> <span class="o">{</span>
+        <span class="c1">// 从任务队列获取下一任务</span>
+        <span class="k">if</span> <span class="o">((</span><span class="n">mActive</span> <span class="o">=</span> <span class="n">mTasks</span><span class="o">.</span><span class="na">poll</span><span class="o">())</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 向并行执行线程池添加任务</span>
+            <span class="no">THREAD_POOL_EXECUTOR</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="n">mActive</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>虽然任务在 <strong>THREAD_POOL_EXECUTOR</strong> 执行，但是都由 <strong>SERIAL_EXECUTOR</strong> 调度。从上一个完成任务调用 <strong>scheduleNext()</strong> 唤醒下一个任务。</p>
+
+<p>除非主动把任务添加到 <strong>并行线程池</strong>，否则每次只有一个任务在 <strong>并行线程池</strong> 内执行。</p>
+
+<h2 id="五状态枚举">五、状态枚举</h2>
+
+<p>任务状态枚举，表示任务当前运行时状态</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">enum</span> <span class="nc">Status</span> <span class="o">{</span>
+    <span class="no">PENDING</span><span class="o">,</span> <span class="c1">// 任务尚未执行，正在排队等待</span>
+    <span class="no">RUNNING</span><span class="o">,</span> <span class="c1">// 任务正在执行标志</span>
+    <span class="no">FINISHED</span><span class="o">,</span> <span class="c1">// 任务执行完毕：先调用onPostExecute()，再把状态置为此值</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>所有任务按照此生命周期单向前进，每个状态只允许设置一次。</p>
+
+<p><img src="/img/android/images/AsyncTask_Status.png" alt="AsyncTask_Status" /></p>
+
+<h2 id="六构造方法">六、构造方法</h2>
+
+<p>构建新异步任务，所有构造方法必须在主线程调用</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nf">AsyncTask</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">((</span><span class="nc">Looper</span><span class="o">)</span> <span class="kc">null</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>通过指定Handler构建实例</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nf">AsyncTask</span><span class="o">(</span><span class="nd">@Nullable</span> <span class="nc">Handler</span> <span class="n">handler</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="n">handler</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">?</span> <span class="n">handler</span><span class="o">.</span><span class="na">getLooper</span><span class="o">()</span> <span class="o">:</span> <span class="kc">null</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+<p>若没有传入其他Looper，构造方法会主动获取主线程Looper并创建Handler</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nf">AsyncTask</span><span class="o">(</span><span class="nd">@Nullable</span> <span class="nc">Looper</span> <span class="n">callbackLooper</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mHandler</span> <span class="o">=</span> <span class="n">callbackLooper</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">||</span> <span class="n">callbackLooper</span> <span class="o">==</span> <span class="nc">Looper</span><span class="o">.</span><span class="na">getMainLooper</span><span class="o">()</span>
+        <span class="o">?</span> <span class="n">getMainHandler</span><span class="o">()</span>
+        <span class="o">:</span> <span class="k">new</span> <span class="nc">Handler</span><span class="o">(</span><span class="n">callbackLooper</span><span class="o">);</span>
+
+    <span class="c1">// 构建WorkerRunnable</span>
+    <span class="n">mWorker</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">WorkerRunnable</span><span class="o">&lt;</span><span class="nc">Params</span><span class="o">,</span> <span class="nc">Result</span><span class="o">&gt;()</span> <span class="o">{</span>
+        <span class="kd">public</span> <span class="nc">Result</span> <span class="nf">call</span><span class="o">()</span> <span class="kd">throws</span> <span class="nc">Exception</span> <span class="o">{</span>
+            <span class="c1">// 设置任务已被触发</span>
+            <span class="n">mTaskInvoked</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+            <span class="c1">// 任务执行结果</span>
+            <span class="nc">Result</span> <span class="n">result</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="c1">// 设置线程优先级</span>
+                <span class="nc">Process</span><span class="o">.</span><span class="na">setThreadPriority</span><span class="o">(</span><span class="nc">Process</span><span class="o">.</span><span class="na">THREAD_PRIORITY_BACKGROUND</span><span class="o">);</span>
+                <span class="c1">// 把任务所需参数传入到后台线程执行并获取结果</span>
+                <span class="n">result</span> <span class="o">=</span> <span class="n">doInBackground</span><span class="o">(</span><span class="n">mParams</span><span class="o">);</span>
+                <span class="nc">Binder</span><span class="o">.</span><span class="na">flushPendingCommands</span><span class="o">();</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Throwable</span> <span class="n">tr</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 任务执行出现异常，则取消任务</span>
+                <span class="n">mCancelled</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+                <span class="k">throw</span> <span class="n">tr</span><span class="o">;</span>
+            <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+                <span class="c1">// 任务执行完成把结果传递给postResult</span>
+                <span class="n">postResult</span><span class="o">(</span><span class="n">result</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="c1">// 返回结果</span>
+            <span class="k">return</span> <span class="n">result</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">};</span>
+
+    <span class="c1">// 把WorkerRunnable封装到FutureTask</span>
+    <span class="n">mFuture</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">FutureTask</span><span class="o">&lt;</span><span class="nc">Result</span><span class="o">&gt;(</span><span class="n">mWorker</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nd">@Override</span>
+        <span class="kd">protected</span> <span class="kt">void</span> <span class="nf">done</span><span class="o">()</span> <span class="o">{</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="n">postResultIfNotInvoked</span><span class="o">(</span><span class="n">get</span><span class="o">());</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">InterruptedException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">android</span><span class="o">.</span><span class="na">util</span><span class="o">.</span><span class="na">Log</span><span class="o">.</span><span class="na">w</span><span class="o">(</span><span class="no">LOG_TAG</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ExecutionException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span><span class="s">"An error occurred while executing doInBackground()"</span><span class="o">,</span>
+                        <span class="n">e</span><span class="o">.</span><span class="na">getCause</span><span class="o">());</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">CancellationException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">postResultIfNotInvoked</span><span class="o">(</span><span class="kc">null</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">};</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="七成员方法">七、成员方法</h2>
+
+<p>如果任务没有被调用过，通过此方法返回结果</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">postResultIfNotInvoked</span><span class="o">(</span><span class="nc">Result</span> <span class="n">result</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">boolean</span> <span class="n">wasTaskInvoked</span> <span class="o">=</span> <span class="n">mTaskInvoked</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">wasTaskInvoked</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">postResult</span><span class="o">(</span><span class="n">result</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>首先，把结果封装到 <strong>AsyncTaskResult</strong> 中，结果类型为 <strong>Result</strong>，然后放到 <strong>Message.obj</strong> 中发送到目标 <strong>Handler</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">Result</span> <span class="nf">postResult</span><span class="o">(</span><span class="nc">Result</span> <span class="n">result</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unchecked"</span><span class="o">)</span>
+    <span class="nc">Message</span> <span class="n">message</span> <span class="o">=</span> <span class="n">getHandler</span><span class="o">().</span><span class="na">obtainMessage</span><span class="o">(</span><span class="no">MESSAGE_POST_RESULT</span><span class="o">,</span>
+            <span class="k">new</span> <span class="nc">AsyncTaskResult</span><span class="o">&lt;</span><span class="nc">Result</span><span class="o">&gt;(</span><span class="k">this</span><span class="o">,</span> <span class="n">result</span><span class="o">));</span>
+    <span class="n">message</span><span class="o">.</span><span class="na">sendToTarget</span><span class="o">();</span>
+    <span class="k">return</span> <span class="n">result</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>获取构造方法传入的自定义 <strong>Handler</strong> 或主线程 <strong>Looper</strong> 的 <strong>Handler</strong>，详情见小节<a href="/2018/10/21/AsyncTask/#六构造方法">六、构造方法</a></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">Handler</span> <span class="nf">getHandler</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mHandler</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>获取当前任务的执行状态</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="nc">Status</span> <span class="nf">getStatus</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mStatus</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>重写方法实现后台线程的计算逻辑。任务调用者提供参数 <strong>params</strong> 给 <strong>execute()</strong>，<strong>execute()</strong> 传递给本方法。在方法内可调用 <strong>publishProgress()</strong> 向主线程发布实时更新值</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nd">@WorkerThread</span>
+<span class="kd">protected</span> <span class="kd">abstract</span> <span class="nc">Result</span> <span class="nf">doInBackground</span><span class="o">(</span><span class="nc">Params</span><span class="o">...</span> <span class="n">params</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>在 <strong>doInBackground()</strong> 调用前，先在主线程执行此方法</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="nd">@MainThread</span>
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onPreExecute</span><span class="o">()</span> <span class="o">{</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>doInBackground()</strong> 完成后在主线程调用此方法，<strong>result</strong> 是 <strong>doInBackground()</strong> 返回的结果。如果任务被取消，此方法不会触发</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@SuppressWarnings</span><span class="o">({</span><span class="s">"UnusedDeclaration"</span><span class="o">})</span>
+<span class="nd">@MainThread</span>
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onPostExecute</span><span class="o">(</span><span class="nc">Result</span> <span class="n">result</span><span class="o">)</span> <span class="o">{</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>publishProgress()</strong> 运行后切换到主线程调用此方法，<strong>values</strong> 表示任务处理的进度</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@SuppressWarnings</span><span class="o">({</span><span class="s">"UnusedDeclaration"</span><span class="o">})</span>
+<span class="nd">@MainThread</span>
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onProgressUpdate</span><span class="o">(</span><span class="nc">Progress</span><span class="o">...</span> <span class="n">values</span><span class="o">)</span> <span class="o">{</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>cancel(boolean)</strong> 被调用，且 <strong>doInBackground(Object[])</strong> 结束后在主线程调用此方法。</p>
+
+<p>方法默认简单回调 <strong>onCancelled()</strong> 并忽略结果。如果要在子类重写其他实现，不要在重写方法内调用 <strong>super.onCancelled(result)</strong>。注意，<strong>result</strong> 可为 <strong>null</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="nd">@SuppressWarnings</span><span class="o">({</span><span class="s">"UnusedParameters"</span><span class="o">})</span>
+<span class="nd">@MainThread</span>
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCancelled</span><span class="o">(</span><span class="nc">Result</span> <span class="n">result</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">onCancelled</span><span class="o">();</span>
+<span class="o">}</span>    
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>应用最好能重写本方法，以便在任务被取消后做出反应。此方法由 <strong>onCancelled(Object)</strong> 的默认实现调用。 <strong>cancel(boolean)</strong> 被调用且 <strong>doInBackground(Object[])</strong> 已结束后，方法在主线程上调用。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="nd">@MainThread</span>
+<span class="kd">protected</span> <span class="kt">void</span> <span class="nf">onCancelled</span><span class="o">()</span> <span class="o">{</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>若任务在正常完成前被取消，此方法返回true。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">isCancelled</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mCancelled</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>尝试取消任务，如果任务已执行完毕、已经取消、由于其他原因不能取消的，则取消失败。任务取消成功，且在 <strong>cancel()</strong> 调用时尚未开始，任务不会执行。</p>
+
+<p>如果任务已经开始，参数 <strong>mayInterruptIfRunning</strong> 决定任务执行线程是否该被中断。调用此方法，且 <strong>doInBackground(Object[])</strong> 结束后，会在主线程调用 <strong>onCancelled(Object)</strong>。调用此方法能保证 <strong>onPostExecute(Object)</strong> 不会执行。</p>
+
+<p>此方法调用后，需从 <strong>doInBackground(Object[])</strong> 周期性检查由 <strong>isCancelled()</strong> 返回的值并尽快结束任务。参数 <strong>mayInterruptIfRunning</strong> 为 <strong>true</strong>，执行任务线程需被中断，否则等任务执行直至完成。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">cancel</span><span class="o">(</span><span class="kt">boolean</span> <span class="n">mayInterruptIfRunning</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">mCancelled</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+    <span class="k">return</span> <span class="n">mFuture</span><span class="o">.</span><span class="na">cancel</span><span class="o">(</span><span class="n">mayInterruptIfRunning</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>等待计算完毕后获取执行结果：</p>
+
+<ul>
+  <li>
+    <p>任务被取消后调用此方法，抛出CancellationException；</p>
+  </li>
+  <li>
+    <p>当前线程在等待结果过程被中断，抛出InterruptedException；</p>
+  </li>
+</ul>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="nc">Result</span> <span class="nf">get</span><span class="o">()</span> <span class="kd">throws</span> <span class="nc">InterruptedException</span><span class="o">,</span> <span class="nc">ExecutionException</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mFuture</span><span class="o">.</span><span class="na">get</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>等待计算完毕后获取执行结果，设置timeout作为等待超时时间：</p>
+
+<ul>
+  <li>
+    <p>任务被取消后调用此方法，抛出CancellationException；</p>
+  </li>
+  <li>
+    <p>任务执行过程中出现异常，抛出ExecutionException；</p>
+  </li>
+  <li>
+    <p>当前线程等待结果过程中被中断，抛出InterruptedException；</p>
+  </li>
+  <li>
+    <p>等待结果超时，抛出TimeoutException；</p>
+  </li>
+</ul>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="nc">Result</span> <span class="nf">get</span><span class="o">(</span><span class="kt">long</span> <span class="n">timeout</span><span class="o">,</span> <span class="nc">TimeUnit</span> <span class="n">unit</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">InterruptedException</span><span class="o">,</span>
+        <span class="nc">ExecutionException</span><span class="o">,</span> <span class="nc">TimeoutException</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">mFuture</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">timeout</span><span class="o">,</span> <span class="n">unit</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>用指定参数执行任务，任务返回自身以便调用者获取引用。功能在单个后台线程执行，或根据具体平台版本决定。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@MainThread</span>
+<span class="kd">public</span> <span class="kd">final</span> <span class="nc">AsyncTask</span><span class="o">&lt;</span><span class="nc">Params</span><span class="o">,</span> <span class="nc">Progress</span><span class="o">,</span> <span class="nc">Result</span><span class="o">&gt;</span> <span class="nf">execute</span><span class="o">(</span><span class="nc">Params</span><span class="o">...</span> <span class="n">params</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">executeOnExecutor</span><span class="o">(</span><span class="n">sDefaultExecutor</span><span class="o">,</span> <span class="n">params</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>方法用 <strong>THREAD_POOL_EXECUTOR</strong> 实现多任务并行处理，也可以用自定义Executor实现定制。并行执行不能保证任务运行顺序的先后，如果多个任务需有序执行，请使用顺序任务。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+</pre></td><td class="rouge-code"><pre><span class="nd">@MainThread</span>
+<span class="kd">public</span> <span class="kd">final</span> <span class="nc">AsyncTask</span><span class="o">&lt;</span><span class="nc">Params</span><span class="o">,</span> <span class="nc">Progress</span><span class="o">,</span> <span class="nc">Result</span><span class="o">&gt;</span> <span class="nf">executeOnExecutor</span><span class="o">(</span><span class="nc">Executor</span> <span class="n">exec</span><span class="o">,</span>
+        <span class="nc">Params</span><span class="o">...</span> <span class="n">params</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 若任务默认状态不是PENDING状态，直接抛出异常</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">mStatus</span> <span class="o">!=</span> <span class="nc">Status</span><span class="o">.</span><span class="na">PENDING</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">switch</span> <span class="o">(</span><span class="n">mStatus</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">case</span> <span class="nl">RUNNING:</span>
+                <span class="c1">// 任务正在执行，不能再次开始任务</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span><span class="s">"Cannot execute task:"</span>
+                        <span class="o">+</span> <span class="s">" the task is already running."</span><span class="o">);</span>
+            <span class="k">case</span> <span class="nl">FINISHED:</span>
+                <span class="c1">// 任务已经执行完毕，每个任务仅能被执行一次，不能再次开始</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span><span class="s">"Cannot execute task:"</span>
+                        <span class="o">+</span> <span class="s">" the task has already been executed "</span>
+                        <span class="o">+</span> <span class="s">"(a task can be executed only once)"</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="n">mStatus</span> <span class="o">=</span> <span class="nc">Status</span><span class="o">.</span><span class="na">RUNNING</span><span class="o">;</span>
+
+    <span class="n">onPreExecute</span><span class="o">();</span>
+
+    <span class="n">mWorker</span><span class="o">.</span><span class="na">mParams</span> <span class="o">=</span> <span class="n">params</span><span class="o">;</span> <span class="c1">// 配置参数</span>
+    <span class="n">exec</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="n">mFuture</span><span class="o">);</span>    <span class="c1">// 向线程池添加任务</span>
+
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>通过默认Executor执行单个Runnable</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@MainThread</span>
+<span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">execute</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">runnable</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">sDefaultExecutor</span><span class="o">.</span><span class="na">execute</span><span class="o">(</span><span class="n">runnable</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>doInBackground()</strong> 在后台线程运行过程可(多次)调用此方法。每次调用方法都会在子线程向主线程发布更新进度的 <strong>Message</strong>，并在主线程触发 <strong>onProgressUpdate()</strong>。如果任务被取消，<strong>onProgressUpdate</strong> 不会调用。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="nd">@WorkerThread</span>
+<span class="kd">protected</span> <span class="kd">final</span> <span class="kt">void</span> <span class="nf">publishProgress</span><span class="o">(</span><span class="nc">Progress</span><span class="o">...</span> <span class="n">values</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">isCancelled</span><span class="o">())</span> <span class="o">{</span>
+        <span class="n">getHandler</span><span class="o">().</span><span class="na">obtainMessage</span><span class="o">(</span><span class="no">MESSAGE_POST_PROGRESS</span><span class="o">,</span>
+                <span class="k">new</span> <span class="nc">AsyncTaskResult</span><span class="o">&lt;</span><span class="nc">Progress</span><span class="o">&gt;(</span><span class="k">this</span><span class="o">,</span> <span class="n">values</span><span class="o">)).</span><span class="na">sendToTarget</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>任务执行完成，根据完成状态执行对应分支逻辑</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">finish</span><span class="o">(</span><span class="nc">Result</span> <span class="n">result</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">isCancelled</span><span class="o">())</span> <span class="o">{</span>
+        <span class="n">onCancelled</span><span class="o">(</span><span class="n">result</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="n">onPostExecute</span><span class="o">(</span><span class="n">result</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="n">mStatus</span> <span class="o">=</span> <span class="nc">Status</span><span class="o">.</span><span class="na">FINISHED</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+<h2 id="八internalhandler">八、InternalHandler</h2>
+
+<p>构造AsyncTask实例时默认主线程Looper</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">InternalHandler</span> <span class="kd">extends</span> <span class="nc">Handler</span> <span class="o">{</span>
+    <span class="kd">public</span> <span class="nf">InternalHandler</span><span class="o">(</span><span class="nc">Looper</span> <span class="n">looper</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">(</span><span class="n">looper</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 消息通过handleMessage在主线程执行分发运行逻辑</span>
+    <span class="nd">@SuppressWarnings</span><span class="o">({</span><span class="s">"unchecked"</span><span class="o">,</span> <span class="s">"RawUseOfParameterizedType"</span><span class="o">})</span>
+    <span class="nd">@Override</span>
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleMessage</span><span class="o">(</span><span class="nc">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 从Message中获取异步任务执行结果</span>
+        <span class="nc">AsyncTaskResult</span><span class="o">&lt;?&gt;</span> <span class="n">result</span> <span class="o">=</span> <span class="o">(</span><span class="nc">AsyncTaskResult</span><span class="o">&lt;?&gt;)</span> <span class="n">msg</span><span class="o">.</span><span class="na">obj</span><span class="o">;</span>
+        <span class="c1">// 按照消息不同类型执行逻辑</span>
+        <span class="k">switch</span> <span class="o">(</span><span class="n">msg</span><span class="o">.</span><span class="na">what</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">case</span> <span class="nl">MESSAGE_POST_RESULT:</span>
+                <span class="c1">// 唯一结果传入finish()，内部再调用onPostExecute()</span>
+                <span class="n">result</span><span class="o">.</span><span class="na">mTask</span><span class="o">.</span><span class="na">finish</span><span class="o">(</span><span class="n">result</span><span class="o">.</span><span class="na">mData</span><span class="o">[</span><span class="mi">0</span><span class="o">]);</span>
+                <span class="k">break</span><span class="o">;</span>
+            <span class="k">case</span> <span class="nl">MESSAGE_POST_PROGRESS:</span>
+                <span class="c1">// 通知主线程更新进度</span>
+                <span class="n">result</span><span class="o">.</span><span class="na">mTask</span><span class="o">.</span><span class="na">onProgressUpdate</span><span class="o">(</span><span class="n">result</span><span class="o">.</span><span class="na">mData</span><span class="o">);</span>
+                <span class="k">break</span><span class="o">;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="九workerrunnable">九、WorkerRunnable</h2>
+
+<p>WorkerRunnable实现Callable接口。相比Runnable接口，Callable会在完成后返回结果，子类需实现<code class="highlighter-rouge">call()</code>抽象方法</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">abstract</span> <span class="kd">class</span> <span class="nc">WorkerRunnable</span><span class="o">&lt;</span><span class="nc">Params</span><span class="o">,</span> <span class="nc">Result</span><span class="o">&gt;</span> <span class="kd">implements</span> <span class="nc">Callable</span><span class="o">&lt;</span><span class="nc">Result</span><span class="o">&gt;</span> <span class="o">{</span>
+    <span class="nc">Params</span><span class="o">[]</span> <span class="n">mParams</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="十asynctaskresult">十、AsyncTaskResult</h2>
+
+<p>异步任务执行后结果</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="nd">@SuppressWarnings</span><span class="o">({</span><span class="s">"RawUseOfParameterizedType"</span><span class="o">})</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">AsyncTaskResult</span><span class="o">&lt;</span><span class="nc">Data</span><span class="o">&gt;</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="nc">AsyncTask</span> <span class="n">mTask</span><span class="o">;</span>
+    <span class="kd">final</span> <span class="nc">Data</span><span class="o">[]</span> <span class="n">mData</span><span class="o">;</span>
+
+    <span class="nc">AsyncTaskResult</span><span class="o">(</span><span class="nc">AsyncTask</span> <span class="n">task</span><span class="o">,</span> <span class="nc">Data</span><span class="o">...</span> <span class="n">data</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">mTask</span> <span class="o">=</span> <span class="n">task</span><span class="o">;</span>
+        <span class="n">mData</span> <span class="o">=</span> <span class="n">data</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

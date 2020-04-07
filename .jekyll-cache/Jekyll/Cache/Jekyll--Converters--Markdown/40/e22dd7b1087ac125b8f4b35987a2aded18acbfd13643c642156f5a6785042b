@@ -1,0 +1,73 @@
+I"°<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+</pre></td><td class="rouge-code"><pre><span class="c1">// Override to catch pointerIndex out of range exception</span>
+<span class="c1">// when ViewPager used with a multi-touch PhotoView to display images.</span>
+<span class="kd">class</span> <span class="nc">StrongViewPager</span> <span class="o">:</span> <span class="nc">ViewPager</span> <span class="o">{</span>
+
+    <span class="c1">// If ViewPagers can be scrolled.</span>
+    <span class="kd">private</span> <span class="kt">var</span> <span class="n">isScrollable</span> <span class="o">=</span> <span class="kc">true</span>
+
+    <span class="nf">constructor</span><span class="o">(</span><span class="nl">context:</span> <span class="nc">Context</span><span class="o">)</span> <span class="o">:</span> <span class="kd">super</span><span class="o">(</span><span class="n">context</span><span class="o">)</span>
+    <span class="n">constructor</span><span class="o">(</span><span class="nl">context:</span> <span class="nc">Context</span><span class="o">,</span> <span class="nl">attrs:</span> <span class="nc">AttributeSet</span><span class="o">)</span> <span class="o">:</span> <span class="kd">super</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">attrs</span><span class="o">)</span>
+
+    <span class="nd">@SuppressLint</span><span class="o">(</span><span class="s">"ClickableViewAccessibility"</span><span class="o">)</span>
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onTouchEvent</span><span class="o">(</span><span class="nl">ev:</span> <span class="nc">MotionEvent</span><span class="o">):</span> <span class="nc">Boolean</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">try</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">isScrollable</span><span class="o">)</span> <span class="kd">super</span><span class="o">.</span><span class="na">onTouchEvent</span><span class="o">(</span><span class="n">ev</span><span class="o">)</span> <span class="k">else</span> <span class="kc">false</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nl">ignore:</span> <span class="nc">IllegalArgumentException</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kc">false</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="n">override</span> <span class="n">fun</span> <span class="nf">onInterceptTouchEvent</span><span class="o">(</span><span class="nl">ev:</span> <span class="nc">MotionEvent</span><span class="o">):</span> <span class="nc">Boolean</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="k">try</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">isScrollable</span><span class="o">)</span> <span class="kd">super</span><span class="o">.</span><span class="na">onInterceptTouchEvent</span><span class="o">(</span><span class="n">ev</span><span class="o">)</span> <span class="k">else</span> <span class="kc">false</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nl">e:</span> <span class="nc">IllegalArgumentException</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kc">false</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="c1">// Set ViewPager if is scrollable. Default is true, means it is scrollable.</span>
+    <span class="n">fun</span> <span class="nf">setScrollable</span><span class="o">(</span><span class="nl">scrollable:</span> <span class="nc">Boolean</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">isScrollable</span> <span class="o">=</span> <span class="n">scrollable</span>
+    <span class="o">}</span>
+
+    <span class="c1">// Get ViewPager if is scrollable.</span>
+    <span class="n">fun</span> <span class="nf">isScrollable</span><span class="o">()</span> <span class="o">=</span> <span class="n">isScrollable</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

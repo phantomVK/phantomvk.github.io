@@ -1,0 +1,38 @@
+I"�
+<p>导入多个第三方依赖库的时候报错：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre>Error:Execution failed for task ':app:processDebugManifest'.
+&gt; Manifest merger failed : Attribute meta-data#android.support.VERSION@value value=(26.0.2) from [com.android.support:preference-v7:26.0.2] AndroidManifest.xml:25:13-35
+  	is also present at [com.android.support:appcompat-v7:26.1.0] AndroidManifest.xml:28:13-35 value=(26.1.0).
+  	Suggestion: add 'tools:replace="android:value"' to &lt;meta-data&gt; element at AndroidManifest.xml:23:9-25:38 to override.
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>在<code class="highlighter-rouge">build.gradle(project:...)</code>的<code class="highlighter-rouge">buildscript {...}</code>内添加添加代码。<code class="highlighter-rouge">${versions.support}</code>是一个全局变量，为”26.1.0”，请根据具体情况修改。</p>
+
+<div class="language-groovy highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="n">subprojects</span> <span class="o">{</span>
+    <span class="n">project</span><span class="o">.</span><span class="na">configurations</span><span class="o">.</span><span class="na">all</span> <span class="o">{</span>
+        <span class="n">resolutionStrategy</span><span class="o">.</span><span class="na">eachDependency</span> <span class="o">{</span> <span class="n">details</span> <span class="o">-&gt;</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">details</span><span class="o">.</span><span class="na">requested</span><span class="o">.</span><span class="na">group</span> <span class="o">==</span> <span class="s1">'com.android.support'</span>
+                    <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">details</span><span class="o">.</span><span class="na">requested</span><span class="o">.</span><span class="na">name</span><span class="o">.</span><span class="na">contains</span><span class="o">(</span><span class="s1">'multidex'</span><span class="o">))</span> <span class="o">{</span>
+                <span class="n">details</span><span class="o">.</span><span class="na">useVersion</span> <span class="s2">"${versions.support}"</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

@@ -1,0 +1,47 @@
+I"h
+<p>依赖旧版本：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre>implementation 'androidx.appcompat:appcompat:1.1.0-alpha04'
+implementation 'androidx.core:core-ktx:1.1.0-alpha05'
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>更新为以下版本：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre>implementation 'androidx.appcompat:appcompat:1.1.0-beta01'
+implementation 'androidx.core:core-ktx:1.2.0-alpha02'
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>构建时出现错误：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>Error: Default interface methods are only supported starting with Android N (--min-api 24): android.view.MenuItem androidx.core.internal.view.SupportMenuItem.setContentDescription(java.lang.CharSequence)
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>按照以下步骤，先点击 <strong>Android Studio</strong> 右上角 <strong>Project Structure</strong> 图标(右二)</p>
+
+<p><img src="/img/android/BuildError/project_structure_icon.jpg" alt="project_structure_icon" /></p>
+
+<p>在该设置中选择 <strong>app</strong> 模块，把 <strong>Source Compatibility</strong> 和 <strong>Target Compatibility</strong> 均设置为 <strong>1.8</strong></p>
+
+<p><img src="/img/android/BuildError/project_structure.jpg" alt="project_structure" /></p>
+
+<p>当然，也可以手动在 <strong>build.gradle(Module:app)</strong> 中添加代码：</p>
+
+<div class="language-groovy highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre> <span class="n">compileOptions</span> <span class="o">{</span>
+    <span class="n">sourceCompatibility</span> <span class="o">=</span> <span class="s1">'1.8'</span>
+    <span class="n">targetCompatibility</span> <span class="o">=</span> <span class="s1">'1.8'</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>这是添加完成后的效果，继续编译即可</p>
+
+<p><img src="/img/android/BuildError/compileOptions.jpg" alt="compileOptions" /></p>
+:ET

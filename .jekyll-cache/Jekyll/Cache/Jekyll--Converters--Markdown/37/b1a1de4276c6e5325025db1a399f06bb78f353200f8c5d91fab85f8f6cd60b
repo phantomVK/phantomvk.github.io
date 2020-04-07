@@ -1,0 +1,829 @@
+I"7�<h2 id="一基础用法">一、基础用法</h2>
+
+<p><code class="highlighter-rouge">inflate()</code>把传入的layout_res_id获得构建后的实例：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">val</span> <span class="n">view</span> <span class="o">=</span> <span class="nc">LayoutInflater</span><span class="o">.</span><span class="na">from</span><span class="o">(</span><span class="k">this</span><span class="o">).</span><span class="na">inflate</span><span class="o">(</span><span class="no">R</span><span class="o">.</span><span class="na">layout</span><span class="o">.</span><span class="na">layout</span><span class="o">,</span> <span class="kc">null</span><span class="o">)</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>先了解源码中几个频繁出现的<code class="highlighter-rouge">TAG_*</code>字符串：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="no">TAG_MERGE</span> <span class="o">=</span> <span class="s">"merge"</span><span class="o">;</span>
+<span class="no">TAG_INCLUDE</span> <span class="o">=</span> <span class="s">"include"</span><span class="o">;</span>
+<span class="no">TAG_1995</span> <span class="o">=</span> <span class="s">"blink"</span><span class="o">;</span>
+<span class="no">TAG_REQUEST_FOCUS</span> <span class="o">=</span> <span class="s">"requestFocus"</span><span class="o">;</span>
+<span class="no">TAG_TAG</span> <span class="o">=</span> <span class="s">"tag"</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="二方法入口">二、方法入口</h2>
+
+<p><code class="highlighter-rouge">inflate()</code>为指定的xml资源文件构建视图布局</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+</pre></td><td class="rouge-code"><pre><span class="c1">// resource: xml布局文件id </span>
+<span class="c1">// root: 根布局</span>
+<span class="c1">// attachToRoot: 是否加入到父布局</span>
+<span class="kd">public</span> <span class="nc">View</span> <span class="nf">inflate</span><span class="o">(</span><span class="nd">@LayoutRes</span> <span class="kt">int</span> <span class="n">resource</span><span class="o">,</span>
+                    <span class="nd">@Nullable</span> <span class="nc">ViewGroup</span> <span class="n">root</span><span class="o">,</span>
+                    <span class="kt">boolean</span> <span class="n">attachToRoot</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 从Context获取Resources</span>
+    <span class="kd">final</span> <span class="nc">Resources</span> <span class="n">res</span> <span class="o">=</span> <span class="n">getContext</span><span class="o">().</span><span class="na">getResources</span><span class="o">();</span>
+
+    <span class="c1">// 用Resources创建xml资源语义解析器，解析layout布局</span>
+    <span class="kd">final</span> <span class="nc">XmlResourceParser</span> <span class="n">parser</span> <span class="o">=</span> <span class="n">res</span><span class="o">.</span><span class="na">getLayout</span><span class="o">(</span><span class="n">resource</span><span class="o">);</span>
+
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="c1">// 返回创建的View</span>
+        <span class="k">return</span> <span class="nf">inflate</span><span class="o">(</span><span class="n">parser</span><span class="o">,</span> <span class="n">root</span><span class="o">,</span> <span class="n">attachToRoot</span><span class="o">);</span>
+    <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+        <span class="c1">// 关闭该语义解析器</span>
+        <span class="n">parser</span><span class="o">.</span><span class="na">close</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>下方方法的注释着重提到几点:</p>
+
+<ol>
+  <li>填充行为重度依赖编译过程预处理过的xml文件，以此提升查找性能；</li>
+  <li>运行期不可能用<code class="highlighter-rouge">XmlPullParser</code>调用<code class="highlighter-rouge">inflate</code>方法处理普通xml；</li>
+  <li>普通xml文件指开发可见的xml，此类文件没有经过预处理，所以运行期不能处理。</li>
+</ol>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nc">View</span> <span class="nf">inflate</span><span class="o">(</span><span class="nc">XmlPullParser</span> <span class="n">parser</span><span class="o">,</span> <span class="nd">@Nullable</span> <span class="nc">ViewGroup</span> <span class="n">root</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">attachToRoot</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// mConstructorArgs作为同步对象，LayoutInflate实例同步执行</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">mConstructorArgs</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">Trace</span><span class="o">.</span><span class="na">traceBegin</span><span class="o">(</span><span class="nc">Trace</span><span class="o">.</span><span class="na">TRACE_TAG_VIEW</span><span class="o">,</span> <span class="s">"inflate"</span><span class="o">);</span>
+        
+        <span class="c1">// mContext就是LayoutInflater(this)中的context.</span>
+        <span class="kd">final</span> <span class="nc">Context</span> <span class="n">inflaterContext</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">;</span>
+        <span class="kd">final</span> <span class="nc">AttributeSet</span> <span class="n">attrs</span> <span class="o">=</span> <span class="nc">Xml</span><span class="o">.</span><span class="na">asAttributeSet</span><span class="o">(</span><span class="n">parser</span><span class="o">);</span>
+
+        <span class="c1">// mConstructorArgs[0]临时保存为lastContext</span>
+        <span class="nc">Context</span> <span class="n">lastContext</span> <span class="o">=</span> <span class="o">(</span><span class="nc">Context</span><span class="o">)</span> <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span>
+        <span class="c1">// 用inflaterContext，即mContext赋值给mConstructorArgs[0]</span>
+        <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">inflaterContext</span><span class="o">;</span>
+
+        <span class="nc">View</span> <span class="n">result</span> <span class="o">=</span> <span class="n">root</span><span class="o">;</span>
+
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="c1">// 开始查找Root节点</span>
+            <span class="kt">int</span> <span class="n">type</span><span class="o">;</span>
+            <span class="k">while</span> <span class="o">((</span><span class="n">type</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="na">next</span><span class="o">())</span> <span class="o">!=</span> <span class="nc">XmlPullParser</span><span class="o">.</span><span class="na">START_TAG</span> <span class="o">&amp;&amp;</span>
+                    <span class="n">type</span> <span class="o">!=</span> <span class="nc">XmlPullParser</span><span class="o">.</span><span class="na">END_DOCUMENT</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="c1">// 跳过非START_TAG或END_DOCUMENT标签</span>
+            <span class="o">}</span>
+            
+            <span class="c1">// 可能已找到START_TAG，也可能没有START_TAG而结束；</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">type</span> <span class="o">!=</span> <span class="nc">XmlPullParser</span><span class="o">.</span><span class="na">START_TAG</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 没有发现START_TAG意味xml内容非法，上层捕捉异常终止inflate</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">InflateException</span><span class="o">(</span><span class="n">parser</span><span class="o">.</span><span class="na">getPositionDescription</span><span class="o">()</span>
+                        <span class="o">+</span> <span class="s">": No start tag found!"</span><span class="o">);</span>
+            <span class="o">}</span>
+            
+            <span class="c1">// 有START_TAG则解析根布局名</span>
+            <span class="kd">final</span> <span class="nc">String</span> <span class="n">name</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="na">getName</span><span class="o">();</span>
+            
+            <span class="k">if</span> <span class="o">(</span><span class="no">TAG_MERGE</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">name</span><span class="o">))</span> <span class="o">{</span>
+                <span class="c1">// merge只能在根布局非空且attachToRoot为true时使用</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">root</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">||</span> <span class="o">!</span><span class="n">attachToRoot</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="k">throw</span> <span class="k">new</span> <span class="nf">InflateException</span><span class="o">(</span><span class="s">"&lt;merge /&gt; can be used only with a valid "</span>
+                            <span class="o">+</span> <span class="s">"ViewGroup root and attachToRoot=true"</span><span class="o">);</span>
+                <span class="o">}</span>
+                
+                <span class="c1">// 循环遍历子标签</span>
+                <span class="n">rInflate</span><span class="o">(</span><span class="n">parser</span><span class="o">,</span> <span class="n">root</span><span class="o">,</span> <span class="n">inflaterContext</span><span class="o">,</span> <span class="n">attrs</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="c1">// 不是merge表明该标签是xml文件的根元素，命名为temp</span>
+                <span class="c1">// 例如name为"LinearLayout"，则temp是LinearLayout实例</span>
+                <span class="kd">final</span> <span class="nc">View</span> <span class="n">temp</span> <span class="o">=</span> <span class="n">createViewFromTag</span><span class="o">(</span><span class="n">root</span><span class="o">,</span> <span class="n">name</span><span class="o">,</span> <span class="n">inflaterContext</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+
+                <span class="nc">ViewGroup</span><span class="o">.</span><span class="na">LayoutParams</span> <span class="n">params</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+                
+                <span class="c1">// 传进来的root不为空</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">root</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="c1">// 根据root构建temp的LayoutParams</span>
+                    <span class="n">params</span> <span class="o">=</span> <span class="n">root</span><span class="o">.</span><span class="na">generateLayoutParams</span><span class="o">(</span><span class="n">attrs</span><span class="o">);</span>
+                    <span class="k">if</span> <span class="o">(!</span><span class="n">attachToRoot</span><span class="o">)</span> <span class="o">{</span>
+                        <span class="c1">// attachToRoot为false，从root获得LayoutParams并设到根元素temp</span>
+                        <span class="n">temp</span><span class="o">.</span><span class="na">setLayoutParams</span><span class="o">(</span><span class="n">params</span><span class="o">);</span>
+                    <span class="o">}</span>
+                <span class="o">}</span>
+
+                <span class="c1">// 填充temp下所有子View.</span>
+                <span class="n">rInflateChildren</span><span class="o">(</span><span class="n">parser</span><span class="o">,</span> <span class="n">temp</span><span class="o">,</span> <span class="n">attrs</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+
+                <span class="c1">// xml构建的View添加到root中</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">root</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">attachToRoot</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="n">root</span><span class="o">.</span><span class="na">addView</span><span class="o">(</span><span class="n">temp</span><span class="o">,</span> <span class="n">params</span><span class="o">);</span>
+                <span class="o">}</span>
+
+                <span class="c1">// 如果temp不需要添加到root，则返回temp</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">root</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">||</span> <span class="o">!</span><span class="n">attachToRoot</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="n">result</span> <span class="o">=</span> <span class="n">temp</span><span class="o">;</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">XmlPullParserException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kd">final</span> <span class="nc">InflateException</span> <span class="n">ie</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">InflateException</span><span class="o">(</span><span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">(),</span> <span class="n">e</span><span class="o">);</span>
+            <span class="n">ie</span><span class="o">.</span><span class="na">setStackTrace</span><span class="o">(</span><span class="no">EMPTY_STACK_TRACE</span><span class="o">);</span>
+            <span class="k">throw</span> <span class="n">ie</span><span class="o">;</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kd">final</span> <span class="nc">InflateException</span> <span class="n">ie</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">InflateException</span><span class="o">(</span><span class="n">parser</span><span class="o">.</span><span class="na">getPositionDescription</span><span class="o">()</span>
+                    <span class="o">+</span> <span class="s">": "</span> <span class="o">+</span> <span class="n">e</span><span class="o">.</span><span class="na">getMessage</span><span class="o">(),</span> <span class="n">e</span><span class="o">);</span>
+            <span class="n">ie</span><span class="o">.</span><span class="na">setStackTrace</span><span class="o">(</span><span class="no">EMPTY_STACK_TRACE</span><span class="o">);</span>
+            <span class="k">throw</span> <span class="n">ie</span><span class="o">;</span>
+        <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+            <span class="c1">// 在context中不保留静态引用</span>
+            <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">lastContext</span><span class="o">;</span>
+            <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+
+            <span class="nc">Trace</span><span class="o">.</span><span class="na">traceEnd</span><span class="o">(</span><span class="nc">Trace</span><span class="o">.</span><span class="na">TRACE_TAG_VIEW</span><span class="o">);</span>
+        <span class="o">}</span>
+        
+        <span class="c1">// root非空且attachToRoot为true时构建temp添加到root，返回root;</span>
+        <span class="c1">// 否则返回temp，temp可能设置了有关root的LayoutParams.</span>
+        <span class="k">return</span> <span class="n">result</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三递归填充子视图">三、递归填充子视图</h2>
+
+<p>此方法用于递归填充非根的内部子视图。父context作为填充context，调用方法 <strong>rInflate</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="kd">final</span> <span class="kt">void</span> <span class="nf">rInflateChildren</span><span class="o">(</span><span class="nc">XmlPullParser</span> <span class="n">parser</span><span class="o">,</span> <span class="nc">View</span> <span class="n">parent</span><span class="o">,</span> <span class="nc">AttributeSet</span> <span class="n">attrs</span><span class="o">,</span>
+        <span class="kt">boolean</span> <span class="n">finishInflate</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">XmlPullParserException</span><span class="o">,</span> <span class="nc">IOException</span> <span class="o">{</span>
+    <span class="n">rInflate</span><span class="o">(</span><span class="n">parser</span><span class="o">,</span> <span class="n">parent</span><span class="o">,</span> <span class="n">parent</span><span class="o">.</span><span class="na">getContext</span><span class="o">(),</span> <span class="n">attrs</span><span class="o">,</span> <span class="n">finishInflate</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四填充子视图">四、填充子视图</h2>
+
+<p><strong>r</strong> 原意为 <strong>recursive</strong>，深度递归xml布局初始化view，一并初始化此view的子view。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+</pre></td><td class="rouge-code"><pre><span class="kt">void</span> <span class="nf">rInflate</span><span class="o">(</span><span class="nc">XmlPullParser</span> <span class="n">parser</span><span class="o">,</span> <span class="nc">View</span> <span class="n">parent</span><span class="o">,</span> <span class="nc">Context</span> <span class="n">context</span><span class="o">,</span>
+        <span class="nc">AttributeSet</span> <span class="n">attrs</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">finishInflate</span><span class="o">)</span> <span class="kd">throws</span> <span class="nc">XmlPullParserException</span><span class="o">,</span> <span class="nc">IOException</span> <span class="o">{</span>
+
+    <span class="c1">// 获取树最大深度</span>
+    <span class="kd">final</span> <span class="kt">int</span> <span class="n">depth</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="na">getDepth</span><span class="o">();</span>
+    <span class="kt">int</span> <span class="n">type</span><span class="o">;</span>
+    <span class="kt">boolean</span> <span class="n">pendingRequestFocus</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+
+    <span class="c1">// 没遇到views本身的END_TAG或遍历子views时没遇到END_DOCUMENT就继续遍历</span>
+    <span class="k">while</span> <span class="o">(((</span><span class="n">type</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="na">next</span><span class="o">())</span> <span class="o">!=</span> <span class="nc">XmlPullParser</span><span class="o">.</span><span class="na">END_TAG</span> <span class="o">||</span>
+            <span class="n">parser</span><span class="o">.</span><span class="na">getDepth</span><span class="o">()</span> <span class="o">&gt;</span> <span class="n">depth</span><span class="o">)</span> <span class="o">&amp;&amp;</span> <span class="n">type</span> <span class="o">!=</span> <span class="nc">XmlPullParser</span><span class="o">.</span><span class="na">END_DOCUMENT</span><span class="o">)</span> <span class="o">{</span>
+
+        <span class="k">if</span> <span class="o">(</span><span class="n">type</span> <span class="o">!=</span> <span class="nc">XmlPullParser</span><span class="o">.</span><span class="na">START_TAG</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">continue</span><span class="o">;</span>
+        <span class="o">}</span>
+
+        <span class="kd">final</span> <span class="nc">String</span> <span class="n">name</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="na">getName</span><span class="o">();</span>
+        
+        <span class="c1">// 此View设置了TAG_REQUEST_FOCUS</span>
+        <span class="k">if</span> <span class="o">(</span><span class="no">TAG_REQUEST_FOCUS</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">name</span><span class="o">))</span> <span class="o">{</span>
+            <span class="n">pendingRequestFocus</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+            <span class="n">consumeChildElements</span><span class="o">(</span><span class="n">parser</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="no">TAG_TAG</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">name</span><span class="o">))</span> <span class="o">{</span>
+            <span class="c1">// 解析View的tag</span>
+            <span class="n">parseViewTag</span><span class="o">(</span><span class="n">parser</span><span class="o">,</span> <span class="n">parent</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="no">TAG_INCLUDE</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">name</span><span class="o">))</span> <span class="o">{</span>
+            <span class="c1">// include仅能作为子元素</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">parser</span><span class="o">.</span><span class="na">getDepth</span><span class="o">()</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">InflateException</span><span class="o">(</span><span class="s">"&lt;include /&gt; cannot be the root element"</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="n">parseInclude</span><span class="o">(</span><span class="n">parser</span><span class="o">,</span> <span class="n">context</span><span class="o">,</span> <span class="n">parent</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span> <span class="c1">// 解析include标签</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="no">TAG_MERGE</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">name</span><span class="o">))</span> <span class="o">{</span>
+            <span class="c1">// 子视图不能是merge标签，merge只能用在根元素</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">InflateException</span><span class="o">(</span><span class="s">"&lt;merge /&gt; must be the root element"</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// 通过createViewFromTag构建标签所指示的View</span>
+            <span class="kd">final</span> <span class="nc">View</span> <span class="n">view</span> <span class="o">=</span> <span class="n">createViewFromTag</span><span class="o">(</span><span class="n">parent</span><span class="o">,</span> <span class="n">name</span><span class="o">,</span> <span class="n">context</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+            <span class="c1">// 利用parent作为ViewGroup，构建出LayoutParams给子View使用</span>
+            <span class="kd">final</span> <span class="nc">ViewGroup</span> <span class="n">viewGroup</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ViewGroup</span><span class="o">)</span> <span class="n">parent</span><span class="o">;</span>
+            <span class="kd">final</span> <span class="nc">ViewGroup</span><span class="o">.</span><span class="na">LayoutParams</span> <span class="n">params</span> <span class="o">=</span> <span class="n">viewGroup</span><span class="o">.</span><span class="na">generateLayoutParams</span><span class="o">(</span><span class="n">attrs</span><span class="o">);</span>
+            <span class="c1">// rInflateChildren()会调用rInflate()，深度遍历初始化</span>
+            <span class="n">rInflateChildren</span><span class="o">(</span><span class="n">parser</span><span class="o">,</span> <span class="n">view</span><span class="o">,</span> <span class="n">attrs</span><span class="o">,</span> <span class="kc">true</span><span class="o">);</span>
+            <span class="c1">// 构建成功的View添加到ViewGroup</span>
+            <span class="n">viewGroup</span><span class="o">.</span><span class="na">addView</span><span class="o">(</span><span class="n">view</span><span class="o">,</span> <span class="n">params</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">pendingRequestFocus</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">parent</span><span class="o">.</span><span class="na">restoreDefaultFocus</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">finishInflate</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">parent</span><span class="o">.</span><span class="na">onFinishInflate</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="五从tag构建视图">五、从tag构建视图</h2>
+
+<p>根据标签名创建view。<strong>AppCompatActivity</strong> 会给 <strong>LayoutInflater</strong> 注入 <strong>mFactory2</strong> 实例，然后构建工作会代理给 <strong>AppCompatDelegateImpl</strong>，实现填充 <strong>TextView</strong> 为 <strong>AppCompatTextView</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+</pre></td><td class="rouge-code"><pre><span class="nc">View</span> <span class="nf">createViewFromTag</span><span class="o">(</span><span class="nc">View</span> <span class="n">parent</span><span class="o">,</span> <span class="nc">String</span> <span class="n">name</span><span class="o">,</span> <span class="nc">Context</span> <span class="n">context</span><span class="o">,</span> <span class="nc">AttributeSet</span> <span class="n">attrs</span><span class="o">,</span>
+        <span class="kt">boolean</span> <span class="n">ignoreThemeAttr</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">name</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="s">"view"</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">name</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">.</span><span class="na">getAttributeValue</span><span class="o">(</span><span class="kc">null</span><span class="o">,</span> <span class="s">"class"</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="c1">// ignoreThemeAttr为false则给context配置主题装饰器</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">ignoreThemeAttr</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">TypedArray</span> <span class="n">ta</span> <span class="o">=</span> <span class="n">context</span><span class="o">.</span><span class="na">obtainStyledAttributes</span><span class="o">(</span><span class="n">attrs</span><span class="o">,</span> <span class="no">ATTRS_THEME</span><span class="o">);</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">themeResId</span> <span class="o">=</span> <span class="n">ta</span><span class="o">.</span><span class="na">getResourceId</span><span class="o">(</span><span class="mi">0</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">themeResId</span> <span class="o">!=</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">context</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ContextThemeWrapper</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">themeResId</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="n">ta</span><span class="o">.</span><span class="na">recycle</span><span class="o">();</span>
+    <span class="o">}</span>
+    
+    <span class="c1">// TAG_1995返回BlinkLayout，即上世纪Disco舞厅灯光的闪烁感</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">name</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="no">TAG_1995</span><span class="o">))</span> <span class="o">{</span>
+        <span class="c1">// Let's party like it's 1995!</span>
+        <span class="k">return</span> <span class="k">new</span> <span class="nf">BlinkLayout</span><span class="o">(</span><span class="n">context</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="nc">View</span> <span class="n">view</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mFactory2</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// mFactory2一般不为空，且转换TextView为AppCompatTextView</span>
+            <span class="n">view</span> <span class="o">=</span> <span class="n">mFactory2</span><span class="o">.</span><span class="na">onCreateView</span><span class="o">(</span><span class="n">parent</span><span class="o">,</span> <span class="n">name</span><span class="o">,</span> <span class="n">context</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">mFactory</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">view</span> <span class="o">=</span> <span class="n">mFactory</span><span class="o">.</span><span class="na">onCreateView</span><span class="o">(</span><span class="n">name</span><span class="o">,</span> <span class="n">context</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="n">view</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="o">}</span>
+
+        <span class="c1">// 如果上述工厂构建视图实例成功则完成构建</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">view</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">mPrivateFactory</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">view</span> <span class="o">=</span> <span class="n">mPrivateFactory</span><span class="o">.</span><span class="na">onCreateView</span><span class="o">(</span><span class="n">parent</span><span class="o">,</span> <span class="n">name</span><span class="o">,</span> <span class="n">context</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+        <span class="o">}</span>
+
+        <span class="k">if</span> <span class="o">(</span><span class="n">view</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kd">final</span> <span class="nc">Object</span> <span class="n">lastContext</span> <span class="o">=</span> <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span>
+            <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">context</span><span class="o">;</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="c1">// 不包含符号'.'表示原生View，不是自定义如 &lt;com.phatomvk.custom.view /&gt;</span>
+                <span class="c1">// onCreateView()调用createView(name, prefix = "android.view.", attrs)</span>
+                <span class="c1">// 示例：android.support.v7.widget.RecyclerView不会添加前缀</span>
+                <span class="k">if</span> <span class="o">(-</span><span class="mi">1</span> <span class="o">==</span> <span class="n">name</span><span class="o">.</span><span class="na">indexOf</span><span class="o">(</span><span class="sc">'.'</span><span class="o">))</span> <span class="o">{</span>
+                    <span class="c1">// 例：TextView全路径名为'android.view.TextView'</span>
+                    <span class="n">view</span> <span class="o">=</span> <span class="n">onCreateView</span><span class="o">(</span><span class="n">parent</span><span class="o">,</span> <span class="n">name</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+                <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                    <span class="c1">// 自定义View创建</span>
+                    <span class="n">view</span> <span class="o">=</span> <span class="n">createView</span><span class="o">(</span><span class="n">name</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+                <span class="o">}</span>
+            <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+                <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">lastContext</span><span class="o">;</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+        
+        <span class="k">return</span> <span class="n">view</span><span class="o">;</span> <span class="c1">// 返回构建的view</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">InflateException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="n">e</span><span class="o">;</span>
+
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ClassNotFoundException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">InflateException</span> <span class="n">ie</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">InflateException</span><span class="o">(</span><span class="n">attrs</span><span class="o">.</span><span class="na">getPositionDescription</span><span class="o">()</span>
+                <span class="o">+</span> <span class="s">": Error inflating class "</span> <span class="o">+</span> <span class="n">name</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+        <span class="n">ie</span><span class="o">.</span><span class="na">setStackTrace</span><span class="o">(</span><span class="no">EMPTY_STACK_TRACE</span><span class="o">);</span>
+        <span class="k">throw</span> <span class="n">ie</span><span class="o">;</span>
+
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">InflateException</span> <span class="n">ie</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">InflateException</span><span class="o">(</span><span class="n">attrs</span><span class="o">.</span><span class="na">getPositionDescription</span><span class="o">()</span>
+                <span class="o">+</span> <span class="s">": Error inflating class "</span> <span class="o">+</span> <span class="n">name</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+        <span class="n">ie</span><span class="o">.</span><span class="na">setStackTrace</span><span class="o">(</span><span class="no">EMPTY_STACK_TRACE</span><span class="o">);</span>
+        <span class="k">throw</span> <span class="n">ie</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="六视图创建">六、视图创建</h2>
+
+<p>全局静态HashMap缓存，缓存View的构造方法</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">HashMap</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">,</span> <span class="nc">Constructor</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="nc">View</span><span class="o">&gt;&gt;</span> <span class="n">sConstructorMap</span> <span class="o">=</span>
+        <span class="k">new</span> <span class="nc">HashMap</span><span class="o">&lt;</span><span class="nc">String</span><span class="o">,</span> <span class="nc">Constructor</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="nc">View</span><span class="o">&gt;&gt;();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>View最终通过其全路径名在<code class="highlighter-rouge">ClassLoader</code>中反射出对应的View</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="nc">View</span> <span class="nf">createView</span><span class="o">(</span><span class="nc">String</span> <span class="n">name</span><span class="o">,</span> <span class="nc">String</span> <span class="n">prefix</span><span class="o">,</span> <span class="nc">AttributeSet</span> <span class="n">attrs</span><span class="o">)</span>
+        <span class="kd">throws</span> <span class="nc">ClassNotFoundException</span><span class="o">,</span> <span class="nc">InflateException</span> <span class="o">{</span>
+    
+    <span class="c1">// 构建方法缓存HashMap</span>
+    <span class="nc">Constructor</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="nc">View</span><span class="o">&gt;</span> <span class="n">constructor</span> <span class="o">=</span> <span class="n">sConstructorMap</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">name</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">constructor</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">verifyClassLoader</span><span class="o">(</span><span class="n">constructor</span><span class="o">))</span> <span class="o">{</span>
+        <span class="n">constructor</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="n">sConstructorMap</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">name</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="nc">Class</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="nc">View</span><span class="o">&gt;</span> <span class="n">clazz</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="nc">Trace</span><span class="o">.</span><span class="na">traceBegin</span><span class="o">(</span><span class="nc">Trace</span><span class="o">.</span><span class="na">TRACE_TAG_VIEW</span><span class="o">,</span> <span class="n">name</span><span class="o">);</span>
+        
+        <span class="k">if</span> <span class="o">(</span><span class="n">constructor</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span> <span class="c1">// 该类没有缓存</span>
+            <span class="c1">// 从ClassLoader中反射类</span>
+            <span class="n">clazz</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getClassLoader</span><span class="o">().</span><span class="na">loadClass</span><span class="o">(</span>
+                    <span class="n">prefix</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">?</span> <span class="o">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="n">name</span><span class="o">)</span> <span class="o">:</span> <span class="n">name</span><span class="o">).</span><span class="na">asSubclass</span><span class="o">(</span><span class="nc">View</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+                    
+            <span class="c1">// 未经许可的类不能实例化，并抛出异常</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mFilter</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">clazz</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 指定类不允许被填充构建</span>
+                <span class="kt">boolean</span> <span class="n">allowed</span> <span class="o">=</span> <span class="n">mFilter</span><span class="o">.</span><span class="na">onLoadClass</span><span class="o">(</span><span class="n">clazz</span><span class="o">);</span>
+                <span class="k">if</span> <span class="o">(!</span><span class="n">allowed</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="n">failNotAllowed</span><span class="o">(</span><span class="n">name</span><span class="o">,</span> <span class="n">prefix</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+
+            <span class="c1">// 获取反射类的构造方法，并把构造方法添加到缓存</span>
+            <span class="n">constructor</span> <span class="o">=</span> <span class="n">clazz</span><span class="o">.</span><span class="na">getConstructor</span><span class="o">(</span><span class="n">mConstructorSignature</span><span class="o">);</span>
+            <span class="n">constructor</span><span class="o">.</span><span class="na">setAccessible</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+            <span class="n">sConstructorMap</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">name</span><span class="o">,</span> <span class="n">constructor</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// 已经缓存的构造方法还要经过mFilter的检查</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">mFilter</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="c1">// 查看此name之前是否遇见过</span>
+                <span class="nc">Boolean</span> <span class="n">allowedState</span> <span class="o">=</span> <span class="n">mFilterMap</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">name</span><span class="o">);</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">allowedState</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                    <span class="c1">// 获取类并记录此类是否允许使用</span>
+                    <span class="n">clazz</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getClassLoader</span><span class="o">().</span><span class="na">loadClass</span><span class="o">(</span>
+                            <span class="n">prefix</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">?</span> <span class="o">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="n">name</span><span class="o">)</span> <span class="o">:</span> <span class="n">name</span><span class="o">).</span><span class="na">asSubclass</span><span class="o">(</span><span class="nc">View</span><span class="o">.</span><span class="na">class</span><span class="o">);</span>
+
+                    <span class="kt">boolean</span> <span class="n">allowed</span> <span class="o">=</span> <span class="n">clazz</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="n">mFilter</span><span class="o">.</span><span class="na">onLoadClass</span><span class="o">(</span><span class="n">clazz</span><span class="o">);</span>
+                    <span class="n">mFilterMap</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">name</span><span class="o">,</span> <span class="n">allowed</span><span class="o">);</span>
+                    <span class="k">if</span> <span class="o">(!</span><span class="n">allowed</span><span class="o">)</span> <span class="o">{</span>
+                        <span class="n">failNotAllowed</span><span class="o">(</span><span class="n">name</span><span class="o">,</span> <span class="n">prefix</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+                    <span class="o">}</span>
+                <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">allowedState</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="nc">Boolean</span><span class="o">.</span><span class="na">FALSE</span><span class="o">))</span> <span class="o">{</span>
+                    <span class="n">failNotAllowed</span><span class="o">(</span><span class="n">name</span><span class="o">,</span> <span class="n">prefix</span><span class="o">,</span> <span class="n">attrs</span><span class="o">);</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+
+        <span class="nc">Object</span> <span class="n">lastContext</span> <span class="o">=</span> <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">];</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">args</span> <span class="o">=</span> <span class="n">mConstructorArgs</span><span class="o">;</span>
+        <span class="n">args</span><span class="o">[</span><span class="mi">1</span><span class="o">]</span> <span class="o">=</span> <span class="n">attrs</span><span class="o">;</span>
+        
+        <span class="c1">// 创建类实例，args是自定义主题相关变量</span>
+        <span class="kd">final</span> <span class="nc">View</span> <span class="n">view</span> <span class="o">=</span> <span class="n">constructor</span><span class="o">.</span><span class="na">newInstance</span><span class="o">(</span><span class="n">args</span><span class="o">);</span>
+
+        <span class="c1">// 类型是ViewStub</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">view</span> <span class="k">instanceof</span> <span class="nc">ViewStub</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 使用同一个Context给ViewStub设置LayoutInflater</span>
+            <span class="c1">// 后面View填充是会使用此LayoutInflater</span>
+            <span class="kd">final</span> <span class="nc">ViewStub</span> <span class="n">viewStub</span> <span class="o">=</span> <span class="o">(</span><span class="nc">ViewStub</span><span class="o">)</span> <span class="n">view</span><span class="o">;</span>
+            <span class="n">viewStub</span><span class="o">.</span><span class="na">setLayoutInflater</span><span class="o">(</span><span class="n">cloneInContext</span><span class="o">((</span><span class="nc">Context</span><span class="o">)</span> <span class="n">args</span><span class="o">[</span><span class="mi">0</span><span class="o">]));</span>
+        <span class="o">}</span>
+        <span class="n">mConstructorArgs</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="n">lastContext</span><span class="o">;</span>
+        <span class="k">return</span> <span class="n">view</span><span class="o">;</span>
+
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">NoSuchMethodException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 无法找到构造方法</span>
+        <span class="kd">final</span> <span class="nc">InflateException</span> <span class="n">ie</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">InflateException</span><span class="o">(</span><span class="n">attrs</span><span class="o">.</span><span class="na">getPositionDescription</span><span class="o">()</span>
+                <span class="o">+</span> <span class="s">": Error inflating class "</span> <span class="o">+</span> <span class="o">(</span><span class="n">prefix</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">?</span> <span class="o">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="n">name</span><span class="o">)</span> <span class="o">:</span> <span class="n">name</span><span class="o">),</span> <span class="n">e</span><span class="o">);</span>
+        <span class="n">ie</span><span class="o">.</span><span class="na">setStackTrace</span><span class="o">(</span><span class="no">EMPTY_STACK_TRACE</span><span class="o">);</span>
+        <span class="k">throw</span> <span class="n">ie</span><span class="o">;</span>
+
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ClassCastException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 填充类不是View的子类</span>
+        <span class="kd">final</span> <span class="nc">InflateException</span> <span class="n">ie</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">InflateException</span><span class="o">(</span><span class="n">attrs</span><span class="o">.</span><span class="na">getPositionDescription</span><span class="o">()</span>
+                <span class="o">+</span> <span class="s">": Class is not a View "</span> <span class="o">+</span> <span class="o">(</span><span class="n">prefix</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">?</span> <span class="o">(</span><span class="n">prefix</span> <span class="o">+</span> <span class="n">name</span><span class="o">)</span> <span class="o">:</span> <span class="n">name</span><span class="o">),</span> <span class="n">e</span><span class="o">);</span>
+        <span class="n">ie</span><span class="o">.</span><span class="na">setStackTrace</span><span class="o">(</span><span class="no">EMPTY_STACK_TRACE</span><span class="o">);</span>
+        <span class="k">throw</span> <span class="n">ie</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ClassNotFoundException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 类加载失败，抛出异常</span>
+        <span class="k">throw</span> <span class="n">e</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="nc">InflateException</span> <span class="n">ie</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">InflateException</span><span class="o">(</span>
+                <span class="n">attrs</span><span class="o">.</span><span class="na">getPositionDescription</span><span class="o">()</span> <span class="o">+</span> <span class="s">": Error inflating class "</span>
+                        <span class="o">+</span> <span class="o">(</span><span class="n">clazz</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">?</span> <span class="s">"&lt;unknown&gt;"</span> <span class="o">:</span> <span class="n">clazz</span><span class="o">.</span><span class="na">getName</span><span class="o">()),</span> <span class="n">e</span><span class="o">);</span>
+        <span class="n">ie</span><span class="o">.</span><span class="na">setStackTrace</span><span class="o">(</span><span class="no">EMPTY_STACK_TRACE</span><span class="o">);</span>
+        <span class="k">throw</span> <span class="n">ie</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+        <span class="nc">Trace</span><span class="o">.</span><span class="na">traceEnd</span><span class="o">(</span><span class="nc">Trace</span><span class="o">.</span><span class="na">TRACE_TAG_VIEW</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="七验证类加载器">七、验证类加载器</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">final</span> <span class="kt">boolean</span> <span class="nf">verifyClassLoader</span><span class="o">(</span><span class="nc">Constructor</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="nc">View</span><span class="o">&gt;</span> <span class="n">constructor</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="nc">ClassLoader</span> <span class="n">constructorLoader</span> <span class="o">=</span> <span class="n">constructor</span><span class="o">.</span><span class="na">getDeclaringClass</span><span class="o">().</span><span class="na">getClassLoader</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">constructorLoader</span> <span class="o">==</span> <span class="no">BOOT_CLASS_LOADER</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// boot class loader是合法的类加载器</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="c1">// in all normal cases (no dynamic code loading), we will exit the following loop on the</span>
+    <span class="c1">// first iteration (i.e. when the declaring classloader is the contexts class loader).</span>
+    <span class="nc">ClassLoader</span> <span class="n">cl</span> <span class="o">=</span> <span class="n">mContext</span><span class="o">.</span><span class="na">getClassLoader</span><span class="o">();</span>
+    <span class="k">do</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">constructorLoader</span> <span class="o">==</span> <span class="n">cl</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="n">cl</span> <span class="o">=</span> <span class="n">cl</span><span class="o">.</span><span class="na">getParent</span><span class="o">();</span>
+    <span class="o">}</span> <span class="k">while</span> <span class="o">(</span><span class="n">cl</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">);</span>
+    <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="八总结">八、总结</h2>
+
+<p>整个过程最耗时间部分有两个：</p>
+
+<ul>
+  <li>读取并分析xml标签数据；</li>
+  <li>类反射获得全路径名的View实例；</li>
+</ul>
+
+<p>从开始<code class="highlighter-rouge">LayoutInflater.inflate</code>填充布局，调用<code class="highlighter-rouge">rInflate</code>递归遍历子View，每个子View在<code class="highlighter-rouge">createViewFromTag</code>通过全限定名调用<code class="highlighter-rouge">createView</code>反射实例，层层处理结束后返回视图。</p>
+
+<p>最后总结<code class="highlighter-rouge">attachToRoot</code>:</p>
+
+<ul>
+  <li><code class="highlighter-rouge">root</code>为null，<code class="highlighter-rouge">attachToRoot</code>设置值不起作用；</li>
+  <li><code class="highlighter-rouge">root</code>不为null，<code class="highlighter-rouge">attachToRoot</code>为true，给加载的布局文件指定父布局root；</li>
+  <li><code class="highlighter-rouge">root</code>不为null，<code class="highlighter-rouge">attachToRoot</code>为false，则设置布局文件最外层layout属性。当该view添加到父view时，这些layout属性起效；</li>
+  <li>不设置<code class="highlighter-rouge">attachToRoot</code>参数且root不为null，<code class="highlighter-rouge">attachToRoot</code>参数默认为true。</li>
+</ul>
+
+<p>参考链接：</p>
+
+<ul>
+  <li><a href="https://blog.csdn.net/Luoshengyang/article/details/8744683">Android应用程序资源的编译和打包过程分析</a></li>
+</ul>
+:ET

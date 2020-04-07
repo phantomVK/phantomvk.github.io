@@ -1,0 +1,740 @@
+I"��<h2 id="一类签名">一、类签名</h2>
+
+<p>这是个内部工具类，用于跟踪那些未完成的或尚未结束的全局任务，新任务通过方法 <strong>queue</strong> 加入。添加 <strong>finisher</strong> 的runnables，由 <strong>waitToFinish</strong> 方法保证执行，用于保证任务已被处理完成。</p>
+
+<p>这个类用于 <strong>SharedPreference</strong> 编辑后修改异步写入到磁盘，所以设计一个在 <strong>Activity.onPause</strong> 或类似地方等待写入操作机制，而这个机制也能用于其他功能。所有排队的异步任务都在一个独立、专用的线程上处理。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">QueuedWork</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="二常量">二、常量</h2>
+
+<p>可延迟 <strong>Runnable</strong> 的延迟值。该值设置得尽可能大，但也需要足够小，令延迟难以察觉。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">long</span> <span class="no">DELAY</span> <span class="o">=</span> <span class="mi">100</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>当 <strong>waitToFinish()</strong> 运行超过 <strong>MAX_WAIT_TIME_MILLIS</strong> 毫秒，发出警告</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="kt">long</span> <span class="no">MAX_WAIT_TIME_MILLIS</span> <span class="o">=</span> <span class="mi">512</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>本类使用的锁对象</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">Object</span> <span class="n">sLock</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三静态变量">三、静态变量</h2>
+
+<p>用此锁约束任何时候都只有一个线程在处理一个任务，意味着执行顺序就是任务添加的顺序。</p>
+
+<p>因为任务执行过程中会一直持有 <strong>sProcessingWork</strong> 锁，所以 <strong>sProcessingWork</strong> 独立于 <strong>sLock</strong> 避免阻塞整个类的运转</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="nc">Object</span> <span class="n">sProcessingWork</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>存放 <strong>Finisher</strong> 的链表。通过 <strong>added</strong> 方法添加，或 <strong>removed</strong> 方法移除</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nd">@GuardedBy</span><span class="o">(</span><span class="s">"sLock"</span><span class="o">)</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">LinkedList</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;</span> <span class="n">sFinishers</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">LinkedList</span><span class="o">&lt;&gt;();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>QueuedWork</strong> 内部的静态 <strong>HandlerThread</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nd">@GuardedBy</span><span class="o">(</span><span class="s">"sLock"</span><span class="o">)</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="nc">Handler</span> <span class="n">sHandler</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>存放通过 <strong>queue</strong> 方法添加任务的队列</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nd">@GuardedBy</span><span class="o">(</span><span class="s">"sLock"</span><span class="o">)</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">LinkedList</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;</span> <span class="n">sWork</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">LinkedList</span><span class="o">&lt;&gt;();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>指示新任务是否能被延迟，默认为 <strong>true</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nd">@GuardedBy</span><span class="o">(</span><span class="s">"sLock"</span><span class="o">)</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kt">boolean</span> <span class="n">sCanDelay</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>任务执行前等待的时间</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@GuardedBy</span><span class="o">(</span><span class="s">"sLock"</span><span class="o">)</span>
+<span class="kd">private</span> <span class="kd">final</span> <span class="kd">static</span> <span class="nc">ExponentiallyBucketedHistogram</span>
+        <span class="n">mWaitTimes</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ExponentiallyBucketedHistogram</span><span class="o">(</span>
+        <span class="mi">16</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>正在等待处理的任务数</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kt">int</span> <span class="n">mNumWaits</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四静态方法">四、静态方法</h2>
+
+<h4 id="41-gethandler">4.1 getHandler()</h4>
+
+<p><strong>HandlerThread</strong> 实现细节请参考 <a href="/2018/06/13/HandlerThread/">Android源码系列(11) – HandlerThread</a>。该文章已经提到 <strong>HandlerThread</strong> 本质是线程，启动 <strong>HandlerThread</strong> 即启动子线程，并让任务在该线程上执行。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="nc">Handler</span> <span class="nf">getHandler</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sLock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">sHandler</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">HandlerThread</span> <span class="n">handlerThread</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">HandlerThread</span><span class="o">(</span><span class="s">"queued-work-looper"</span><span class="o">,</span>
+                    <span class="nc">Process</span><span class="o">.</span><span class="na">THREAD_PRIORITY_FOREGROUND</span><span class="o">);</span>
+            <span class="n">handlerThread</span><span class="o">.</span><span class="na">start</span><span class="o">();</span>
+
+            <span class="n">sHandler</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">QueuedWorkHandler</span><span class="o">(</span><span class="n">handlerThread</span><span class="o">.</span><span class="na">getLooper</span><span class="o">());</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">sHandler</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="42-addfinisherrunnable-finisher">4.2 addFinisher(Runnable finisher)</h4>
+
+<p>添加 <strong>finisher-runnable</strong> 等待 <strong>queue()</strong> 异步处理任务，由 <strong>SharedPreferences$Editor.startCommit()</strong> 使用</p>
+
+<p>应注意的是，这个方法不会引起 <strong>finisher</strong> 的执行。这只是调用者的集合，让调用者异步跟踪任务的最新状态。在大多数情况下，调用者(如：SharedPreferences) 会在 <strong>add()</strong> 后很快又调用 <strong>remove()</strong>。这些任务实际在 <strong>waitToFinish()</strong> 执行</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">addFinisher</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">finisher</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sLock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">sFinishers</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">finisher</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="43-removefinisherrunnable-finisher">4.3 removeFinisher(Runnable finisher)</h4>
+
+<p>移除一个已经添加的 <strong>finisher-runnable</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">removeFinisher</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">finisher</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sLock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">sFinishers</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">finisher</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="44-waittofinish">4.4 waitToFinish()</h4>
+
+<p>触发排队任务马上执行。排队任务在独立的线程异步执行。任务和 <strong>finishers</strong> 都在这个线程上运行，<strong>finishers</strong> 通过这种方式实现检查排队任务是否完成。</p>
+
+<p><strong>Activity.onPause()</strong>、<strong>BroadcastReceiver.onReceive()之后</strong>、<strong>处理Service.command之后</strong> 都会调用此方法，所以异步任务永远不会丢失</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">waitToFinish</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kt">long</span> <span class="n">startTime</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">();</span>
+    <span class="kt">boolean</span> <span class="n">hadMessages</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+
+    <span class="nc">Handler</span> <span class="n">handler</span> <span class="o">=</span> <span class="n">getHandler</span><span class="o">();</span>
+
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sLock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">handler</span><span class="o">.</span><span class="na">hasMessages</span><span class="o">(</span><span class="nc">QueuedWorkHandler</span><span class="o">.</span><span class="na">MSG_RUN</span><span class="o">))</span> <span class="o">{</span>
+            <span class="c1">// 延迟任务会在processPendingWork()中处理</span>
+            <span class="n">handler</span><span class="o">.</span><span class="na">removeMessages</span><span class="o">(</span><span class="nc">QueuedWorkHandler</span><span class="o">.</span><span class="na">MSG_RUN</span><span class="o">);</span>
+        <span class="o">}</span>
+
+        <span class="c1">// 不要延迟任何任务，因为这样可能会推迟finishers的执行</span>
+        <span class="n">sCanDelay</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="nc">StrictMode</span><span class="o">.</span><span class="na">ThreadPolicy</span> <span class="n">oldPolicy</span> <span class="o">=</span> <span class="nc">StrictMode</span><span class="o">.</span><span class="na">allowThreadDiskWrites</span><span class="o">();</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="c1">// 所有等待任务运行完毕</span>
+        <span class="n">processPendingWork</span><span class="o">();</span>
+    <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+        <span class="nc">StrictMode</span><span class="o">.</span><span class="na">setThreadPolicy</span><span class="o">(</span><span class="n">oldPolicy</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="k">while</span> <span class="o">(</span><span class="kc">true</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">Runnable</span> <span class="n">finisher</span><span class="o">;</span>
+            
+            <span class="c1">// 从sFinishers获取一个Finisher</span>
+            <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sLock</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">finisher</span> <span class="o">=</span> <span class="n">sFinishers</span><span class="o">.</span><span class="na">poll</span><span class="o">();</span>
+            <span class="o">}</span>
+
+            <span class="k">if</span> <span class="o">(</span><span class="n">finisher</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">break</span><span class="o">;</span>
+            <span class="o">}</span>
+            
+            <span class="c1">// 执行Finisher</span>
+            <span class="n">finisher</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">finally</span> <span class="o">{</span>
+        <span class="c1">// 所有finisher运行完毕</span>
+        <span class="n">sCanDelay</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="c1">// 统计任务执行的总时间和递增的等待次数</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sLock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kt">long</span> <span class="n">waitTime</span> <span class="o">=</span> <span class="nc">System</span><span class="o">.</span><span class="na">currentTimeMillis</span><span class="o">()</span> <span class="o">-</span> <span class="n">startTime</span><span class="o">;</span>
+
+        <span class="k">if</span> <span class="o">(</span><span class="n">waitTime</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">hadMessages</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">mWaitTimes</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="nc">Long</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">waitTime</span><span class="o">).</span><span class="na">intValue</span><span class="o">());</span>
+            <span class="n">mNumWaits</span><span class="o">++;</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>在 <strong>ActivityThread</strong> 类内共有五段源码调用 <strong>QueuedWork.waitToFinish();</strong></p>
+
+<p>位置一：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">handleServiceArgs</span><span class="o">(</span><span class="nc">ServiceArgsData</span> <span class="n">data</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Service</span> <span class="n">s</span> <span class="o">=</span> <span class="n">mServices</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">data</span><span class="o">.</span><span class="na">token</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">s</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">data</span><span class="o">.</span><span class="na">args</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">data</span><span class="o">.</span><span class="na">args</span><span class="o">.</span><span class="na">setExtrasClassLoader</span><span class="o">(</span><span class="n">s</span><span class="o">.</span><span class="na">getClassLoader</span><span class="o">());</span>
+                <span class="n">data</span><span class="o">.</span><span class="na">args</span><span class="o">.</span><span class="na">prepareToEnterProcess</span><span class="o">();</span>
+            <span class="o">}</span>
+            <span class="kt">int</span> <span class="n">res</span><span class="o">;</span>
+            <span class="k">if</span> <span class="o">(!</span><span class="n">data</span><span class="o">.</span><span class="na">taskRemoved</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="na">onStartCommand</span><span class="o">(</span><span class="n">data</span><span class="o">.</span><span class="na">args</span><span class="o">,</span> <span class="n">data</span><span class="o">.</span><span class="na">flags</span><span class="o">,</span> <span class="n">data</span><span class="o">.</span><span class="na">startId</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+                <span class="n">s</span><span class="o">.</span><span class="na">onTaskRemoved</span><span class="o">(</span><span class="n">data</span><span class="o">.</span><span class="na">args</span><span class="o">);</span>
+                <span class="n">res</span> <span class="o">=</span> <span class="nc">Service</span><span class="o">.</span><span class="na">START_TASK_REMOVED_COMPLETE</span><span class="o">;</span>
+            <span class="o">}</span>
+
+            <span class="nc">QueuedWork</span><span class="o">.</span><span class="na">waitToFinish</span><span class="o">();</span>
+
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="nc">ActivityManager</span><span class="o">.</span><span class="na">getService</span><span class="o">().</span><span class="na">serviceDoneExecuting</span><span class="o">(</span>
+                        <span class="n">data</span><span class="o">.</span><span class="na">token</span><span class="o">,</span> <span class="no">SERVICE_DONE_EXECUTING_START</span><span class="o">,</span> <span class="n">data</span><span class="o">.</span><span class="na">startId</span><span class="o">,</span> <span class="n">res</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">RemoteException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="n">e</span><span class="o">.</span><span class="na">rethrowFromSystemServer</span><span class="o">();</span>
+            <span class="o">}</span>
+            <span class="n">ensureJitEnabled</span><span class="o">();</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(!</span><span class="n">mInstrumentation</span><span class="o">.</span><span class="na">onException</span><span class="o">(</span><span class="n">s</span><span class="o">,</span> <span class="n">e</span><span class="o">))</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span>
+                        <span class="s">"Unable to start service "</span> <span class="o">+</span> <span class="n">s</span>
+                        <span class="o">+</span> <span class="s">" with "</span> <span class="o">+</span> <span class="n">data</span><span class="o">.</span><span class="na">args</span> <span class="o">+</span> <span class="s">": "</span> <span class="o">+</span> <span class="n">e</span><span class="o">.</span><span class="na">toString</span><span class="o">(),</span> <span class="n">e</span><span class="o">);</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>位置二：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">handleStopService</span><span class="o">(</span><span class="nc">IBinder</span> <span class="n">token</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Service</span> <span class="n">s</span> <span class="o">=</span> <span class="n">mServices</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">token</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">s</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">localLOGV</span><span class="o">)</span> <span class="nc">Slog</span><span class="o">.</span><span class="na">v</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="s">"Destroying service "</span> <span class="o">+</span> <span class="n">s</span><span class="o">);</span>
+            <span class="n">s</span><span class="o">.</span><span class="na">onDestroy</span><span class="o">();</span>
+            <span class="n">s</span><span class="o">.</span><span class="na">detachAndCleanUp</span><span class="o">();</span>
+            <span class="nc">Context</span> <span class="n">context</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="na">getBaseContext</span><span class="o">();</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">context</span> <span class="k">instanceof</span> <span class="nc">ContextImpl</span><span class="o">)</span> <span class="o">{</span>
+                <span class="kd">final</span> <span class="nc">String</span> <span class="n">who</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="na">getClassName</span><span class="o">();</span>
+                <span class="o">((</span><span class="nc">ContextImpl</span><span class="o">)</span> <span class="n">context</span><span class="o">).</span><span class="na">scheduleFinalCleanup</span><span class="o">(</span><span class="n">who</span><span class="o">,</span> <span class="s">"Service"</span><span class="o">);</span>
+            <span class="o">}</span>
+
+            <span class="nc">QueuedWork</span><span class="o">.</span><span class="na">waitToFinish</span><span class="o">();</span>
+
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="nc">ActivityManager</span><span class="o">.</span><span class="na">getService</span><span class="o">().</span><span class="na">serviceDoneExecuting</span><span class="o">(</span>
+                        <span class="n">token</span><span class="o">,</span> <span class="no">SERVICE_DONE_EXECUTING_STOP</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="mi">0</span><span class="o">);</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">RemoteException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="n">e</span><span class="o">.</span><span class="na">rethrowFromSystemServer</span><span class="o">();</span>
+            <span class="o">}</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">Exception</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">if</span> <span class="o">(!</span><span class="n">mInstrumentation</span><span class="o">.</span><span class="na">onException</span><span class="o">(</span><span class="n">s</span><span class="o">,</span> <span class="n">e</span><span class="o">))</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">RuntimeException</span><span class="o">(</span>
+                        <span class="s">"Unable to stop service "</span> <span class="o">+</span> <span class="n">s</span>
+                        <span class="o">+</span> <span class="s">": "</span> <span class="o">+</span> <span class="n">e</span><span class="o">.</span><span class="na">toString</span><span class="o">(),</span> <span class="n">e</span><span class="o">);</span>
+            <span class="o">}</span>
+            <span class="nc">Slog</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="s">"handleStopService: exception for "</span> <span class="o">+</span> <span class="n">token</span><span class="o">,</span> <span class="n">e</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="nc">Slog</span><span class="o">.</span><span class="na">i</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="s">"handleStopService: token="</span> <span class="o">+</span> <span class="n">token</span> <span class="o">+</span> <span class="s">" not found."</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="c1">//Slog.i(TAG, "Running services: " + mServices);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>位置三：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">handlePauseActivity</span><span class="o">(</span><span class="nc">IBinder</span> <span class="n">token</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">finished</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">userLeaving</span><span class="o">,</span>
+        <span class="kt">int</span> <span class="n">configChanges</span><span class="o">,</span> <span class="nc">PendingTransactionActions</span> <span class="n">pendingActions</span><span class="o">,</span> <span class="nc">String</span> <span class="n">reason</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">ActivityClientRecord</span> <span class="n">r</span> <span class="o">=</span> <span class="n">mActivities</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">token</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">r</span> <span class="o">!=</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">userLeaving</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">performUserLeavingActivity</span><span class="o">(</span><span class="n">r</span><span class="o">);</span>
+        <span class="o">}</span>
+
+        <span class="n">r</span><span class="o">.</span><span class="na">activity</span><span class="o">.</span><span class="na">mConfigChangeFlags</span> <span class="o">|=</span> <span class="n">configChanges</span><span class="o">;</span>
+        <span class="n">performPauseActivity</span><span class="o">(</span><span class="n">r</span><span class="o">,</span> <span class="n">finished</span><span class="o">,</span> <span class="n">reason</span><span class="o">,</span> <span class="n">pendingActions</span><span class="o">);</span>
+
+        <span class="c1">// Make sure any pending writes are now committed.</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">isPreHoneycomb</span><span class="o">())</span> <span class="o">{</span>
+            <span class="nc">QueuedWork</span><span class="o">.</span><span class="na">waitToFinish</span><span class="o">();</span>
+        <span class="o">}</span>
+        <span class="n">mSomeActivitiesChanged</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>位置四：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleStopActivity</span><span class="o">(</span><span class="nc">IBinder</span> <span class="n">token</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">show</span><span class="o">,</span> <span class="kt">int</span> <span class="n">configChanges</span><span class="o">,</span>
+        <span class="nc">PendingTransactionActions</span> <span class="n">pendingActions</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">finalStateRequest</span><span class="o">,</span> <span class="nc">String</span> <span class="n">reason</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="nc">ActivityClientRecord</span> <span class="n">r</span> <span class="o">=</span> <span class="n">mActivities</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">token</span><span class="o">);</span>
+    <span class="n">r</span><span class="o">.</span><span class="na">activity</span><span class="o">.</span><span class="na">mConfigChangeFlags</span> <span class="o">|=</span> <span class="n">configChanges</span><span class="o">;</span>
+
+    <span class="kd">final</span> <span class="nc">StopInfo</span> <span class="n">stopInfo</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">StopInfo</span><span class="o">();</span>
+    <span class="n">performStopActivityInner</span><span class="o">(</span><span class="n">r</span><span class="o">,</span> <span class="n">stopInfo</span><span class="o">,</span> <span class="n">show</span><span class="o">,</span> <span class="kc">true</span> <span class="cm">/* saveState */</span><span class="o">,</span> <span class="n">finalStateRequest</span><span class="o">,</span>
+            <span class="n">reason</span><span class="o">);</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">localLOGV</span><span class="o">)</span> <span class="nc">Slog</span><span class="o">.</span><span class="na">v</span><span class="o">(</span>
+        <span class="no">TAG</span><span class="o">,</span> <span class="s">"Finishing stop of "</span> <span class="o">+</span> <span class="n">r</span> <span class="o">+</span> <span class="s">": show="</span> <span class="o">+</span> <span class="n">show</span>
+        <span class="o">+</span> <span class="s">" win="</span> <span class="o">+</span> <span class="n">r</span><span class="o">.</span><span class="na">window</span><span class="o">);</span>
+
+    <span class="n">updateVisibility</span><span class="o">(</span><span class="n">r</span><span class="o">,</span> <span class="n">show</span><span class="o">);</span>
+
+    <span class="c1">// Make sure any pending writes are now committed.</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">r</span><span class="o">.</span><span class="na">isPreHoneycomb</span><span class="o">())</span> <span class="o">{</span>
+        <span class="nc">QueuedWork</span><span class="o">.</span><span class="na">waitToFinish</span><span class="o">();</span>
+    <span class="o">}</span>
+
+    <span class="n">stopInfo</span><span class="o">.</span><span class="na">setActivity</span><span class="o">(</span><span class="n">r</span><span class="o">);</span>
+    <span class="n">stopInfo</span><span class="o">.</span><span class="na">setState</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">state</span><span class="o">);</span>
+    <span class="n">stopInfo</span><span class="o">.</span><span class="na">setPersistentState</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">persistentState</span><span class="o">);</span>
+    <span class="n">pendingActions</span><span class="o">.</span><span class="na">setStopInfo</span><span class="o">(</span><span class="n">stopInfo</span><span class="o">);</span>
+    <span class="n">mSomeActivitiesChanged</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>位置五：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+</pre></td><td class="rouge-code"><pre><span class="c1">// TODO: This method should be changed to use {@link #performStopActivityInner} to perform to</span>
+<span class="c1">// stop operation on the activity to reduce code duplication and the chance of fixing a bug in</span>
+<span class="c1">// one place and missing the other.</span>
+<span class="kd">private</span> <span class="kt">void</span> <span class="nf">handleSleeping</span><span class="o">(</span><span class="nc">IBinder</span> <span class="n">token</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">sleeping</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">ActivityClientRecord</span> <span class="n">r</span> <span class="o">=</span> <span class="n">mActivities</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">token</span><span class="o">);</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">r</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">w</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="s">"handleSleeping: no activity for token "</span> <span class="o">+</span> <span class="n">token</span><span class="o">);</span>
+        <span class="k">return</span><span class="o">;</span>
+    <span class="o">}</span>
+
+    <span class="k">if</span> <span class="o">(</span><span class="n">sleeping</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">r</span><span class="o">.</span><span class="na">stopped</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">r</span><span class="o">.</span><span class="na">isPreHoneycomb</span><span class="o">())</span> <span class="o">{</span>
+            <span class="n">callActivityOnStop</span><span class="o">(</span><span class="n">r</span><span class="o">,</span> <span class="kc">true</span> <span class="cm">/* saveState */</span><span class="o">,</span> <span class="s">"sleeping"</span><span class="o">);</span>
+        <span class="o">}</span>
+
+        <span class="c1">// Make sure any pending writes are now committed.</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">r</span><span class="o">.</span><span class="na">isPreHoneycomb</span><span class="o">())</span> <span class="o">{</span>
+            <span class="nc">QueuedWork</span><span class="o">.</span><span class="na">waitToFinish</span><span class="o">();</span>
+        <span class="o">}</span>
+
+        <span class="c1">// Tell activity manager we slept.</span>
+        <span class="k">try</span> <span class="o">{</span>
+            <span class="nc">ActivityManager</span><span class="o">.</span><span class="na">getService</span><span class="o">().</span><span class="na">activitySlept</span><span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">token</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">RemoteException</span> <span class="n">ex</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">throw</span> <span class="n">ex</span><span class="o">.</span><span class="na">rethrowFromSystemServer</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">r</span><span class="o">.</span><span class="na">stopped</span> <span class="o">&amp;&amp;</span> <span class="n">r</span><span class="o">.</span><span class="na">activity</span><span class="o">.</span><span class="na">mVisibleFromServer</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">r</span><span class="o">.</span><span class="na">activity</span><span class="o">.</span><span class="na">performRestart</span><span class="o">(</span><span class="kc">true</span> <span class="cm">/* start */</span><span class="o">,</span> <span class="s">"handleSleeping"</span><span class="o">);</span>
+            <span class="n">r</span><span class="o">.</span><span class="na">setState</span><span class="o">(</span><span class="no">ON_START</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="45-queuerunnable-work-boolean-shoulddelay">4.5 queue(Runnable work, boolean shouldDelay)</h4>
+
+<p>安排任务异步执行。<strong>work</strong> 是新加入的任务，<strong>shouldDelay</strong> 指明本任务是否能延迟处理。</p>
+
+<p><strong>SharedPreferences.Editor.appy()</strong> 源码间接调用此方法，调用时 <strong>shouldDelay</strong> 为 <strong>true</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">queue</span><span class="o">(</span><span class="nc">Runnable</span> <span class="n">work</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">shouldDelay</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Handler</span> <span class="n">handler</span> <span class="o">=</span> <span class="n">getHandler</span><span class="o">();</span>
+
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sLock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 任务放入sWork列表中</span>
+        <span class="n">sWork</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">work</span><span class="o">);</span>
+
+        <span class="c1">// 然后放入一个Message作为通知</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">shouldDelay</span> <span class="o">&amp;&amp;</span> <span class="n">sCanDelay</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// sCanDelay默认为true，支持延迟100ms</span>
+            <span class="n">handler</span><span class="o">.</span><span class="na">sendEmptyMessageDelayed</span><span class="o">(</span><span class="nc">QueuedWorkHandler</span><span class="o">.</span><span class="na">MSG_RUN</span><span class="o">,</span> <span class="no">DELAY</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// 放入一个马上触发运行的消息</span>
+            <span class="n">handler</span><span class="o">.</span><span class="na">sendEmptyMessage</span><span class="o">(</span><span class="nc">QueuedWorkHandler</span><span class="o">.</span><span class="na">MSG_RUN</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="46-haspendingwork">4.6 hasPendingWork()</h4>
+
+<p>当队列存在等待的异步任务时返回 <strong>true</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="kt">boolean</span> <span class="nf">hasPendingWork</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sLock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="o">!</span><span class="n">sWork</span><span class="o">.</span><span class="na">isEmpty</span><span class="o">();</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="47-processpendingwork">4.7 processPendingWork()</h4>
+
+<p>从任务队列中取任务执行</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">processPendingWork</span><span class="o">()</span> <span class="o">{</span>
+    <span class="c1">// 此处使用sProcessingWork锁，保证sWork</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sProcessingWork</span><span class="o">)</span> <span class="o">{</span>
+        <span class="nc">LinkedList</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;</span> <span class="n">work</span><span class="o">;</span>
+
+        <span class="kd">synchronized</span> <span class="o">(</span><span class="n">sLock</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 克隆sWork为work实例</span>
+            <span class="n">work</span> <span class="o">=</span> <span class="o">(</span><span class="nc">LinkedList</span><span class="o">&lt;</span><span class="nc">Runnable</span><span class="o">&gt;)</span> <span class="n">sWork</span><span class="o">.</span><span class="na">clone</span><span class="o">();</span>
+            <span class="c1">// 清除sWork</span>
+            <span class="n">sWork</span><span class="o">.</span><span class="na">clear</span><span class="o">();</span>
+
+            <span class="c1">// 利用QueuedWorkHandler.MSG_RUN移除相关Messages</span>
+            <span class="c1">// 避免以后收到类似通知，而任务却已经完成执行</span>
+            <span class="n">getHandler</span><span class="o">().</span><span class="na">removeMessages</span><span class="o">(</span><span class="nc">QueuedWorkHandler</span><span class="o">.</span><span class="na">MSG_RUN</span><span class="o">);</span>
+        <span class="o">}</span>
+        
+        <span class="c1">// 根据work任务排列顺序依次执行</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">work</span><span class="o">.</span><span class="na">size</span><span class="o">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="k">for</span> <span class="o">(</span><span class="nc">Runnable</span> <span class="n">w</span> <span class="o">:</span> <span class="n">work</span><span class="o">)</span> <span class="o">{</span>
+                <span class="n">w</span><span class="o">.</span><span class="na">run</span><span class="o">();</span>
+            <span class="o">}</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="五queuedworkhandler">五、QueuedWorkHandler</h2>
+
+<p>收到 <strong>msg.what == MSG_RUN</strong> 消息通知就去调用<a href="/2018/11/05/QueuedWork/#47-processpendingwork">processPendingWork()</a>方法。该 <strong>Handler</strong> 由 <strong>Looper</strong> 调用， <strong>Looper</strong> 又在子线程，所以 <strong>Handler</strong> 在子线程执行任务。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="kd">class</span> <span class="nc">QueuedWorkHandler</span> <span class="kd">extends</span> <span class="nc">Handler</span> <span class="o">{</span>
+    <span class="kd">static</span> <span class="kd">final</span> <span class="kt">int</span> <span class="no">MSG_RUN</span> <span class="o">=</span> <span class="mi">1</span><span class="o">;</span>
+
+    <span class="nc">QueuedWorkHandler</span><span class="o">(</span><span class="nc">Looper</span> <span class="n">looper</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">(</span><span class="n">looper</span><span class="o">);</span>
+    <span class="o">}</span>
+
+    <span class="kd">public</span> <span class="kt">void</span> <span class="nf">handleMessage</span><span class="o">(</span><span class="nc">Message</span> <span class="n">msg</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 收到Message</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">msg</span><span class="o">.</span><span class="na">what</span> <span class="o">==</span> <span class="no">MSG_RUN</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 触发方法调用，把sWork内所有任务批量送去执行</span>
+            <span class="n">processPendingWork</span><span class="o">();</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

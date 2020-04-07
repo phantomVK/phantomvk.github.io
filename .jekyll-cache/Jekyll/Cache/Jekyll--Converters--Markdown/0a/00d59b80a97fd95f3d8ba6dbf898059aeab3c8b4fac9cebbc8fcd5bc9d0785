@@ -1,0 +1,280 @@
+I"fX<h2 id="前言">前言</h2>
+
+<p>下面除了<code class="highlighter-rouge">with</code>之外，所有用例都来自<code class="highlighter-rouge">Android</code>生产代码。因项目没有实际使用<code class="highlighter-rouge">with</code>语法，所以通过其他例子来示意。在不影响理解的情况下，所有用例移除业务相关代码。</p>
+
+<p>文章中使用的<code class="highlighter-rouge">Kotlin</code>版本是<code class="highlighter-rouge">1.2.10</code>，不同版本的<code class="highlighter-rouge">Kotlin</code>标准库实现可能会有差异。</p>
+
+<h2 id="一let">一、let</h2>
+
+<p>调用传入的函数式。接收者为<code class="highlighter-rouge">T</code>，且用<code class="highlighter-rouge">it</code>指代<code class="highlighter-rouge">T</code>，返回值与函数式返回值一致。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre><span class="c1">// 用`this`作为调用块的实参，并返回块执行结果</span>
+<span class="err">@</span><span class="n">kotlin</span><span class="p">.</span><span class="k">internal</span><span class="p">.</span><span class="nc">InlineOnly</span>
+<span class="k">public</span> <span class="k">inline</span> <span class="k">fun</span> <span class="p">&lt;</span><span class="nc">T</span><span class="p">,</span> <span class="nc">R</span><span class="p">&gt;</span> <span class="nc">T</span><span class="p">.</span><span class="nf">let</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="p">(</span><span class="nc">T</span><span class="p">)</span> <span class="p">-&gt;</span> <span class="nc">R</span><span class="p">):</span> <span class="nc">R</span> <span class="p">{</span>
+    <span class="nf">contract</span> <span class="p">{</span>
+        <span class="nf">callsInPlace</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="nc">InvocationKind</span><span class="p">.</span><span class="nc">EXACTLY_ONCE</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nf">block</span><span class="p">(</span><span class="k">this</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="11-用例">1.1 用例</h3>
+
+<p>把<code class="highlighter-rouge">color:Int</code>颜色值设置到<code class="highlighter-rouge">text:TextView</code>。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="n">color</span><span class="p">.</span><span class="nf">let</span> <span class="p">{</span>
+    <span class="k">try</span> <span class="p">{</span>
+        <span class="n">text</span><span class="p">.</span><span class="nf">setTextColor</span><span class="p">(</span><span class="nc">Color</span><span class="p">.</span><span class="nf">parseColor</span><span class="p">(</span><span class="n">it</span><span class="p">))</span>
+    <span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="n">e</span><span class="p">:</span> <span class="nc">Exception</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nc">Log</span><span class="p">.</span><span class="nf">e</span><span class="p">(</span><span class="s">"ClazzName"</span><span class="p">,</span> <span class="s">"setTextColor($color) -&gt; ${e.message}"</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+<h3 id="12-用例">1.2 用例</h3>
+
+<p>当<code class="highlighter-rouge">results:MutableList&lt;String&gt;</code>不为空时，从<code class="highlighter-rouge">results</code>按<code class="highlighter-rouge">position</code>取对应值并绑定到<code class="highlighter-rouge">viewHolder</code>。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="c1">// results进行了判空操作</span>
+<span class="n">results</span><span class="o">?.</span><span class="nf">let</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">it</span><span class="p">.</span><span class="nf">isNotEmpty</span><span class="p">())</span> <span class="p">{</span>
+        <span class="n">viewHolder</span><span class="p">.</span><span class="nf">bind</span><span class="p">(</span><span class="n">holder</span><span class="p">,</span> <span class="n">it</span><span class="p">[</span><span class="n">position</span><span class="p">])</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="二apply">二、apply</h2>
+
+<p><code class="highlighter-rouge">apply</code>使用<code class="highlighter-rouge">this</code>指代<code class="highlighter-rouge">T</code>，函数值返回值是<code class="highlighter-rouge">Unit</code>。但<code class="highlighter-rouge">apply</code>通过<code class="highlighter-rouge">return this</code>主动返回<code class="highlighter-rouge">T</code>的实例。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="c1">// 用`this`作为执行块的接收者，并返回`this`的实例</span>
+<span class="err">@</span><span class="n">kotlin</span><span class="p">.</span><span class="k">internal</span><span class="p">.</span><span class="nc">InlineOnly</span>
+<span class="k">public</span> <span class="k">inline</span> <span class="k">fun</span> <span class="p">&lt;</span><span class="nc">T</span><span class="p">&gt;</span> <span class="nc">T</span><span class="p">.</span><span class="nf">apply</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="nc">T</span><span class="p">.()</span> <span class="p">-&gt;</span> <span class="nc">Unit</span><span class="p">):</span> <span class="nc">T</span> <span class="p">{</span>
+    <span class="nf">contract</span> <span class="p">{</span>
+        <span class="nf">callsInPlace</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="nc">InvocationKind</span><span class="p">.</span><span class="nc">EXACTLY_ONCE</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="nf">block</span><span class="p">()</span>
+    <span class="k">return</span> <span class="k">this</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="21-用例">2.1 用例</h3>
+
+<p>创建<code class="highlighter-rouge">LinearLayout</code>并利用<code class="highlighter-rouge">apply</code>设置初始化参数，最后返回初始化完毕的<code class="highlighter-rouge">LinearLayout</code>实例。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="kd">val</span> <span class="py">linearLayout</span> <span class="p">=</span> <span class="nc">LinearLayout</span><span class="p">(</span><span class="n">itemView</span><span class="p">.</span><span class="n">context</span><span class="p">).</span><span class="nf">apply</span> <span class="p">{</span>
+    <span class="n">orientation</span> <span class="p">=</span> <span class="nc">LinearLayout</span><span class="p">.</span><span class="nc">VERTICAL</span>
+    <span class="n">layoutParams</span> <span class="p">=</span> <span class="nc">LinearLayout</span><span class="p">.</span><span class="nc">LayoutParams</span><span class="p">(</span>
+            <span class="nc">LinearLayout</span><span class="p">.</span><span class="nc">LayoutParams</span><span class="p">.</span><span class="nc">MATCH_PARENT</span><span class="p">,</span>
+            <span class="nc">LinearLayout</span><span class="p">.</span><span class="nc">LayoutParams</span><span class="p">.</span><span class="nc">WRAP_CONTENT</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>上面的代码等价于：</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">val</span> <span class="py">linearLayout</span> <span class="p">=</span> <span class="nc">LinearLayout</span><span class="p">(</span><span class="n">itemView</span><span class="p">.</span><span class="n">context</span><span class="p">)</span>
+<span class="n">linearLayout</span><span class="p">.</span><span class="n">orientation</span> <span class="p">=</span> <span class="nc">LinearLayout</span><span class="p">.</span><span class="nc">VERTICAL</span>
+<span class="n">linearLayout</span><span class="p">.</span><span class="n">layoutParams</span> <span class="p">=</span> <span class="nc">LinearLayout</span><span class="p">.</span><span class="nc">LayoutParams</span><span class="p">(</span>
+        <span class="nc">LinearLayout</span><span class="p">.</span><span class="nc">LayoutParams</span><span class="p">.</span><span class="nc">MATCH_PARENT</span><span class="p">,</span>
+        <span class="nc">LinearLayout</span><span class="p">.</span><span class="nc">LayoutParams</span><span class="p">.</span><span class="nc">WRAP_CONTENT</span><span class="p">)</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>如果构造过程中需要初始化的变量较多，使用<code class="highlighter-rouge">apply</code>形成的代码块会非常直观。</p>
+
+<h3 id="22-用例">2.2 用例</h3>
+
+<p>根据<code class="highlighter-rouge">newProgress:Int</code>来修改<code class="highlighter-rouge">progressBar</code>的状态。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="n">progressBar</span><span class="p">.</span><span class="nf">apply</span> <span class="p">{</span>
+    <span class="n">progress</span> <span class="p">=</span> <span class="n">newProgress</span>
+    <span class="n">visibility</span> <span class="p">=</span> <span class="k">if</span> <span class="p">(</span><span class="n">newProgress</span> <span class="k">in</span> <span class="m">1</span><span class="o">..</span><span class="m">99</span><span class="p">)</span> <span class="nc">View</span><span class="p">.</span><span class="nc">VISIBLE</span> <span class="k">else</span> <span class="nc">View</span><span class="p">.</span><span class="nc">GONE</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>等价于下列代码：</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="n">progressBar</span><span class="p">.</span><span class="n">progress</span> <span class="p">=</span> <span class="n">newProgress</span>
+<span class="n">progressBar</span><span class="p">.</span><span class="n">visibility</span> <span class="p">=</span> <span class="k">if</span> <span class="p">(</span><span class="n">newProgress</span> <span class="k">in</span> <span class="m">1</span><span class="o">..</span><span class="m">99</span><span class="p">)</span> <span class="nc">View</span><span class="p">.</span><span class="nc">VISIBLE</span> <span class="k">else</span> <span class="nc">View</span><span class="p">.</span><span class="nc">GONE</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三with">三、with</h2>
+
+<p>接收一个<code class="highlighter-rouge">receiver</code>和一个函数式，通过<code class="highlighter-rouge">this</code>调用<code class="highlighter-rouge">receiver</code>，返回值根据函数式最后一个返回值为准。</p>
+
+<p>一般会在传入<code class="highlighter-rouge">receiver</code>的时候就地创建实例，不然使用<code class="highlighter-rouge">apply</code>来替代<code class="highlighter-rouge">with</code>会是更好的选择。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+</pre></td><td class="rouge-code"><pre><span class="c1">// 用给定的[receiver]作为执行块的接收者，并返回接收者的块执行结果</span>
+<span class="err">@</span><span class="n">kotlin</span><span class="p">.</span><span class="k">internal</span><span class="p">.</span><span class="nc">InlineOnly</span>
+<span class="k">public</span> <span class="k">inline</span> <span class="k">fun</span> <span class="p">&lt;</span><span class="nc">T</span><span class="p">,</span> <span class="nc">R</span><span class="p">&gt;</span> <span class="nf">with</span><span class="p">(</span><span class="n">receiver</span><span class="p">:</span> <span class="nc">T</span><span class="p">,</span> <span class="n">block</span><span class="p">:</span> <span class="nc">T</span><span class="p">.()</span> <span class="p">-&gt;</span> <span class="nc">R</span><span class="p">):</span> <span class="nc">R</span> <span class="p">{</span>
+    <span class="nf">contract</span> <span class="p">{</span>
+        <span class="nf">callsInPlace</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="nc">InvocationKind</span><span class="p">.</span><span class="nc">EXACTLY_ONCE</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">receiver</span><span class="p">.</span><span class="nf">block</span><span class="p">()</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="31-用例">3.1 用例</h3>
+
+<p>使用<code class="highlighter-rouge">ArrayList&lt;String&gt;()</code>作为闭包的参数，返回类型为<code class="highlighter-rouge">println()</code>的返回值<code class="highlighter-rouge">Unit</code>。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="nf">with</span><span class="p">(</span><span class="nc">ArrayList</span><span class="p">&lt;</span><span class="nc">String</span><span class="p">&gt;())</span> <span class="p">{</span>
+    <span class="nf">add</span><span class="p">(</span><span class="s">"a"</span><span class="p">)</span>
+    <span class="nf">add</span><span class="p">(</span><span class="s">"b"</span><span class="p">)</span>
+    <span class="nf">add</span><span class="p">(</span><span class="s">"c"</span><span class="p">)</span>
+    <span class="nf">println</span><span class="p">(</span><span class="s">"this = "</span> <span class="p">+</span> <span class="k">this</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="32用例">3.2用例</h3>
+
+<p>使用<code class="highlighter-rouge">ArrayList&lt;String&gt;()</code>做为闭包的参数，返回值类型为<code class="highlighter-rouge">this:ArrayList&lt;String&gt;</code>。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="nf">with</span><span class="p">(</span><span class="nc">ArrayList</span><span class="p">&lt;</span><span class="nc">String</span><span class="p">&gt;())</span> <span class="p">{</span>
+    <span class="nf">add</span><span class="p">(</span><span class="s">"a"</span><span class="p">)</span>
+    <span class="nf">add</span><span class="p">(</span><span class="s">"b"</span><span class="p">)</span>
+    <span class="nf">add</span><span class="p">(</span><span class="s">"c"</span><span class="p">)</span>
+    <span class="k">this</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="33-用例">3.3 用例</h3>
+
+<p>使用<code class="highlighter-rouge">ArrayList&lt;String&gt;()</code>做为闭包的参数，返回值类型为<code class="highlighter-rouge">3.1415926</code>的默认类型<code class="highlighter-rouge">Double</code>，注意不是<code class="highlighter-rouge">Float</code>。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre><span class="nf">with</span><span class="p">(</span><span class="nc">ArrayList</span><span class="p">&lt;</span><span class="nc">String</span><span class="p">&gt;())</span> <span class="p">{</span>
+    <span class="nf">add</span><span class="p">(</span><span class="s">"a"</span><span class="p">)</span>
+    <span class="nf">add</span><span class="p">(</span><span class="s">"b"</span><span class="p">)</span>
+    <span class="nf">add</span><span class="p">(</span><span class="s">"c"</span><span class="p">)</span>
+    <span class="m">3.1415926</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四run">四、run</h2>
+
+<p>执行传入的函数式，并返回函数的执行结果。<code class="highlighter-rouge">run</code>的主要目的是强调需要执行的函数。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+</pre></td><td class="rouge-code"><pre><span class="c1">// 执行具有指定功能的[block]，并返回执行结果</span>
+<span class="err">@</span><span class="n">kotlin</span><span class="p">.</span><span class="k">internal</span><span class="p">.</span><span class="nc">InlineOnly</span>
+<span class="k">public</span> <span class="k">inline</span> <span class="k">fun</span> <span class="p">&lt;</span><span class="nc">R</span><span class="p">&gt;</span> <span class="nf">run</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="p">()</span> <span class="p">-&gt;</span> <span class="nc">R</span><span class="p">):</span> <span class="nc">R</span> <span class="p">{</span>
+    <span class="nf">contract</span> <span class="p">{</span>
+        <span class="nf">callsInPlace</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="nc">InvocationKind</span><span class="p">.</span><span class="nc">EXACTLY_ONCE</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nf">block</span><span class="p">()</span>
+<span class="p">}</span>
+
+<span class="c1">// 用`this`作为执行块的接收者，并返回块执行的结果</span>
+<span class="err">@</span><span class="n">kotlin</span><span class="p">.</span><span class="k">internal</span><span class="p">.</span><span class="nc">InlineOnly</span>
+<span class="k">public</span> <span class="k">inline</span> <span class="k">fun</span> <span class="p">&lt;</span><span class="nc">T</span><span class="p">,</span> <span class="nc">R</span><span class="p">&gt;</span> <span class="nc">T</span><span class="p">.</span><span class="nf">run</span><span class="p">(</span><span class="n">block</span><span class="p">:</span> <span class="nc">T</span><span class="p">.()</span> <span class="p">-&gt;</span> <span class="nc">R</span><span class="p">):</span> <span class="nc">R</span> <span class="p">{</span>
+    <span class="nf">contract</span> <span class="p">{</span>
+        <span class="nf">callsInPlace</span><span class="p">(</span><span class="n">block</span><span class="p">,</span> <span class="nc">InvocationKind</span><span class="p">.</span><span class="nc">EXACTLY_ONCE</span><span class="p">)</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="nf">block</span><span class="p">()</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="41-用例">4.1 用例</h3>
+
+<p>从<code class="highlighter-rouge">intent</code>取<code class="highlighter-rouge">EXTRA_URL</code>的值，不为非空且内容不为空，赋值给<code class="highlighter-rouge">url</code>。否则弹出提示并关闭页面。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="c1">// Init url:String</span>
+<span class="n">url</span> <span class="p">=</span> <span class="n">intent</span><span class="p">.</span><span class="nf">getStringExtra</span><span class="p">(</span><span class="nc">EXTRA_URL</span><span class="p">)</span><span class="o">?.</span><span class="nf">takeIf</span> <span class="p">{</span> <span class="n">it</span><span class="p">.</span><span class="nf">isNotEmpty</span><span class="p">()</span> <span class="p">}</span> <span class="o">?:</span> <span class="nf">run</span> <span class="p">{</span>
+    <span class="nf">toast</span><span class="p">(</span><span class="s">"不能浏览一个空链接哦"</span><span class="p">)</span>
+    <span class="n">activity</span><span class="p">.</span><span class="nf">finish</span><span class="p">()</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

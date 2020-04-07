@@ -1,0 +1,66 @@
+I"`<p>开始以下步骤之前，强烈建议先参考 <a href="/2019/06/29/Ubuntu_install_nVidia_Driver/">Ubuntu18.04安装NVIDIA显卡驱动</a> 正确安装显卡驱动。如果显卡驱动已经安装则下面安装 <strong>CUDA10</strong> 流程可以省略，因为 <strong>CUDA10</strong> 会自动装好。</p>
+
+<h4 id="python环境">Python环境</h4>
+
+<p><strong>Ubuntu18.04</strong> 同时包含 <strong>Python2</strong> 和 <strong>Python3</strong>，但 <strong>Python3</strong> 相关环境例如 <strong>pip</strong> 不一定有，所以需要安装</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nb">sudo </span>apt-get <span class="nb">install </span>python3-pip python3-dev python-virtualenv
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="cuda10--cudnn">CUDA10 &amp; cuDNN</h4>
+
+<p>从 <a href="https://developer.nvidia.com/cuda-10.0-download-archive?target_os=Linux&amp;target_arch=x86_64&amp;target_distro=Ubuntu&amp;target_version=1804&amp;target_type=deblocal">cuda-10.0-download-archive</a> 获取 <strong>CUDA10</strong>，如果已经安装可以跳过。</p>
+
+<p><img src="/img/tensorflow/cuda_10.png" alt="cuda_10" /></p>
+
+<p>用以下命令打开安装包</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nb">sudo </span>dpkg <span class="nt">-i</span> cuda-repo-ubuntu1804-10-0-local-10.0.130-410.48_1.0-1_amd64.deb 
+<span class="nb">sudo </span>apt-key add /var/cuda-repo-10-0-local-10.0.130-410.48/7fa2af80.pub
+<span class="nb">sudo </span>apt-get update
+<span class="nb">sudo </span>apt-get <span class="nb">install </span>cuda
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>注册账号登录到 <strong>developer.nvidia.com</strong>，下载 <a href="https://developer.nvidia.com/compute/machine-learning/cudnn/secure/v7.6.1.34/prod/10.0_20190620/Ubuntu18_04-x64/libcudnn7_7.6.1.34-1%2Bcuda10.0_amd64.deb">cuDNN Runtime Library for Ubuntu18.04 (Deb)</a></p>
+
+<p><img src="/img/tensorflow/cuDNN_7_6_1.png" alt="cuDNN_7_6_1" /></p>
+
+<p>安装</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nb">sudo </span>dpkg <span class="nt">-i</span> libcudnn7_7.6.1.34-1+cuda10.0_amd64.deb
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>为 <strong>~/tensorflow</strong> 设置 <strong>virtualenv</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>virtualenv <span class="nt">--system-site-packages</span> <span class="nt">-p</span> python3 ~/tensorflow
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>调用脚本激活</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nb">source</span> ~/tensorflow/bin/activate
+<span class="o">(</span>tensorflow<span class="o">)</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>在相同终端内更新 <strong>pip</strong></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>easy_install <span class="nt">-U</span> pip
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>下载 <strong>tensorflow-gpu</strong>，国内指定临时下载源: <strong>https://pypi.tuna.tsin.edu.cn/simple</strong> 加快下载速度</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>pip3 <span class="nb">install</span> <span class="nt">--upgrade</span> tensorflow-gpu <span class="nt">-i</span> https://pypi.tuna.tsin.edu.cn/simple
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>最后运行 <strong>TensorFlow</strong> 即可</p>
+:ET

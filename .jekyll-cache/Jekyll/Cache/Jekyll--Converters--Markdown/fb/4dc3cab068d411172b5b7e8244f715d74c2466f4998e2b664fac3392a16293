@@ -1,0 +1,47 @@
+I"1<p>显示<code class="highlighter-rouge">EditText</code>内容为明文:</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">setTransformationMethod</span><span class="o">(</span><span class="nc">HideReturnsTransformationMethod</span><span class="o">.</span><span class="na">getInstance</span><span class="o">());</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>显示<code class="highlighter-rouge">EditText</code>内容为密文:</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">setTransformationMethod</span><span class="o">(</span><span class="nc">PasswordTransformationMethod</span><span class="o">.</span><span class="na">getInstance</span><span class="o">());</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>实现被点击图标的<code class="highlighter-rouge">OnClickListener</code></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+</pre></td><td class="rouge-code"><pre><span class="n">icon</span><span class="o">.</span><span class="na">setOnClickListener</span> <span class="o">{</span>
+    <span class="n">editText</span><span class="o">.</span><span class="na">apply</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">inputType</span> <span class="o">==</span> <span class="nc">InputType</span><span class="o">.</span><span class="na">TYPE_TEXT_VARIATION_VISIBLE_PASSWORD</span><span class="o">)</span> <span class="o">{</span>
+            <span class="n">inputType</span> <span class="o">=</span> <span class="nc">InputType</span><span class="o">.</span><span class="na">TYPE_TEXT_VARIATION_PASSWORD</span>
+            <span class="n">transformationMethod</span> <span class="o">=</span> <span class="nc">PasswordTransformationMethod</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+            <span class="n">icon</span><span class="o">.</span><span class="na">setImageDrawable</span><span class="o">(</span><span class="nc">ContextCompat</span><span class="o">.</span><span class="na">getDrawable</span><span class="o">(</span><span class="k">this</span><span class="nd">@MainActivity</span><span class="o">,</span> <span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">ic_eyes_closed</span><span class="o">))</span>
+            <span class="n">setSelection</span><span class="o">(</span><span class="n">text</span><span class="o">.</span><span class="na">length</span><span class="o">)</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="n">inputType</span> <span class="o">=</span> <span class="nc">InputType</span><span class="o">.</span><span class="na">TYPE_TEXT_VARIATION_VISIBLE_PASSWORD</span>
+            <span class="n">transformationMethod</span> <span class="o">=</span> <span class="nc">HideReturnsTransformationMethod</span><span class="o">.</span><span class="na">getInstance</span><span class="o">()</span>
+            <span class="n">icon</span><span class="o">.</span><span class="na">setImageDrawable</span><span class="o">(</span><span class="nc">ContextCompat</span><span class="o">.</span><span class="na">getDrawable</span><span class="o">(</span><span class="k">this</span><span class="nd">@MainActivity</span><span class="o">,</span> <span class="no">R</span><span class="o">.</span><span class="na">drawable</span><span class="o">.</span><span class="na">ic_eyes</span><span class="o">))</span>
+            <span class="n">setSelection</span><span class="o">(</span><span class="n">text</span><span class="o">.</span><span class="na">length</span><span class="o">)</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

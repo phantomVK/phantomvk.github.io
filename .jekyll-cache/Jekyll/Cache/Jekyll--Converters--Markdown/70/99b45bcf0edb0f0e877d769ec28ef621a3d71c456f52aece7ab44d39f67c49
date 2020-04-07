@@ -1,0 +1,120 @@
+I"d*<h4 id="问题">问题</h4>
+
+<p>最近同事把 <strong>targetSdkVersion</strong> 从 <strong>26</strong> 升到 <strong>28</strong> 后，原本以为没有兼容性问题，没真机检查就发测试版。结果内部试用 <strong>Android 8.0</strong> 和 <strong>Android 8.1</strong> 手机打开 <strong>Activity</strong> 崩溃。</p>
+
+<p>上报错误具体如下：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>java.lang.RuntimeException:Unable to start activity ComponentInfo{com.xx.xx/com.xx.xxmessage.chat.ui.RoomActivity}: java.lang.IllegalStateException: Only fullscreen activities can request orientation
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>其他开发者也遇到相同问题：</p>
+
+<ul>
+  <li><a href="https://stackoverflow.com/questions/48072438/java-lang-illegalstateexception-only-fullscreen-opaque-activities-can-request-o">Only fullscreen opaque activities can request orientation</a></li>
+  <li><a href="https://www.jianshu.com/p/883c19af074b">解决Android 8.0的Only fullscreen opaque activities can request orientation</a></li>
+  <li><a href="https://blog.csdn.net/DadaCockWire/article/details/80250152">Android 8.0跳坑之’Only fullscreen opaque activities can request orientation’</a></li>
+</ul>
+
+<h4 id="状况">状况</h4>
+
+<p>一直都在 <strong>Activity</strong> 基类的 <strong>onCreate()</strong> 中用代码锁定屏幕方向</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">requestedOrientation</span> <span class="p">=</span> <span class="nc">ActivityInfo</span><span class="p">.</span><span class="nc">SCREEN_ORIENTATION_PORTRAIT</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>除了用代码指定会出现问题，在 <strong>AndroidMenifest</strong> 指定该参数也不能幸免：</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>android:screenOrientation="portrait"
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>这个问题并不仅因单个条件引起，因为界面要做右滑退出，所以Window背景必须设置为透明</p>
+
+<div class="language-xml highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nt">&lt;item</span> <span class="na">name=</span><span class="s">"android:windowIsTranslucent"</span><span class="nt">&gt;</span>true<span class="nt">&lt;/item&gt;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>结果就碰到官方系统做的检查，出现标题的异常</p>
+
+<h4 id="排查">排查</h4>
+
+<p>读AOSP的提交：<a href="https://github.com/aosp-mirror/platform_frameworks_base/commit/39791594560b2326625b663ed6796882900c220f#diff-a9aa0352703240c8ae70f1c83add4bc8R981">Prevent non-fullscreen activities from influencing orientation</a>，抽出代码如下：</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="k">if</span> <span class="o">(</span><span class="nc">ActivityInfo</span><span class="o">.</span><span class="na">isFixedOrientation</span><span class="o">(</span><span class="n">requestedOrientation</span><span class="o">)</span>
+        <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">fullscreen</span>
+        <span class="o">&amp;&amp;</span> <span class="n">appInfo</span><span class="o">.</span><span class="na">targetSdkVersion</span> <span class="o">&gt;=</span> <span class="no">O</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">throw</span> <span class="k">new</span> <span class="nf">IllegalStateException</span><span class="o">(</span><span class="s">"Only fullscreen activities can request orientation"</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>fullscreen</strong> 有多个条件控制</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nc">Entry</span> <span class="n">ent</span> <span class="o">=</span> <span class="nc">AttributeCache</span><span class="o">.</span><span class="na">instance</span><span class="o">().</span><span class="na">get</span><span class="o">(</span><span class="n">packageName</span><span class="o">,</span>
+                <span class="n">realTheme</span><span class="o">,</span> <span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window</span><span class="o">,</span> <span class="n">userId</span><span class="o">);</span>
+
+<span class="n">fullscreen</span> <span class="o">=</span> <span class="n">ent</span> <span class="o">!=</span> <span class="kc">null</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="nc">ActivityInfo</span><span class="o">.</span><span class="na">isTranslucentOrFloating</span><span class="o">(</span><span class="n">ent</span><span class="o">.</span><span class="na">array</span><span class="o">);</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>展开 <strong>isTranslucentOrFloating()</strong></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+</pre></td><td class="rouge-code"><pre><span class="c1">// Determines whether the {@link Activity} is considered translucent or floating.</span>
+<span class="kd">public</span> <span class="kd">static</span> <span class="kt">boolean</span> <span class="nf">isTranslucentOrFloating</span><span class="o">(</span><span class="nc">TypedArray</span> <span class="n">attributes</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">final</span> <span class="kt">boolean</span> <span class="n">isTranslucent</span> <span class="o">=</span>
+            <span class="n">attributes</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowIsTranslucent</span><span class="o">,</span>
+                    <span class="kc">false</span><span class="o">);</span>
+    <span class="kd">final</span> <span class="kt">boolean</span> <span class="n">isSwipeToDismiss</span> <span class="o">=</span> <span class="o">!</span><span class="n">attributes</span><span class="o">.</span><span class="na">hasValue</span><span class="o">(</span>
+            <span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowIsTranslucent</span><span class="o">)</span>
+            <span class="o">&amp;&amp;</span> <span class="n">attributes</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span>
+                    <span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowSwipeToDismiss</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+    <span class="kd">final</span> <span class="kt">boolean</span> <span class="n">isFloating</span> <span class="o">=</span>
+            <span class="n">attributes</span><span class="o">.</span><span class="na">getBoolean</span><span class="o">(</span><span class="n">com</span><span class="o">.</span><span class="na">android</span><span class="o">.</span><span class="na">internal</span><span class="o">.</span><span class="na">R</span><span class="o">.</span><span class="na">styleable</span><span class="o">.</span><span class="na">Window_windowIsFloating</span><span class="o">,</span>
+                    <span class="kc">false</span><span class="o">);</span>
+
+    <span class="k">return</span> <span class="n">isFloating</span> <span class="o">||</span> <span class="n">isTranslucent</span> <span class="o">||</span> <span class="n">isSwipeToDismiss</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>只要满足 <strong>isFloating</strong>、<strong>isTranslucent</strong>、<strong>!windowIsTranslucent &amp;&amp; isSwipeToDismiss</strong> 条件其中之一都不算 <strong>fullscreen</strong>，目的是不让 <strong>非全屏</strong> 或 <strong>透明</strong> 的界面决定手机界面的朝向，因为透明的界面能透视背景界面。</p>
+
+<h4 id="解决方案">解决方案</h4>
+
+<p>解决这个问题就是打破联合条件之一：</p>
+
+<ul>
+  <li>可移除已经制定的透明或半透明属性；</li>
+  <li>或移除显式指定屏幕方向的代码；</li>
+  <li>或 <strong>targetSdkVersion</strong> 不超过 <strong>26</strong> ；</li>
+</ul>
+
+<h4 id="看法">看法</h4>
+
+<p>从个人角度来看，官方在这个问题上的处理手段极为粗暴。正常来说，检查全屏和屏幕方向条件后， 应该先警告开发者，且忽略已经指定的设置，保证应用运行时兼容性。</p>
+
+<p>结果现在非要粗暴抛出异常，非常不厚道。如果测试没有覆盖 <strong>Android 8.0 - Android 8.1</strong>，只验证 <strong>Android9.0</strong>，或者依赖第三方SDK引起问题，导致后果非常严重</p>
+:ET

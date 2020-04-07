@@ -1,0 +1,7 @@
+I"�<p>计算月有多少天，已包括闰年的情况</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">days</span> <span class="o">=</span> <span class="o">(</span> <span class="n">month</span> <span class="o">==</span> <span class="mi">2</span> <span class="o">)</span> <span class="o">?</span> <span class="o">(</span> <span class="mi">28</span> <span class="o">+</span> <span class="n">isLeapYear</span> <span class="o">)</span> <span class="o">:</span> <span class="mi">31</span> <span class="o">-</span> <span class="o">(</span> <span class="n">month</span> <span class="o">-</span> <span class="mi">1</span> <span class="o">)</span> <span class="o">%</span> <span class="mi">7</span> <span class="o">%</span> <span class="mi">2</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

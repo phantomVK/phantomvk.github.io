@@ -1,0 +1,1301 @@
+I"�~<h2 id="一类签名">一、类签名</h2>
+
+<p><strong>ArrayList</strong> 在多线程操作下是不安全的，为此应使用 <strong>CopyOnWriteArrayList</strong>。通过CopyOnWrite(简称COW，写时复制)策略，所有读取共享同一个数组对象，修改时另拷贝出新数组，操作在新数组完成后再替换掉旧数组。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">CopyOnWriteArrayList</span><span class="o">&lt;</span><span class="no">E</span><span class="o">&gt;</span>
+    <span class="kd">implements</span> <span class="nc">List</span><span class="o">&lt;</span><span class="no">E</span><span class="o">&gt;,</span> <span class="nc">RandomAccess</span><span class="o">,</span> <span class="nc">Cloneable</span><span class="o">,</span> <span class="n">java</span><span class="o">.</span><span class="na">io</span><span class="o">.</span><span class="na">Serializable</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>由于修改时方法会自行拷贝得到新数组，所以这段时间内存同时存在原数组和新数组对象。如果修改操作过于频繁，产生大量废弃对象将增加垃圾回收负担。</p>
+
+<p>由此，可推理出此类适合在读多写少的场景下使用。通过读写分离，即使修改操作费时也不会阻塞读取，而读取的数组数据未必是最新的。还有修改操作是线程安全的，每次最多只有一个线程在进行修改，以此保证数据最终一致性。</p>
+
+<p>此次源码来自JDK10，和之前版本有一定差别。</p>
+
+<h2 id="二数据成员">二、数据成员</h2>
+
+<p>通过网上阅读JDK8版本的 <strong>CopyOnWriteArrayList</strong> 源码，可了解以前约束同步使用的是 <strong>ReentrantLock</strong>。而在JDK10中用 <strong>synchronized (lock)</strong> 方式，暂时不知道对性能有多大提升。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">final</span> <span class="kd">transient</span> <span class="nc">Object</span> <span class="n">lock</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>变量array通过getArray()、setArray()获取，见第四节。注意array变量的类型是Object[]，而不是E[]。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">transient</span> <span class="kd">volatile</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">array</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三构造方法">三、构造方法</h2>
+
+<p>构造空列表</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nf">CopyOnWriteArrayList</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">setArray</span><span class="o">(</span><span class="k">new</span> <span class="nc">Object</span><span class="o">[</span><span class="mi">0</span><span class="o">]);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>从集合c构建实例</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nf">CopyOnWriteArrayList</span><span class="o">(</span><span class="nc">Collection</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="no">E</span><span class="o">&gt;</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">c</span><span class="o">.</span><span class="na">getClass</span><span class="o">()</span> <span class="o">==</span> <span class="nc">CopyOnWriteArrayList</span><span class="o">.</span><span class="na">class</span><span class="o">)</span>
+        <span class="n">elements</span> <span class="o">=</span> <span class="o">((</span><span class="nc">CopyOnWriteArrayList</span><span class="o">&lt;?&gt;)</span><span class="n">c</span><span class="o">).</span><span class="na">getArray</span><span class="o">();</span>
+    <span class="k">else</span> <span class="o">{</span>
+        <span class="n">elements</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="na">toArray</span><span class="o">();</span>
+        <span class="c1">// defend against c.toArray (incorrectly) not returning Object[]</span>
+        <span class="c1">// (see e.g. https://bugs.openjdk.java.net/browse/JDK-6260652)</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">elements</span><span class="o">.</span><span class="na">getClass</span><span class="o">()</span> <span class="o">!=</span> <span class="nc">Object</span><span class="o">[].</span><span class="na">class</span><span class="o">)</span>
+            <span class="c1">// 类型不是Object[].class，重新拷贝</span>
+            <span class="n">elements</span> <span class="o">=</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">,</span> <span class="nc">Object</span><span class="o">[].</span><span class="na">class</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="n">setArray</span><span class="o">(</span><span class="n">elements</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>从数组构建实例</p>
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nf">CopyOnWriteArrayList</span><span class="o">(</span><span class="no">E</span><span class="o">[]</span> <span class="n">toCopyIn</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">setArray</span><span class="o">(</span><span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">toCopyIn</span><span class="o">,</span> <span class="n">toCopyIn</span><span class="o">.</span><span class="na">length</span><span class="o">,</span> <span class="nc">Object</span><span class="o">[].</span><span class="na">class</span><span class="o">));</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四列表存取">四、列表存取</h2>
+
+<p>获取数组，返回类型为Object[]。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="nf">getArray</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="n">array</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>设置数组，形参类型为Object[]。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">final</span> <span class="kt">void</span> <span class="nf">setArray</span><span class="o">(</span><span class="nc">Object</span><span class="o">[]</span> <span class="n">a</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">array</span> <span class="o">=</span> <span class="n">a</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="五基本操作">五、基本操作</h2>
+
+<h3 id="51增加">5.1、增加</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+</pre></td><td class="rouge-code"><pre><span class="c1">// 把新元素插入到列表尾</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">add</span><span class="o">(</span><span class="no">E</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 获取原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 获取原数组长度</span>
+        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="c1">// 用原数组拷贝出新数组，长度增加1个单位</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span> <span class="o">=</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">len</span> <span class="o">+</span> <span class="mi">1</span><span class="o">);</span>
+        <span class="c1">// 在新数组最后位置存入新元素e</span>
+        <span class="n">newElements</span><span class="o">[</span><span class="n">len</span><span class="o">]</span> <span class="o">=</span> <span class="n">e</span><span class="o">;</span>
+        <span class="c1">// 此时同时存在新、旧两个数组，用新数组引用替换旧数组引用</span>
+        <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 把新元素插入到指定索引位置，指定索引原位置元素及后续元素都相对后移一个位置</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">add</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="no">E</span> <span class="n">element</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 获取原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 获取原数组长度</span>
+        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="c1">// 检查插入位置是否越界</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;</span> <span class="n">len</span> <span class="o">||</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">(</span><span class="n">outOfBounds</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="n">len</span><span class="o">));</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span><span class="o">;</span>
+        <span class="c1">// 有多少个元素需要后移</span>
+        <span class="kt">int</span> <span class="n">numMoved</span> <span class="o">=</span> <span class="n">len</span> <span class="o">-</span> <span class="n">index</span><span class="o">;</span>
+        <span class="c1">// numMoved为0表示新元素插入到最后一个索引</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">numMoved</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span>
+            <span class="c1">// 创建新数组</span>
+            <span class="n">newElements</span> <span class="o">=</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">len</span> <span class="o">+</span> <span class="mi">1</span><span class="o">);</span>
+        <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// 创建新数组</span>
+            <span class="n">newElements</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">[</span><span class="n">len</span> <span class="o">+</span> <span class="mi">1</span><span class="o">];</span>
+            <span class="c1">// 把旧元素赋值到新数组[0, index)</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">index</span><span class="o">);</span>
+            <span class="c1">// 把旧元素赋值到新数组[index+1, numMoved)</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">,</span>
+                             <span class="n">numMoved</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="c1">// 在新数组指定位置index插入新元素</span>
+        <span class="n">newElements</span><span class="o">[</span><span class="n">index</span><span class="o">]</span> <span class="o">=</span> <span class="n">element</span><span class="o">;</span>
+        <span class="c1">// 此时同时存在新、旧两个数组，用新数组引用替换旧数组引用</span>
+        <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 把集合c的所有元素添加到本数组中</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">addAll</span><span class="o">(</span><span class="nc">Collection</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="no">E</span><span class="o">&gt;</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">cs</span> <span class="o">=</span> <span class="o">(</span><span class="n">c</span><span class="o">.</span><span class="na">getClass</span><span class="o">()</span> <span class="o">==</span> <span class="nc">CopyOnWriteArrayList</span><span class="o">.</span><span class="na">class</span><span class="o">)</span> <span class="o">?</span>
+        <span class="o">((</span><span class="nc">CopyOnWriteArrayList</span><span class="o">&lt;?&gt;)</span><span class="n">c</span><span class="o">).</span><span class="na">getArray</span><span class="o">()</span> <span class="o">:</span> <span class="n">c</span><span class="o">.</span><span class="na">toArray</span><span class="o">();</span>
+    
+    <span class="c1">// 没有添加任何元素</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">cs</span><span class="o">.</span><span class="na">length</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 获取原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 获取原数组长度</span>
+        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">len</span> <span class="o">==</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span> <span class="n">cs</span><span class="o">.</span><span class="na">getClass</span><span class="o">()</span> <span class="o">==</span> <span class="nc">Object</span><span class="o">[].</span><span class="na">class</span><span class="o">)</span>
+            <span class="n">setArray</span><span class="o">(</span><span class="n">cs</span><span class="o">);</span>
+        <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// 用原数组构建新数组，长度为原数组长度与集合c长度之和</span>
+            <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span> <span class="o">=</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">len</span> <span class="o">+</span> <span class="n">cs</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+            <span class="c1">// 把集合c的元素拷贝到新数组中</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">cs</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="n">len</span><span class="o">,</span> <span class="n">cs</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+            <span class="c1">// 新数组替换旧数组</span>
+            <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span> <span class="c1">// 完成添加所有新元素</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 在原数组index位置开始插入所有集合c的元素</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">addAll</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="nc">Collection</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="no">E</span><span class="o">&gt;</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">cs</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="na">toArray</span><span class="o">();</span>
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 原数组长度</span>
+        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="c1">// 检查元素插入索引</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;</span> <span class="n">len</span> <span class="o">||</span> <span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">(</span><span class="n">outOfBounds</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="n">len</span><span class="o">));</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">cs</span><span class="o">.</span><span class="na">length</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span>
+            <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="c1">// 有多少个元素需要后移</span>
+        <span class="kt">int</span> <span class="n">numMoved</span> <span class="o">=</span> <span class="n">len</span> <span class="o">-</span> <span class="n">index</span><span class="o">;</span>
+        <span class="c1">// 新数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">numMoved</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span>
+            <span class="c1">// 用原数组构建新数组，新长度为原数组长度与集合c长度之和</span>
+            <span class="n">newElements</span> <span class="o">=</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">len</span> <span class="o">+</span> <span class="n">cs</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+        <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// 创建新数组</span>
+            <span class="n">newElements</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">[</span><span class="n">len</span> <span class="o">+</span> <span class="n">cs</span><span class="o">.</span><span class="na">length</span><span class="o">];</span>
+            <span class="c1">// 拷贝原数组数据到新数组，[0, index)</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">index</span><span class="o">);</span>
+            <span class="c1">// 拷贝原数组数据到新数组，[index + cs.length, index + cs.length + numMoved)</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span>
+                             <span class="n">newElements</span><span class="o">,</span> <span class="n">index</span> <span class="o">+</span> <span class="n">cs</span><span class="o">.</span><span class="na">length</span><span class="o">,</span>
+                             <span class="n">numMoved</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="c1">// 拷贝新元素到新数组，[index, index + cs.length)</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">cs</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">cs</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+        <span class="c1">// 新数组索引替换旧数组</span>
+        <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 若原列表不存在此元素，则存入</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">addIfAbsent</span><span class="o">(</span><span class="no">E</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 先拷贝出一份快照</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="c1">// 检查快照是否包含此元素，不包含则存入此元素</span>
+    <span class="k">return</span> <span class="nf">indexOf</span><span class="o">(</span><span class="n">e</span><span class="o">,</span> <span class="n">snapshot</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">snapshot</span><span class="o">.</span><span class="na">length</span><span class="o">)</span> <span class="o">&gt;=</span> <span class="mi">0</span> <span class="o">?</span> <span class="kc">false</span> <span class="o">:</span>
+        <span class="n">addIfAbsent</span><span class="o">(</span><span class="n">e</span><span class="o">,</span> <span class="n">snapshot</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">private</span> <span class="kt">boolean</span> <span class="nf">addIfAbsent</span><span class="o">(</span><span class="no">E</span> <span class="n">e</span><span class="o">,</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">snapshot</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">current</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 获取数组长度</span>
+        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="c1">// 对比快照与原数组是否为同一对象</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">snapshot</span> <span class="o">!=</span> <span class="n">current</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// Optimize for lost race to another addXXX operation</span>
+            <span class="kt">int</span> <span class="n">common</span> <span class="o">=</span> <span class="nc">Math</span><span class="o">.</span><span class="na">min</span><span class="o">(</span><span class="n">snapshot</span><span class="o">.</span><span class="na">length</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+            
+            <span class="c1">// 依次遍历两者最小长度下的元素</span>
+            <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">common</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span>
+                <span class="c1">// 检查快照的顺序元素是否和原数组的顺序元素一致</span>
+                <span class="c1">// 同时检查原数组是否已包含元素e</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">current</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">!=</span> <span class="n">snapshot</span><span class="o">[</span><span class="n">i</span><span class="o">]</span>
+                    <span class="o">&amp;&amp;</span> <span class="nc">Objects</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">e</span><span class="o">,</span> <span class="n">current</span><span class="o">[</span><span class="n">i</span><span class="o">]))</span>
+                    <span class="k">return</span> <span class="kc">false</span><span class="o">;</span> <span class="c1">// 快照与原数组不一致，或原数组已包含元素e</span>
+            <span class="c1">// 元素已经存在原数组中</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">indexOf</span><span class="o">(</span><span class="n">e</span><span class="o">,</span> <span class="n">current</span><span class="o">,</span> <span class="n">common</span><span class="o">,</span> <span class="n">len</span><span class="o">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">)</span>
+                    <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="c1">// 创建新数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span> <span class="o">=</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">current</span><span class="o">,</span> <span class="n">len</span> <span class="o">+</span> <span class="mi">1</span><span class="o">);</span>
+        <span class="c1">// 存入新元素</span>
+        <span class="n">newElements</span><span class="o">[</span><span class="n">len</span><span class="o">]</span> <span class="o">=</span> <span class="n">e</span><span class="o">;</span>
+        <span class="c1">// 新数组引用替换旧数组引用</span>
+        <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+        <span class="c1">// 添加成功</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 集合c中不包含在原列表的元素添加到原列表尾部</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">addAllAbsent</span><span class="o">(</span><span class="nc">Collection</span><span class="o">&lt;?</span> <span class="kd">extends</span> <span class="no">E</span><span class="o">&gt;</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// c为空抛出空指针异常，cs是c的拷贝</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">cs</span> <span class="o">=</span> <span class="n">c</span><span class="o">.</span><span class="na">toArray</span><span class="o">();</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">cs</span><span class="o">.</span><span class="na">length</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span>
+        <span class="k">return</span> <span class="mi">0</span><span class="o">;</span>
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 获取原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 获取原数组长度</span>
+        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="kt">int</span> <span class="n">added</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span>
+        <span class="c1">// 依次遍历集合c中的元素</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">cs</span><span class="o">.</span><span class="na">length</span><span class="o">;</span> <span class="o">++</span><span class="n">i</span><span class="o">)</span> <span class="o">{</span>
+            <span class="nc">Object</span> <span class="n">e</span> <span class="o">=</span> <span class="n">cs</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+            <span class="c1">// 如果集合c的元素e不在elements中</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">indexOf</span><span class="o">(</span><span class="n">e</span><span class="o">,</span> <span class="n">elements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">len</span><span class="o">)</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">&amp;&amp;</span>
+                <span class="n">indexOf</span><span class="o">(</span><span class="n">e</span><span class="o">,</span> <span class="n">cs</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">added</span><span class="o">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+                <span class="n">cs</span><span class="o">[</span><span class="n">added</span><span class="o">++]</span> <span class="o">=</span> <span class="n">e</span><span class="o">;</span> <span class="c1">// 把元素e放在cs前面</span>
+        <span class="o">}</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">added</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">{</span>
+            <span class="c1">// 根据原列表拷贝新数组</span>
+            <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span> <span class="o">=</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">len</span> <span class="o">+</span> <span class="n">added</span><span class="o">);</span>
+            <span class="c1">// 把cs中前added个元素尾插入到新数组</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">cs</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="n">len</span><span class="o">,</span> <span class="n">added</span><span class="o">);</span>
+            <span class="c1">// 新数组替换旧数组</span>
+            <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">added</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="52删除">5.2、删除</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+</pre></td><td class="rouge-code"><pre><span class="c1">// 移除数组中指定索引的元素</span>
+<span class="kd">public</span> <span class="no">E</span> <span class="nf">remove</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 获取原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 获取原数组长度</span>
+        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="c1">// 获取指定索引元素</span>
+        <span class="no">E</span> <span class="n">oldValue</span> <span class="o">=</span> <span class="n">elementAt</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">index</span><span class="o">);</span>
+        <span class="kt">int</span> <span class="n">numMoved</span> <span class="o">=</span> <span class="n">len</span> <span class="o">-</span> <span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">numMoved</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span>
+            <span class="n">setArray</span><span class="o">(</span><span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">len</span> <span class="o">-</span> <span class="mi">1</span><span class="o">));</span>
+        <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// 创建新数组</span>
+            <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">[</span><span class="n">len</span> <span class="o">-</span> <span class="mi">1</span><span class="o">];</span>
+            <span class="c1">// 把旧元素赋值到新数组[0, index)</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">index</span><span class="o">);</span>
+            <span class="c1">// 把旧元素赋值到新数组[index, numMoved)</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span>
+                             <span class="n">numMoved</span><span class="o">);</span>
+            <span class="c1">// 此时同时存在新、旧两个数组，用新数组引用替换旧数组引用</span>
+            <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">oldValue</span><span class="o">;</span> <span class="c1">// 返回被移除的元素</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 移除该元素</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">remove</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 获取原数组</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">snapshot</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="c1">// 获取指定元素在数组中的索引</span>
+    <span class="kt">int</span> <span class="n">index</span> <span class="o">=</span> <span class="n">indexOf</span><span class="o">(</span><span class="n">o</span><span class="o">,</span> <span class="n">snapshot</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">snapshot</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+    <span class="c1">// 成功移除返回true，否则返回false</span>
+    <span class="k">return</span> <span class="o">(</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span> <span class="o">?</span> <span class="kc">false</span> <span class="o">:</span> <span class="n">remove</span><span class="o">(</span><span class="n">o</span><span class="o">,</span> <span class="n">snapshot</span><span class="o">,</span> <span class="n">index</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 根据快照移除元素</span>
+<span class="kd">private</span> <span class="kt">boolean</span> <span class="nf">remove</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">,</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">snapshot</span><span class="o">,</span> <span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 获取原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">current</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 获取原数组长度</span>
+        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">snapshot</span> <span class="o">!=</span> <span class="n">current</span><span class="o">)</span> <span class="nl">findIndex:</span> <span class="o">{</span>
+            <span class="kt">int</span> <span class="n">prefix</span> <span class="o">=</span> <span class="nc">Math</span><span class="o">.</span><span class="na">min</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+            <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">prefix</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span> <span class="o">{</span>
+                <span class="k">if</span> <span class="o">(</span><span class="n">current</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">!=</span> <span class="n">snapshot</span><span class="o">[</span><span class="n">i</span><span class="o">]</span>
+                    <span class="o">&amp;&amp;</span> <span class="nc">Objects</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">o</span><span class="o">,</span> <span class="n">current</span><span class="o">[</span><span class="n">i</span><span class="o">]))</span> <span class="o">{</span>
+                    <span class="n">index</span> <span class="o">=</span> <span class="n">i</span><span class="o">;</span>
+                    <span class="k">break</span> <span class="n">findIndex</span><span class="o">;</span>
+                <span class="o">}</span>
+            <span class="o">}</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&gt;=</span> <span class="n">len</span><span class="o">)</span>
+                <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">current</span><span class="o">[</span><span class="n">index</span><span class="o">]</span> <span class="o">==</span> <span class="n">o</span><span class="o">)</span>
+                <span class="k">break</span> <span class="n">findIndex</span><span class="o">;</span>
+            <span class="n">index</span> <span class="o">=</span> <span class="n">indexOf</span><span class="o">(</span><span class="n">o</span><span class="o">,</span> <span class="n">current</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">index</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+                <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+        <span class="o">}</span>
+        <span class="c1">// 除了被移除的元素，其余元素全部复制到新数组中</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">[</span><span class="n">len</span> <span class="o">-</span> <span class="mi">1</span><span class="o">];</span>
+        <span class="c1">// 拷贝原数组[0, index)元素到新数组[0, index)</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">current</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">index</span><span class="o">);</span>
+        <span class="c1">// 拷贝原数组[index+1, len)元素到新数组[index, len-1)</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">current</span><span class="o">,</span> <span class="n">index</span> <span class="o">+</span> <span class="mi">1</span><span class="o">,</span>
+                         <span class="n">newElements</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span>
+                         <span class="n">len</span> <span class="o">-</span> <span class="n">index</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span>
+        <span class="c1">// 此时同时存在新、旧两个数组，用新数组引用替换旧数组引用</span>
+        <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 移除指定范围的元素[fromIndex, toIndex)</span>
+<span class="kt">void</span> <span class="nf">removeRange</span><span class="o">(</span><span class="kt">int</span> <span class="n">fromIndex</span><span class="o">,</span> <span class="kt">int</span> <span class="n">toIndex</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 获取数组长度</span>
+        <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+        
+        <span class="c1">// 越界检查</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">fromIndex</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="o">||</span> <span class="n">toIndex</span> <span class="o">&gt;</span> <span class="n">len</span> <span class="o">||</span> <span class="n">toIndex</span> <span class="o">&lt;</span> <span class="n">fromIndex</span><span class="o">)</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">IndexOutOfBoundsException</span><span class="o">();</span>
+        <span class="c1">// 计算移除元素后数组的长度</span>
+        <span class="kt">int</span> <span class="n">newlen</span> <span class="o">=</span> <span class="n">len</span> <span class="o">-</span> <span class="o">(</span><span class="n">toIndex</span> <span class="o">-</span> <span class="n">fromIndex</span><span class="o">);</span>
+        <span class="kt">int</span> <span class="n">numMoved</span> <span class="o">=</span> <span class="n">len</span> <span class="o">-</span> <span class="n">toIndex</span><span class="o">;</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">numMoved</span> <span class="o">==</span> <span class="mi">0</span><span class="o">)</span>
+            <span class="n">setArray</span><span class="o">(</span><span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">newlen</span><span class="o">));</span>
+        <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// 用新长度创建新数组</span>
+            <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">[</span><span class="n">newlen</span><span class="o">];</span>
+            <span class="c1">// 旧数组[0, fromIndex)拷贝元素到新数组</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">fromIndex</span><span class="o">);</span>
+            <span class="c1">// 旧数组[toIndex, toIndex+numMoved)拷贝元素到新数组</span>
+            <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">toIndex</span><span class="o">,</span> <span class="n">newElements</span><span class="o">,</span>
+                             <span class="n">fromIndex</span><span class="o">,</span> <span class="n">numMoved</span><span class="o">);</span>
+            <span class="c1">// 用新数组引用替换旧数组</span>
+            <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+        <span class="o">}</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 在原数组中移除所有与集合c有关的元素</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">removeAll</span><span class="o">(</span><span class="nc">Collection</span><span class="o">&lt;?&gt;</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// c不能为空</span>
+    <span class="nc">Objects</span><span class="o">.</span><span class="na">requireNonNull</span><span class="o">(</span><span class="n">c</span><span class="o">);</span>
+    <span class="k">return</span> <span class="nf">bulkRemove</span><span class="o">(</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="n">c</span><span class="o">.</span><span class="na">contains</span><span class="o">(</span><span class="n">e</span><span class="o">));</span>
+<span class="o">}</span>
+
+<span class="c1">// 被removeAll调用</span>
+<span class="kt">boolean</span> <span class="nf">bulkRemove</span><span class="o">(</span><span class="nc">Predicate</span><span class="o">&lt;?</span> <span class="kd">super</span> <span class="no">E</span><span class="o">&gt;</span> <span class="n">filter</span><span class="o">,</span> <span class="kt">int</span> <span class="n">i</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// assert Thread.holdsLock(lock);</span>
+    <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">es</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="c1">// Optimize for initial run of survivors</span>
+    <span class="k">for</span> <span class="o">(;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">end</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">filter</span><span class="o">.</span><span class="na">test</span><span class="o">(</span><span class="n">elementAt</span><span class="o">(</span><span class="n">es</span><span class="o">,</span> <span class="n">i</span><span class="o">));</span> <span class="n">i</span><span class="o">++)</span>
+        <span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">i</span> <span class="o">&lt;</span> <span class="n">end</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">final</span> <span class="kt">int</span> <span class="n">beg</span> <span class="o">=</span> <span class="n">i</span><span class="o">;</span>
+        <span class="kd">final</span> <span class="kt">long</span><span class="o">[]</span> <span class="n">deathRow</span> <span class="o">=</span> <span class="n">nBits</span><span class="o">(</span><span class="n">end</span> <span class="o">-</span> <span class="n">beg</span><span class="o">);</span>
+        <span class="kt">int</span> <span class="n">deleted</span> <span class="o">=</span> <span class="mi">1</span><span class="o">;</span>
+        <span class="n">deathRow</span><span class="o">[</span><span class="mi">0</span><span class="o">]</span> <span class="o">=</span> <span class="mi">1L</span><span class="o">;</span>   <span class="c1">// set bit 0</span>
+        <span class="k">for</span> <span class="o">(</span><span class="n">i</span> <span class="o">=</span> <span class="n">beg</span> <span class="o">+</span> <span class="mi">1</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">end</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">filter</span><span class="o">.</span><span class="na">test</span><span class="o">(</span><span class="n">elementAt</span><span class="o">(</span><span class="n">es</span><span class="o">,</span> <span class="n">i</span><span class="o">)))</span> <span class="o">{</span>
+                <span class="n">setBit</span><span class="o">(</span><span class="n">deathRow</span><span class="o">,</span> <span class="n">i</span> <span class="o">-</span> <span class="n">beg</span><span class="o">);</span>
+                <span class="n">deleted</span><span class="o">++;</span>
+            <span class="o">}</span>
+        <span class="c1">// Did filter reentrantly modify the list?</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">es</span> <span class="o">!=</span> <span class="n">getArray</span><span class="o">())</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+        <span class="kd">final</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElts</span> <span class="o">=</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">es</span><span class="o">,</span> <span class="n">es</span><span class="o">.</span><span class="na">length</span> <span class="o">-</span> <span class="n">deleted</span><span class="o">);</span>
+        <span class="kt">int</span> <span class="n">w</span> <span class="o">=</span> <span class="n">beg</span><span class="o">;</span>
+        <span class="k">for</span> <span class="o">(</span><span class="n">i</span> <span class="o">=</span> <span class="n">beg</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">end</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">isClear</span><span class="o">(</span><span class="n">deathRow</span><span class="o">,</span> <span class="n">i</span> <span class="o">-</span> <span class="n">beg</span><span class="o">))</span>
+                <span class="n">newElts</span><span class="o">[</span><span class="n">w</span><span class="o">++]</span> <span class="o">=</span> <span class="n">es</span><span class="o">[</span><span class="n">i</span><span class="o">];</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">es</span><span class="o">,</span> <span class="n">i</span><span class="o">,</span> <span class="n">newElts</span><span class="o">,</span> <span class="n">w</span><span class="o">,</span> <span class="n">es</span><span class="o">.</span><span class="na">length</span> <span class="o">-</span> <span class="n">i</span><span class="o">);</span>
+        <span class="n">setArray</span><span class="o">(</span><span class="n">newElts</span><span class="o">);</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">es</span> <span class="o">!=</span> <span class="n">getArray</span><span class="o">())</span>
+            <span class="k">throw</span> <span class="k">new</span> <span class="nf">ConcurrentModificationException</span><span class="o">();</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="53查询">5.3、查询</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+</pre></td><td class="rouge-code"><pre><span class="c1">// 获取列表元素的数量</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">size</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">getArray</span><span class="o">().</span><span class="na">length</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 检查列表是否为空</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">isEmpty</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">size</span><span class="o">()</span> <span class="o">==</span> <span class="mi">0</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 获取指定索引的元素，元素来自本数组getArray()</span>
+<span class="kd">public</span> <span class="no">E</span> <span class="nf">get</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">elementAt</span><span class="o">(</span><span class="n">getArray</span><span class="o">(),</span> <span class="n">index</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 检查列表是否包含指定对象</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">contains</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="k">return</span> <span class="nf">indexOf</span><span class="o">(</span><span class="n">o</span><span class="o">,</span> <span class="n">elements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">)</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 在[0, fence)的范围内查找元素</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kt">int</span> <span class="nf">indexOf</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">,</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span><span class="o">,</span>
+                           <span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="kt">int</span> <span class="n">fence</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">o</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 返回数组中第一个内容为null的索引</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">index</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">fence</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">elements</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+                <span class="k">return</span> <span class="n">i</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 返回数组中第一个匹配内容的索引</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">index</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">fence</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">o</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">elements</span><span class="o">[</span><span class="n">i</span><span class="o">]))</span>
+                <span class="k">return</span> <span class="n">i</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 在[0, index]的范围内倒序查找元素</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kt">int</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">,</span> <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span><span class="o">,</span> <span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">o</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 返回数组中最后一个内容为null的索引</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">index</span><span class="o">;</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span><span class="o">--)</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">elements</span><span class="o">[</span><span class="n">i</span><span class="o">]</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span>
+                <span class="k">return</span> <span class="n">i</span><span class="o">;</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 返回数组中最后一个匹配内容的索引</span>
+        <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="n">index</span><span class="o">;</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="o">;</span> <span class="n">i</span><span class="o">--)</span>
+            <span class="k">if</span> <span class="o">(</span><span class="n">o</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">elements</span><span class="o">[</span><span class="n">i</span><span class="o">]))</span>
+                <span class="k">return</span> <span class="n">i</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 获取列表中指定元素的索引值</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">indexOf</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="k">return</span> <span class="nf">indexOf</span><span class="o">(</span><span class="n">o</span><span class="o">,</span> <span class="n">elements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 获取列表中指定元素在index之后的索引值</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">indexOf</span><span class="o">(</span><span class="no">E</span> <span class="n">e</span><span class="o">,</span> <span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="k">return</span> <span class="nf">indexOf</span><span class="o">(</span><span class="n">e</span><span class="o">,</span> <span class="n">elements</span><span class="o">,</span> <span class="n">index</span><span class="o">,</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 获取列表中指定元素最后出现的索引值</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="k">return</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="n">o</span><span class="o">,</span> <span class="n">elements</span><span class="o">,</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span> <span class="o">-</span> <span class="mi">1</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 获取列表中指定元素在索引之后，且最后出现的索引值</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="no">E</span> <span class="n">e</span><span class="o">,</span> <span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="k">return</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="n">e</span><span class="o">,</span> <span class="n">elements</span><span class="o">,</span> <span class="n">index</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 检查原列表是否全部包含集合c元素</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">containsAll</span><span class="o">(</span><span class="nc">Collection</span><span class="o">&lt;?&gt;</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 原数组</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="c1">// 原数组长度</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+    <span class="c1">// 逐个确认元素是否包含</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Object</span> <span class="n">e</span> <span class="o">:</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">indexOf</span><span class="o">(</span><span class="n">e</span><span class="o">,</span> <span class="n">elements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">len</span><span class="o">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="o">)</span>
+            <span class="c1">// 有一个元素不包含就返回false</span>
+            <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="c1">// 原数组包含所有集合c的元素</span>
+    <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="54修改">5.4、修改</h3>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+</pre></td><td class="rouge-code"><pre><span class="c1">// 把指定元素设置到指定索引位置</span>
+<span class="kd">public</span> <span class="no">E</span> <span class="nf">set</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="no">E</span> <span class="n">element</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 修改时获取锁以保证线程安全</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 原数组</span>
+        <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+        <span class="c1">// 获取原数组指定索引位置下的元素</span>
+        <span class="no">E</span> <span class="n">oldValue</span> <span class="o">=</span> <span class="n">elementAt</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">index</span><span class="o">);</span>
+        
+        <span class="c1">// 旧元素和新元素是否相同</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">oldValue</span> <span class="o">!=</span> <span class="n">element</span><span class="o">)</span> <span class="o">{</span>
+            <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+            <span class="c1">// 拷贝出新数组</span>
+            <span class="nc">Object</span><span class="o">[]</span> <span class="n">newElements</span> <span class="o">=</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+            <span class="c1">// 把新元素放入新数组</span>
+            <span class="n">newElements</span><span class="o">[</span><span class="n">index</span><span class="o">]</span> <span class="o">=</span> <span class="n">element</span><span class="o">;</span>
+            <span class="c1">// 新数组引用替换旧数组引用</span>
+            <span class="n">setArray</span><span class="o">(</span><span class="n">newElements</span><span class="o">);</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+            <span class="c1">// Not quite a no-op; ensures volatile write semantics</span>
+            <span class="n">setArray</span><span class="o">(</span><span class="n">elements</span><span class="o">);</span>
+        <span class="o">}</span>
+        <span class="k">return</span> <span class="n">oldValue</span><span class="o">;</span> <span class="c1">// 返回旧元素</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 原数组仅保留所有集合c的元素，相当于把两者交集结果作为原数组的新结果</span>
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">retainAll</span><span class="o">(</span><span class="nc">Collection</span><span class="o">&lt;?&gt;</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Objects</span><span class="o">.</span><span class="na">requireNonNull</span><span class="o">(</span><span class="n">c</span><span class="o">);</span>
+    <span class="k">return</span> <span class="nf">bulkRemove</span><span class="o">(</span><span class="n">e</span> <span class="o">-&gt;</span> <span class="o">!</span><span class="n">c</span><span class="o">.</span><span class="na">contains</span><span class="o">(</span><span class="n">e</span><span class="o">));</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="六其他">六、其他</h2>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+</pre></td><td class="rouge-code"><pre><span class="c1">// 根据原数组浅拷贝一份独立新数组，长度一致并保持元素原有顺序，元素类型为Object</span>
+<span class="kd">public</span> <span class="nc">Object</span><span class="o">[]</span> <span class="nf">toArray</span><span class="o">()</span> <span class="o">{</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="k">return</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="c1">// 把原数组元素放入数组a中</span>
+<span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unchecked"</span><span class="o">)</span>
+<span class="kd">public</span> <span class="o">&lt;</span><span class="no">T</span><span class="o">&gt;</span> <span class="no">T</span><span class="o">[]</span> <span class="nf">toArray</span><span class="o">(</span><span class="no">T</span><span class="o">[]</span> <span class="n">a</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 原数组</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    <span class="c1">// 原数组长度</span>
+    <span class="kt">int</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span>
+    <span class="c1">// 数组a长度不足以存放所有数组elements的元素</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">length</span> <span class="o">&lt;</span> <span class="n">len</span><span class="o">)</span>
+        <span class="c1">// 创建新的数组，类型和数组a一致</span>
+        <span class="k">return</span> <span class="o">(</span><span class="no">T</span><span class="o">[])</span> <span class="nc">Arrays</span><span class="o">.</span><span class="na">copyOf</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="n">len</span><span class="o">,</span> <span class="n">a</span><span class="o">.</span><span class="na">getClass</span><span class="o">());</span> 
+    <span class="k">else</span> <span class="o">{</span>
+        <span class="c1">// 空间足够，把elements数组的元素放入数组a中</span>
+        <span class="nc">System</span><span class="o">.</span><span class="na">arraycopy</span><span class="o">(</span><span class="n">elements</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">a</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+        <span class="c1">// 如果a还有空闲位置，则把空闲位置置空</span>
+        <span class="k">if</span> <span class="o">(</span><span class="n">a</span><span class="o">.</span><span class="na">length</span> <span class="o">&gt;</span> <span class="n">len</span><span class="o">)</span>
+            <span class="n">a</span><span class="o">[</span><span class="n">len</span><span class="o">]</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+        <span class="k">return</span> <span class="n">a</span><span class="o">;</span> <span class="c1">// 返回结果</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// 获取指定索引的元素，元素来自传入数组a</span>
+<span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"unchecked"</span><span class="o">)</span>
+<span class="kd">static</span> <span class="o">&lt;</span><span class="no">E</span><span class="o">&gt;</span> <span class="no">E</span> <span class="nf">elementAt</span><span class="o">(</span><span class="nc">Object</span><span class="o">[]</span> <span class="n">a</span><span class="o">,</span> <span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 有可能出现数组越界</span>
+    <span class="k">return</span> <span class="o">(</span><span class="no">E</span><span class="o">)</span> <span class="n">a</span><span class="o">[</span><span class="n">index</span><span class="o">];</span>
+<span class="o">}</span>
+
+<span class="kd">static</span> <span class="nc">String</span> <span class="nf">outOfBounds</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="kt">int</span> <span class="n">size</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="s">"Index: "</span> <span class="o">+</span> <span class="n">index</span> <span class="o">+</span> <span class="s">", Size: "</span> <span class="o">+</span> <span class="n">size</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 清空列表</span>
+<span class="kd">public</span> <span class="kt">void</span> <span class="nf">clear</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="c1">// 申请一个空数组，并作为新结果存入</span>
+        <span class="n">setArray</span><span class="o">(</span><span class="k">new</span> <span class="nc">Object</span><span class="o">[</span><span class="mi">0</span><span class="o">]);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="c1">// A tiny bit set implementation</span>
+<span class="kd">private</span> <span class="kd">static</span> <span class="kt">long</span><span class="o">[]</span> <span class="nf">nBits</span><span class="o">(</span><span class="kt">int</span> <span class="n">n</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="kt">long</span><span class="o">[((</span><span class="n">n</span> <span class="o">-</span> <span class="mi">1</span><span class="o">)</span> <span class="o">&gt;&gt;</span> <span class="mi">6</span><span class="o">)</span> <span class="o">+</span> <span class="mi">1</span><span class="o">];</span>
+<span class="o">}</span>
+
+<span class="kd">private</span> <span class="kd">static</span> <span class="kt">void</span> <span class="nf">setBit</span><span class="o">(</span><span class="kt">long</span><span class="o">[]</span> <span class="n">bits</span><span class="o">,</span> <span class="kt">int</span> <span class="n">i</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">bits</span><span class="o">[</span><span class="n">i</span> <span class="o">&gt;&gt;</span> <span class="mi">6</span><span class="o">]</span> <span class="o">|=</span> <span class="mi">1L</span> <span class="o">&lt;&lt;</span> <span class="n">i</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">private</span> <span class="kd">static</span> <span class="kt">boolean</span> <span class="nf">isClear</span><span class="o">(</span><span class="kt">long</span><span class="o">[]</span> <span class="n">bits</span><span class="o">,</span> <span class="kt">int</span> <span class="n">i</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="o">(</span><span class="n">bits</span><span class="o">[</span><span class="n">i</span> <span class="o">&gt;&gt;</span> <span class="mi">6</span><span class="o">]</span> <span class="o">&amp;</span> <span class="o">(</span><span class="mi">1L</span> <span class="o">&lt;&lt;</span> <span class="n">i</span><span class="o">))</span> <span class="o">==</span> <span class="mi">0</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">private</span> <span class="kt">boolean</span> <span class="nf">bulkRemove</span><span class="o">(</span><span class="nc">Predicate</span><span class="o">&lt;?</span> <span class="kd">super</span> <span class="no">E</span><span class="o">&gt;</span> <span class="n">filter</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">synchronized</span> <span class="o">(</span><span class="n">lock</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">return</span> <span class="nf">bulkRemove</span><span class="o">(</span><span class="n">filter</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">getArray</span><span class="o">().</span><span class="na">length</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">equals</span><span class="o">(</span><span class="nc">Object</span> <span class="n">o</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">o</span> <span class="o">==</span> <span class="k">this</span><span class="o">)</span>
+        <span class="c1">// 同一个元素</span>
+        <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(!(</span><span class="n">o</span> <span class="k">instanceof</span> <span class="nc">List</span><span class="o">))</span>
+        <span class="c1">// 类型不一样，返回false</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+
+    <span class="nc">List</span><span class="o">&lt;?&gt;</span> <span class="n">list</span> <span class="o">=</span> <span class="o">(</span><span class="nc">List</span><span class="o">&lt;?&gt;)</span><span class="n">o</span><span class="o">;</span>
+    <span class="nc">Iterator</span><span class="o">&lt;?&gt;</span> <span class="n">it</span> <span class="o">=</span> <span class="n">list</span><span class="o">.</span><span class="na">iterator</span><span class="o">();</span> <span class="c1">// 获取o的迭代器</span>
+    <span class="nc">Object</span><span class="o">[]</span> <span class="n">elements</span> <span class="o">=</span> <span class="n">getArray</span><span class="o">();</span>
+    
+    <span class="c1">// 逐个对比数组o与原数组的元素</span>
+    <span class="k">for</span> <span class="o">(</span><span class="kt">int</span> <span class="n">i</span> <span class="o">=</span> <span class="mi">0</span><span class="o">,</span> <span class="n">len</span> <span class="o">=</span> <span class="n">elements</span><span class="o">.</span><span class="na">length</span><span class="o">;</span> <span class="n">i</span> <span class="o">&lt;</span> <span class="n">len</span><span class="o">;</span> <span class="n">i</span><span class="o">++)</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">it</span><span class="o">.</span><span class="na">hasNext</span><span class="o">()</span> <span class="o">||</span> <span class="o">!</span><span class="nc">Objects</span><span class="o">.</span><span class="na">equals</span><span class="o">(</span><span class="n">elements</span><span class="o">[</span><span class="n">i</span><span class="o">],</span> <span class="n">it</span><span class="o">.</span><span class="na">next</span><span class="o">()))</span>
+            <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+
+    <span class="c1">// 对象o还存在更多元素</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">it</span><span class="o">.</span><span class="na">hasNext</span><span class="o">())</span>
+        <span class="k">return</span> <span class="kc">false</span><span class="o">;</span>
+
+    <span class="c1">// 元素完全一致</span>
+    <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 返回列表所有元素哈希值的总值</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">hashCode</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kt">int</span> <span class="n">hashCode</span> <span class="o">=</span> <span class="mi">1</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Object</span> <span class="n">x</span> <span class="o">:</span> <span class="n">getArray</span><span class="o">())</span>
+        <span class="c1">// 逐个叠加哈希值</span>
+        <span class="n">hashCode</span> <span class="o">=</span> <span class="mi">31</span> <span class="o">*</span> <span class="n">hashCode</span> <span class="o">+</span> <span class="o">(</span><span class="n">x</span> <span class="o">==</span> <span class="kc">null</span> <span class="o">?</span> <span class="mi">0</span> <span class="o">:</span> <span class="n">x</span><span class="o">.</span><span class="na">hashCode</span><span class="o">());</span>
+    <span class="k">return</span> <span class="n">hashCode</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="七重置锁">七、重置锁</h2>
+
+<p>反序列化或克隆后需要重置同步对象</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kt">void</span> <span class="nf">resetLock</span><span class="o">()</span> <span class="o">{</span>
+    <span class="nc">Field</span> <span class="n">lockField</span> <span class="o">=</span> <span class="n">java</span><span class="o">.</span><span class="na">security</span><span class="o">.</span><span class="na">AccessController</span><span class="o">.</span><span class="na">doPrivileged</span><span class="o">(</span>
+        <span class="o">(</span><span class="n">java</span><span class="o">.</span><span class="na">security</span><span class="o">.</span><span class="na">PrivilegedAction</span><span class="o">&lt;</span><span class="nc">Field</span><span class="o">&gt;)</span> <span class="o">()</span> <span class="o">-&gt;</span> <span class="o">{</span>
+            <span class="k">try</span> <span class="o">{</span>
+                <span class="c1">// 反射获取lock变量</span>
+                <span class="nc">Field</span> <span class="n">f</span> <span class="o">=</span> <span class="nc">CopyOnWriteArrayList</span><span class="o">.</span><span class="na">class</span>
+                    <span class="o">.</span><span class="na">getDeclaredField</span><span class="o">(</span><span class="s">"lock"</span><span class="o">);</span>
+                <span class="n">f</span><span class="o">.</span><span class="na">setAccessible</span><span class="o">(</span><span class="kc">true</span><span class="o">);</span>
+                <span class="k">return</span> <span class="n">f</span><span class="o">;</span>
+            <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">ReflectiveOperationException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+                <span class="k">throw</span> <span class="k">new</span> <span class="nf">Error</span><span class="o">(</span><span class="n">e</span><span class="o">);</span>
+            <span class="o">}});</span>
+    <span class="k">try</span> <span class="o">{</span>
+        <span class="c1">// 给lock赋对象</span>
+        <span class="n">lockField</span><span class="o">.</span><span class="na">set</span><span class="o">(</span><span class="k">this</span><span class="o">,</span> <span class="k">new</span> <span class="nc">Object</span><span class="o">());</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">IllegalAccessException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+        <span class="k">throw</span> <span class="k">new</span> <span class="nf">Error</span><span class="o">(</span><span class="n">e</span><span class="o">);</span>
+    <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

@@ -1,0 +1,46 @@
+I"<p>根据运行系统版本号重写 <strong>Activity.setRequestedOrientation(Int)</strong>。当版本号为 <strong>Android O</strong> 时不调用父类方法，避免父类检测条件并抛出异常。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="k">override</span> <span class="k">fun</span> <span class="nf">setRequestedOrientation</span><span class="p">(</span><span class="n">requestedOrientation</span><span class="p">:</span> <span class="nc">Int</span><span class="p">)</span> <span class="p">{</span>
+    <span class="k">if</span> <span class="p">(</span><span class="nc">Build</span><span class="p">.</span><span class="nc">VERSION</span><span class="p">.</span><span class="nc">SDK_INT</span> <span class="p">==</span> <span class="nc">Build</span><span class="p">.</span><span class="nc">VERSION_CODES</span><span class="p">.</span><span class="nc">O</span> <span class="p">&amp;&amp;</span> <span class="nf">isTranslucentOrFloating</span><span class="p">())</span> <span class="k">return</span>
+    <span class="k">super</span><span class="p">.</span><span class="nf">setRequestedOrientation</span><span class="p">(</span><span class="n">requestedOrientation</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>根据文章 <a href="/2019/06/26/fullscreen_orientation/">Only fullscreen opaque activities can request orientation</a> 编写过滤条件。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+</pre></td><td class="rouge-code"><pre><span class="k">private</span> <span class="k">fun</span> <span class="nf">isTranslucentOrFloating</span><span class="p">():</span> <span class="nc">Boolean</span> <span class="p">{</span>
+    <span class="kd">var</span> <span class="py">result</span> <span class="p">=</span> <span class="k">false</span>
+    <span class="k">try</span> <span class="p">{</span>
+        <span class="kd">val</span> <span class="py">r</span> <span class="p">=</span> <span class="nc">Class</span><span class="p">.</span><span class="nf">forName</span><span class="p">(</span><span class="s">"com.android.internal.R\$styleable"</span><span class="p">)</span>
+            <span class="p">.</span><span class="nf">getField</span><span class="p">(</span><span class="s">"Window"</span><span class="p">).</span><span class="k">get</span><span class="p">(</span><span class="k">null</span><span class="p">)</span> <span class="k">as</span> <span class="nc">IntArray</span>
+        <span class="kd">val</span> <span class="py">ta</span> <span class="p">=</span> <span class="nf">obtainStyledAttributes</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+        <span class="kd">val</span> <span class="py">m</span> <span class="p">=</span> <span class="nc">ActivityInfo</span><span class="o">::</span><span class="k">class</span><span class="p">.</span><span class="n">java</span>
+            <span class="p">.</span><span class="nf">getMethod</span><span class="p">(</span><span class="s">"isTranslucentOrFloating"</span><span class="p">,</span> <span class="nc">TypedArray</span><span class="o">::</span><span class="k">class</span><span class="p">.</span><span class="n">java</span><span class="p">)</span>
+        <span class="n">m</span><span class="p">.</span><span class="n">isAccessible</span> <span class="p">=</span> <span class="k">true</span>
+        <span class="n">result</span> <span class="p">=</span> <span class="n">m</span><span class="p">.</span><span class="nf">invoke</span><span class="p">(</span><span class="k">null</span><span class="p">,</span> <span class="n">ta</span><span class="p">)</span> <span class="k">as</span> <span class="nc">Boolean</span>
+        <span class="n">m</span><span class="p">.</span><span class="n">isAccessible</span> <span class="p">=</span> <span class="k">false</span>
+    <span class="p">}</span> <span class="k">catch</span> <span class="p">(</span><span class="n">ignore</span><span class="p">:</span> <span class="nc">Exception</span><span class="p">)</span> <span class="p">{</span>
+    <span class="p">}</span>
+    <span class="k">return</span> <span class="n">result</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

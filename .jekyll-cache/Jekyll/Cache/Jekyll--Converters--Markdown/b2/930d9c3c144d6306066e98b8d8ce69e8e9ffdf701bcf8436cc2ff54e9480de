@@ -1,0 +1,221 @@
+I"1D<h2 id="一数据拉取与处理">一、数据拉取与处理</h2>
+
+<h4 id="11-数据处理">1.1 数据处理</h4>
+
+<p>大家都知道，数据从网络和本地磁盘加载到内存，为避免主线程阻塞会在io线程上进行。但绑定视图数据时，重量级转换操作也会导致列表滚动卡顿。如果能够预计算，如：字符串替换、拼接、类转换，数据填充到 <strong>Adapter</strong> 前和加载过程一并在 computation 线程完成转换。</p>
+
+<h4 id="12-数据缓存">1.2 数据缓存</h4>
+
+<p><strong>ViewHolder</strong> 共享数据从 <strong>Adapter</strong> 获取公共变量，避免保存多个副本或要求实时计算。</p>
+
+<h4 id="13-局部更新">1.3 局部更新</h4>
+
+<p>局部更新可减少刷新所需时间，推荐使用 <strong>DiffUtil</strong> 计算数据集。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="k">fun</span> <span class="nf">addItem</span><span class="p">(</span><span class="n">reply</span><span class="p">:</span> <span class="nc">Reply</span><span class="p">)</span> <span class="p">{</span>
+    <span class="n">list</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="m">0</span><span class="p">,</span> <span class="n">reply</span><span class="p">)</span>
+    <span class="nf">notifyItemInserted</span><span class="p">(</span><span class="m">0</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="二视图优化">二、视图优化</h2>
+
+<h4 id="21-填充次数">2.1 填充次数</h4>
+
+<p><strong>RecyclerView</strong> 三级缓存目的是复用已填充视图。当缓存数量不足填满屏幕而频繁创建，滑出屏幕后又超过缓存阈值被销毁，多发生在高度很小的视图。这既占用处理器时间片，同时又产生临时对象。</p>
+
+<p><img src="/img/android/performance/recyclerview_notice.jpg" alt="recyclerview_notice" /></p>
+
+<p>根据经验来看，<strong>RecyclerView</strong> 默认缓存阈值偏小，不同类型需要缓存最大数量也不同。最好的方式，是根据屏幕和视图尺寸动态计算分类缓存所需数量。</p>
+
+<h4 id="22-绘制优化">2.2 绘制优化</h4>
+
+<p>减少过度绘制同样适用于 <strong>RecyclerView</strong> 视图布局，提高滑动帧率。此外，部分 <strong>item</strong> 可能通过自定义 <strong>View</strong> 绘制视图，因此也需遵守其性能优化规范。</p>
+
+<h4 id="23-布局填充时间">2.3 布局填充时间</h4>
+
+<p><strong>LayoutInflater</strong> 实例化视图时不仅需要遍历xml节点，而且视图用反射实例化，导致复杂视图耗时较长，列表快速滚动容易卡顿。降低布局复杂度、增加布局缓存数量都能有效缓解。虽然 <strong>ConstraintLayout</strong> 具备去除布局层次的能力，不过很多开发者发现和  <strong>RecyclerView</strong> 使用有严重问题。</p>
+
+<p>原生视图组装、<strong>Anko</strong>、<strong>Litho</strong>、<strong>JetPack compose</strong> 原理都类似，没有xml遍历和类反射而提升性能。</p>
+
+<p>不过上述方案各自缺点也明显：原生视图编写代码量大；<strong>Anko</strong> 配合style使用要自定义方法；<strong>Litho</strong> 由于技术实现令视图灵活性较低；<strong>JetPack compose</strong> 还处于实验性阶段，功能不够完善。按照现在的发展形势来看，个人推荐 <strong>Anko</strong> 和 <strong>JetPack compose</strong>。</p>
+
+<p>原生视图组装：</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre><span class="k">override</span> <span class="k">fun</span> <span class="nf">onCreate</span><span class="p">(</span><span class="n">savedInstanceState</span><span class="p">:</span> <span class="nc">Bundle</span><span class="p">?)</span> <span class="p">{</span>
+    <span class="k">super</span><span class="p">.</span><span class="nf">onCreate</span><span class="p">(</span><span class="n">savedInstanceState</span><span class="p">)</span>
+
+    <span class="kd">val</span> <span class="py">params</span> <span class="p">=</span> <span class="nc">FrameLayout</span><span class="p">.</span><span class="nc">LayoutParams</span><span class="p">(</span><span class="nc">WRAP_CONTENT</span><span class="p">,</span> <span class="nc">WRAP_CONTENT</span><span class="p">)</span>
+    <span class="n">params</span><span class="p">.</span><span class="n">gravity</span> <span class="p">=</span> <span class="nc">Gravity</span><span class="p">.</span><span class="nc">CENTER</span>
+
+    <span class="kd">val</span> <span class="py">button</span> <span class="p">=</span> <span class="nc">Button</span><span class="p">(</span><span class="k">this</span><span class="p">)</span>
+    <span class="n">button</span><span class="p">.</span><span class="n">text</span> <span class="p">=</span> <span class="s">"Start"</span>
+    <span class="n">button</span><span class="p">.</span><span class="n">isAllCaps</span> <span class="p">=</span> <span class="k">false</span>
+    <span class="n">button</span><span class="p">.</span><span class="nf">setOnClickListener</span> <span class="p">{</span> <span class="n">startActivity</span><span class="p">&lt;</span><span class="nc">MessagesActivity</span><span class="p">&gt;()</span> <span class="p">}</span>
+
+    <span class="nf">addContentView</span><span class="p">(</span><span class="n">button</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>Anko</strong> 代码示例 <a href="https://github.com/phantomVK/MessageKit/blob/f7ddced2a75b95b821354de37074f7b2bfde9b4e/app/src/main/java/com/phantomvk/messagekit/adapter/MessageHolder.kt">phantomVK/MessageKit - MessageHolder</a></p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">TextMessageLayout</span> <span class="p">:</span> <span class="nc">AnkoComponent</span><span class="p">&lt;</span><span class="nc">ViewGroup</span><span class="p">&gt;</span> <span class="p">{</span>
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">createView</span><span class="p">(</span><span class="n">ui</span><span class="p">:</span> <span class="nc">AnkoContext</span><span class="p">&lt;</span><span class="nc">ViewGroup</span><span class="p">&gt;)</span> <span class="p">=</span> <span class="nf">with</span><span class="p">(</span><span class="n">ui</span><span class="p">)</span> <span class="p">{</span>
+        <span class="nf">frameLayout</span> <span class="p">{</span>
+            <span class="nf">lparams</span><span class="p">(</span><span class="nc">WRAP_CONTENT</span><span class="p">,</span> <span class="nc">WRAP_CONTENT</span><span class="p">)</span>
+
+            <span class="nf">textView</span> <span class="p">{</span>
+                <span class="n">id</span> <span class="p">=</span> <span class="nc">R</span><span class="p">.</span><span class="n">id</span><span class="p">.</span><span class="n">text</span>
+                <span class="n">autoLinkMask</span> <span class="p">=</span> <span class="nc">Linkify</span><span class="p">.</span><span class="nc">EMAIL_ADDRESSES</span> <span class="n">or</span> <span class="nc">Linkify</span><span class="p">.</span><span class="nc">WEB_URLS</span>
+                <span class="n">gravity</span> <span class="p">=</span> <span class="nc">Gravity</span><span class="p">.</span><span class="nc">CENTER_VERTICAL</span>
+                <span class="n">includeFontPadding</span> <span class="p">=</span> <span class="k">false</span>
+                <span class="n">minimumHeight</span> <span class="p">=</span> <span class="nf">dip</span><span class="p">(</span><span class="m">40</span><span class="p">)</span>
+                <span class="n">padding</span> <span class="p">=</span> <span class="nf">dip</span><span class="p">(</span><span class="m">10</span><span class="p">)</span>
+                <span class="n">textColor</span> <span class="p">=</span> <span class="nc">Color</span><span class="p">.</span><span class="nf">parseColor</span><span class="p">(</span><span class="s">"#222222"</span><span class="p">)</span>
+                <span class="nf">setTextIsSelectable</span><span class="p">(</span><span class="k">false</span><span class="p">)</span>
+                <span class="n">textSize</span> <span class="p">=</span> <span class="m">16f</span> <span class="c1">//sp</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><strong>Jetpack compose</strong> 官方示例 <a href="https://developer.android.com/jetpack/compose/tutorial">Jetpack Compose Basics</a></p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+</pre></td><td class="rouge-code"><pre><span class="nd">@Preview</span>
+<span class="nd">@Composable</span>
+<span class="k">fun</span> <span class="nf">NewsStory</span><span class="p">()</span> <span class="p">{</span>
+    <span class="kd">val</span> <span class="py">image</span> <span class="p">=</span> <span class="p">+</span><span class="nf">imageResource</span><span class="p">(</span><span class="nc">R</span><span class="p">.</span><span class="n">drawable</span><span class="p">.</span><span class="n">header</span><span class="p">)</span>
+    <span class="nc">MaterialTheme</span> <span class="p">{</span>
+            <span class="nc">Column</span><span class="p">(</span>
+                <span class="n">modifier</span> <span class="p">=</span> <span class="nc">Spacing</span><span class="p">(</span><span class="m">16</span><span class="p">.</span><span class="n">dp</span><span class="p">)</span>
+            <span class="p">)</span> <span class="p">{</span>
+                <span class="nc">Container</span><span class="p">(</span><span class="n">modifier</span> <span class="p">=</span> <span class="nc">Height</span><span class="p">(</span><span class="m">180</span><span class="p">.</span><span class="n">dp</span><span class="p">)</span> <span class="n">wraps</span> <span class="nc">Expanded</span><span class="p">)</span> <span class="p">{</span>
+                    <span class="nc">Clip</span><span class="p">(</span><span class="n">shape</span> <span class="p">=</span> <span class="nc">RoundedCornerShape</span><span class="p">(</span><span class="m">8</span><span class="p">.</span><span class="n">dp</span><span class="p">))</span> <span class="p">{</span>
+                        <span class="nc">DrawImage</span><span class="p">(</span><span class="n">image</span><span class="p">)</span>
+                    <span class="p">}</span>
+                <span class="p">}</span>
+                <span class="nc">HeightSpacer</span><span class="p">(</span><span class="m">16</span><span class="p">.</span><span class="n">dp</span><span class="p">)</span>
+                <span class="nc">Text</span><span class="p">(</span><span class="s">"A day in Shark Fin Cove"</span><span class="p">)</span>
+                <span class="nc">Text</span><span class="p">(</span><span class="s">"Davenport, California"</span><span class="p">)</span>
+                <span class="nc">Text</span><span class="p">(</span><span class="s">"December 2018"</span><span class="p">)</span>
+            <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>关于 <strong>Litho</strong> 的使用美团有深入研究，参考 <a href="https://tech.meituan.com/2019/03/14/litho-use-and-principle-analysis.html">基本功 - Litho的使用及原理剖析</a> 和 <a href="https://tech.meituan.com/2019/09/19/litho-practice-in-dynamic-program-mtflexbox.html">Litho在美团动态化方案MTFlexbox中的实践</a>。</p>
+
+<h4 id="24-对象生成">2.4 对象生成</h4>
+
+<p>当 <strong>RecyclerView</strong> 视图分类较多时，缓存元素总数也会很多，加上复杂视图 <strong>ViewHolder</strong> 很多数据成员占用很多内存。用测量工具对比列表展示前后内存占用，可以大概确定用量。结构样式相似的视图可用 <strong>View.visibility</strong> 合并类别。</p>
+
+<h2 id="三参数配置">三、参数配置</h2>
+
+<p><strong>RecyclerView</strong> 自有参数也能提升渲染性能。</p>
+
+<h4 id="31-sethasfixedsize">3.1 setHasFixedSize</h4>
+
+<p>描述 <strong>RecyclerView</strong> 是否根据items总宽高重新计算大小。多数情况 <strong>RecyclerView</strong> 宽高是 <strong>MATCH_PARENT</strong>，设置为true减少重新计算大小次数。父布局大小改变而导致 <strong>RecyclerView</strong> 调整不受此参数限制。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">recyclerView</span><span class="p">.</span><span class="nf">setHasFixedSize</span><span class="p">(</span><span class="k">true</span><span class="p">)</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="32-mcachedviews">3.2 mCachedViews</h4>
+
+<p><strong>RecyclerView</strong> 离屏缓存 <strong>mCachedViews</strong> 默认为2，即视图移出屏幕后，放到共享缓存池前缓存2个元素，目的优化慢速向前、向后滑动的抖动。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">recyclerView</span><span class="p">.</span><span class="nf">setItemViewCacheSize</span><span class="p">(</span><span class="m">4</span><span class="p">)</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>按照个人经验判断这个值设置超过4效果不明显。</p>
+
+<h4 id="33-sethasstableids">3.3 setHasStableIds</h4>
+
+<p>指定参数为true，避免增删items时引起无关的视图刷新。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="n">adapter</span><span class="p">.</span><span class="nf">setHasStableIds</span><span class="p">(</span><span class="k">true</span><span class="p">)</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>当然还需要重写方法获取id计算结果。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="k">override</span> <span class="k">fun</span> <span class="nf">getItemId</span><span class="p">(</span><span class="n">position</span><span class="p">:</span> <span class="nc">Int</span><span class="p">):</span> <span class="nc">Long</span> <span class="p">{</span>
+    <span class="k">return</span> <span class="n">items</span><span class="p">[</span><span class="n">position</span><span class="p">].</span><span class="n">id</span><span class="p">.</span><span class="nf">hashCode</span><span class="p">().</span><span class="nf">toLong</span><span class="p">()</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四参考链接">四、参考链接</h2>
+
+<ul>
+  <li><a href="https://stackoverflow.com/q/27188536/8750399">RecyclerView Scrolling Performance</a></li>
+  <li><a href="https://mobikul.com/how-to-optimize-recyclerview-in-android/">How to optimize Recyclerview in Android</a></li>
+  <li><a href="https://medium.com/@programmerr47/recyclerview-item-optimizations-cae1aed0c321">RecyclerView item optimizations</a></li>
+  <li><a href="https://blog.usejournal.com/improve-recyclerview-performance-ede5cec6c5bf">Improve RecyclerView Performance</a></li>
+  <li><a href="https://tech.meituan.com/2019/03/14/litho-use-and-principle-analysis.html">基本功 - Litho的使用及原理剖析</a></li>
+  <li><a href="https://tech.meituan.com/2019/09/19/litho-practice-in-dynamic-program-mtflexbox.html">Litho在美团动态化方案MTFlexbox中的实践</a></li>
+  <li><a href="https://developer.android.com/jetpack/compose">jetpack compose - Android’s modern toolkit for building native UI</a></li>
+</ul>
+
+:ET

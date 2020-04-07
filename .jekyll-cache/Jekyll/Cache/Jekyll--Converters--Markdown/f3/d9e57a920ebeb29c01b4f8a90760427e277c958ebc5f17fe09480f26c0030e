@@ -1,0 +1,517 @@
+I"�}<h2 id="一前言">一、前言</h2>
+
+<p><code class="highlighter-rouge">StringBuilder</code>是可变字符串序列，API和<a href="/2017/03/06/StringBuffer/">StringBuffer</a>兼容。<code class="highlighter-rouge">StringBuilder</code>不保证线程安全，而<a href="/2017/03/06/StringBuffer/">StringBuffer</a>可以。</p>
+
+<p>由于单线程没有线程同步的要求，所以<code class="highlighter-rouge">StringBuilder</code>在单线程中比<code class="highlighter-rouge">StringBuffer</code>拥有更好的性能。同样道理，多线程中应该使用<code class="highlighter-rouge">StringBuffer</code>保证字符串修改的安全。</p>
+
+<h2 id="二类签名">二、类签名</h2>
+
+<p><code class="highlighter-rouge">StringBuilder</code>继承<code class="highlighter-rouge">AbstractStringBuilder</code>，实现了<code class="highlighter-rouge">Serializable</code>和<code class="highlighter-rouge">CharSequence</code>接口。构造方法、字符串增删查改在<code class="highlighter-rouge">AbstractStringBuilder</code>父类中实现，<code class="highlighter-rouge">StringBuilder</code>只负责调用父类方法。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">final</span> <span class="kd">class</span> <span class="nc">StringBuilder</span>
+    <span class="kd">extends</span> <span class="nc">AbstractStringBuilder</span>
+    <span class="kd">implements</span> <span class="n">java</span><span class="o">.</span><span class="na">io</span><span class="o">.</span><span class="na">Serializable</span><span class="o">,</span> <span class="nc">CharSequence</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p><code class="highlighter-rouge">StringBuffer</code>同样继承自<code class="highlighter-rouge">AbstractStringBuilder</code>，调用方法时增加了<code class="highlighter-rouge">synchronized</code>同步锁。这是<code class="highlighter-rouge">StringBuilder</code>和<code class="highlighter-rouge">StringBuffer</code>在API互相兼容、线程安全存在差异的原因。</p>
+
+<p>由此阅读<a href="/2017/03/25/AbstractStringBuilder/">AbstractStringBuilder</a>才能了解可变字符串如何实现，仅看<code class="highlighter-rouge">StringBuffer</code>和<code class="highlighter-rouge">StringBuilder</code>没有太大帮助。</p>
+
+<h2 id="三构造方法">三、构造方法</h2>
+
+<p>可通过字符串长度、默认构造方法，或字符串作为参数创建StringBuilder。默认构造方法的字符串长度是16，自定义字符串则会在指定长度上加16作为缓冲长度。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nf">StringBuilder</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">(</span><span class="mi">16</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nf">StringBuilder</span><span class="o">(</span><span class="kt">int</span> <span class="n">capacity</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">(</span><span class="n">capacity</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nf">StringBuilder</span><span class="o">(</span><span class="nc">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">(</span><span class="n">str</span><span class="o">.</span><span class="na">length</span><span class="o">()</span> <span class="o">+</span> <span class="mi">16</span><span class="o">);</span>
+    <span class="n">append</span><span class="o">(</span><span class="n">str</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nf">StringBuilder</span><span class="o">(</span><span class="nc">CharSequence</span> <span class="n">seq</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="n">seq</span><span class="o">.</span><span class="na">length</span><span class="o">()</span> <span class="o">+</span> <span class="mi">16</span><span class="o">);</span>
+    <span class="n">append</span><span class="o">(</span><span class="n">seq</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="四方法">四、方法</h2>
+
+<h3 id="41-添加">4.1 添加</h3>
+
+<p>尾添加对象，准确来说是obj.toString()或“null”</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="nc">Object</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="nf">append</span><span class="o">(</span><span class="nc">String</span><span class="o">.</span><span class="na">valueOf</span><span class="o">(</span><span class="n">obj</span><span class="o">));</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>尾添加字符串</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="nc">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">str</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="nc">StringBuffer</span> <span class="n">sb</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">sb</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="nc">CharSequence</span> <span class="n">s</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">s</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 越界异常</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="nc">CharSequence</span> <span class="n">s</span><span class="o">,</span> <span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">s</span><span class="o">,</span> <span class="n">start</span><span class="o">,</span> <span class="n">end</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">char</span><span class="o">[]</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">str</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="c1">// 越界异常</span>
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">char</span><span class="o">[]</span> <span class="n">str</span><span class="o">,</span> <span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">int</span> <span class="n">len</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="n">offset</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>尾添加布尔值，<code class="highlighter-rouge">true</code>或<code class="highlighter-rouge">false</code>的字符串</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">boolean</span> <span class="n">b</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">b</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>加入一个字符</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">char</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">c</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>尾添加数值，<code class="highlighter-rouge">byte</code>和<code class="highlighter-rouge">short</code>类型提升到<code class="highlighter-rouge">int</code></p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">i</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">long</span> <span class="n">lng</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">lng</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">float</span> <span class="n">f</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">f</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">append</span><span class="o">(</span><span class="kt">double</span> <span class="n">d</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">append</span><span class="o">(</span><span class="n">d</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>尾添加字符编码对应字符</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">appendCodePoint</span><span class="o">(</span><span class="kt">int</span> <span class="n">codePoint</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">appendCodePoint</span><span class="o">(</span><span class="n">codePoint</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="42-删除">4.2 删除</h3>
+
+<p>删除指定下标或范围的字符，可能抛出<code class="highlighter-rouge">StringIndexOutOfBoundsException</code>异常</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">delete</span><span class="o">(</span><span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">delete</span><span class="o">(</span><span class="n">start</span><span class="o">,</span> <span class="n">end</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">deleteCharAt</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">deleteCharAt</span><span class="o">(</span><span class="n">index</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="43-替换">4.3 替换</h3>
+<p>替换字符串</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">replace</span><span class="o">(</span><span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">,</span> <span class="nc">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">replace</span><span class="o">(</span><span class="n">start</span><span class="o">,</span> <span class="n">end</span><span class="o">,</span> <span class="n">str</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="44-插入">4.4 插入</h3>
+
+<p>插入字符串</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">index</span><span class="o">,</span> <span class="kt">char</span><span class="o">[]</span> <span class="n">str</span><span class="o">,</span> <span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">int</span> <span class="n">len</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">index</span><span class="o">,</span> <span class="n">str</span><span class="o">,</span> <span class="n">offset</span><span class="o">,</span> <span class="n">len</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="nc">Object</span> <span class="n">obj</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">obj</span><span class="o">);</span>
+        <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="nc">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">str</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">char</span><span class="o">[]</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">str</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">dstOffset</span><span class="o">,</span> <span class="nc">CharSequence</span> <span class="n">s</span><span class="o">)</span> <span class="o">{</span>
+        <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">dstOffset</span><span class="o">,</span> <span class="n">s</span><span class="o">);</span>
+        <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">dstOffset</span><span class="o">,</span> <span class="nc">CharSequence</span> <span class="n">s</span><span class="o">,</span>
+                            <span class="kt">int</span> <span class="n">start</span><span class="o">,</span> <span class="kt">int</span> <span class="n">end</span><span class="o">)</span>
+<span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">dstOffset</span><span class="o">,</span> <span class="n">s</span><span class="o">,</span> <span class="n">start</span><span class="o">,</span> <span class="n">end</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">b</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">b</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">char</span> <span class="n">c</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">c</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">int</span> <span class="n">i</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">i</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">long</span> <span class="n">l</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">l</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">float</span> <span class="n">f</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">f</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">insert</span><span class="o">(</span><span class="kt">int</span> <span class="n">offset</span><span class="o">,</span> <span class="kt">double</span> <span class="n">d</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">insert</span><span class="o">(</span><span class="n">offset</span><span class="o">,</span> <span class="n">d</span><span class="o">);</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="45-查找">4.5 查找</h3>
+
+<p>查找字符在字符串中的序号，可以指定字符串开始下标</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">indexOf</span><span class="o">(</span><span class="nc">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="kd">super</span><span class="o">.</span><span class="na">indexOf</span><span class="o">(</span><span class="n">str</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">indexOf</span><span class="o">(</span><span class="nc">String</span> <span class="n">str</span><span class="o">,</span> <span class="kt">int</span> <span class="n">fromIndex</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="kd">super</span><span class="o">.</span><span class="na">indexOf</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="n">fromIndex</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>最后一次出现的下标</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="nc">String</span> <span class="n">str</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="kd">super</span><span class="o">.</span><span class="na">lastIndexOf</span><span class="o">(</span><span class="n">str</span><span class="o">);</span>
+<span class="o">}</span>
+
+<span class="nd">@Override</span>
+<span class="kd">public</span> <span class="kt">int</span> <span class="nf">lastIndexOf</span><span class="o">(</span><span class="nc">String</span> <span class="n">str</span><span class="o">,</span> <span class="kt">int</span> <span class="n">fromIndex</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="kd">super</span><span class="o">.</span><span class="na">lastIndexOf</span><span class="o">(</span><span class="n">str</span><span class="o">,</span> <span class="n">fromIndex</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="46-翻转">4.6 翻转</h3>
+
+<p>翻转字符串</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">StringBuilder</span> <span class="nf">reverse</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">reverse</span><span class="o">();</span>
+    <span class="k">return</span> <span class="k">this</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="47-tostring">4.7 toString</h3>
+
+<p>返回字符串拷贝，而不是字符串数组本身</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+</pre></td><td class="rouge-code"><pre><span class="nd">@Override</span>
+<span class="kd">public</span> <span class="nc">String</span> <span class="nf">toString</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">return</span> <span class="k">new</span> <span class="nf">String</span><span class="o">(</span><span class="n">value</span><span class="o">,</span> <span class="mi">0</span><span class="o">,</span> <span class="n">count</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+:ET

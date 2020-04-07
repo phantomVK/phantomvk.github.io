@@ -1,0 +1,144 @@
+I"�$<p>在之前<a href="/2019/01/01/Null_Object_Pattern/">空对象模式</a>一文中，讨论约束空对象方法调用时，提到可以使用 <strong>动态代理</strong> 实现。复用前文的数据模型，现在就来实现这个方式。而动态代理的具体运行逻辑详情，将在以后文章单独进行源码剖析。</p>
+
+<p>和静态代理一样，动态代理也需要把所有行为抽象化，于是把以前写在 <strong>User</strong> 的行为全部抽象到接口 <strong>IUser</strong>。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="kd">interface</span> <span class="nc">IUser</span><span class="p">{</span>
+    <span class="k">fun</span> <span class="nf">getUserId</span><span class="p">():</span> <span class="nc">String</span>
+
+    <span class="k">fun</span> <span class="nf">getRoomId</span><span class="p">():</span> <span class="nc">String</span>
+
+    <span class="k">fun</span> <span class="nf">getRemark</span><span class="p">():</span> <span class="nc">String</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>然后 <strong>User</strong> 模型实现该抽象接口</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">User</span><span class="p">(</span><span class="k">private</span> <span class="kd">val</span> <span class="py">userId</span><span class="p">:</span> <span class="nc">String</span><span class="p">,</span>
+           <span class="k">private</span> <span class="kd">val</span> <span class="py">roomId</span><span class="p">:</span> <span class="nc">String</span><span class="p">,</span>
+           <span class="k">private</span> <span class="kd">val</span> <span class="py">nickname</span><span class="p">:</span> <span class="nc">String</span><span class="p">)</span> <span class="p">:</span> <span class="nc">IUser</span> <span class="p">{</span>
+
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">getUserId</span><span class="p">():</span> <span class="nc">String</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">userId</span>
+    <span class="p">}</span>
+
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">getRoomId</span><span class="p">():</span> <span class="nc">String</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">roomId</span>
+    <span class="p">}</span>
+
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">getRemark</span><span class="p">():</span> <span class="nc">String</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">nickname</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>实现动态代理的关键是实现 <strong>InvocationHandler</strong>。使用动态代理，是为了把所有方法代理到同一实例中，所以实现 <strong>InvocationHandler</strong> 时还需要提供有参构造方法，让外部传入接收委托的实例。</p>
+
+<p>不过，这次并不需要委托任何行为，而只是通过动态代理这个中转，以抛出异常的方式阻止实例里所有方法的调用。由以下代码可见，该中介类无需保存被委托类实例，只是在实现方法里抛异常阻止调用。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">Handler</span> <span class="p">:</span> <span class="nc">InvocationHandler</span> <span class="p">{</span>
+    <span class="c1">// 实现唯一的抽象方法，SAM，Single abstract mathod.</span>
+    <span class="k">override</span> <span class="k">fun</span> <span class="nf">invoke</span><span class="p">(</span><span class="n">proxy</span><span class="p">:</span> <span class="nc">Any</span><span class="p">,</span> <span class="n">method</span><span class="p">:</span> <span class="nc">Method</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nc">Array</span><span class="p">&lt;</span><span class="err">out</span> <span class="nc">Any</span><span class="p">&gt;):</span> <span class="nc">Any</span> <span class="p">{</span>
+        <span class="c1">// 目的就是抛出异常</span>
+        <span class="k">throw</span> <span class="nc">IllegalAccessException</span><span class="p">(</span><span class="s">"Access to this method is denied."</span><span class="p">)</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>实现中介类 <strong>InvocationHandler</strong> 之后就可以创建实例。按照惯例，空对象单例对象一般和其模型放在一起。</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">User</span><span class="p">(</span><span class="k">private</span> <span class="kd">val</span> <span class="py">userId</span><span class="p">:</span> <span class="nc">String</span><span class="p">,</span>
+           <span class="k">private</span> <span class="kd">val</span> <span class="py">roomId</span><span class="p">:</span> <span class="nc">String</span><span class="p">,</span>
+           <span class="k">private</span> <span class="kd">val</span> <span class="py">nickname</span><span class="p">:</span> <span class="nc">String</span><span class="p">)</span> <span class="p">:</span> <span class="nc">IUser</span> <span class="p">{</span>
+
+    <span class="o">....</span><span class="p">.</span>
+
+    <span class="k">companion</span> <span class="k">object</span> <span class="p">{</span>
+        <span class="kd">val</span> <span class="py">defUser</span> <span class="k">by</span> <span class="nf">lazy</span> <span class="p">{</span>
+            <span class="c1">// 创建空对象实例，这个实例里所有方法已被代理</span>
+            <span class="nc">Proxy</span><span class="p">.</span><span class="nf">newProxyInstance</span><span class="p">(</span>
+                    <span class="nc">IUser</span><span class="o">::</span><span class="k">class</span><span class="p">.</span><span class="n">java</span><span class="p">.</span><span class="n">classLoader</span><span class="p">,</span>
+                    <span class="nf">arrayOf</span><span class="p">(</span><span class="nc">IUser</span><span class="o">::</span><span class="k">class</span><span class="p">.</span><span class="n">java</span><span class="p">),</span>
+                    <span class="nc">Handler</span><span class="p">())</span> <span class="k">as</span> <span class="nc">IUser</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>这个被代理的实例使用方式和普通对象无异</p>
+
+<div class="language-kotlin highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre><span class="kd">object</span> <span class="nc">ProxyRunner</span> <span class="p">{</span>
+    <span class="nd">@JvmStatic</span> <span class="k">fun</span> <span class="nf">main</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="nc">Array</span><span class="p">&lt;</span><span class="nc">String</span><span class="p">&gt;)</span> <span class="p">{</span>
+        <span class="nc">User</span><span class="p">.</span><span class="n">defUser</span><span class="p">.</span><span class="nf">getRemark</span><span class="p">()</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>只在运行时走代理逻辑，然后主动抛出预定实现的异常：</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre>Exception in thread "main" java.lang.reflect.UndeclaredThrowableException
+	at com.sun.proxy.$Proxy0.getRemark(Unknown Source)
+	at proxy.ProxyRunner.main(ProxyRunner.java:6)
+Caused by: java.lang.IllegalAccessException: Access to this method is denied.
+	at proxy.Handler.invoke(Handler.kt:8)
+	... 2 more
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>使用动态代理的好处是，再增加实现方法时无需修改已有实现逻辑，就能阻止代码运行时调用空对象方法。</p>
+:ET

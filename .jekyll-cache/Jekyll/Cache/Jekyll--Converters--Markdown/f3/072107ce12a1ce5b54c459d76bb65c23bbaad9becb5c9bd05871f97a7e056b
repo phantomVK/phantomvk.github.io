@@ -1,0 +1,375 @@
+I"�?<h2 id="一注意和准备">一、注意和准备</h2>
+
+<h4 id="11-注意事项">1.1 注意事项</h4>
+
+<ol>
+  <li>
+    <p>使用无线网卡前请检查电源能否提供足够电压和电流；</p>
+  </li>
+  <li>
+    <p>使用最新系统：系统增加新网卡支持，免去编译驱动；</p>
+  </li>
+  <li>
+    <p>仅针对RaspberryPi 3B以下设备，这些设备没有配备无线网卡；</p>
+  </li>
+  <li>
+    <p>请用有线ssh登入，设置过程中树莓派需要重启无线网络；</p>
+  </li>
+</ol>
+
+<h4 id="12-硬件信息">1.2 硬件信息</h4>
+
+<p>先看我使用的无线网卡：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+</pre></td><td class="rouge-code"><pre>pi@raspberrypi:~ <span class="nv">$ </span>lsusb
+Bus 001 Device 004: ID 148f:760b Ralink Technology, Corp. MT7601U Wireless Adapter
+Bus 001 Device 003: ID 0424:ec00 Standard Microsystems Corp. SMSC9512/9514 Fast Ethernet Adapter
+Bus 001 Device 002: ID 0424:9514 Standard Microsystems Corp. SMC9514 Hub
+Bus 001 Device 001: ID 1d6b:0002 Linux Foundation 2.0 root hub
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>上面显示的Ralink Technology, Corp. MT7601U Wireless Adapter是我的无线网卡，Raspbian Stretch Lite 2017-09-07 Kernel 4.9系统镜像中已提供该网卡的驱动。如果无线网卡在系统中无法识别，请自行编译安装驱动。</p>
+
+<h4 id="13-查看已经连接的网络">1.3 查看已经连接的网络</h4>
+
+<p>使用<code class="highlighter-rouge">iwconfig</code>查看<code class="highlighter-rouge">wlan0</code>的详情：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre>pi@raspberrypi:~ <span class="nv">$ </span>iwconfig
+eth0      no wireless extensions.
+
+lo        no wireless extensions.
+
+wlan0     IEEE 802.11  ESSID:<span class="s2">"NETGEAR76"</span>
+          Mode:Managed  Frequency:2.462 GHz  Access Point: 10:DA:43:7A:A3:E8
+          Bit <span class="nv">Rate</span><span class="o">=</span>24 Mb/s   Tx-Power<span class="o">=</span>20 dBm
+          Retry short limit:7   RTS thr:off   Fragment thr:off
+          Power Management:off
+          Link <span class="nv">Quality</span><span class="o">=</span>39/70  Signal <span class="nv">level</span><span class="o">=</span><span class="nt">-71</span> dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:32   Missed beacon:0
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>上面已经显示了连接到<code class="highlighter-rouge">NETGEAR76</code>，连接频段和信号质量等信息。</p>
+
+<h2 id="二配置无线网络">二、配置无线网络</h2>
+
+<h4 id="21-扫描可见ssid">2.1 扫描可见SSID</h4>
+
+<p>通过<code class="highlighter-rouge">sudo iwlist wlan0 scan</code>扫描附近可见的SSID，并截取两个无线路由器的信息。后者<code class="highlighter-rouge">NETGEAR76</code>是已经连接的，现用前者<code class="highlighter-rouge">MERCURY_4E1A</code>演示。</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+</pre></td><td class="rouge-code"><pre>pi@raspberrypi:~ <span class="nv">$ </span><span class="nb">sudo </span>iwlist wlan0 scan
+wlan0     Scan completed :
+          Cell 08 - Address: E4:F3:F5:0F:4E:1A
+                    Channel:11
+                    Frequency:2.462 GHz <span class="o">(</span>Channel 11<span class="o">)</span>
+                    <span class="nv">Quality</span><span class="o">=</span>47/70  Signal <span class="nv">level</span><span class="o">=</span><span class="nt">-63</span> dBm
+                    Encryption key:on
+                    ESSID:<span class="s2">"MERCURY_4E1A"</span>
+                    Bit Rates:1 Mb/s<span class="p">;</span> 2 Mb/s<span class="p">;</span> 5.5 Mb/s<span class="p">;</span> 11 Mb/s<span class="p">;</span> 6 Mb/s
+                              9 Mb/s<span class="p">;</span> 12 Mb/s<span class="p">;</span> 18 Mb/s
+                    Bit Rates:24 Mb/s<span class="p">;</span> 36 Mb/s<span class="p">;</span> 48 Mb/s<span class="p">;</span> 54 Mb/s
+                    Mode:Master
+                    Extra:tsf<span class="o">=</span>000004fb6621e986
+                    Extra: Last beacon: 20ms ago
+                    IE: Unknown: 000C4D4552435552595F34453141
+                    IE: Unknown: 010882848B960C121824
+                    IE: Unknown: 03010B
+                    IE: Unknown: 2A0100
+                    IE: Unknown: 32043048606C
+                    IE: Unknown: 2D1A6E1003FFFF000000000000000000000000000000000000000000
+                    IE: Unknown: 3D160B071100000000000000000000000000000000000000
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers <span class="o">(</span>1<span class="o">)</span> : CCMP
+                        Authentication Suites <span class="o">(</span>1<span class="o">)</span> : PSK
+                    IE: WPA Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers <span class="o">(</span>1<span class="o">)</span> : CCMP
+                        Authentication Suites <span class="o">(</span>1<span class="o">)</span> : PSK
+                    IE: Unknown: DD180050F2020101000003A4000027A4000042435E0062322F00
+                    IE: Unknown: DD05000AEB0100
+          Cell 09 - Address: 10:DA:43:7A:A3:E8
+                    Channel:11
+                    Frequency:2.462 GHz <span class="o">(</span>Channel 11<span class="o">)</span>
+                    <span class="nv">Quality</span><span class="o">=</span>41/70  Signal <span class="nv">level</span><span class="o">=</span><span class="nt">-69</span> dBm
+                    Encryption key:on
+                    ESSID:<span class="s2">"NETGEAR76"</span>
+                    Bit Rates:1 Mb/s<span class="p">;</span> 2 Mb/s<span class="p">;</span> 5.5 Mb/s<span class="p">;</span> 11 Mb/s<span class="p">;</span> 18 Mb/s
+                              24 Mb/s<span class="p">;</span> 36 Mb/s<span class="p">;</span> 54 Mb/s
+                    Bit Rates:6 Mb/s<span class="p">;</span> 9 Mb/s<span class="p">;</span> 12 Mb/s<span class="p">;</span> 48 Mb/s
+                    Mode:Master
+                    Extra:tsf<span class="o">=</span>00000119cffe47dc
+                    Extra: Last beacon: 20ms ago
+                    IE: Unknown: 00094E4554474541523736
+                    IE: Unknown: 010882840B162430486C
+                    IE: Unknown: 03010B
+                    IE: Unknown: 2A0100
+                    IE: Unknown: 2F0100
+                    IE: IEEE 802.11i/WPA2 Version 1
+                        Group Cipher : CCMP
+                        Pairwise Ciphers <span class="o">(</span>1<span class="o">)</span> : CCMP
+                        Authentication Suites <span class="o">(</span>1<span class="o">)</span> : PSK
+                    IE: Unknown: 32040C121860
+                    IE: Unknown: 0B0501001D0000
+                    IE: Unknown: 7F080400080000000040
+                    IE: Unknown: DD7B0050F204104A0001101044000102103B0001031047001021A685A13B70898A47777B80AB552F671021000D4E4554474541522C20496E632E102300055236323530102400055236323530104200033637391054000800060050F2040001101100055236323530100800022008103C0001031049000600372A000120
+                    IE: Unknown: DD090010180201000C0000
+                    IE: Unknown: DD180050F2020101880003A4000027A4000042435E0062322F00
+                    IE: Unknown: 46057208010000
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="22-设置ssid和对应密码">2.2 设置SSID和对应密码</h4>
+
+<p>使用命令<code class="highlighter-rouge">wpa_passphrase SSID 密码</code>生成SSID和对应的密码，复制内容备用：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+</pre></td><td class="rouge-code"><pre>pi@raspberrypi:~ <span class="nv">$ </span>wpa_passphrase MERCURY_4E1A blackcar
+<span class="nv">network</span><span class="o">={</span>
+	<span class="nv">ssid</span><span class="o">=</span><span class="s2">"MERCURY_4E1A"</span>
+	<span class="c">#psk="blackcar"</span>
+	<span class="nv">psk</span><span class="o">=</span>7763537e8128e46f91200bab0a3d9adc08d701a0e1a555d0285fd1e10b185ab9
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>或通过重定向命令写入到文件备用:</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>pi@raspberrypi:~ <span class="nv">$ </span>wpa_passphrase MERCURY_4E1A blackcar <span class="o">&gt;</span> ~/wifi.conf
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="23-修改wpa_supplicantconf">2.3 修改wpa_supplicant.conf</h4>
+
+<p>修改<code class="highlighter-rouge">wpa_supplicant.conf</code>需要管理员权限，请切换到root：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre>pi@raspberrypi:~ <span class="nv">$ </span>su
+Password:
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>把内容粘贴到<code class="highlighter-rouge">/etc/wpa_supplicant/wpa_supplicant.conf</code>：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>root@raspberrypi:/home/pi# nano /etc/wpa_supplicant/wpa_supplicant.conf
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>或重定向的方式给<code class="highlighter-rouge">wpa_supplicant.conf</code>追加<code class="highlighter-rouge">wifi.conf</code>：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre>root@raspberrypi:/home/pi# less wifi.conf <span class="o">&gt;&gt;</span> /etc/wpa_supplicant/wpa_supplicant.conf
+</pre></td></tr></tbody></table></code></pre></div></div>
+<h4 id="24-配置文件">2.4 配置文件</h4>
+
+<p>配置<code class="highlighter-rouge">/etc/network/interfaces</code>：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="nb">sudo </span>nano /etc/network/interfaces
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>下面配置同时支持<code class="highlighter-rouge">eth0</code>和<code class="highlighter-rouge">wlan0</code>。当网线和Wifi同时连接时会独立获得ip，<code class="highlighter-rouge">wlan0</code>的配置表示通过DHCP获取IP地址。</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+</pre></td><td class="rouge-code"><pre># interfaces(5) file used by ifup(8) and ifdown(8)
+
+# Please note that this file is written to be used with dhcpcd
+# For static IP, consult /etc/dhcpcd.conf and 'man dhcpcd.conf'
+
+# Include files from /etc/network/interfaces.d:
+source-directory /etc/network/interfaces.d
+
+auto lo
+iface lo inet loopback
+
+allow-hotplug eth0
+iface eth0 inet dhcp
+
+allow-hotplug wlan0
+auto wlan0
+iface wlan0 inet dhcp
+pre-up wpa_supplicant -B w -D wext -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant.conf
+post-down killall -q wpa_supplicant
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h4 id="25-重启网络">2.5 重启网络</h4>
+
+<p>设置完成后保存退出，并重启树莓派网络：</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+</pre></td><td class="rouge-code"><pre><span class="nb">sudo</span> /etc/init.d/networking restart
+<span class="nb">sudo </span>ifup wlan0
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="三-查看连接信息">三、 查看连接信息</h2>
+
+<p>连接成功后，用<code class="highlighter-rouge">iwconfig</code>查看信息</p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+</pre></td><td class="rouge-code"><pre>pi@raspberrypi:~ <span class="nv">$ </span>iwconfig
+eth0      no wireless extensions.
+
+lo        no wireless extensions.
+
+wlan0     IEEE 802.11  ESSID:<span class="s2">"MERCURY_4E1A"</span>
+          Mode:Managed  Frequency:2.437 GHz  Access Point: E4:F3:F5:0F:4E:1A
+          Bit <span class="nv">Rate</span><span class="o">=</span>24 Mb/s   Tx-Power<span class="o">=</span>20 dBm
+          Retry short limit:7   RTS thr:off   Fragment thr:off
+          Power Management:off
+          Link <span class="nv">Quality</span><span class="o">=</span>46/70  Signal <span class="nv">level</span><span class="o">=</span><span class="nt">-64</span> dBm
+          Rx invalid nwid:0  Rx invalid crypt:0  Rx invalid frag:0
+          Tx excessive retries:0  Invalid misc:5   Missed beacon:0
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>用<code class="highlighter-rouge">ifconfig</code>查看可知获得IP地址：<code class="highlighter-rouge">192.168.0.101</code></p>
+
+<div class="language-shell highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+</pre></td><td class="rouge-code"><pre>pi@raspberrypi:~ <span class="nv">$ </span>ifconfig
+lo: <span class="nv">flags</span><span class="o">=</span>73&lt;UP,LOOPBACK,RUNNING&gt;  mtu 65536
+        inet 127.0.0.1  netmask 255.0.0.0
+        inet6 ::1  prefixlen 128  scopeid 0x10&lt;host&gt;
+        loop  txqueuelen 1  <span class="o">(</span>Local Loopback<span class="o">)</span>
+        RX packets 8  bytes 312 <span class="o">(</span>312.0 B<span class="o">)</span>
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 8  bytes 312 <span class="o">(</span>312.0 B<span class="o">)</span>
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+
+wlan0: <span class="nv">flags</span><span class="o">=</span>4163&lt;UP,BROADCAST,RUNNING,MULTICAST&gt;  mtu 1500
+        inet 192.168.0.101  netmask 255.255.255.0  broadcast 192.168.0.255
+        inet6 fe80::236:76ff:fe06:8115  prefixlen 64  scopeid 0x20&lt;<span class="nb">link</span><span class="o">&gt;</span>
+        ether 00:36:76:06:81:15  txqueuelen 1000  <span class="o">(</span>Ethernet<span class="o">)</span>
+        RX packets 112  bytes 12015 <span class="o">(</span>11.7 KiB<span class="o">)</span>
+        RX errors 0  dropped 0  overruns 0  frame 0
+        TX packets 101  bytes 16500 <span class="o">(</span>16.1 KiB<span class="o">)</span>
+        TX errors 0  dropped 0 overruns 0  carrier 0  collisions 0
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+:ET

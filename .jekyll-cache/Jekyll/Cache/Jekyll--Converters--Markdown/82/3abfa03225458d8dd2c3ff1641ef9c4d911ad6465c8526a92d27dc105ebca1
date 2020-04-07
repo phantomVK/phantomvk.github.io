@@ -1,0 +1,83 @@
+I"�<p>即时通讯(Instant Messaging，下称IM)，作为最符合众网民习惯的应用，见证中国乃至国际互联网的发展。IM诞生之前，中国已经经历电报、信件、寻呼机、手机短信的过程。其中电报和寻呼机几乎绝迹，个人短信的发送量也比即时通讯兴起之前锐减，但信件还在政府部门、银行、电信业发出光芒。</p>
+
+<h4 id="国内im发展历程">国内IM发展历程</h4>
+
+<p>早期台式机通过拨号和互联网连通，国外于1996年出现ICQ。国内也在稍晚的1997年由马化腾开发出OICQ，因名称有侵权之疑，在2000年改名为更让人熟悉的”腾讯QQ“。随后很久一段时间，国内再也没有其他IM能和QQ一决高下。直到张小龙在腾讯推出微信，QQ终于有个能互相吵闹的亲兄弟，当时诺基亚Symbian S60已经走下坡路，Android 2.3已经出现。纵观当时国内的互联网即时通讯产品，除了QQ和微信，为平民所知的产品尚不存在。</p>
+
+<p>时间来到现在，IM的分类定位比当年更加细致。QQ和微信牢牢把控消费级市场流量入口，企业微信和钉钉平分商业领域；普通的社交媒体，例如微博、Linkedin也包含聊天模块用于支撑社交业务。此外，很多移动端应用在场景上也对IM有一定需求，发展出第三方聊天功能的商业SDK，如网易云信、环信。</p>
+
+<p><img src="/img/business/friend_relationship/products_logo.png" alt="products_logo" /></p>
+
+<p>IM面向不同领域有不同的用户诉求，企业端用户要求直接聊天不用添加好友，零售端用户想经过自己同意才能成为好友。更底层的还有通讯协议的设计及实现、与网络运营商的合作等。如果一心自创IM但不考虑各种细节，甚至一个产品完全包含B端和C端需求，毫无疑问做出来的产品体验极差，用户也会不断流失。</p>
+
+<p>本文只挑选好友关系的部分业务，以微信为范本反向推测实现逻辑，起到抛砖引玉的作用。</p>
+
+<h4 id="好友关系与黑名单">好友关系与黑名单</h4>
+
+<p>根据微信用户好友关系功能，主要可以归结为两个部分：基础好友关系、黑名单。下图是好友关系的有限状态机，右边大图是基础好友关系状态转换，左下角是黑名单状态转换。</p>
+
+<p><img src="/img/business/friend_relationship/Instant_Messaging_Friend_Relationship_SM.png" alt="Instant_Messaging_Friend_Relationship_SM" /></p>
+
+<h4 id="基础好友关系">基础好友关系</h4>
+
+<p>基础好友关系是建立好友业务的根本，管理好友间关系状态在数据库中的存储。基础好友关系奠定好友逻辑的基础，而黑名单功能基于此基础继续构建。黑名单逻辑的移除，完全不会影响好友关系的建立。当然由此可以推断出，如果没有好友关系，则没法实现微信黑名单功能。</p>
+
+<p><img src="/img/business/friend_relationship/basic_friend_relationship.png" alt="basic_friend_relationship" /></p>
+
+<p>这里主要介绍基础好友关系，黑名单（因过于陷入业务细节）不会深入介绍。有限状态机首先从 <strong>None</strong> 启动，两位好友根据主动和被动关系同时改变各自状态。状态和其迁移路线均用相同颜色标记，配对查阅即可。</p>
+
+<p>例如：A向B发出好友邀请，则A的状态从 <strong>None</strong> 转换为 <strong>Inviting</strong>，而B的状态被动修改为 <strong>Accepting</strong>。若随后B接受邀请，则A和B的状态均转换为 <strong>Done</strong>，表示双方好友关系已建立。</p>
+
+<p>名词介绍：</p>
+
+<ul>
+  <li>
+    <p><strong>None</strong>: 没有好友关系，或双方好友关系已完全解除；</p>
+  </li>
+  <li>
+    <p><strong>Inviting</strong>、<strong>Accepting</strong>：分别为邀请人和被邀请人的状态；</p>
+  </li>
+  <li>
+    <p><strong>Rejecting</strong>、<strong>Rejected</strong>：被邀请人才能拒绝邀请，状态转为 <strong>Rejecting</strong>；邀请人被拒绝后状态迁移到 <strong>Rejected</strong>。若A被B拒绝，又被B邀请加为好友，则A和B两者身份相互交互，此时B为邀请发出者；</p>
+  </li>
+  <li>
+    <p><strong>Deleting</strong>、<strong>Deleted</strong>：表示一方删除对方。表现为微信提示“您和对方不是好友，请先发出邀请”</p>
+  </li>
+</ul>
+
+<p>因此基本好友关系满足以下条件：</p>
+
+<ul>
+  <li>操作必须由两者之一主动发起，对方被动受到影响；</li>
+  <li>一方发起的操作，同时事务性修改双方状态；</li>
+  <li><strong>None</strong> 表示双方不是好友。但可以实现为记录不存在，或记录存在但标记两者为非好友；</li>
+</ul>
+
+<h4 id="黑名单">黑名单</h4>
+
+<p>说完基础好友关系，简单介绍黑名单功能。</p>
+
+<p>黑名单在不同产品的定义差别较大：微信要求双方是好友才能拉黑，而微博等社交平台则能把非好友拉到黑名单。总的来说，微信的做法比较细致，黑名单添加操作存在于好友关系建立之后；移除操作存在于黑名单添加操作之后，不管当时好友关系如何。而已经设置的黑名单配置，也会影响下一次好友关系建立的业务流程。</p>
+
+<p>举个例子：李雷和韩梅梅分手了，即使微信里李雷已经删除韩梅梅的好友关系，只要韩梅梅没有把李雷删除，则韩梅梅就能反复把李雷从黑名单中添加和解除。若韩梅梅拉黑李雷后把李雷删除，如果不解除拉黑，则李雷永远无法向韩梅梅发出好友邀请。</p>
+
+<p><img src="/img/business/friend_relationship/lilei_hanmeimei.jpeg" alt="lilei_hanmeimei" /></p>
+
+<p>由此可知，没有好友关系则不可能存在黑名单。若黑名单存在，反向约束好友关系的再次建立。</p>
+
+<p><img src="/img/business/friend_relationship/lilei_hanmeimei_relationship.png" alt="lilei_hanmeimei_relationship" /></p>
+
+<p>所以根据以上论述，最好把两位好友的userId共同作为主键在数据库表中建立记录，UserId_A和UserId_B是一个元组，&lt;UserId_A, UserId_B&gt; 与 &lt;UserId_B, UserId_A&gt; 是同一个东西。为了便于管理，可以自行添加策略，决定谁的ID放在前面，谁的ID放在后面。最简单的做法是直接进行字符串大小比较，用 UserId_A &gt; UserId_B策略，得出&lt;UserId_B, UserId_A&gt;，大者在后面，这样就可以更具前者的id值在数据内做递增排序。</p>
+
+<h4 id="好友关系预测">好友关系预测</h4>
+
+<p>好友关系建立后，好事者就有新的事情可以开展。已知A和B是好友，A和C是好友，B和C也是好友，若B和C同时是D的好友，则A是D的好友的可能性极大，并且属于同一关系团体。</p>
+
+<p><img src="/img/business/friend_relationship/relationship_chain.png" alt="relationship_chain" /></p>
+
+<p>当然，多维度的好友关系预测肯定不会像这个例子这么简单。这方面，Linkedin的关系推荐值得借鉴。</p>
+
+<h4 id="总结">总结</h4>
+
+<p>虽然，上述内容介绍基础好友关系和黑名单时相对简略，但足以用来设计一套小型私有好友关系服务。至于业务所要求的实现细节，就要各位自行摸索，根据实际调整上述模型。</p>
+:ET

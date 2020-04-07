@@ -1,0 +1,119 @@
+I"�<h3 id="原文">原文</h3>
+<p>内容摘自  <strong>“The Java Virtual Machine Specification Java SE 10 Edition”</strong> PDF, Page57</p>
+
+<div class="highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+</pre></td><td class="rouge-code"><pre>3.10. Compiling Switches
+
+Compilation of switch statements uses the tableswitch and lookupswitch 
+instructions. The tableswitch instruction is used when the cases of the 
+switch can be efficiently represented as indices into a table of target 
+offsets. The default target of the switch is used if the value of the 
+expression of the switch falls outside the range of valid indices. For 
+instance:
+
+    int chooseNear(int i) {
+        switch (i) {
+            case 0:  return  0;
+            case 1:  return  1;
+            case 2:  return  2;
+            default: return -1;
+        }
+    }
+
+compiles to:
+
+    Method int chooseNear(int)
+    0   iload_1             // Push local variable 1 (argument i)
+    1   tableswitch 0 to 2: // Valid indices are 0 through 2
+          0: 28             // If i is 0, continue at 28
+          1: 30             // If i is 1, continue at 30
+          2: 32             // If i is 2, continue at 32
+          default:34        // Otherwise, continue at 34
+    28  iconst_0            // i was 0; push int constant 0...
+    29  ireturn             // ...and return it
+    30  iconst_1            // i was 1; push int constant 1...
+    31  ireturn             // ...and return it
+    32  iconst_2            // i was 2; push int constant 2...
+    33  ireturn             // ...and return it
+    34  iconst_m1           // otherwise push int constant -1...
+    35  ireturn             // ...and return it
+
+The Java Virtual Machine's tableswitch and lookupswitch instructions 
+operate only on int data. Because operations on byte, char, or short 
+values are internally promoted to int, a switch whose expression 
+evaluates to one of those types is compiled as though it evaluated to 
+type int. If the chooseNear method had been written using type short, the 
+same Java Virtual Machine instructions would have been generated as when 
+using type int. Other numeric types must be narrowed to type int for use 
+in a switch.
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h3 id="解释">解释</h3>
+
+<ol>
+  <li>
+    <p>上文明确指出JVM的<code class="highlighter-rouge">tableswitch</code>和<code class="highlighter-rouge">lookupswitch</code>指令只能操作int数据:</p>
+
+    <p><strong>“The Java Virtual Machine’s tableswitch and lookupswitch instructions operate only on int data.”</strong></p>
+  </li>
+  <li>
+    <p>同时表明在<code class="highlighter-rouge">switch</code>中执行<code class="highlighter-rouge">byte</code>、<code class="highlighter-rouge">char</code>、<code class="highlighter-rouge">short</code>会隐式向上转型为基本类型<code class="highlighter-rouge">int</code>:</p>
+
+    <p><strong>“Because operations on byte, char, or short values are internally promoted to int, a switch whose expression evaluates to one of those types is compiled as though it evaluated to type int.”</strong></p>
+  </li>
+</ol>
+
+<h3 id="参考链接">参考链接</h3>
+
+<ul>
+  <li>
+    <p><a href="https://stackoverflow.com/questions/13951419/why-cant-java-switch-over-the-primitive-long">why-cant-java-switch-over-the-primitive-long</a></p>
+  </li>
+  <li>
+    <p><a href="https://docs.oracle.com/javase/specs/">Java Language and Virtual Machine Specifications</a></p>
+  </li>
+</ul>
+:ET

@@ -1,0 +1,702 @@
+I".�<h2 id="前言">前言</h2>
+
+<p>图片加载时只需调用以下代码，<strong>Glide</strong> 会自动完成下载、缓存、缩放、展示等流程。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="nc">Glide</span><span class="o">.</span><span class="na">with</span><span class="o">(</span><span class="k">this</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">load</span><span class="o">(</span><span class="s">"http://www.abc.com"</span><span class="o">)</span>
+        <span class="o">.</span><span class="na">into</span><span class="o">(</span><span class="n">imageView</span><span class="o">)</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>其中包含应用进入后台，图片会暂停加载的策略。通过这篇文章，探究 <strong>Glide</strong> 是如何实现开发者不主动触发逻辑，就能实现任务生命周期自动管理的奥秘。<strong>Glide 4.9.0</strong></p>
+
+<h2 id="glide">Glide</h2>
+
+<p>上面的<code class="highlighter-rouge">Glide.with(this)</code>根据传入实参类型，例如：<strong>FragmentActivity</strong>、<strong>Fragment</strong>、<strong>Context</strong> 等不同选择目标重载方法。</p>
+
+<p>这里通过 <strong>FragmentActivity</strong> 进行解析，常用 <strong>AppCompatActivity</strong> 的父类是 <strong>FragmentActivity</strong>，便于理解。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">static</span> <span class="nc">RequestManager</span> <span class="nf">with</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">FragmentActivity</span> <span class="n">activity</span><span class="o">)</span> <span class="o">{</span>
+  <span class="k">return</span> <span class="nf">getRetriever</span><span class="o">(</span><span class="n">activity</span><span class="o">).</span><span class="na">get</span><span class="o">(</span><span class="n">activity</span><span class="o">);</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>检查参数提供的 <strong>Context</strong> 是否为空：当 <strong>Fragment</strong> 与页面绑定前或解除绑定后，这些生命周期内获得宿主 <strong>Activity</strong> 为空。获取 <strong>Glide</strong> 单例并提取里面的 <strong>RequestManagerRetriever</strong> 实例。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="kd">static</span> <span class="nc">RequestManagerRetriever</span> <span class="nf">getRetriever</span><span class="o">(</span><span class="nd">@Nullable</span> <span class="nc">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+  <span class="c1">// Context could be null for other reasons (ie the user passes in null), but in practice it will</span>
+  <span class="c1">// only occur due to errors with the Fragment lifecycle.</span>
+  <span class="nc">Preconditions</span><span class="o">.</span><span class="na">checkNotNull</span><span class="o">(</span>
+      <span class="n">context</span><span class="o">,</span>
+      <span class="s">"You cannot start a load on a not yet attached View or a Fragment where getActivity() "</span>
+          <span class="o">+</span> <span class="s">"returns null (which usually occurs when getActivity() is called before the Fragment "</span>
+          <span class="o">+</span> <span class="s">"is attached or after the Fragment is destroyed)."</span><span class="o">);</span>
+  <span class="k">return</span> <span class="nc">Glide</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">context</span><span class="o">).</span><span class="na">getRequestManagerRetriever</span><span class="o">();</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="requestmanagerretriever">RequestManagerRetriever</h2>
+
+<p>忽略 <strong>Glide</strong> 首次初始化流程，来到 <strong>RequestManagerRetriever</strong> 获取 <strong>RequestManager</strong> 实例的流程。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="nc">RequestManager</span> <span class="nf">get</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">FragmentActivity</span> <span class="n">activity</span><span class="o">)</span> <span class="o">{</span>
+  <span class="c1">// 线程判断：Looper.myLooper() != Looper.getMainLooper()</span>
+  <span class="k">if</span> <span class="o">(</span><span class="nc">Util</span><span class="o">.</span><span class="na">isOnBackgroundThread</span><span class="o">())</span> <span class="o">{</span>
+    <span class="c1">// 页面在后台线程时获取ApplicationContext</span>
+    <span class="k">return</span> <span class="nf">get</span><span class="o">(</span><span class="n">activity</span><span class="o">.</span><span class="na">getApplicationContext</span><span class="o">());</span>
+  <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+    <span class="n">assertNotDestroyed</span><span class="o">(</span><span class="n">activity</span><span class="o">);</span>
+    <span class="c1">// 从Activity实例获取FragmentManager</span>
+    <span class="nc">FragmentManager</span> <span class="n">fm</span> <span class="o">=</span> <span class="n">activity</span><span class="o">.</span><span class="na">getSupportFragmentManager</span><span class="o">();</span>
+    <span class="k">return</span> <span class="nf">supportFragmentGet</span><span class="o">(</span><span class="n">activity</span><span class="o">,</span> <span class="n">fm</span><span class="o">,</span> <span class="kc">null</span><span class="o">,</span> <span class="n">isActivityVisible</span><span class="o">(</span><span class="n">activity</span><span class="o">));</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>从上面可见条件判断根据应用是否在主线程走分支，而本文仅关心应用在主线程的逻辑。进入分支后可见从 <strong>Activity</strong> 实例获取 <strong>FragmentManager</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">RequestManager</span> <span class="nf">supportFragmentGet</span><span class="o">(</span>
+    <span class="nd">@NonNull</span> <span class="nc">Context</span> <span class="n">context</span><span class="o">,</span>
+    <span class="nd">@NonNull</span> <span class="nc">FragmentManager</span> <span class="n">fm</span><span class="o">,</span>
+    <span class="nd">@Nullable</span> <span class="nc">Fragment</span> <span class="n">parentHint</span><span class="o">,</span>
+    <span class="kt">boolean</span> <span class="n">isParentVisible</span><span class="o">)</span> <span class="o">{</span>
+
+  <span class="nc">SupportRequestManagerFragment</span> <span class="n">current</span> <span class="o">=</span>
+      <span class="n">getSupportRequestManagerFragment</span><span class="o">(</span><span class="n">fm</span><span class="o">,</span> <span class="n">parentHint</span><span class="o">,</span> <span class="n">isParentVisible</span><span class="o">);</span>
+  <span class="nc">RequestManager</span> <span class="n">requestManager</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="na">getRequestManager</span><span class="o">();</span>
+  <span class="k">if</span> <span class="o">(</span><span class="n">requestManager</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+    <span class="nc">Glide</span> <span class="n">glide</span> <span class="o">=</span> <span class="nc">Glide</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">context</span><span class="o">);</span>
+    <span class="n">requestManager</span> <span class="o">=</span>
+        <span class="n">factory</span><span class="o">.</span><span class="na">build</span><span class="o">(</span>
+            <span class="n">glide</span><span class="o">,</span> <span class="n">current</span><span class="o">.</span><span class="na">getGlideLifecycle</span><span class="o">(),</span> <span class="n">current</span><span class="o">.</span><span class="na">getRequestManagerTreeNode</span><span class="o">(),</span> <span class="n">context</span><span class="o">);</span>
+    <span class="n">current</span><span class="o">.</span><span class="na">setRequestManager</span><span class="o">(</span><span class="n">requestManager</span><span class="o">);</span>
+  <span class="o">}</span>
+  <span class="k">return</span> <span class="n">requestManager</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>以下方法从 <strong>Activity</strong> 的 <strong>FragmentManager</strong> 中查找是否存在名为 <strong>FRAGMENT_TAG</strong> 的 <strong>Fragment</strong> 实例。这个实例相当于一个隐形的钩子，挂在 <strong>Activity</strong> 监听界面生命周期变化，并回调 <strong>Glide</strong> 图片加载策略。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">FRAGMENT_TAG</span> <span class="o">=</span> <span class="s">"com.bumptech.glide.manager"</span><span class="o">;</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>实例不存在就创建 <strong>Fragment</strong> 实例，这个实例类型为 <strong>SupportRequestManagerFragment</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+</pre></td><td class="rouge-code"><pre><span class="kd">private</span> <span class="nc">SupportRequestManagerFragment</span> <span class="nf">getSupportRequestManagerFragment</span><span class="o">(</span>
+    <span class="nd">@NonNull</span> <span class="kd">final</span> <span class="nc">FragmentManager</span> <span class="n">fm</span><span class="o">,</span>
+    <span class="nd">@Nullable</span> <span class="nc">Fragment</span> <span class="n">parentHint</span><span class="o">,</span>
+    <span class="kt">boolean</span> <span class="n">isParentVisible</span><span class="o">)</span> <span class="o">{</span>
+
+  <span class="c1">// 首先用FRAGMENT_TAG字符串的方式从fm里面找Fragment</span>
+  <span class="nc">SupportRequestManagerFragment</span> <span class="n">current</span> <span class="o">=</span>
+      <span class="o">(</span><span class="nc">SupportRequestManagerFragment</span><span class="o">)</span> <span class="n">fm</span><span class="o">.</span><span class="na">findFragmentByTag</span><span class="o">(</span><span class="no">FRAGMENT_TAG</span><span class="o">);</span>
+  
+  <span class="c1">// 字符串的方式找不到</span>
+  <span class="k">if</span> <span class="o">(</span><span class="n">current</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 每个FragmentActivity只有一个FragmentManager;</span>
+    <span class="c1">// 每个FragmentManager只存一个SupportRequestManagerFragment;</span>
+    <span class="c1">// 所以试着用FragmentManager获取SupportRequestManagerFragment实例</span>
+    <span class="n">current</span> <span class="o">=</span> <span class="n">pendingSupportRequestManagerFragments</span><span class="o">.</span><span class="na">get</span><span class="o">(</span><span class="n">fm</span><span class="o">);</span>
+    <span class="c1">// 判断实例为空则需构建Fragment实例并加入到Activity</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">current</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+      <span class="c1">// 创建新实例</span>
+      <span class="n">current</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">SupportRequestManagerFragment</span><span class="o">();</span>
+      <span class="n">current</span><span class="o">.</span><span class="na">setParentFragmentHint</span><span class="o">(</span><span class="n">parentHint</span><span class="o">);</span>
+      <span class="c1">// Activity可见，触发Fragment的onStart()逻辑调用</span>
+      <span class="k">if</span> <span class="o">(</span><span class="n">isParentVisible</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">current</span><span class="o">.</span><span class="na">getGlideLifecycle</span><span class="o">().</span><span class="na">onStart</span><span class="o">();</span>
+      <span class="o">}</span>
+      <span class="n">pendingSupportRequestManagerFragments</span><span class="o">.</span><span class="na">put</span><span class="o">(</span><span class="n">fm</span><span class="o">,</span> <span class="n">current</span><span class="o">);</span>
+      <span class="c1">// 把SupportRequestManagerFragment加入到Activity的FragmentManager中</span>
+      <span class="n">fm</span><span class="o">.</span><span class="na">beginTransaction</span><span class="o">().</span><span class="na">add</span><span class="o">(</span><span class="n">current</span><span class="o">,</span> <span class="no">FRAGMENT_TAG</span><span class="o">).</span><span class="na">commitAllowingStateLoss</span><span class="o">();</span>
+      <span class="n">handler</span><span class="o">.</span><span class="na">obtainMessage</span><span class="o">(</span><span class="no">ID_REMOVE_SUPPORT_FRAGMENT_MANAGER</span><span class="o">,</span> <span class="n">fm</span><span class="o">).</span><span class="na">sendToTarget</span><span class="o">();</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+  <span class="k">return</span> <span class="n">current</span><span class="o">;</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>所有创建的 <strong>SupportRequestManagerFragment</strong> 都保存在以下哈希表中，即自行保存一份关系列表</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+</pre></td><td class="rouge-code"><pre><span class="kd">final</span> <span class="nc">Map</span><span class="o">&lt;</span><span class="nc">FragmentManager</span><span class="o">,</span> <span class="nc">SupportRequestManagerFragment</span><span class="o">&gt;</span> <span class="n">pendingSupportRequestManagerFragments</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">HashMap</span><span class="o">&lt;&gt;();</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="supportrequestmanagerfragment">SupportRequestManagerFragment</h2>
+
+<p>接下来看看上面提及的 <strong>SupportRequestManagerFragment</strong>。</p>
+
+<p>从签名可知此类继承父类为 <strong>Fragment</strong>。但不像一般 <strong>Fragment</strong> 包含UI界面，这个实例仅包含生命周期的相关回调操作。说白了，就是借用 <strong>Fragment</strong> 当钩子达到监听 <strong>Activity</strong> 生命周期的目的。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">SupportRequestManagerFragment</span> <span class="kd">extends</span> <span class="nc">Fragment</span> <span class="o">{</span>
+  <span class="c1">// 生命周期回调</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">ActivityFragmentLifecycle</span> <span class="n">lifecycle</span><span class="o">;</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">RequestManagerTreeNode</span> <span class="n">requestManagerTreeNode</span> <span class="o">=</span>
+      <span class="k">new</span> <span class="nf">SupportFragmentRequestManagerTreeNode</span><span class="o">();</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">Set</span><span class="o">&lt;</span><span class="nc">SupportRequestManagerFragment</span><span class="o">&gt;</span> <span class="n">childRequestManagerFragments</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">HashSet</span><span class="o">&lt;&gt;();</span>
+
+  <span class="nd">@Nullable</span> <span class="kd">private</span> <span class="nc">SupportRequestManagerFragment</span> <span class="n">rootRequestManagerFragment</span><span class="o">;</span>
+  <span class="nd">@Nullable</span> <span class="kd">private</span> <span class="nc">RequestManager</span> <span class="n">requestManager</span><span class="o">;</span>
+  <span class="nd">@Nullable</span> <span class="kd">private</span> <span class="nc">Fragment</span> <span class="n">parentFragmentHint</span><span class="o">;</span>
+
+  <span class="kd">public</span> <span class="nf">SupportRequestManagerFragment</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">(</span><span class="k">new</span> <span class="nc">ActivityFragmentLifecycle</span><span class="o">());</span>
+  <span class="o">}</span>
+
+  <span class="nd">@VisibleForTesting</span>
+  <span class="nd">@SuppressLint</span><span class="o">(</span><span class="s">"ValidFragment"</span><span class="o">)</span>
+  <span class="kd">public</span> <span class="nf">SupportRequestManagerFragment</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">ActivityFragmentLifecycle</span> <span class="n">lifecycle</span><span class="o">)</span> <span class="o">{</span>
+    <span class="k">this</span><span class="o">.</span><span class="na">lifecycle</span> <span class="o">=</span> <span class="n">lifecycle</span><span class="o">;</span>
+  <span class="o">}</span>
+    
+  <span class="o">.....</span>
+
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onAttach</span><span class="o">(</span><span class="nc">Context</span> <span class="n">context</span><span class="o">)</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">onAttach</span><span class="o">(</span><span class="n">context</span><span class="o">);</span>
+    <span class="k">try</span> <span class="o">{</span>
+      <span class="n">registerFragmentWithRoot</span><span class="o">(</span><span class="n">getActivity</span><span class="o">());</span>
+    <span class="o">}</span> <span class="k">catch</span> <span class="o">(</span><span class="nc">IllegalStateException</span> <span class="n">e</span><span class="o">)</span> <span class="o">{</span>
+      <span class="c1">// OnAttach can be called after the activity is destroyed, see #497.</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+    
+  <span class="c1">// 注意下面不同生命周期对lifecycle的调用</span>
+
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onDetach</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">onDetach</span><span class="o">();</span>
+    <span class="n">parentFragmentHint</span> <span class="o">=</span> <span class="kc">null</span><span class="o">;</span>
+    <span class="n">unregisterFragmentWithRoot</span><span class="o">();</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onStart</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">onStart</span><span class="o">();</span>
+    <span class="n">lifecycle</span><span class="o">.</span><span class="na">onStart</span><span class="o">();</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onStop</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">onStop</span><span class="o">();</span>
+    <span class="n">lifecycle</span><span class="o">.</span><span class="na">onStop</span><span class="o">();</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">onDestroy</span><span class="o">()</span> <span class="o">{</span>
+    <span class="kd">super</span><span class="o">.</span><span class="na">onDestroy</span><span class="o">();</span>
+    <span class="n">lifecycle</span><span class="o">.</span><span class="na">onDestroy</span><span class="o">();</span>
+    <span class="n">unregisterFragmentWithRoot</span><span class="o">();</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="activityfragmentlifecycle">ActivityFragmentLifecycle</h2>
+
+<p>最后进入 <strong>ActivityFragmentLifecycle</strong> 实现类，这个类其实就是观察者模式的具体实现。所有需要加载图片的任务，会创建 <strong>LifecycleListener</strong> 监听器放入 <strong>ActivityFragmentLifecycle</strong>。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+</pre></td><td class="rouge-code"><pre><span class="kd">class</span> <span class="nc">ActivityFragmentLifecycle</span> <span class="kd">implements</span> <span class="nc">Lifecycle</span> <span class="o">{</span>
+  <span class="c1">// 监听器集合</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">Set</span><span class="o">&lt;</span><span class="nc">LifecycleListener</span><span class="o">&gt;</span> <span class="n">lifecycleListeners</span> <span class="o">=</span>
+      <span class="nc">Collections</span><span class="o">.</span><span class="na">newSetFromMap</span><span class="o">(</span><span class="k">new</span> <span class="nc">WeakHashMap</span><span class="o">&lt;</span><span class="nc">LifecycleListener</span><span class="o">,</span> <span class="nc">Boolean</span><span class="o">&gt;());</span>
+
+  <span class="kd">private</span> <span class="kt">boolean</span> <span class="n">isStarted</span><span class="o">;</span>
+  <span class="kd">private</span> <span class="kt">boolean</span> <span class="n">isDestroyed</span><span class="o">;</span>
+
+  <span class="c1">// 把给定的监听器添加到监听器列表，以便接收生命周期事件的通知</span>
+  <span class="c1">// 最新的生命周期事件会在所有注册的监听器上触发</span>
+  <span class="c1">// 若activity或fragment被stop，会调用LifecycleListener.onStop()</span>
+  <span class="c1">// onStart和onDestroy生命周期有类似操作</span>
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">addListener</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">LifecycleListener</span> <span class="n">listener</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">lifecycleListeners</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">listener</span><span class="o">);</span>
+
+    <span class="c1">// 把最新界面状态通知给新来的LifecycleListener</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">isDestroyed</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">listener</span><span class="o">.</span><span class="na">onDestroy</span><span class="o">();</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="k">if</span> <span class="o">(</span><span class="n">isStarted</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">listener</span><span class="o">.</span><span class="na">onStart</span><span class="o">();</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+      <span class="n">listener</span><span class="o">.</span><span class="na">onStop</span><span class="o">();</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+
+  <span class="nd">@Override</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">removeListener</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">LifecycleListener</span> <span class="n">listener</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">lifecycleListeners</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">listener</span><span class="o">);</span>
+  <span class="o">}</span>
+
+  <span class="c1">// 下发生命周期通知，观察者模式</span>
+  <span class="kt">void</span> <span class="nf">onStart</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">isStarted</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">LifecycleListener</span> <span class="n">lifecycleListener</span> <span class="o">:</span> <span class="nc">Util</span><span class="o">.</span><span class="na">getSnapshot</span><span class="o">(</span><span class="n">lifecycleListeners</span><span class="o">))</span> <span class="o">{</span>
+      <span class="n">lifecycleListener</span><span class="o">.</span><span class="na">onStart</span><span class="o">();</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+
+  <span class="kt">void</span> <span class="nf">onStop</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">isStarted</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">LifecycleListener</span> <span class="n">lifecycleListener</span> <span class="o">:</span> <span class="nc">Util</span><span class="o">.</span><span class="na">getSnapshot</span><span class="o">(</span><span class="n">lifecycleListeners</span><span class="o">))</span> <span class="o">{</span>
+      <span class="n">lifecycleListener</span><span class="o">.</span><span class="na">onStop</span><span class="o">();</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+
+  <span class="kt">void</span> <span class="nf">onDestroy</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">isDestroyed</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">LifecycleListener</span> <span class="n">lifecycleListener</span> <span class="o">:</span> <span class="nc">Util</span><span class="o">.</span><span class="na">getSnapshot</span><span class="o">(</span><span class="n">lifecycleListeners</span><span class="o">))</span> <span class="o">{</span>
+      <span class="n">lifecycleListener</span><span class="o">.</span><span class="na">onDestroy</span><span class="o">();</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<p>最后，定制的 <strong>Fragment</strong> 监听 <strong>Activity</strong> 生命周期变化，告知 <strong>ActivityFragmentLifecycle</strong> ，随后 <strong>ActivityFragmentLifecycle</strong> 回调所有注册的监听器，实现应用进入后台暂停加载等功能。</p>
+
+<p>下面就是 <strong>ActivityFragmentLifecycle</strong> 回调的逻辑类，负责请求的跟踪、取消、重启、完成和失败的管理。</p>
+
+<div class="language-java highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72
+73
+74
+75
+76
+77
+78
+79
+80
+81
+82
+83
+84
+85
+86
+87
+88
+89
+90
+91
+92
+93
+94
+95
+96
+97
+98
+99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+</pre></td><td class="rouge-code"><pre><span class="kd">public</span> <span class="kd">class</span> <span class="nc">RequestTracker</span> <span class="o">{</span>
+  <span class="kd">private</span> <span class="kd">static</span> <span class="kd">final</span> <span class="nc">String</span> <span class="no">TAG</span> <span class="o">=</span> <span class="s">"RequestTracker"</span><span class="o">;</span>
+  <span class="c1">// Most requests will be for views and will therefore be held strongly (and safely) by the view</span>
+  <span class="c1">// via the tag. However, a user can always pass in a different type of target which may end up not</span>
+  <span class="c1">// being strongly referenced even though the user still would like the request to finish. Weak</span>
+  <span class="c1">// references are therefore only really functional in this context for view targets. Despite the</span>
+  <span class="c1">// side affects, WeakReferences are still essentially required. A user can always make repeated</span>
+  <span class="c1">// requests into targets other than views, or use an activity manager in a fragment pager where</span>
+  <span class="c1">// holding strong references would steadily leak bitmaps and/or views.</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">Set</span><span class="o">&lt;</span><span class="nc">Request</span><span class="o">&gt;</span> <span class="n">requests</span> <span class="o">=</span>
+      <span class="nc">Collections</span><span class="o">.</span><span class="na">newSetFromMap</span><span class="o">(</span><span class="k">new</span> <span class="nc">WeakHashMap</span><span class="o">&lt;</span><span class="nc">Request</span><span class="o">,</span> <span class="nc">Boolean</span><span class="o">&gt;());</span>
+  <span class="c1">// 保存未完成或准备运行请求的列表，用于持有这些请求的强引用</span>
+  <span class="c1">// 以保证请求在开始执行之前或暂停的时候不会被垃圾回收</span>
+  <span class="nd">@SuppressWarnings</span><span class="o">(</span><span class="s">"MismatchedQueryAndUpdateOfCollection"</span><span class="o">)</span>
+  <span class="kd">private</span> <span class="kd">final</span> <span class="nc">List</span><span class="o">&lt;</span><span class="nc">Request</span><span class="o">&gt;</span> <span class="n">pendingRequests</span> <span class="o">=</span> <span class="k">new</span> <span class="nc">ArrayList</span><span class="o">&lt;&gt;();</span>
+  <span class="kd">private</span> <span class="kt">boolean</span> <span class="n">isPaused</span><span class="o">;</span>
+
+  <span class="c1">// 开始跟踪指定请求</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">runRequest</span><span class="o">(</span><span class="nd">@NonNull</span> <span class="nc">Request</span> <span class="n">request</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">requests</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">request</span><span class="o">);</span>
+    <span class="k">if</span> <span class="o">(!</span><span class="n">isPaused</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">request</span><span class="o">.</span><span class="na">begin</span><span class="o">();</span>
+    <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+      <span class="n">request</span><span class="o">.</span><span class="na">clear</span><span class="o">();</span>
+      <span class="k">if</span> <span class="o">(</span><span class="nc">Log</span><span class="o">.</span><span class="na">isLoggable</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="nc">Log</span><span class="o">.</span><span class="na">VERBOSE</span><span class="o">))</span> <span class="o">{</span>
+        <span class="nc">Log</span><span class="o">.</span><span class="na">v</span><span class="o">(</span><span class="no">TAG</span><span class="o">,</span> <span class="s">"Paused, delaying request"</span><span class="o">);</span>
+      <span class="o">}</span>
+      <span class="n">pendingRequests</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">request</span><span class="o">);</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+
+  <span class="nd">@VisibleForTesting</span>
+  <span class="kt">void</span> <span class="nf">addRequest</span><span class="o">(</span><span class="nc">Request</span> <span class="n">request</span><span class="o">)</span> <span class="o">{</span>
+    <span class="n">requests</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">request</span><span class="o">);</span>
+  <span class="o">}</span>
+
+  <span class="c1">// 停止跟踪指定请求，并进行清除和回收工作</span>
+  <span class="c1">// 请求已被移除、失效返回true；请求找不到时返回false</span>
+  <span class="kd">public</span> <span class="kt">boolean</span> <span class="nf">clearRemoveAndRecycle</span><span class="o">(</span><span class="nd">@Nullable</span> <span class="nc">Request</span> <span class="n">request</span><span class="o">)</span> <span class="o">{</span>
+    <span class="c1">// 此时回收请求是安全的，因为这个操作由用户主动清除时触发，因此可知没有其他持有请求的引用</span>
+    <span class="k">return</span> <span class="nf">clearRemoveAndMaybeRecycle</span><span class="o">(</span><span class="n">request</span><span class="o">,</span> <span class="cm">/*isSafeToRecycle=*/</span> <span class="kc">true</span><span class="o">);</span>
+  <span class="o">}</span>
+
+  <span class="kd">private</span> <span class="kt">boolean</span> <span class="nf">clearRemoveAndMaybeRecycle</span><span class="o">(</span><span class="nd">@Nullable</span> <span class="nc">Request</span> <span class="n">request</span><span class="o">,</span> <span class="kt">boolean</span> <span class="n">isSafeToRecycle</span><span class="o">)</span> <span class="o">{</span>
+     <span class="k">if</span> <span class="o">(</span><span class="n">request</span> <span class="o">==</span> <span class="kc">null</span><span class="o">)</span> <span class="o">{</span>
+      <span class="c1">// 请求为空表示请求已被清除，不再需要查找请求的所有者</span>
+      <span class="k">return</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="o">}</span>
+    <span class="kt">boolean</span> <span class="n">isOwnedByUs</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">request</span><span class="o">);</span>
+    <span class="c1">// Avoid short circuiting.</span>
+    <span class="n">isOwnedByUs</span> <span class="o">=</span> <span class="n">pendingRequests</span><span class="o">.</span><span class="na">remove</span><span class="o">(</span><span class="n">request</span><span class="o">)</span> <span class="o">||</span> <span class="n">isOwnedByUs</span><span class="o">;</span>
+    <span class="k">if</span> <span class="o">(</span><span class="n">isOwnedByUs</span><span class="o">)</span> <span class="o">{</span>
+      <span class="n">request</span><span class="o">.</span><span class="na">clear</span><span class="o">();</span>
+      <span class="k">if</span> <span class="o">(</span><span class="n">isSafeToRecycle</span><span class="o">)</span> <span class="o">{</span>
+        <span class="n">request</span><span class="o">.</span><span class="na">recycle</span><span class="o">();</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="k">return</span> <span class="n">isOwnedByUs</span><span class="o">;</span>
+  <span class="o">}</span>
+
+  <span class="c1">// 暂停所有正在进行的请求</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">pauseRequests</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">isPaused</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Request</span> <span class="n">request</span> <span class="o">:</span> <span class="nc">Util</span><span class="o">.</span><span class="na">getSnapshot</span><span class="o">(</span><span class="n">requests</span><span class="o">))</span> <span class="o">{</span>
+      <span class="k">if</span> <span class="o">(</span><span class="n">request</span><span class="o">.</span><span class="na">isRunning</span><span class="o">())</span> <span class="o">{</span>
+        <span class="n">request</span><span class="o">.</span><span class="na">clear</span><span class="o">();</span>
+        <span class="n">pendingRequests</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">request</span><span class="o">);</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+
+  <span class="c1">// 暂停所有正在进行的请求，释放已完成任务的关联bitmaps</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">pauseAllRequests</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">isPaused</span> <span class="o">=</span> <span class="kc">true</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Request</span> <span class="n">request</span> <span class="o">:</span> <span class="nc">Util</span><span class="o">.</span><span class="na">getSnapshot</span><span class="o">(</span><span class="n">requests</span><span class="o">))</span> <span class="o">{</span>
+      <span class="k">if</span> <span class="o">(</span><span class="n">request</span><span class="o">.</span><span class="na">isRunning</span><span class="o">()</span> <span class="o">||</span> <span class="n">request</span><span class="o">.</span><span class="na">isComplete</span><span class="o">())</span> <span class="o">{</span>
+        <span class="n">request</span><span class="o">.</span><span class="na">clear</span><span class="o">();</span>
+        <span class="n">pendingRequests</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">request</span><span class="o">);</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+
+  <span class="c1">// 重启所有未完成或曾经失败的任务</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">resumeRequests</span><span class="o">()</span> <span class="o">{</span>
+    <span class="n">isPaused</span> <span class="o">=</span> <span class="kc">false</span><span class="o">;</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Request</span> <span class="n">request</span> <span class="o">:</span> <span class="nc">Util</span><span class="o">.</span><span class="na">getSnapshot</span><span class="o">(</span><span class="n">requests</span><span class="o">))</span> <span class="o">{</span>
+      <span class="c1">// We don't need to check for cleared here. Any explicit clear by a user will remove the</span>
+      <span class="c1">// Request from the tracker, so the only way we'd find a cleared request here is if we cleared</span>
+      <span class="c1">// it. As a result it should be safe for us to resume cleared requests.</span>
+      <span class="k">if</span> <span class="o">(!</span><span class="n">request</span><span class="o">.</span><span class="na">isComplete</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">request</span><span class="o">.</span><span class="na">isRunning</span><span class="o">())</span> <span class="o">{</span>
+        <span class="n">request</span><span class="o">.</span><span class="na">begin</span><span class="o">();</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+    <span class="n">pendingRequests</span><span class="o">.</span><span class="na">clear</span><span class="o">();</span>
+  <span class="o">}</span>
+
+  <span class="c1">// 取消所有请求并清理任务持有的资源，取消的请求将不能再次重启</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">clearRequests</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Request</span> <span class="n">request</span> <span class="o">:</span> <span class="nc">Util</span><span class="o">.</span><span class="na">getSnapshot</span><span class="o">(</span><span class="n">requests</span><span class="o">))</span> <span class="o">{</span>
+      <span class="c1">// 在这里回收请求的不安全的，因为不知道别的地方是否持有请求的引用</span>
+      <span class="c1">// 方法形参isSafeToRecycle赋值为false</span>
+      <span class="n">clearRemoveAndMaybeRecycle</span><span class="o">(</span><span class="n">request</span><span class="o">,</span> <span class="kc">false</span><span class="o">);</span>
+    <span class="o">}</span>
+    <span class="n">pendingRequests</span><span class="o">.</span><span class="na">clear</span><span class="o">();</span>
+  <span class="o">}</span>
+
+  <span class="c1">// 从起失败的、取消的、正在进行的请求</span>
+  <span class="kd">public</span> <span class="kt">void</span> <span class="nf">restartRequests</span><span class="o">()</span> <span class="o">{</span>
+    <span class="k">for</span> <span class="o">(</span><span class="nc">Request</span> <span class="n">request</span> <span class="o">:</span> <span class="nc">Util</span><span class="o">.</span><span class="na">getSnapshot</span><span class="o">(</span><span class="n">requests</span><span class="o">))</span> <span class="o">{</span>
+      <span class="k">if</span> <span class="o">(!</span><span class="n">request</span><span class="o">.</span><span class="na">isComplete</span><span class="o">()</span> <span class="o">&amp;&amp;</span> <span class="o">!</span><span class="n">request</span><span class="o">.</span><span class="na">isCleared</span><span class="o">())</span> <span class="o">{</span>
+        <span class="n">request</span><span class="o">.</span><span class="na">clear</span><span class="o">();</span>
+        <span class="k">if</span> <span class="o">(!</span><span class="n">isPaused</span><span class="o">)</span> <span class="o">{</span>
+          <span class="n">request</span><span class="o">.</span><span class="na">begin</span><span class="o">();</span>
+        <span class="o">}</span> <span class="k">else</span> <span class="o">{</span>
+          <span class="c1">// 确保请求在onResume生命周期正常重启</span>
+          <span class="n">pendingRequests</span><span class="o">.</span><span class="na">add</span><span class="o">(</span><span class="n">request</span><span class="o">);</span>
+        <span class="o">}</span>
+      <span class="o">}</span>
+    <span class="o">}</span>
+  <span class="o">}</span>
+<span class="o">}</span>
+</pre></td></tr></tbody></table></code></pre></div></div>
+
+<h2 id="总结">总结</h2>
+
+<p>通过上述流程可知，<strong>Glide</strong> 的图片加载生命周期管理依赖传入的 <strong>Context</strong> 实例。如果实例类型为 <strong>Activity</strong>，<strong>Glide</strong> 就能注册一个没有界面的 <strong>Fragment</strong> 到 <strong>Activity</strong>，达到监听生命周期变化的目的。</p>
+
+<p>因此，该参数应尽可能传入 <strong>Activity</strong> 或 <strong>Fragment</strong> 对象，最少也得是 <strong>View</strong> 持有的 <strong>Context</strong>，而不是 <strong>ApplicationContext</strong>。不然图片的生命周期会超过界面实际的生命周期。</p>
+
+<p><img src="/img/Glide/Glide_lifecycle_hierarchy.png" alt="Glide_lifecycle_hierarchy" /></p>
+
+<p>最后，<strong>Glide</strong> 监听界面生命周期变化没有什么奥秘，就是把定制的 <strong>Fragment</strong> 添加到图片所在的 <strong>Activity</strong> 中，利用系统机制监听周期变化，在不同周期通知图片进行不同操作</p>
+:ET
