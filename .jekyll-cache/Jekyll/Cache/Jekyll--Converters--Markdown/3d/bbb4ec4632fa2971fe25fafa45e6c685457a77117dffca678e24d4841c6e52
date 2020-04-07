@@ -1,9 +1,0 @@
-I"<p>先安装<code class="highlighter-rouge">exfat-fuse</code>和<code class="highlighter-rouge">exfat-utils</code>：</p>
-
-<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><table class="rouge-table"><tbody><tr><td class="rouge-gutter gl"><pre class="lineno">1
-</pre></td><td class="rouge-code"><pre><span class="nb">sudo </span>apt-get <span class="nb">install </span>exfat-fuse exfat-utils
-</pre></td></tr></tbody></table></code></pre></div></div>
-
-<p>安装完之后直接插入<code class="highlighter-rouge">exFat</code>的设备，<code class="highlighter-rouge">exFat</code>分区就会像<code class="highlighter-rouge">NTFS</code>或其他支持的类型一样自动加载。用完后卸载或弹出就可以。</p>
-
-:ET
