@@ -334,7 +334,8 @@ class ContextImpl extends Context {
 
         if ((mode & Context.MODE_MULTI_PROCESS) != 0 ||
             getApplicationInfo().targetSdkVersion < android.os.Build.VERSION_CODES.HONEYCOMB) {
-            // 若文件被其他进程修改，就重新加载该文件，仅对HONEYCOMB以下版本应用有效
+            // 若文件被其他进程修改，就重新加载该文件
+            // 指定MODE_MULTI_PROCESS标志位或HONEYCOMB以下版本有效
             sp.startReloadIfChangedUnexpectedly();
         }
         return sp;

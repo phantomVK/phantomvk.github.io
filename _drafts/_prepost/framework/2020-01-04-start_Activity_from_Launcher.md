@@ -11,6 +11,10 @@ tags:
 
 ## Launcher到AMS
 
+__Launcher__ 启动后加载应用信息，最终所有应用快捷图标展示到桌面上。而 __Launcher__ 本身也是 __Activity__，所以点击图标启动新 __Activity__ 页面，和应用内启动界面的差别不会非常大。
+
+Anroid 8.0.0_r44
+
 > packages/apps/Launcher3/src/com/android/launcher3/Launcher.java
 
 ```java
@@ -2350,22 +2354,6 @@ public void callActivityOnCreate(Activity activity, Bundle icicle,
     prePerformCreate(activity);
     activity.performCreate(icicle, persistentState);
     postPerformCreate(activity);
-}
-
-private void prePerformCreate(Activity activity) {
-    if (mWaitingActivities != null) {
-        synchronized (mSync) {
-            final int N = mWaitingActivities.size();
-            for (int i=0; i<N; i++) {
-                final ActivityWaiter aw = mWaitingActivities.get(i);
-                final Intent intent = aw.intent;
-                if (intent.filterEquals(activity.getIntent())) {
-                    aw.activity = activity;
-                    mMessageQueue.addIdleHandler(new ActivityGoing(aw));
-                }
-            }
-        }
-    }
 }
 ```
 
