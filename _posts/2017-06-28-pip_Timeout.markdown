@@ -5,7 +5,7 @@ date:       2017-06-28
 author:     "phantomVK"
 header-img: "img/main_img.jpg"
 tags:
-    - Programming Language
+    - Python
 ---
 
 国内访问Python pip官方镜像源速度非常慢，matplotlib下载速度只有10KB/s，而且下载没一会连接超时。浪费时间不止，几次下载没有一次成功过。最好的解决办法就是给pip增加国内镜像源。按照下面步骤设置好后，matplotlib下载有超百倍提升，从15KB/s提升到3.6MB/s。体积比较小的库下载速度实测满速。

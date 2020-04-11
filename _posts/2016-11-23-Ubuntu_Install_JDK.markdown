@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Programming Language
+    - Java
 ---
 
 ## 简述

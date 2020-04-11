@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - Programming Language
+    - Java
 ---
 
 在之前[空对象模式](/2019/01/01/Null_Object_Pattern/)一文中，讨论约束空对象方法调用时，提到可以使用 __动态代理__ 实现。复用前文的数据模型，现在就来实现这个方式。而动态代理的具体运行逻辑详情，将在以后文章单独进行源码剖析。

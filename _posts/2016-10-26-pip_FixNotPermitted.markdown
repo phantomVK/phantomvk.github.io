@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
 tags:
-    - Programming Language
+    - Python
 ---
 
 

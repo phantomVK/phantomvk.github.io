@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - Programming Language
+    - Java
 ---
 
 开发库如 __Gradle__ 和 __Java11__ 之间存在兼容问题需用旧版本 __Java__，但安装旧版本无法用以下命令获取
