@@ -83,3 +83,9 @@ repo sync
 
 ### 目录索引
 
+- init进程启动zygote进程
+- zygote服务启动
+- ActivityManagerService启动
+- 从Launcher启动Activity
+- Service的start
+- Service的bind
