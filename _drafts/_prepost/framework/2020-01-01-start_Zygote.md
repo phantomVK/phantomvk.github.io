@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "Zygote启动流程"
+title:      "init启动流程zygote"
 date:       2019-01-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -9,9 +9,9 @@ tags:
     - Android Framework
 ---
 
-## 启动init
+## init启动
 
-system/core/init/init.cpp
+>system/core/init/init.cpp
 
 ```cpp
 int main(int argc, char** argv) {
@@ -34,7 +34,7 @@ int main(int argc, char** argv) {
     if (is_first_stage) {
         boot_clock::time_point start_time = boot_clock::now();
 
-        // Clear the umask.
+        // 清除umask.
         umask(0);
 
         // Get the basic filesystem setup we need put together in the initramdisk
@@ -106,6 +106,7 @@ int main(int argc, char** argv) {
     // Indicate that booting is in progress to background fw loaders, etc.
     close(open("/dev/.booting", O_WRONLY | O_CREAT | O_CLOEXEC, 0000));
 
+    // 初始化属性服务
     property_init();
 
     // If arguments are passed both on the command line and in DT,
@@ -135,6 +136,7 @@ int main(int argc, char** argv) {
     selinux_initialize(false);
     selinux_restore_context();
 
+    // 创建epoll
     epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     if (epoll_fd == -1) {
         PLOG(ERROR) << "epoll_create1 failed";
@@ -145,6 +147,7 @@ int main(int argc, char** argv) {
 
     property_load_boot_defaults();
     export_oem_lock_status();
+    // 启动属性服务
     start_property_service();
     set_usb_controller();
 
@@ -956,6 +959,8 @@ service flash_recovery /system/bin/install-recovery.sh
 
 > system/core/rootdir/init.zygote64.rc
 
+**init进程** 要启动名为 **zygote** 的新进程，新进程执行程序是 **/system/bin/app_process64**，后面的都是传给 **app_process64** 的参数
+
 ```
 service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-system-server
     class main
@@ -980,22 +985,28 @@ service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-s
 ```cpp
 bool ServiceParser::ParseSection(const std::vector<std::string>& args,
                                  std::string* err) {
+    // 检查至少需要传入3个参数，例如："service zygote /system/bin/app_process64"
     if (args.size() < 3) {
         *err = "services must have a name and a program";
         return false;
     }
 
+    // name的值为"zygote"
     const std::string& name = args[1];
+    // 验证服务名字有效性
     if (!IsValidName(name)) {
         *err = StringPrintf("invalid service name '%s'", name.c_str());
         return false;
     }
 
+    // 处理参数列表，分割每个参数并保存为vector
     std::vector<std::string> str_args(args.begin() + 2, args.end());
+    // 用服务名和服务参数创建Service
     service_ = std::make_unique<Service>(name, str_args);
     return true;
 }
 
+// 除了解析头部，还需要逐行解析头部以下参数配置
 bool ServiceParser::ParseLineSection(const std::vector<std::string>& args,
                                      const std::string& filename, int line,
                                      std::string* err) const {
@@ -1018,32 +1029,42 @@ bool Service::ParseLine(const std::vector<std::string>& args, std::string* err) 
     return (this->*parser)(args, err);
 }
 
+// 服务已创建且参数全部读取完毕
 void ServiceParser::EndSection() {
     if (service_) {
+        // 把该服务添加到ServiceManager服务列表中
         ServiceManager::GetInstance().AddService(std::move(service_));
     }
 }
 
+// 把该服务添加到ServiceManager服务列表中
 void ServiceManager::AddService(std::unique_ptr<Service> service) {
+    // 根据传入服务名查找是否有相同服务存在
     Service* old_service = FindServiceByName(service->name());
     if (old_service) {
+        // 同名服务已存在，新服务不会添加
         LOG(ERROR) << "ignored duplicate definition of service '" << service->name() << "'";
         return;
     }
+    // 没有同名服务，用传入服务名注册该服务
     services_.emplace_back(std::move(service));
 }
 ```
 
 ### 启动服务
 
+上面只是把服务用对应名称保存到 **ServiceManager**，下面开始逐个启动服务
+
 > system/core/init/builtins.cpp
 
 ```cpp
 static int do_class_start(const std::vector<std::string>& args) {
-        /* Starting a class does not start services
-         * which are explicitly disabled.  They must
-         * be started individually.
-         */
+    /* Starting a class does not start services
+     * which are explicitly disabled.  They must
+     * be started individually.
+     */
+    // 根据传入的Service参数从列表找到service
+    // 并用StartIfNotDisabled()检查服务是否允许启动
     ServiceManager::GetInstance().
         ForEachServiceInClass(args[1], [] (Service* s) { s->StartIfNotDisabled(); });
     return 0;
@@ -1057,6 +1078,7 @@ static int do_class_start(const std::vector<std::string>& args) {
 ```cpp
 bool Service::StartIfNotDisabled() {
     if (!(flags_ & SVC_DISABLED)) {
+        // 服务没有SVC_DISABLED标志则启动服务
         return Start();
     } else {
         flags_ |= SVC_DISABLED_START;
@@ -1066,6 +1088,8 @@ bool Service::StartIfNotDisabled() {
 ```
 
 ### 启动服务
+
+当 **zygote** 的 **Service.start()** 被调用时，进入以下方法，即 **init** 实际启动服务的步骤
 
 ```cpp
 bool Service::Start() {
@@ -1393,6 +1417,7 @@ int main(int argc, char* const argv[])
     }
 
     if (zygote) {
+        // AppRuntime启动ZygoteInit
         runtime.start("com.android.internal.os.ZygoteInit", args, zygote);
     } else if (className) {
         runtime.start("com.android.internal.os.RuntimeInit", args, zygote);
@@ -1407,6 +1432,8 @@ int main(int argc, char* const argv[])
 ## 属性
 
 ### 属性入口
+
+功能是初始化属性区域的初始化，实际工作由 **__system_property_area_init()** 完成
 
 > system/core/init/property_service.cpp
 
@@ -1451,8 +1478,10 @@ int __system_property_area_init() {
 
 ```cpp
 void start_property_service() {
+    // 设置具体 ro.property_service.version 属性
     property_set("ro.property_service.version", "2");
 
+    // 创建属性服务的非阻塞Socket服务
     property_set_fd = create_socket(PROP_SERVICE_NAME, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK,
                                     0666, 0, 0, NULL);
     if (property_set_fd == -1) {
@@ -1460,8 +1489,9 @@ void start_property_service() {
         exit(1);
     }
 
+    // 开始监听属性服务的Socket，最大8个客户端同时连接
     listen(property_set_fd, 8);
-
+    // epoll监听property_set_fd，用handle_property_set_fd函数处理调用
     register_epoll_handler(property_set_fd, handle_property_set_fd);
 }
 ```
@@ -1502,6 +1532,7 @@ static void handle_property_set_fd() {
         char prop_name[PROP_NAME_MAX];
         char prop_value[PROP_VALUE_MAX];
 
+        // 无法读取属性键或属性值，直接返回
         if (!socket.RecvChars(prop_name, PROP_NAME_MAX, &timeout_ms) ||
             !socket.RecvChars(prop_value, PROP_VALUE_MAX, &timeout_ms)) {
           PLOG(ERROR) << "sys_prop(PROP_MSG_SETPROP): error while reading name/value from the socket";
@@ -1556,7 +1587,8 @@ static void handle_property_set(SocketConnection& socket,
   struct ucred cr = socket.cred();
   char* source_ctx = nullptr;
   getpeercon(socket.socket(), &source_ctx);
-
+    
+  // "ctl."开头的控制属性
   if (android::base::StartsWith(name, "ctl.")) {
     if (check_control_mac_perms(value.c_str(), source_ctx, &cr)) {
       handle_control_message(name.c_str() + 4, value.c_str());

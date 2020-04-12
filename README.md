@@ -142,7 +142,7 @@ RSS: false
 {% endif %}
 ```
 ### 七、网页压缩
-默认开启压缩，关闭压缩请按照以下步骤进行
+默认关闭代码压缩，关闭压缩请按照以下步骤进行
  1. 移除`_layouts/default.html`头部以下代码:
 ```
 ---
@@ -166,13 +166,6 @@ __注意：网页压缩和显示代码行号功能存在冲突__
 - __2019-07-02 Fix: SideBar author name没有抽离并放入配置表；__
 - __2019-07-23 Fix: Google Site Verification没有抽离并放入配置表；__
 - __2019-07-23 Fix: HTML Header author没有抽离并放入配置表；__
-
-
-### 九、待处理
-
-1. Fix: 文章双滚动条缺陷；
-2. Support: 本地文章搜索；
-3. Support: 引用代码展示行数；
 
 # License
 
