@@ -211,7 +211,6 @@ public static Message obtain(Handler h, int what, int arg1, int arg2, Object obj
 
 ```java
 public static void updateCheckRecycle(int targetSdkVersion) {
-    // 低于Android 5.0不支持对象缓存
     if (targetSdkVersion < Build.VERSION_CODES.LOLLIPOP) {
         gCheckRecycle = false;
     }
@@ -223,7 +222,6 @@ public static void updateCheckRecycle(int targetSdkVersion) {
 ```java
 public void recycle() {
     if (isInUse()) {
-        // 低于Android 5.0为false
         if (gCheckRecycle) {
             throw new IllegalStateException("This message cannot be recycled because it "
                     + "is still in use.");

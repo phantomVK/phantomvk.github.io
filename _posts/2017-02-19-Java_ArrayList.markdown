@@ -40,7 +40,7 @@ private static final Object[] EMPTY_ELEMENTDATA = {};
 private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
 ```
 
-实际保存对象的数组，如果构建前为`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，第一个元素加入时构建序列长度初始化为10。
+实际保存对象的数组，如果构建前为`DEFAULTCAPACITY_EMPTY_ELEMENTDATA`，第一个元素加入时构建序列长度初始化为10。注意数组的类型固定为 __Object[]__。
 
 ```java
 transient Object[] elementData;
@@ -87,6 +87,7 @@ public ArrayList(int initialCapacity) {
 
 ```java
 public ArrayList(Collection<? extends E> c) {
+    // 集合c转换为数组后直接赋值给elementData
     elementData = c.toArray();
     if ((size = elementData.length) != 0) {
         if (elementData.getClass() != Object[].class)
@@ -97,6 +98,12 @@ public ArrayList(Collection<? extends E> c) {
     }
 }
 ```
+
+上面还有一段代码拷贝数组并重新指定类型，原因看以下链接：
+
+- [JDK-6260652 : (coll) Arrays.asList(x).toArray().getClass() should be Object[].class](https://bugs.java.com/bugdatabase/view_bug.do?bug_id=6260652)
+
+- [why need to convert type to Object array in ArrayList's Construction?](https://stackoverflow.com/questions/8521147/why-need-to-convert-type-to-object-array-in-arraylists-construction)
 
 ## 四、方法
 
@@ -169,7 +176,9 @@ private static final int MAX_ARRAY_SIZE = Integer.MAX_VALUE - 8;
 
 #### 4.2.5 grow()
 
-就算`minCapacity`比数组长度大，也不一定会采用`minCapacity`的值。因为每次数组扩增不是在原数组上扩展，而是创建新数组并拷贝旧数组内容到新数组。若每次扩增只增加1个长度，尤其在连续添加新元素的场景下，扩容后废弃的旧数组对象将对GC造成极大压力。
+就算`minCapacity`比数组长度大，也不一定会采用`minCapacity`的值。因为每次数组扩增不是在原数组上扩展，而是创建新数组并拷贝旧数组内容到新数组。
+
+若每次扩增只增加1个长度，尤其在连续添加新元素的场景下，扩容后废弃的旧数组对象将对GC造成极大压力。
 
 假设旧数组长度是16，根据`newCapacity = oldCapacity + (oldCapacity >> 1)`，`newCapacity`为16+8=24。如果自定义`minCapacity`小于24，则方法按照24的长度扩增。
 
@@ -323,7 +332,7 @@ public E set(int index, E element) {
 
 ### 4.7 加入
 
-增加元素
+增加元素，用 __已保存数量+1__ 去检查是否超过数组长度
 
 ```java
 public boolean add(E e) {

@@ -230,7 +230,11 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 }
 ```
 
-从上述源码可知，点击事件进入 __dispatchTouchEvent()__ ，在此方法内先让 __mOnTouchListener()__ 消费事件。如果 __mOnTouchListener()__ 不消费事件则发给 __onTouchEvent(event)__  消费。
+从上述源码可知整理为以下流程：
+
+- 点击事件进入 __dispatchTouchEvent()__ ;
+- 以上方法内先让 __mOnTouchListener()__ 消费事件，完成消费则结束流程;
+- 如果 __mOnTouchListener()__ 不消费事件则发给 __onTouchEvent(event)__  消费;
 
 ![View_dispatchTouchEvent](/img/android/event/View_dispatchTouchEvent.png)
 
@@ -465,14 +469,17 @@ public boolean performLongClick() {
     if (li != null && li.mOnLongClickListener != null) {
         handled = li.mOnLongClickListener.onLongClick(View.this);
     }
+
     // 如果没有长按操作，就展示上下文菜单ContextMenu()
     if (!handled) {
         handled = showContextMenu();
     }
+
     // 如果长按操作或上下文菜单成功执行，触发一个长按震动反馈给用户
     if (handled) {
         performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
     }
+
     return handled;
 }
 ```

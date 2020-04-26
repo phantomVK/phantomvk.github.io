@@ -134,7 +134,7 @@ $ sudo apt-get install freeglut3-dev
 
 进入[CUDA官网](https://developer.nvidia.com/cuda-release-candidate-download)，注册并登陆账号，按照下图配置下载Ubuntu的安装文件，文件约1.4GB。
 
-![img](/img/cuda.png)
+![img](/img/tensorflow/cuda_8.png)
 
 下载完成进入下载目录，创建一个临时文件，使用命令解压到临时文件并安装。
 

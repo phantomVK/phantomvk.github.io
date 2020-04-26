@@ -126,8 +126,6 @@ public class MyLinearLayout extends LinearLayout {
 事件分发流程：
 
 - __ViewGroup.dispatchTouchEvent()__ 交给 __ViewGroup.onInterceptTouchEvent()__；
-
-
 - 事件进入 __ViewGroup.onInterceptTouchEvent()__，该方法返回 __false__ 继续下发；
 - 分发给子视图 __dispatchTouchEvent()__，传递到 __onTouchEvent.OnTouchListener__ 消费；
 - 如果子视图 __OnTouchListener__ 不拦截事件，则交给 __View.onTouchEvent()__ 消费.
@@ -411,23 +409,17 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
   - 调用 __resetTouchState()__ 重置 __disallowIntercept__ 标志位；
 
 3. 如果是 __ACTION_DOWN__ 事件 或 __mFirstTouchTarget__ 不为空
-
    - 前者表示这是新事件，后者表示该事件可能需要分发给子视图；
    - 检查 __!disallowIntercept__ 决定事件是否能够发给自己的 __onInterceptTouchEvent()__；
    - 所以即使事件分发给自己，__onInterceptTouchEvent()__ 也可能返回 __false__ 而给子视图；
 
 4. 本次 __ACTION_DOWN__ 没被取消且自己不拦截，则找合适的子视图接收事件：
-
    - 先对按照虚拟Z轴排序的子视图列表进行匹配，然后遍历；
-- 先满足基本条件：子视图可见且没有动画、坐标落在该子视图上、可以接受事件；
-   - 封装子视图为 __TouchTarget__；
-- 然后转换 __ViewGroup__ 点击坐标为子视图点击坐标，调用子视图 __dispatchTouchEvent()__；
+   - 若满足基本条件：子视图可见且没有动画、坐标落在该子视图上、可以接受事件，则封装子视图为 __TouchTarget__；
+   - 然后转换 __ViewGroup__ 点击坐标为子视图点击坐标，并把点击事件分发给子视图的 __dispatchTouchEvent()__；
    - 子视图消费成功，保存到 __TouchTarget__ 列表；
-   
 5. 除 __ACTION_DOWN__ 外的事件：
-
-   - 自己消费，事件交给 __dispatchTransformedTouchEvent()__；
-
+   - 若自己消费，事件交给 __dispatchTransformedTouchEvent()__；
    - 自己不消费，从 __TouchTarget__ 列表找到最近消费事件合适的子视图，接收剩余事件；
 
 #### 3.2 onFilterTouchEventForSecurity

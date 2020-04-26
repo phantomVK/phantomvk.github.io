@@ -82,6 +82,7 @@ public Handler(Callback callback, boolean async) {
         throw new RuntimeException(
             "Can't create handler inside thread that has not called Looper.prepare()");
     }
+
     // 从Looper获取MessageQueue
     mQueue = mLooper.mQueue;
     mCallback = callback;
