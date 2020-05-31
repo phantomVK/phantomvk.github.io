@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "103. 二叉树的锯齿形层次遍历"
+title:      "面试题32 - III. 从上到下打印二叉树 III"
 subtitle:   ""
 date:       2019-01-01
 author:     "phantomVK"
@@ -12,24 +12,31 @@ tags:
 
 
 
-```java
-给定一个二叉树，返回其节点值的锯齿形层次遍历。（即先从左往右，再从右往左进行下一层遍历，以此类推，层与层之间交替进行）。
+```
+请实现一个函数按照之字形顺序打印二叉树，即第一行按照从左到右的顺序打印，第二层按照从右到左的顺序打印，第三行再按照从左到右的顺序打印，其他行以此类推。
 
-例如：
-给定二叉树 [3,9,20,null,null,15,7],
+ 
+
+例如:
+给定二叉树: [3,9,20,null,null,15,7],
 
     3
    / \
   9  20
     /  \
    15   7
-返回锯齿形层次遍历如下：
+返回其层次遍历结果：
 
 [
   [3],
   [20,9],
   [15,7]
 ]
+ 
+
+提示：
+
+节点总数 <= 1000
 ```
 
 
@@ -48,28 +55,25 @@ tags:
 
 
 
-BFS 97.71%
+BFS 45.37%
 
 ```java
 class Solution {
-    public List<List<Integer>> zigzagLevelOrder(TreeNode root) {
+    public List<List<Integer>> levelOrder(TreeNode root) {
         List<List<Integer>> result = new ArrayList<>();
         if (root == null) return result;
 
-        Deque<TreeNode> queue = new LinkedList<>();
-        queue.addLast(root);
+        Deque<TreeNode> queue = new ArrayDeque<>();
+        queue.add(root);
 
         int flag = 1;
 
         while (!queue.isEmpty()) {
-            // 为保证性能，元素尾部插入使用ArrayList，头部插入使用LinkedList
-            List<Integer> list = (flag == 1) ? new ArrayList<>() : new LinkedList<>();
-            
+            List<Integer> list = new ArrayList<>();
+
             int size = queue.size();
             for (int i = 0; i < size; i++) {
-                TreeNode node = queue.removeFirst();
-                
-                // 控制头部插入或尾部插入实现锯齿
+                TreeNode node = queue.poll();
                 if (flag == 1) {
                     list.add(node.val);
                 } else {
@@ -80,15 +84,12 @@ class Solution {
                 if (node.right != null) queue.add(node.right);
             }
 
-            result.add(list);
-            // 插入位置控制反转
             flag = -flag;
+            result.add(list);
         }
 
         return result;
     }
 }
 ```
-
-
 
