@@ -47,7 +47,7 @@ $ javap -private -verbose ByteCode > ByteCode.txt
 
 这是编译为字节码后的完整文本，后面会分段解析
 
-```
+```java
 Classfile /Users/phantomvk/java/ByteCode/src/ByteCode.class
   Last modified 2020年3月5日; size 261 bytes
   MD5 checksum 978111a1d1d3faa0f7b7724b1b98ed4a
@@ -100,7 +100,7 @@ SourceFile: "ByteCode.java"
 
 #### 文件属性
 
-```
+```java
 Classfile /Users/phantomvk/java/ByteCode/src/ByteCode.class
   Last modified 2020年3月5日; size 261 bytes
   MD5 checksum 978111a1d1d3faa0f7b7724b1b98ed4a
@@ -109,7 +109,7 @@ Classfile /Users/phantomvk/java/ByteCode/src/ByteCode.class
 
 #### 类属性
 
-```
+```java
 public class ByteCode
   minor version: 0
   major version: 55
@@ -121,7 +121,7 @@ public class ByteCode
 
 #### 常量池
 
-```
+```java
 Constant pool:
    #1 = Methodref          #3.#12         // java/lang/Object."<init>":()V
    #2 = Class              #13            // ByteCode
@@ -141,7 +141,7 @@ Constant pool:
 
 #### 方法体
 
-```
+```java
 {
   public ByteCode();
     descriptor: ()V
