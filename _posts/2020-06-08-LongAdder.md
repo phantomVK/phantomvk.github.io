@@ -50,6 +50,7 @@ public void add(long x) {
         if (cs == null || (m = cs.length - 1) < 0 ||
             (c = cs[getProbe() & m]) == null ||
             !(uncontended = c.cas(v = c.value, v + x)))
+            // 调用父类的Striped64()
             longAccumulate(x, null, uncontended);
     }
 }
