@@ -694,7 +694,7 @@ int register_android_graphics_BitmapFactory(JNIEnv* env) {
 
 ### 总结
 
-从类似 __hdpi__ 文件夹读取图片：
+从 __hdpi__ 文件夹读取图片：
 
 - 缩放比例：__scaledsize = inTargetDensity / inDensity__
 
