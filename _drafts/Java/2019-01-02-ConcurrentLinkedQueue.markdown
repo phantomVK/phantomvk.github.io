@@ -423,11 +423,6 @@ Node<E> first() {
 ```
 
 ```java
-/**
- * Returns {@code true} if this queue contains no elements.
- *
- * @return {@code true} if this queue contains no elements
- */
 public boolean isEmpty() {
     return first() == null;
 }

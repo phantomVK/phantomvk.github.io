@@ -82,9 +82,7 @@ static class Node<K,V> implements Map.Entry<K,V> {
     Node(int hash, K key, V val, Node<K,V> next) {
         this(hash, key, val);
         this.next = next;
-    }
-
-    .....
+    }/
 
     // 对map.get()的支持，由子类重写
     Node<K,V> find(int h, Object k) {
