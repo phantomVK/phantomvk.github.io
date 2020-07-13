@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "Android源码系列(27) -- BitmapFactory"
-date:       2020-03-15
+date:       2020-07-14
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -30,6 +30,8 @@ tags:
 因此，图片实际内存体积由像素体积和分辨率共同作用。
 
 ### 源码解析
+
+源码版本 **Android 9.0**
 
 #### decodeResourceStream
 
