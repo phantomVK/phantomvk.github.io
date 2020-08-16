@@ -9,6 +9,8 @@ tags:
     - Website
 ---
 
+以下环境以 __Ubuntu__ 为例，如果环境为 __Mac OS__ 则把 __apt install__ 换成 __brew install__
+
 __Jekyll__ 依赖 __Ruby__ 语言，需要先安装
 
 ```bash
@@ -46,7 +48,13 @@ Results logged to /var/lib/gems/2.5.0/extensions/x86_64-linux/2.5.0/http_parser.
 $ sudo apt-get install ruby`ruby -e 'puts RUBY_VERSION[/\d+\.\d+/]'`-dev
 ```
 
-继续安装 __Jekyll__
+配置 __Gem__ 国内加速源
+
+```shell
+$ sudo gem sources -r https://rubygems.org/ -a https://gems.ruby-china.com/
+```
+
+安装 __Jekyll__
 
 ```bash
 $ sudo gem install jekyll
