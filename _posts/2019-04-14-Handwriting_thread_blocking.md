@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "手写Java线程阻塞"
+title:      "手写Java线程死锁"
 date:       2019-04-14
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
