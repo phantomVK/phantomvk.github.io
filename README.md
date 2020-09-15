@@ -141,32 +141,6 @@ RSS: false
 {% endif %}
 {% endif %}
 ```
-### 七、网页压缩
-默认关闭代码压缩，关闭压缩请按照以下步骤进行
- 1. 移除`_layouts/default.html`头部以下代码:
-```
----
-layout: compress
----
-```
-
- 2. 注释掉`_config.yml`中以下代码：
-```
-# compress
-compress_html:
-  clippings:      all
-  comments:       ["<!--", "-->"]
-  endings:        all
-  startings:      [html, head, body]
-```
-__注意：网页压缩和显示代码行号功能存在冲突__
-
-### 八、已处理
-
-- __2019-07-02 Fix: SideBar author name没有抽离并放入配置表；__
-- __2019-07-23 Fix: Google Site Verification没有抽离并放入配置表；__
-- __2019-07-23 Fix: HTML Header author没有抽离并放入配置表；__
-
 # License
 
     MIT License Copyright (c) 2013-2016 Blackrock Digital LLC.

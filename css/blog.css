@@ -1423,6 +1423,7 @@ img::-moz-selection {
   color: #ffffff;
   line-height: 24px;
   font-size: 12px;
+  font-weight: bold;
   text-decoration: none;
   margin: 0 1px;
   margin-bottom: 6px;

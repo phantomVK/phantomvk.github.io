@@ -87,10 +87,3 @@ friends: [
         href: "https://blog.0x233.cn/"
     }
 ]
-
-# compress
-compress_html:
-  clippings:      all
-  comments:       ["<!--", "-->"]
-  endings:        all
-  startings:      [html, head, body]
