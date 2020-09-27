@@ -1,13 +1,12 @@
 ---
 layout:     post
-title:      ""
-subtitle:   ""
-date:       2019-01-01
+title:      "AIDL中in/out/inout的差别"
+date:       2020-09-25
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - tags
+    - Android
 ---
 
 
