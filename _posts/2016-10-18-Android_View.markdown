@@ -233,8 +233,8 @@ public boolean dispatchTouchEvent(MotionEvent event) {
 从上述源码可知整理为以下流程：
 
 - 点击事件进入 __dispatchTouchEvent()__ ;
-- 以上方法内先让 __mOnTouchListener()__ 消费事件，完成消费则结束流程;
-- 如果 __mOnTouchListener()__ 不消费事件则发给 __onTouchEvent(event)__  消费;
+- 以上方法内先让 __mOnTouchListener__ 消费事件，完成消费则结束流程;
+- 如果 __mOnTouchListener__ 不消费事件则发给 __onTouchEvent(event)__  消费;
 
 ![View_dispatchTouchEvent](/img/android/event/View_dispatchTouchEvent.png)
 
@@ -252,7 +252,7 @@ if (li != null && li.mOnTouchListener != null
 }  
 ```
 
-__li.mOnTouchListener__ 依赖 __mButton.setOnTouchListener__ ，后者不设置则前者为空。
+__li.mOnTouchListener__ 依赖 __mButton.setOnTouchListener()__ ，后者不设置则前者为空。
 
 在 __MainActivity.onCreate()__ 中给 __mButton.setOnTouchListener()__ 设置监听器的时候，其实这个实例保存在 __getListenerInfo().mOnTouchListener__。
 
@@ -276,7 +276,7 @@ ListenerInfo getListenerInfo() {
 
 #### 3.3 onTouchEvent
 
-上文提到，__View.OnTouchListener()__ 返回值决定事件是否继续分发给 __onTouchEvent()__ 。假如 __OnTouchListener()__ 返回 __false__ ，则 __onTouchEvent__ 接收事件。
+上文提到，__View.OnTouchListener.onTouch()__ 返回值决定事件是否继续分发给 __onTouchEvent()__ 。假如 __onTouch()__ 返回 __false__ ，则 __onTouchEvent()__ 接收事件。
 
 ```java
 public boolean onTouchEvent(MotionEvent event) {
@@ -456,7 +456,7 @@ private final class CheckForLongPress implements Runnable {
 }
 ```
 
-在run里面调用的 __performLongClick()__，设置的长按监听在以下方法调用。方法返回 __handled__ 值，直接控制  __CheckForLongPress()__ 的**mHasPerformedLongPress**。
+在 **run()** 里面调用 __performLongClick()__，设置的长按监听在以下方法调用。方法结果返回 __handled__ 值，直接控制  __CheckForLongPress__ 的 **mHasPerformedLongPress**。
 
 
 ```java

@@ -82,6 +82,8 @@ public class Main {
         Semaphore[] semaphores = new Semaphore[THREAD_COUNT];
         for (int i = 0; i < THREAD_COUNT; i++) {
             semaphores[i] = new Semaphore(1);
+
+            // 只有最后一个Semaphore可用，因此线程0先执行
             if (i != THREAD_COUNT - 1) {
                 semaphores[i].acquire();
             }

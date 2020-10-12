@@ -166,7 +166,7 @@ public final boolean sendEmptyMessageDelayed(int what, long delayMillis) {
 
 以上方法带 __Delayed__ 可设置延迟时间，带 __EmptyMessage__ 为创建空消息。共同点是都调用 __sendMessageDelayed()__ 并返回这个调用的结果。
 
-__SystemClock.uptimeMillis()__ 从开机到现在的毫秒数，不包括手机睡眠时间。可能为了避免用户调整系统时间后影响消息分发时间。
+__SystemClock.uptimeMillis()__ 从开机到现在的毫秒数，不包括手机睡眠时间。为了避免用户调整系统时间后影响消息分发时间。
 
 __postAtTime()__ 重载方法调用了 __sendMessageAtTime()__。
 
