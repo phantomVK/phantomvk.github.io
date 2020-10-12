@@ -342,6 +342,8 @@ private int dispatchEvents(int fd, int events) {
 
 此方法为轮询消息队列上的消息。
 
+**Looper** 会循环调用 **MessageQueue\.next()** 获取 **Message**。如果 **MessageQueue\.next()** 暂时空闲，则 **MessageQueue\.next()** 会触发一次 **IdleHandler** 回调，然后继续尝试直到返回有效 **Message** 给 **Looper** 并退出循环。
+
 ```java
 Message next() {
     // 如果消息队列已经退出或销毁，在此处返回返回null

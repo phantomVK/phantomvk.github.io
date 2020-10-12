@@ -483,7 +483,7 @@ static void install(ClassLoader loader, List<? extends File> additionalClassPath
 1. 反射 __ClassLoader__ 获取变量 __pathList__；
 2. __makeDexElements()__ 逐个优化包含 __dex__ 的 __zip__ 文件，再封装到 __Element__ 实例中；
 3. 从 __pathList__ 反射获取 __dexElements[]__，读取原有文件；
-4. 原有文件和步骤2封装的 __Element__ 文件合并为新 __Elements[]__；
+4. **dexElements[]** 已有文件和步骤2封装的 __Element__ 文件合并为新 __Elements[]__；
 5. __MultiDex.expandFieldArray()__ 执行新 __Elements[]__ 替换 __dexElements[]__；
 
 #### 4.2 makeDexElements()
@@ -514,7 +514,7 @@ private static Object[] makeDexElements(Object dexPathList,
                                         ArrayList<IOException> suppressedExceptions)
   throws IllegalAccessException, InvocationTargetException, NoSuchMethodException {
 
-    // 反射获得DexPathList.makeDexElements()
+    // 反射获得DexPathList.makeDexElements()方法
     Method makeDexElements = MultiDex.findMethod(dexPathList, "makeDexElements",
                                                  ArrayList.class, File.class, ArrayList.class);
 
@@ -570,7 +570,7 @@ private static Element[] makeDexElements(ArrayList<File> files, File optimizedDi
         }
 
         if ((zip != null) || (dex != null)) {
-            // 封装DexFile为Element
+            // 优化后的DexFile封装到Element
             elements.add(new Element(file, false, zip, dex));
         }
     }
@@ -625,7 +625,7 @@ private static String optimizedPathFor(File path) {
 1. 已知每个 __zip__ 包含一个 __dex__ 文件，为每个 __dex__ 计算优化后产物的路径；
 2. 而 __MultiDexExtractor.ExtractedDex__ 就是 __zip__；
 3. 然后用 __ExtractedDex__ 通过 __DexFile__ 类交给 JNI 去优化，优化产物会保存在上述路径；
-4. __DexFile__ 优化完成后封装为 __Element__ 对象，并收集到 __Element[]__；
+4. 优化完成的 __DexFile__ 后封装为 __Element__ 对象，并收集到 __Element[]__；
 5. __Element[]__ 拓展上文说的 __dexElements[]__；
 
 #### 4.3 expandFieldArray()
@@ -715,3 +715,12 @@ private static void putStoredApkInfo(Context context, String keyPrefix, long tim
 - 不常用功能使用动态加载，让安装时间和提取时间都减少；
 
 虽然 __Android5.0__ 及后期系统使用 __ART__ 虚拟机，在安装过程会全部或部分优化dex，再也不会在应用启动时影响体验。但是减少代码量，即使只能降低安装时长也总归是好事。
+
+
+
+## 六、资料
+
+[抖音BoostMultiDex优化实践：Android低版本上APP首次启动时间减少80%（一）](https://juejin.im/post/6844904079206907911)
+
+[抖音BoostMultiDex优化实践：Android低版本上APP首次启动时间减少80%（二）](https://juejin.im/post/6844904080926572558)
+

@@ -71,7 +71,7 @@ IM面向不同领域有不同的用户诉求，企业端用户要求直接聊天
 
 ![lilei_hanmeimei_relationship](/img/business/friend_relationship/lilei_hanmeimei_relationship.png)
 
-所以根据以上论述，最好把两位好友的userId共同作为主键在数据库表中建立记录，UserId_A和UserId_B是一个元组，<UserId_A, UserId_B> 与 <UserId_B, UserId_A> 是同一个东西。为了便于管理，可以自行添加策略，决定谁的ID放在前面，谁的ID放在后面。最简单的做法是直接进行字符串大小比较，用 UserId_A > UserId_B策略，得出<UserId_B, UserId_A>，大者在后面，这样就可以更具前者的id值在数据内做递增排序。
+所以根据以上论述，最好把两位好友的userId共同作为主键在数据库表中建立记录，**UserId_A** 和 **UserId_B** 是一个元组，**<UserId_A, UserId_B>** 与 **<UserId_B, UserId_A>** 是同一个东西。为了便于管理，可以自行添加策略，决定谁的ID放在前面，谁的ID放在后面。最简单的做法是直接进行字符串大小比较，用 **UserId_A > UserId_B** 策略，得出 **<UserId_B, UserId_A>**，大者在后面，这样就可以根据前者的id值在数据内做递增排序。
 
 #### 好友关系预测
 

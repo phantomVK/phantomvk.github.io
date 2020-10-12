@@ -101,7 +101,7 @@ public void startActivityFromFragment(Fragment fragment, Intent intent,
 
 当结果从其他 __Activity__ 回到 __Fragment__ 所在宿主 __Activity__ 时，宿主页面先检查 __requestIndex__ 的值，判断原始请求是否来自 __Fragment__。
 
-检查逻辑很简单，__requestIndex__ 高16位非零就表示该请求来自 __Fragment__，然后找源 __Fragment__。
+__requestCode__ 高16位非零表示该请求来自 __Fragment__，所以请求要转发给源 __Fragment__。
 
 ```java
 @Override
@@ -109,12 +109,14 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
     mFragments.noteStateNotSaved();
     // 取出requestCode高16位
     int requestIndex = requestCode>>16;
+
+    // requestIndex非0表示请求来自Fragment
     if (requestIndex != 0) {
         requestIndex--;
 
-        // 用requestCode查找对应的请求Fragment
+        // 用requestIndex找对应的请求Fragment名称
         String who = mPendingFragmentActivityResults.get(requestIndex);
-        // 移除该requestIndex的记录
+        // 请求完成转发，可以移除该requestIndex的记录
         mPendingFragmentActivityResults.remove(requestIndex);
         if (who == null) {
             Log.w(TAG, "Activity result delivered for unknown Fragment.");
@@ -122,12 +124,12 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         }
         // 从Activity的Fragment栈查找接收数据的目标实例
         Fragment targetFragment = mFragments.findFragmentByWho(who);
-        // Fragment如果已被销毁则为空
+        // 如果此时Fragment已被销毁，返回的结果直接丢弃
         if (targetFragment == null) {
             Log.w(TAG, "Activity result no fragment exists for who: " + who);
         } else {
             // 进行与操作后就是请求的原始requestCode，即低16位数据
-            // 作为参数和返回结果让Fragment自行处理onActivityResult
+            // 作为参数和返回结果调用Fragment.onActivityResult()
             targetFragment.onActivityResult(requestCode & 0xffff, resultCode, data);
         }
         return;
@@ -145,6 +147,6 @@ protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 }
 ```
 
-由于上述调用位于 __FragmentActivity__ 中，如果重写该方法时没调用 __super.onActivityResult(int requestCode, int resultCode, Intent data)__，页面返回结果不会得到正确处理，对应 __Fragment__ 也不会接受到该结果通知。
+由于上述调用位于 __FragmentActivity__ 中，如果重写该方法时没调用 __super.onActivityResult(int requestCode, int resultCode, Intent data)__，页面返回结果不会得到正确处理，对应 __Fragment__ 也不会收到该结果通知。
 
 可知，__Activity__ 自己调用 __onActivityResult__ 方法时传入的 __requestCode__ 不能大于 __0xFFFF__，否则会和来自 __Fragment__ 的请求 __requestCode__ 混淆。
