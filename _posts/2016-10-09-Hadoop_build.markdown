@@ -26,7 +26,6 @@ $ wget https://mirrors.tuna.tsinghua.edu.cn/apache/hadoop/common/hadoop-1.2.1/ha
 $ tar -zxvf hadoop-1.2.1.tar.gz
 ```
 
-
 ### 2.2 配置Hadoop参数
 
 #### 2.2.1 配置文件路径
@@ -112,8 +111,8 @@ $ vim /etc/profile
 
 增加以下配置：
 
-```
- export HADOOP_HOME=/opt/hadoop-1.2.1 
+```shell
+export HADOOP_HOME=/opt/hadoop-1.2.1 
 ```
 
 相同文件`PATH`变量中追加参数`$HADOOP_HOME/bin:`，保存、退出并刷新`profile`
@@ -242,7 +241,7 @@ Warning: $HADOOP_HOME is deprecated
 
 在`~/.bash_profile`里增加一个环境变量抑制错误提示
 
-```
+```shell
 export HADOOP_HOME_WARN_SUPPRESS=1
 ```
 
