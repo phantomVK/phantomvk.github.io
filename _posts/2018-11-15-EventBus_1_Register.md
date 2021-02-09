@@ -20,7 +20,7 @@ tags:
 
 #### 1.1 特性
 
-__EventBus__ 是为 __Android__ 而设，处于中心的 __publish/subscribe (发布/订阅)__ 事件系统。事件通过 __post(Object)__ 提交到总线，总线把事件投递给订阅者。而该订阅者需含有匹配类型消息的处理方法。
+__EventBus__ 是为 __Android__ 而设的 __publish/subscribe (发布/订阅)__ 消息系统。事件通过 __post(Object)__ 提交到总线，总线把事件投递给订阅者。而该订阅者，需包含匹配类型消息的处理方法。
 
 ![EventBus-Publish-Subscribe](/img/android/EventBus/EventBus-Publish-Subscribe.png)
 
@@ -47,7 +47,7 @@ __EventBus__ 是为 __Android__ 而设，处于中心的 __publish/subscribe (�
 * 已经过累计 100,000,000+ 安装量的应用验证
 * 包含消息分发线程、订阅者优先级等高级特性
 
-官方文档没有提及，__EventBus__ 在进程(VM)创建单例，所有消息送到同进程的消息中心，由消息中心分发给同进程的实例，运行在不同进程的页面没法收到来自其他进程的消息。要实现跨进程消息分发必须使用 __Socket__、__Binder__ 等方法。
+官方文档没有提及，__EventBus__ 在进程(VM)创建单例，所有消息送到同进程的消息中心，由消息中心分发给同进程的实例。运行在不同进程的页面，没法收到来自其他进程的消息。要实现跨进程消息分发，必须使用 __Socket__、__Binder__ 等方法。
 
 #### 1.3 版本
 
@@ -57,7 +57,7 @@ __EventBus__ 自17年年底开始，基本停止代码提交，可认为 __Event
 
 #### 2.1 订阅者
 
-订阅者需要在合适的生命周期，把自己注册到消息总线。由于事件的基本接收单位是方法，所以需要给接收事件的方法添加注解，以便 __EventBus__ 通过注解发现该方法。
+订阅者要在适当的生命周期时，把自己注册到消息总线。由于事件的基本接收单位是方法，所以需要给接收事件的方法添加注解，以便 __EventBus__ 通过注解发现该方法。
 
 接收者方法需要遵循以下规则：
 
@@ -65,16 +65,14 @@ __EventBus__ 自17年年底开始，基本停止代码提交，可认为 __Event
 -  方法不能为 __private__，才能让 __EventBus__ 获取该方法；
 -  方法必须只有一个参数，且参数类型就是所关心事件的类型；
 
-```java
+```kotlin
 class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        if (EventBus.getDefault().isRegistered(this)) {
-            EventBus.getDefault().register(this)
-        }
+        EventBus.getDefault().register(this)
     }
     
     // 注册类必须包含至少一个接收事件的方法
@@ -92,13 +90,13 @@ class MainActivity : AppCompatActivity() {
 }
 ```
 
-每个接收者类只需向 __EventBus__ 注册一次。为避免多次注册，可以像上述代码一样在注册前先进行检查。当接收者类对事件不再关心时，需要在合适时间点注销订阅。
+每个接收者类实例只需向 __EventBus__ 注册一次。当接收者类对事件不再关心时，也需要在合适时间点注销订阅。
 
 #### 2.2 发布者
 
-对事件发布者来说事情就简单多了。只需构建目标事件，把数据或负载内容包含在事件中发出即可。
+对事件发布者来说事情就简单多了，构建目标事件，把数据或负载内容封装在事件内发出即可。
 
-```java
+```kotlin
 fun postEvent() {
     val user = UserEvent("Mike", 24)
     EventBus.getDefault().post(user)
@@ -109,13 +107,13 @@ fun postEvent() {
 
 这是示例的消息体，消息体包含用户的名字和年龄
 
-```java
+```kotlin
 class UserEvent(val name: String, val age: Int)
 ```
 
 如果消息只是简单通知，事件类甚至可以不含任何数据成员。例如：
 
-```java
+```kotlin
 class Notification
 ```
 
