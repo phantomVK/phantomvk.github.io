@@ -9,7 +9,7 @@ tags:
     - AOSP
 ---
 
-> 源码基于Android-11.0.0_r3分支进行解读。最新系统和旧版差异较大，且由于本人水平有限，编写文章或有错漏之处，请与文章后的评论区直接指出，感谢支持。
+> 源码基于Android-11.0.0_r3解析。由于本人水平有限，文章错漏之处请于评论区留言，感谢支持。
 
 ## 一、启动流程
 
@@ -1321,3 +1321,159 @@ void Parser::ParseData(const std::string& filename, std::string* data) {
 }
 ```
 
+
+
+## 五、ActionManager
+
+```c++
+class ActionManager {
+  public:
+    static ActionManager& GetInstance();
+
+    // Exposed for testing
+    ActionManager();
+    size_t CheckAllCommands();
+
+    void AddAction(std::unique_ptr<Action> action);
+    void QueueEventTrigger(const std::string& trigger);
+    void QueuePropertyChange(const std::string& name, const std::string& value);
+    void QueueAllPropertyActions();
+    void QueueBuiltinAction(BuiltinFunction func, const std::string& name);
+    void ExecuteOneCommand();
+    bool HasMoreCommands() const;
+    void DumpState() const;
+    void ClearQueue();
+
+  private:
+    ActionManager(ActionManager const&) = delete;
+    void operator=(ActionManager const&) = delete;
+
+    // 注意这个vector<std::unique_ptr<Action>>
+    std::vector<std::unique_ptr<Action>> actions_;
+    std::queue<std::variant<EventTrigger, PropertyChange, BuiltinAction>> event_queue_
+            GUARDED_BY(event_queue_lock_);
+    mutable std::mutex event_queue_lock_;
+    std::queue<const Action*> current_executing_actions_;
+    std::size_t current_command_;
+};
+```
+
+
+
+```c++
+void ActionManager::QueueBuiltinAction(BuiltinFunction func, const std::string& name) {
+    auto lock = std::lock_guard{event_queue_lock_};
+    // 构造Action对象指针
+    auto action = std::make_unique<Action>(true, nullptr, "<Builtin Action>", 0, name,
+                                           std::map<std::string, std::string>{});
+    // 为action添加命令
+    action->AddCommand(std::move(func), {name}, 0);
+
+    event_queue_.emplace(action.get());
+    // action放入名为actions_的vector
+    actions_.emplace_back(std::move(action));
+}
+```
+
+
+
+```c++
+void ActionManager::QueueEventTrigger(const std::string& trigger) {
+    auto lock = std::lock_guard{event_queue_lock_};
+    event_queue_.emplace(trigger);
+}
+```
+
+
+
+
+
+### 六、Zygote
+
+**init.rc**有四个版本：
+
+- init.zygote32_64.rc
+- init.zygote32.rc
+- init.zygote64_32.rc
+- init.zygote64.rc
+
+
+
+下面以 **init.zygote64.rc** 来介绍64位 **Zygote** 服务，其他文件阅读方法类似。
+
+```
+// system/core/rootdir/init.zygote64.rc
+service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-system-server
+    class main
+    priority -20
+    user root
+    group root readproc reserved_disk
+    socket zygote stream 660 root system
+    socket usap_pool_primary stream 660 root system
+    onrestart exec_background - system system -- /system/bin/vdc volume abort_fuse
+    onrestart write /sys/power/state on
+    onrestart restart audioserver
+    onrestart restart cameraserver
+    onrestart restart media
+    onrestart restart netd
+    onrestart restart wificond
+    writepid /dev/cpuset/foreground/tasks
+```
+
+上述主要工作流程：
+
+- 创建名为 **zygote** 的服务结构体；
+- 创建2个 **socket** 通讯的 **socketinfo** 结构体；
+- 创建包含7个 **onrestart** 的 **action** 结构体； 
+
+
+
+**Zygote** 对应可执行文件是 **/system/bin/app_process**。通过调用 `pid=fork()` 创建子进程，通过 `execve(svc->args[0], (char**)svc->args, (char**) ENV)`，进入 **App_main.cpp** 的**main()**函数。
+
+
+
+```
+// frameworks/native/cmds/servicemanager/servicemanager.rc
+service servicemanager /system/bin/servicemanager
+    class core animation
+    user system
+    group system readproc
+    critical
+    onrestart restart healthd
+    onrestart restart zygote
+    onrestart restart audioserver
+    onrestart restart media
+    onrestart restart surfaceflinger
+    onrestart restart inputflinger
+    onrestart restart drm
+    onrestart restart cameraserver
+    onrestart restart keystore
+    onrestart restart gatekeeperd
+    onrestart restart thermalservice
+    writepid /dev/cpuset/system-background/tasks
+    shutdown critical
+```
+
+
+
+
+
+
+
+```
+// frameworks/native/services/surfaceflinger/surfaceflinger.rc
+service surfaceflinger /system/bin/surfaceflinger
+    class core animation
+    user system
+    group graphics drmrpc readproc
+    capabilities SYS_NICE
+    onrestart restart zygote
+    task_profiles HighPerformance
+    socket pdx/system/vr/display/client     stream 0666 system graphics u:object_r:pdx_display_client_endpoint_socket:s0
+    socket pdx/system/vr/display/manager    stream 0666 system graphics u:object_r:pdx_display_manager_endpoint_socket:s0
+    socket pdx/system/vr/display/vsync      stream 0666 system graphics u:object_r:pdx_display_vsync_endpoint_socket:s0
+```
+
+
+
+zygote本身、servicemanager、surfaceflinger以及system_server进程被杀都会触发Zygote重启
