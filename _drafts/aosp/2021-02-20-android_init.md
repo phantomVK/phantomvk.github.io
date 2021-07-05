@@ -1114,6 +1114,8 @@ static void InstallInitNotifier(Epoll* epoll) {
 
 ## 四、引导脚本
 
+### 4.1 LoadBootScripts
+
 ```c++
 static void LoadBootScripts(ActionManager& action_manager, ServiceList& service_list) {
     // 用ActionManager实例和ServiceList实例创建Parser
@@ -1148,7 +1150,7 @@ static void LoadBootScripts(ActionManager& action_manager, ServiceList& service_
 
 
 
-#### ParseConfig
+#### 4.2 ParseConfig
 
 解析配置
 
@@ -1166,7 +1168,7 @@ bool Parser::ParseConfig(const std::string& path) {
 
 
 
-#### ParseConfigFile
+#### 4.3 ParseConfigFile
 
 遇到配置文件则直接去解析
 
@@ -1190,7 +1192,7 @@ bool Parser::ParseConfigFile(const std::string& path) {
 
 
 
-#### ParseConfigDir
+#### 4.4 ParseConfigDir
 
 解析配置目录时，把目录下所有文件记录下来，并把所有遇到的文件送去解析
 
@@ -1226,7 +1228,7 @@ bool Parser::ParseConfigDir(const std::string& path) {
 
 
 
-#### ParseData
+#### 4.5 ParseData
 
 解析数据
 
@@ -1358,7 +1360,7 @@ class ActionManager {
 };
 ```
 
-
+**ActionManager::QueueBuiltinAction**
 
 ```c++
 void ActionManager::QueueBuiltinAction(BuiltinFunction func, const std::string& name) {
@@ -1375,7 +1377,7 @@ void ActionManager::QueueBuiltinAction(BuiltinFunction func, const std::string& 
 }
 ```
 
-
+**ActionManager::QueueEventTrigger**
 
 ```c++
 void ActionManager::QueueEventTrigger(const std::string& trigger) {
@@ -1383,8 +1385,6 @@ void ActionManager::QueueEventTrigger(const std::string& trigger) {
     event_queue_.emplace(trigger);
 }
 ```
-
-
 
 
 
@@ -1403,6 +1403,7 @@ void ActionManager::QueueEventTrigger(const std::string& trigger) {
 
 ```
 // system/core/rootdir/init.zygote64.rc
+
 service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-system-server
     class main
     priority -20
@@ -1430,10 +1431,9 @@ service zygote /system/bin/app_process64 -Xzygote /system/bin --zygote --start-s
 
 **Zygote** 对应可执行文件是 **/system/bin/app_process**。通过调用 `pid=fork()` 创建子进程，通过 `execve(svc->args[0], (char**)svc->args, (char**) ENV)`，进入 **App_main.cpp** 的**main()**函数。
 
-
-
 ```
 // frameworks/native/cmds/servicemanager/servicemanager.rc
+
 service servicemanager /system/bin/servicemanager
     class core animation
     user system
@@ -1454,14 +1454,11 @@ service servicemanager /system/bin/servicemanager
     shutdown critical
 ```
 
-
-
-
-
-
+**surfaceflinger.rc**
 
 ```
 // frameworks/native/services/surfaceflinger/surfaceflinger.rc
+
 service surfaceflinger /system/bin/surfaceflinger
     class core animation
     user system
