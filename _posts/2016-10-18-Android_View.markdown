@@ -11,7 +11,11 @@ tags:
 
 # 前言
 
-最近看View的事件分发源码，并做了一些笔记。笔记以注释的形式插入到代码中，请仔细阅读文章中给出的源码。源码基于Android 6.0，或有错漏之处，欢迎指正。
+最近看View的事件分发源码，笔记以注释的形式穿插在代码中，请仔细阅读文章中给出的源码。
+
+
+
+源码基于Android 6.0，或有错漏之处，欢迎指正。
 
 # 一、代码构建
 
@@ -141,10 +145,12 @@ public class MainActivity extends AppCompatActivity {
 
 可见，结果按照 __dispatchTouchEvent()__ -> __onTouch()__ -> __onTouchEvent()__ 的顺序出现
 
-```
+```tex
 10-13 23:53:29.382 17840-17840/? E/MyButton: dispatchTouchEvent ACTION_DOWN
 10-13 23:53:29.382 17840-17840/? E/MainActivity: onTouch ACTION_DOWN
 10-13 23:53:29.382 17840-17840/? E/MyButton: onTouchEvent ACTION_DOWN
+
+....
 
 10-13 23:53:29.414 17840-17840/? E/MyButton: dispatchTouchEvent ACTION_UP
 10-13 23:53:29.414 17840-17840/? E/MainActivity: onTouch ACTION_UP
@@ -154,7 +160,6 @@ public class MainActivity extends AppCompatActivity {
 #### 2.2 OnTouchListener 返回 true
 
 点击按钮马上放开： __dispatchTouchEvent()__ ->  __onTouch()__
-
 ```
 10-13 23:55:32.523 18106-18106/? E/MyButton: dispatchTouchEvent ACTION_DOWN
 10-13 23:55:32.523 18106-18106/? E/MainActivity: onTouch ACTION_DOWN
@@ -163,7 +168,7 @@ public class MainActivity extends AppCompatActivity {
 10-13 23:55:32.554 18106-18106/? E/MainActivity: onTouch ACTION_UP
 ```
 
-对比2.1节的可见日志后者的事件没有分发到 __onTouchEvent()__ 。
+对比2.1节的日志，可见后者的事件没有分发到 __onTouchEvent()__ 。
 
 # 三、源码分析
 
@@ -633,5 +638,4 @@ private final class UnsetPressedState implements Runnable {
 
 * [InputEventConsistencyVerifier](http://developer.oesf.biz/em/developer/reference/eggplant/android/view/InputEventConsistencyVerifier.html)
 * [TouchDelegate](https://developer.android.com/reference/android/view/TouchDelegate.html)
-
 

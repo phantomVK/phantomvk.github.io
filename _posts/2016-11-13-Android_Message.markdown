@@ -103,7 +103,7 @@ public static Message obtain() {
     // 上锁
     synchronized (sPoolSync) {
         if (sPool != null) {
-            // 取链头的缓存对象m
+            // 取链头的缓存对象
             Message m = sPool;
             // 把sPool当头指针使用，指向m之后有效的缓存对象
             sPool = m.next;

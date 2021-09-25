@@ -13,7 +13,9 @@ tags:
 
 移动端开发中，经常遇到通用逻辑加载：例如IM中个人头像加载。在应用开发初期，由于缺乏把所有加载逻辑整合到一起的思维，导致后期头像逻辑变化时，只能用搜索找出相关的代码并修改。即使代码分散的地方比较少，也经常出现遗漏修改。
 
-头像加载这种统一的加载逻辑，必须整合到一个类中，并做好抽象，以便应对将来的需求变更。思维拓展开来，用户名获取、应用配置读取、读取Session等多层次数据获取(Repository模式)都能从中受益。下面基于IM头像加载的实战，总结出相关经验。
+头像加载这种统一的加载逻辑，必须整合到一个类中，并做好抽象，以便应对将来的需求变更。
+
+思维拓展开来，用户名获取、应用配置读取、读取Session等多层次数据获取(Repository模式)都能从中受益。下面基于IM头像加载的实战，总结出相关经验。
 
 ## 一、设计思想
 
@@ -45,7 +47,7 @@ public interface IUserAvatarLoader {
     void loadByFilePath(Context context, String filePath, ImageView view);
 
     // Return a {@link Bitmap} instance according to the specific image url and size.
-    Bitmap getBitmap(Context context, String imageUrl, int ImageSize) throws ExecutionException, InterruptedException;
+    Bitmap getBitmap(Context context, String imageUrl, int imageSize) throws ExecutionException, InterruptedException;
 
     // Return the url of avatar.
     String getUrl(String userId);

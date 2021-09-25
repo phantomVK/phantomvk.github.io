@@ -57,7 +57,7 @@ private Looper(boolean quitAllowed) {
 }
 ```
 
-运行时通过这个方法自动创建主线程Looper，千万不要在主线程中再次调用这个方法。__sMainLooper__ 是静态变量，所以任意 __Looper__ 都能通过 __sMainLooper__ 向主线程发送消息。
+Runtime通过这个方法自动创建主线程Looper，千万不要在主线程中再次调用这个方法。而 __sMainLooper__ 是静态变量，所以任意 __Looper__ 都能通过 __sMainLooper__ 向主线程发送消息。
 
 ```java
 public static void prepareMainLooper() {
