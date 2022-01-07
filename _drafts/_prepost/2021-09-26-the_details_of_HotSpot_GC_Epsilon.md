@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "HotSpot Epsilon GC实现"
+title:      "HotSpot Epsilon源码实现"
 date:       2021-07-10
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
@@ -9,15 +9,14 @@ tags:
     - JVM
 ---
 
+## 一、简介
+
+__Epsilon__ 垃圾回收器来自 [JEP-318](https://openjdk.java.net/jeps/318) 提案，目标是实现最低的内存分配延迟、与其他GCs无关的新算法。可以实现无垃圾回收算法影响，去测试Java应用的真实吞吐量及性能指标。
 
 
-[JEP 318: Epsilon: A No-Op Garbage Collector (Experimental)](https://openjdk.java.net/jeps/318)
+原作者 Aleksey Shipilev 还在其博客里，介绍如何基于 __Epsilon__ 源码通过简单改造，实现初步的回收机制 [Do It Yourself (OpenJDK) Garbage Collector](https://shipilev.net/jvm/diy-gc/#_epsilon_gc)。本文涉及源码基于git master分支、节点 252aaa9249d8979366b37d59487b5b039d923e35。
 
-[Do It Yourself (OpenJDK) Garbage Collector](https://shipilev.net/jvm/diy-gc/#_epsilon_gc)
-
-
-
-
+源码树结构：
 
 ```
 ├── epsilon
@@ -40,23 +39,40 @@ tags:
 
 
 
-src/hotspot/share/gc/epsilon/epsilonArguments.cpp
+## 二、源码解读
+
+由于篇幅关系，源码的头文件及部分源码文件会直接省略。如果需要深入研究，请自行下载JDK源码查阅。
+
+
+
+### 2.1 epsilonArguments.cpp
+
+__src/hotspot/share/gc/epsilon/epsilonArguments.cpp__
 
 ```cpp
+// 根据支持大页标志位，获取页大小的配置值
 size_t EpsilonArguments::conservative_max_heap_alignment() {
+  // 若支持大页，则获取大页的数值，否则获取虚拟机支持的页大小
   return UseLargePages ? os::large_page_size() : os::vm_page_size();
 }
 
+// Epsilon初始化逻方法
 void EpsilonArguments::initialize() {
+  // 先初始化父类
   GCArguments::initialize();
 
   assert(UseEpsilonGC, "Sanity");
 
-  // Forcefully exit when OOME is detected. Nothing we can do at that point.
+  // 因为虚拟机不支持回收内存空间，所以运行足够长时间后，必然会出现OOM
+  // 而出现OOM时的响应逻辑，也只剩下抛出OOM错误这唯一选项
   if (FLAG_IS_DEFAULT(ExitOnOutOfMemoryError)) {
     FLAG_SET_DEFAULT(ExitOnOutOfMemoryError, true);
   }
 
+  // TLAB，即Thread Local Allocation Buffer，线程私有空间。
+  // 为了降低多线程同时从堆内存申请内存竞争锁的时间开销。TLAB每次从堆
+  // 内存申请一块相对较大的空间，线程需要创建对象时先从TLAB获取空间。
+  // 这里调整了TLAB从堆内存申请空间的大小
   if (EpsilonMaxTLABSize < MinTLABSize) {
     log_warning(gc)("EpsilonMaxTLABSize < MinTLABSize, adjusting it to " SIZE_FORMAT, MinTLABSize);
     EpsilonMaxTLABSize = MinTLABSize;
@@ -78,60 +94,46 @@ void EpsilonArguments::initialize() {
 #endif
 }
 
+// 内存对齐
 void EpsilonArguments::initialize_alignments() {
-  // 获取page_size
   size_t page_size = UseLargePages ? os::large_page_size() : os::vm_page_size();
-  // 取虚拟机内存分配粒度和page_size中的更大者
   size_t align = MAX2((size_t)os::vm_allocation_granularity(), page_size);
   SpaceAlignment = align;
   HeapAlignment  = align;
 }
 
-// 实现堆创建
+// 创建Epsilon的堆实例
 CollectedHeap* EpsilonArguments::create_heap() {
   return new EpsilonHeap();
 }
+
 ```
 
 
 
+### epsilonHeap.cpp
 
+上面最后一行创建的 __EpsilonHeap__ 实例，会通过以下逻辑进行初始化。
 
-src/hotspot/share/gc/epsilon/epsilonBarrierSet.cpp
-
-```cpp
-EpsilonBarrierSet::EpsilonBarrierSet() : BarrierSet(
-          make_barrier_set_assembler<BarrierSetAssembler>(),
-          make_barrier_set_c1<BarrierSetC1>(),
-          make_barrier_set_c2<BarrierSetC2>(),
-          NULL /* barrier_set_nmethod */,
-          BarrierSet::FakeRtti(BarrierSet::EpsilonBarrierSet)) {}
-
-void EpsilonBarrierSet::on_thread_create(Thread *thread) {
-  EpsilonThreadLocalData::create(thread);
-}
-
-void EpsilonBarrierSet::on_thread_destroy(Thread *thread) {
-  EpsilonThreadLocalData::destroy(thread);
-}
-```
-
-
-
-src/hotspot/share/gc/epsilon/epsilonHeap.cpp
+__src/hotspot/share/gc/epsilon/epsilonHeap.cpp__
 
 ```cpp
 jint EpsilonHeap::initialize() {
+  // 获取堆内存对齐大小
   size_t align = HeapAlignment;
+  // 对齐起始堆空间的大小
   size_t init_byte_size = align_up(InitialHeapSize, align);
+  // 对齐最大堆空间的大小
   size_t max_byte_size  = align_up(MaxHeapSize, align);
 
-  // Initialize backing storage
+  // 根据堆最大空间，去申请内存的保留空间
   ReservedHeapSpace heap_rs = Universe::reserve_heap(max_byte_size, align);
   _virtual_space.initialize(heap_rs, init_byte_size);
 
+  // 提交起始堆空间范围
   MemRegion committed_region((HeapWord*)_virtual_space.low(),          (HeapWord*)_virtual_space.high());
 
+  // 并对申请的内存空间进行初始化
   initialize_reserved_region(heap_rs);
 
   _space = new ContiguousSpace();
@@ -148,12 +150,13 @@ jint EpsilonHeap::initialize() {
   _last_counter_update = 0;
   _last_heap_print = 0;
 
-  // Install barrier set
+  // 设置BarrierSet
   BarrierSet::set_barrier_set(new EpsilonBarrierSet());
 
   // All done, print out the configuration
   EpsilonInitLogger::print();
 
+  // 堆空间及相关参数初始化完毕，返回JNI_OK
   return JNI_OK;
 }
 
@@ -187,19 +190,28 @@ size_t EpsilonHeap::unsafe_max_tlab_alloc(Thread* thr) const {
 EpsilonHeap* EpsilonHeap::heap() {
   return named_heap<EpsilonHeap>(CollectedHeap::Epsilon);
 }
+```
 
-HeapWord* EpsilonHeap::allocate_work(size_t size) {
+
+
+以下是 __Epsilon__ 堆空间扩容
+
+```Cpp
+HeapWord* EpsilonHeap::allocate_work(size_t size, bool verbose) {
   assert(is_object_aligned(size), "Allocation size should be aligned: " SIZE_FORMAT, size);
 
+  // 分配的内存起始地址
   HeapWord* res = NULL;
+  
+  // 循环尝试申请内存：可能成功获取size指定的内存块，或出现OOM错误退出
   while (true) {
-    // Try to allocate, assume space is available
+    // 尝试从_space获取指定大小size的内存空间
     res = _space->par_allocate(size);
     if (res != NULL) {
       break;
     }
 
-    // Allocation failed, attempt expansion, and retry:
+    // 上面申请内存失败，加锁后开始扩容
     {
       MutexLocker ml(Heap_lock);
 
@@ -209,32 +221,37 @@ HeapWord* EpsilonHeap::allocate_work(size_t size) {
         break;
       }
 
-      // Expand and loop back if space is available
+      // 计算剩余空间 和 需要的内存大小
       size_t space_left = max_capacity() - capacity();
+      // 如果申请的size比EpsilonMinHeapExpand要小，则按照EpsilonMinHeapExpand
       size_t want_space = MAX2(size, EpsilonMinHeapExpand);
 
       if (want_space < space_left) {
-        // Enough space to expand in bulk:
+        // 所需空间比剩余空间要小，可以分配
         bool expand = _virtual_space.expand_by(want_space);
         assert(expand, "Should be able to expand");
       } else if (size < space_left) {
         // No space to expand in bulk, and this allocation is still possible,
         // take all the remaining space:
+        // 虽然按照EpsilonMinHeapExpand申请不到空间，但是按照更小的size依然有成功的可能
+        // 所以继续按照size尝试扩容对空间
         bool expand = _virtual_space.expand_by(space_left);
         assert(expand, "Should be able to expand");
       } else {
-        // No space left:
+        // 如果上述盛情两种size都无法实现，表示堆空间无法扩展提供内存，只能返回NULL
         return NULL;
       }
 
+      // 到这里是成功申请内存，需要修改_space的高位地址表示成功扩容
       _space->set_end((HeapWord *) _virtual_space.high());
     }
   }
 
+  // 计算已使用堆空间
   size_t used = _space->used();
 
   // Allocation successful, update counters
-  {
+  if (verbose) {
     size_t last = _last_counter_update;
     if ((used - last >= _step_counter_update) && Atomic::cmpxchg(&_last_counter_update, last, used) == last) {
       _monitoring_support->update_counters();
@@ -242,7 +259,7 @@ HeapWord* EpsilonHeap::allocate_work(size_t size) {
   }
 
   // ...and print the occupancy line, if needed
-  {
+  if (verbose) {
     size_t last = _last_heap_print;
     if ((used - last >= _step_heap_print) && Atomic::cmpxchg(&_last_heap_print, last, used) == last) {
       print_heap_info(used);
@@ -251,12 +268,21 @@ HeapWord* EpsilonHeap::allocate_work(size_t size) {
   }
 
   assert(is_object_aligned(res), "Object should be aligned: " PTR_FORMAT, p2i(res));
+  
+  // 返回申请的空间
   return res;
 }
+```
 
+
+
+TLAB是和线程绑定的，所以申请TLAB需要线程上下文
+
+```cpp
 HeapWord* EpsilonHeap::allocate_new_tlab(size_t min_size,
                                          size_t requested_size,
                                          size_t* actual_size) {
+  // 获取当前申请TLAB的线程信息
   Thread* thread = Thread::current();
 
   // Defaults in case elastic paths are not taken
@@ -319,9 +345,10 @@ HeapWord* EpsilonHeap::allocate_new_tlab(size_t min_size,
                   size * HeapWordSize / K);
   }
 
-  // All prepared, let's do it!
+  // 完成准备工作，传入size去获取TLAB块
   HeapWord* res = allocate_work(size);
 
+  // TLAB申请成功
   if (res != NULL) {
     // Allocation successful
     *actual_size = size;
@@ -339,6 +366,7 @@ HeapWord* EpsilonHeap::allocate_new_tlab(size_t min_size,
     }
   }
 
+  // 返回TLAB专属内存空间
   return res;
 }
 
@@ -347,6 +375,13 @@ HeapWord* EpsilonHeap::mem_allocate(size_t size, bool *gc_overhead_limit_was_exc
   return allocate_work(size);
 }
 
+HeapWord* EpsilonHeap::allocate_loaded_archive_space(size_t size) {
+  // Cannot use verbose=true because Metaspace is not initialized
+  return allocate_work(size, /* verbose = */false);
+}
+
+// 触发收集对空间的垃圾回收
+// 但是从上文知道，Epsilon永远不会执行垃圾回收操作，所以这个方法也仅仅打印日志就结束了
 void EpsilonHeap::collect(GCCause::Cause cause) {
   switch (cause) {
     case GCCause::_metadata_GC_threshold:
@@ -370,6 +405,7 @@ void EpsilonHeap::do_full_collection(bool clear_all_soft_refs) {
   collect(gc_cause());
 }
 
+// 遍历对空间内的所有对象
 void EpsilonHeap::object_iterate(ObjectClosure *cl) {
   _space->object_iterate(cl);
 }
@@ -435,9 +471,39 @@ void EpsilonHeap::print_metaspace_info() const {
 
 
 
-src/hotspot/share/gc/epsilon/epsilonMemoryPool.cpp
+### epsilonMemoryPool.cpp
+
+__src/hotspot/share/gc/epsilon/epsilonMemoryPool.cpp__
 
 ```cpp
+/*
+ * Copyright (c) 2017, 2018, Red Hat, Inc. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.
+ *
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
+ *
+ */
+
+#include "precompiled.hpp"
+#include "gc/epsilon/epsilonHeap.hpp"
+#include "gc/epsilon/epsilonMemoryPool.hpp"
+
 EpsilonMemoryPool::EpsilonMemoryPool(EpsilonHeap* heap) :
         CollectedMemoryPool("Epsilon Heap",
                             heap->capacity(),
@@ -462,6 +528,40 @@ MemoryUsage EpsilonMemoryPool::get_memory_usage() {
 src/hotspot/share/gc/epsilon/epsilonMonitoringSupport.cpp
 
 ```cpp
+/*
+ * Copyright (c) 2017, 2018, Red Hat, Inc. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * This code is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License version 2 only, as
+ * published by the Free Software Foundation.
+ *
+ * This code is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * version 2 for more details (a copy is included in the LICENSE file that
+ * accompanied this code).
+ *
+ * You should have received a copy of the GNU General Public License version
+ * 2 along with this work; if not, write to the Free Software Foundation,
+ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
+ *
+ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
+ * or visit www.oracle.com if you need additional information or have any
+ * questions.
+ *
+ */
+
+#include "precompiled.hpp"
+#include "gc/epsilon/epsilonMonitoringSupport.hpp"
+#include "gc/epsilon/epsilonHeap.hpp"
+#include "gc/shared/generationCounters.hpp"
+#include "memory/allocation.hpp"
+#include "memory/metaspaceCounters.hpp"
+#include "memory/resourceArea.hpp"
+#include "runtime/perfData.hpp"
+#include "services/memoryService.hpp"
+
 class EpsilonSpaceCounters: public CHeapObj<mtGC> {
   friend class VMStructs;
 
@@ -547,53 +647,7 @@ void EpsilonMonitoringSupport::update_counters() {
 
 
 
+## 三、链接
 
-
-src/hotspot/share/gc/epsilon/epsilonThreadLocalData.hpp
-
-```cpp
-class EpsilonThreadLocalData {
-private:
-  size_t _ergo_tlab_size;
-  int64_t _last_tlab_time;
-
-  EpsilonThreadLocalData() :
-          _ergo_tlab_size(0),
-          _last_tlab_time(0) {}
-
-  static EpsilonThreadLocalData* data(Thread* thread) {
-    assert(UseEpsilonGC, "Sanity");
-    return thread->gc_data<EpsilonThreadLocalData>();
-  }
-
-public:
-  static void create(Thread* thread) {
-    new (data(thread)) EpsilonThreadLocalData();
-  }
-
-  static void destroy(Thread* thread) {
-    data(thread)->~EpsilonThreadLocalData();
-  }
-
-  static size_t ergo_tlab_size(Thread *thread) {
-    return data(thread)->_ergo_tlab_size;
-  }
-
-  static int64_t last_tlab_time(Thread *thread) {
-    return data(thread)->_last_tlab_time;
-  }
-
-  static void set_ergo_tlab_size(Thread *thread, size_t val) {
-    data(thread)->_ergo_tlab_size = val;
-  }
-
-  static void set_last_tlab_time(Thread *thread, int64_t time) {
-    data(thread)->_last_tlab_time = time;
-  }
-};
-
-#endif // SHARE_GC_EPSILON_EPSILONTHREADLOCALDATA_HPP
-```
-
-
+- [JEP 318: Epsilon: A No-Op Garbage Collector (Experimental)](https://openjdk.java.net/jeps/318)
 
