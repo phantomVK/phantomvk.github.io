@@ -206,7 +206,7 @@ private void isMultiProcessCAS(int _processor_count,
 }
 ```
 
-有人提议[参考链接-12](https://bugs.java.com/view_bug.do?bug_id=8185062)把`os::is_MP()`的`AssumeMP`改为`true`提升性能。且在2017-10-03的JDK10b13实现了该提议，所以上述伪代码可以进一步演进为：
+有人提议[参考链接-12](https://bugs.java.com/bugdatabase/view_bug.do?bug_id=8185062)把`os::is_MP()`的`AssumeMP`改为`true`提升性能。且在2017-10-03的JDK10b13实现了该提议，所以上述伪代码可以进一步演进为：
 
 ```java
 // @param _processor_count processor count
@@ -250,8 +250,7 @@ private void isMultiProcessCAS(int _processor_count,
 
 - [什么是桩代码（Stub）- 知乎](https://www.zhihu.com/question/24844900)
 
-- [JDK-8185062 : Set AssumeMP to true and deprecate the flag](https://bugs.java.com/view_bug.do?bug_id=8185062)
+- [JDK-8185062 : Set AssumeMP to true and deprecate the flag](https://bugs.java.com/bugdatabase/view_bug.do?bug_id=8185062)
 
 - [Is x86 CMPXCHG atomic? - Stackoverflow](https://stackoverflow.com/questions/27837731/is-x86-cmpxchg-atomic)
-
 
