@@ -83,8 +83,6 @@ Wrote trace HTML file: file:///Users/[用户名]/Library/Android/sdk/platform-to
 
 把视图缩小，看标记区域在整个记录的位置
 
-
-
 ![systrace_app_highlight_mark_global](/Users/tanwenkang/github/phantomvk.github.io/img/android/Systrace/systrace_app_highlight_mark_global.png)
 
 ![systrace_app_highlight_mark_global_colored](/Users/tanwenkang/github/phantomvk.github.io/img/android/Systrace/systrace_app_highlight_mark_global_colored.png)
