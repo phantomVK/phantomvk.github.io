@@ -29,19 +29,38 @@ public final class CircularArray<E> {
 
 
 
+类实现没有包含锁控制，默认是线程不安全的。所以此类在多线程并发场景，需要自行处理线程安全问题。
+
+
+
 #### 2.2 成员变量
 
-```java
-// 存储元素的数组，容量在不足时可以被扩容
-private E[] mElements;
+存储元素的数组，容量在不足时可以被扩容
 
-// 头元素和尾元素的指针，两者的初始值都是0
+```java
+private E[] mElements;
+```
+
+
+
+头元素和尾元素的指针，两者的初始值都是0
+
+```java
 private int mHead;
 private int mTail;
+```
 
-// 
+
+
+__mCapacityBitmask__ 为 __数组总长度-1__。
+
+```java
 private int mCapacityBitmask;
 ```
+
+
+
+举个例子：假设数组长度为8，则 __mCapacityBitmask__ 的值为7，对应二进制为 __0111__。所以 __mCapacityBitmask__ 作为掩码可以用来计算低位的索引，刚好覆盖索引范围 __[0, 7]__。
 
 
 
@@ -55,10 +74,13 @@ public CircularArray() {
 }
 ```
 
+
+
 另一个构造方法则是可以自行指定创建数组的最小长度，长度范围为 __1 ~ 2^30__。这个指定的最小值，在构造方法内会向上去最接近的2的n次幂值，可以满足后续的位计算的要求。
 
 ```java
 public CircularArray(int minCapacity) {
+    // 检查数组容量范围于[1, 2 << 29]之间，否则抛出IllegalArgumentException
     if (minCapacity < 1) {
         throw new IllegalArgumentException("capacity must be >= 1");
     }
@@ -66,7 +88,7 @@ public CircularArray(int minCapacity) {
         throw new IllegalArgumentException("capacity must be <= 2^30");
     }
 
-    // 这里会向上规整为2的n次幂
+    // 这里会向上规整为2的n次幂，不然无法计算低位全是1的mCapacityBitmask
     final int arrayCapacity;
     if (Integer.bitCount(minCapacity) != 1) {
         arrayCapacity = Integer.highestOneBit(minCapacity - 1) << 1;
@@ -94,6 +116,8 @@ private void doubleCapacity() {
     int n = mElements.length;
     int r = n - mHead;
     int newCapacity = n << 1;
+    
+    // newCapacity位移后的最高位是1，造成该值为负数而出现非法容量。
     if (newCapacity < 0) {
         throw new RuntimeException("Max array capacity exceeded");
     }
@@ -132,6 +156,8 @@ public void addFirst(E e) {
     }
 }
 ```
+
+
 
 相比上面的方法，以下方法把元素放在尾引用所指向的数组控件。
 
@@ -202,6 +228,8 @@ public void clear() {
 ```
 
 
+
+传入 __numOfElements__ ，从数组头部或尾部开始移除对应数量的元素。
 
 ```java
 /**
