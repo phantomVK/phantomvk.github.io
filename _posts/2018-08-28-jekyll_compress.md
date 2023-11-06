@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - Website
+    - Jekyll
 ---
 
 > 2020.9.15更新：

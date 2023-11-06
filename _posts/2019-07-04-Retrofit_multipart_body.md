@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "Retrofit使用MultipartBody"
+title:      "Android Retrofit使用MultipartBody"
 date:       2019-07-04
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    false
 tags:
-    - Network
+    - Android
 ---
 
 指定 __RequestBody__ 上传的文件路径

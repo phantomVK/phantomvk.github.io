@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - Case
+    - 技术思考
 ---
 
 即时通讯(Instant Messaging，下称IM)，作为最符合众网民习惯的应用，见证中国乃至国际互联网的发展。IM诞生之前，中国已经经历电报、信件、寻呼机、手机短信的过程。其中电报和寻呼机几乎绝迹，个人短信的发送量也比即时通讯兴起之前锐减，但信件还在政府部门、银行、电信业发出光芒。

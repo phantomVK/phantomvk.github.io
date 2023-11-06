@@ -29,6 +29,8 @@ tags:
 
 因此，图片实际内存体积由像素体积和分辨率共同作用。
 
+
+
 ### 源码解析
 
 源码版本 **Android 9.0**
@@ -75,6 +77,8 @@ public static Bitmap decodeResourceStream(@Nullable Resources res, @Nullable Typ
     return decodeStream(is, pad, opts);
 }
 ```
+
+
 
 #### decodeStream
 
@@ -361,6 +365,7 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
     // know that they will be stretched.  We no longer dither 565 decodes,
     // but we continue to prevent ninepatches from decoding to 565, in order
     // to maintain the old behavior.
+    // 若ninepatches图的颜色类型被设置为RGB_565，则更正为ARGB_8888
     if (peeker.mPatch && kRGB_565_SkColorType == prefColorType) {
         prefColorType = kN32_SkColorType; // kN32_SkColorType is ARGB_8888
     }
@@ -429,6 +434,7 @@ static jobject doDecode(JNIEnv* env, std::unique_ptr<SkStreamRewindable> stream,
     unsigned int existingBufferSize = 0;
     if (javaBitmap != NULL) {
         reuseBitmap = &bitmap::toBitmap(env, javaBitmap);
+        // 由于可重用的Bitmap被设置为不可变，所以重置该引用
         if (reuseBitmap->isImmutable()) {
             ALOGW("Unable to reuse an immutable bitmap as an image decoder target.");
             javaBitmap = NULL;

@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - Design Patterns
+    - 设计模式
 ---
 
 ## 前言

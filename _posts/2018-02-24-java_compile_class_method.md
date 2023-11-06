@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
 tags:
-    - JVM
+    - JavaVM
 ---
 
 Java方法执行一般会利用分层编译，先通过c1解释执行。方法执行编译等级逐渐提升，有机会通过JIT编译为特定平台汇编执行，以此获得最好的性能。

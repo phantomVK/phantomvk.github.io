@@ -240,6 +240,7 @@ public void clear() {
  *         {@link #size()}
  */
 public void removeFromStart(int numOfElements) {
+    // 检查numOfElements取值是否合法
     if (numOfElements <= 0) {
         return;
     }
@@ -273,6 +274,7 @@ public void removeFromStart(int numOfElements) {
  *         {@link #size()}
  */
 public void removeFromEnd(int numOfElements) {
+    // 检查numOfElements取值是否合法
     if (numOfElements <= 0) {
         return;
     }

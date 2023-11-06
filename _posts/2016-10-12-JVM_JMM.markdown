@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    true
 tags:
-    - JVM
+    - JavaVM
 ---
 
 # 一、JVM运行时数据区

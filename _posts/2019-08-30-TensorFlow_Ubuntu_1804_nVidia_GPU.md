@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/tokyo_night_harbor.jpg"
 catalog:    false
 tags:
-    - Machine Learning
+    - 机器学习
 ---
 
 开始以下步骤之前，强烈建议先参考 [Ubuntu18.04安装NVIDIA显卡驱动](/2019/06/29/Ubuntu_install_nVidia_Driver/) 正确安装显卡驱动。如果显卡驱动已经安装则下面安装 __CUDA10__ 流程可以省略，因为 __CUDA10__ 会自动装好。

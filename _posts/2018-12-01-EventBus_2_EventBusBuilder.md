@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - EventBus
+    - EventBus源码剖析
 ---
 
 文章列表：
@@ -16,11 +16,15 @@ tags:
 - [EventBus源码剖析(4) -- 订阅记录](/2018/12/06/EventBus_4_Subscription/)
 - [EventBus源码剖析(5) -- Poster](/2018/12/10/EventBus_5_Poster/)
 
+
+
 ## 前言
 
 上期文章 [EventBus源码剖析(1) -- 注册与注销订阅](/2018/11/14/EventBus_1_Register/) 介绍了订阅者向 __EventBus__ 进行注册和注销的操作，并涉及部分 __EventBus__ 初始化逻辑。
 
 在初始化逻辑中，很多功能都由本文将介绍的 __EventBusBuilder__ 提供。一般使用默认 __EventBusBuilder__ 对象，但 __EventBus__ 贴心地提供了定制的能力，以便满足不同需求。
+
+
 
 ## 一、类签名
 
@@ -29,6 +33,8 @@ tags:
 ```java
 public class EventBusBuilder
 ```
+
+
 
 ## 二、数据成员
 

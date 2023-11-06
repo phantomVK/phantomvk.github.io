@@ -1,12 +1,12 @@
 ---
 layout:     post
-title:      "Dart配置运行"
+title:      "Flutter基础-Dart的配置运行"
 date:       2019-02-01
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - Dart
+    - Flutter
 ---
 
 #### 简介

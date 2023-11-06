@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
 tags:
-    - Website
+    - Jekyll
 ---
 
 以下环境以 __Ubuntu__ 为例，如果环境为 __Mac OS__ 则把 __apt install__ 换成 __brew install__

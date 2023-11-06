@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
 tags:
-    - EventBus
+    - EventBus源码剖析
 ---
 
 ```java

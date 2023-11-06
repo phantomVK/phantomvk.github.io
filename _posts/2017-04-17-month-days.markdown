@@ -6,7 +6,7 @@ author:     "phantomVK"
 header-img: "img/main_img.jpg"
 catalog:    false
 tags:
-    - Algorithm
+    - 算法
 ---
 
 计算月有多少天，已包括闰年的情况

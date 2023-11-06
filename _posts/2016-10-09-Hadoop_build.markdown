@@ -5,7 +5,7 @@ date:       2016-10-09
 author:     "phantomVK"
 catalog:    true
 tags:
-    - Case
+    - 数据分析
 ---
 
 ## 一、环境及配置
@@ -304,5 +304,4 @@ $ mv ./info/* ./infobak
 $ rm -rf ./info 
 $ mv ./infobak ./info
 ```
-
 
