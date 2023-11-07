@@ -11,7 +11,11 @@ tags:
 
 ## 一、介绍
 
-HotSpot JVM的Java标准库没有提供环形数组的标准实现，但在android的源码中是有具体实现，包路径为 __androidx.collection__。
+HotSpot JVM的Java标准库里没有提供环形数组的标准实现，但在android的源码中是有的，其包路径为 __androidx.collection__。
+
+
+
+这个唤醒数组的实现，头部和尾部均能增删元素，使用上较为灵活。
 
 
 
@@ -35,7 +39,7 @@ public final class CircularArray<E> {
 
 #### 2.2 成员变量
 
-存储元素的数组，容量在不足时可以被扩容
+存储元素的数组，容量在不足时会被扩容。
 
 ```java
 private E[] mElements;
@@ -76,7 +80,7 @@ public CircularArray() {
 
 
 
-另一个构造方法则是可以自行指定创建数组的最小长度，长度范围为 __1 ~ 2^30__。这个指定的最小值，在构造方法内会向上去最接近的2的n次幂值，可以满足后续的位计算的要求。
+另一个构造方法，可以自行指定创建数组的最小长度，长度范围为 __1 ~ 2^30__。这个指定的最小值，在构造方法内会向上去最接近的2的n次幂值，可以满足后续的位计算的要求。
 
 ```java
 public CircularArray(int minCapacity) {
@@ -207,9 +211,12 @@ public E popLast() {
     if (mHead == mTail) {
         throw new ArrayIndexOutOfBoundsException();
     }
+    // mTail索引本身只想空位置，所以mTail - 1才是有效的尾元素
     int t = (mTail - 1) & mCapacityBitmask;
+    // 记录该元素
     E result = mElements[t];
     mElements[t] = null;
+    // 更新mTail索引
     mTail = t;
     return result;
 }
