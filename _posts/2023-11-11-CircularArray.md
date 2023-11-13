@@ -408,7 +408,7 @@ public E getLast() {
 
 
 
-传入的整形形参 __n__ 是相对于头引用索引的偏移值。例如：传入0表示头引用元素，传入1表示头引用下一个递增索引的元素。
+整形形参 __n__ 是相对于头引用索引的偏移值。例如：传入0表示头引用元素，传入1表示头引用下一个递增索引的元素。
 
 ```java
 public E get(int n) {
@@ -436,7 +436,7 @@ public int size() {
 
 ### 2.10 isEmpty
 
-头引用和尾引用相同时数组内不存储任何元素，也是实例创建后的初始状态。
+头引用和尾引用相同的时候，数组内没有存储任何元素，也即是实例创建后的初始状态。
 
 ```java
 public boolean isEmpty() {
@@ -444,7 +444,7 @@ public boolean isEmpty() {
 }
 ```
 
-数组为空时头引用、尾引用示意：
+数组为空时头引用、尾引用结构示意：
 
 ![isEmpty](/img/android/CircularArray/isEmpty.png)
 
