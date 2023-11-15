@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "HotSpot Epsilon源码实现"
-date:       2021-07-10
+date:       2023-11-20
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
 catalog:    true
@@ -153,7 +153,7 @@ jint EpsilonHeap::initialize() {
   // 设置BarrierSet
   BarrierSet::set_barrier_set(new EpsilonBarrierSet());
 
-  // All done, print out the configuration
+  // 初始化完成，打印配置参数
   EpsilonInitLogger::print();
 
   // 堆空间及相关参数初始化完毕，返回JNI_OK
@@ -250,7 +250,7 @@ HeapWord* EpsilonHeap::allocate_work(size_t size, bool verbose) {
   // 计算已使用堆空间
   size_t used = _space->used();
 
-  // Allocation successful, update counters
+  // 申请成功，更新计数器
   if (verbose) {
     size_t last = _last_counter_update;
     if ((used - last >= _step_counter_update) && Atomic::cmpxchg(&_last_counter_update, last, used) == last) {
@@ -309,8 +309,8 @@ HeapWord* EpsilonHeap::allocate_new_tlab(size_t min_size,
       }
     }
 
-    // If we can fit the allocation under current TLAB size, do so.
-    // Otherwise, we want to elastically increase the TLAB size.
+    // 当前TLAB大小可以满足当次内存申请，可以直接执行
+    // 否则，要弹性增大TLAB的大小
     fits = (requested_size <= ergo_tlab);
     if (!fits) {
       size = (size_t) (ergo_tlab * EpsilonTLABElasticity);
@@ -350,7 +350,7 @@ HeapWord* EpsilonHeap::allocate_new_tlab(size_t min_size,
 
   // TLAB申请成功
   if (res != NULL) {
-    // Allocation successful
+    // 记录内存size
     *actual_size = size;
     if (EpsilonElasticTLABDecay) {
       EpsilonThreadLocalData::set_last_tlab_time(thread, time);
