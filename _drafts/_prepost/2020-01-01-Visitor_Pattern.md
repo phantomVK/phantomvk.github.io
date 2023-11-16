@@ -1,13 +1,12 @@
 ---
 layout:     post
 title:      ""
-subtitle:   ""
-date:       2019-01-01
+date:       2023-11-26
 author:     "phantomVK"
 header-img: "img/bg/post_bg.jpg"
-catalog:    false
+catalog:    true
 tags:
-    - tags
+    - 设计模式
 ---
 
 ```java
@@ -15,6 +14,12 @@ public interface Visitable {
     void accept(Visitor visitor);
 }
 ```
+
+
+
+
+
+分别可以访问汽车的三个部件：引擎、剥离、轮胎
 
 ```java
 public class Engine implements Visitable {
@@ -43,6 +48,10 @@ public class Wheel implements Visitable {
 }
 ```
 
+
+
+定义汽车类，内部包含上面定义的汽车部件，并接受访问者的访问
+
 ```java
 public class Car {
     private final List<Visitable> parts = new ArrayList<>();
@@ -59,6 +68,10 @@ public class Car {
 }
 ```
 
+
+
+定义访问者访问汽车部件的行为接口
+
 ```java
 public interface Visitor {
     void visit(Engine engine);
@@ -68,6 +81,10 @@ public interface Visitor {
     void visit(Wheel wheel);
 }
 ```
+
+
+
+实现访问者的行为，对工人来说是修理汽车的部件
 
 ```java
 public class Worker implements Visitor {
@@ -87,6 +104,10 @@ public class Worker implements Visitor {
     }
 }
 ```
+
+
+
+实现访问者的行为，对销售来说是介绍汽车的部件
 
 ```java
 public class Seller implements Visitor {
